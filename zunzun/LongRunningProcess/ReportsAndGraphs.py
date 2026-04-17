@@ -4,6 +4,7 @@ import numpy, scipy
 import pyeq3
 import uuid
 import settings
+from zunzun import platform_compat
 
 
 class Report(object):
@@ -1510,9 +1511,8 @@ class ScatterAnimation(GraphReport):
                 fig.savefig(frameName, format = 'png')
                 
                 # convert PNG file to GIF for gifsicle
-                p = os.popen('mogrify -format gif ' + frameName)
-                p.close()
-                
+                platform_compat.run_tool('mogrify', ['-format', 'gif', frameName])
+
             plt.close('all')
             p = os.popen('gifsicle --colors 256 --loopcount  ' + self.physicalFileLocation[:-4] + '__*gif > ' + self.physicalFileLocation)
             p.close()
@@ -1572,9 +1572,8 @@ class SurfaceAnimation(GraphReport):
                 fig.savefig(frameName, format = 'png')
                 
                 # convert PNG file to GIF for gifsicle
-                p = os.popen('mogrify -format gif ' + frameName)
-                p.close()
-                
+                platform_compat.run_tool('mogrify', ['-format', 'gif', frameName])
+
             plt.close('all')
             p = os.popen('gifsicle --colors 256 --loopcount  ' + self.physicalFileLocation[:-4] + '__*gif > ' + self.physicalFileLocation)
             p.close()
