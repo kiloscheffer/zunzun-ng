@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import functools
 import logging
+import multiprocessing
 
 import psutil
 
@@ -43,3 +44,39 @@ def get_loadavg() -> tuple[float, float, float]:
     except (AttributeError, OSError):
         _warn_loadavg_unavailable()
         return (0.0, 0.0, 0.0)
+
+
+def get_parallel_process_count(cpu_cap: int | None = None) -> int:
+    """Return the number of worker processes to use for parallel fitting.
+
+    Throttles based on available memory and CPU load, matching the
+    behavior of the original StatusMonitoredLongRunningProcessPage.GetParallelProcessCount()
+    but driven by psutil instead of /proc/loadavg and vmstat.
+
+    Heuristic:
+    - Start with free+cached memory / 80 MB
+    - Cap at min(cpu_cap, cpu_count)
+    - Reduce further if load average is >= cpu_count + 0.5/1.0/1.5
+    - Floor at 1
+    """
+    cpu_count = multiprocessing.cpu_count()
+    effective_cap = min(cpu_cap, cpu_count) if cpu_cap is not None else cpu_count
+
+    # Memory-based ceiling: free + cached, in KiB, divided by 80 MB
+    mem = psutil.virtual_memory()
+    mem_kib_available = (mem.available) / 1024.0
+    n = int(mem_kib_available / 80000.0)
+
+    n = min(n, effective_cap)
+    n = max(n, 1)
+
+    # Load-based throttle
+    load1, _, _ = get_loadavg()
+    if load1 > (cpu_count + 1.5) and n > 1:
+        n = 1
+    elif load1 > (cpu_count + 1.0) and n > 2:
+        n = 2
+    elif load1 > (cpu_count + 0.5) and n > 3:
+        n = 3
+
+    return n

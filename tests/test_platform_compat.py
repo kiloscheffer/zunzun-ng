@@ -44,3 +44,27 @@ def test_get_loadavg_logs_warning_once(caplog):
     matching = [r for r in caplog.records
                 if "psutil.getloadavg() unavailable" in r.getMessage()]
     assert len(matching) == 1
+
+
+def test_get_parallel_process_count_returns_at_least_one():
+    from zunzun import platform_compat
+    n = platform_compat.get_parallel_process_count()
+    assert isinstance(n, int)
+    assert n >= 1
+
+
+def test_get_parallel_process_count_respects_cpu_cap():
+    from zunzun import platform_compat
+    n = platform_compat.get_parallel_process_count(cpu_cap=2)
+    assert 1 <= n <= 2
+
+
+def test_get_parallel_process_count_under_high_load():
+    from zunzun import platform_compat
+    import multiprocessing
+    cpu = multiprocessing.cpu_count()
+    # Simulate extreme load — should throttle to <=3 per spec behavior
+    with mock.patch("zunzun.platform_compat.psutil.getloadavg",
+                    return_value=(cpu + 2.0, cpu + 2.0, cpu + 2.0)):
+        n = platform_compat.get_parallel_process_count()
+        assert n <= 3
