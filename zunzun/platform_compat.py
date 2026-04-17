@@ -82,6 +82,19 @@ def get_parallel_process_count(cpu_cap: int | None = None) -> int:
     return n
 
 
+def reap_completed_children() -> None:
+    """Reap any completed multiprocessing children of the current process.
+
+    Replaces the psutil.STATUS_ZOMBIE loop in views.CommonToAllViews.
+    On Unix, joins any zombie children so they don't linger in the
+    process table. On Windows, this is effectively a no-op (Windows
+    doesn't produce zombies) but the call is safe and cheap.
+    """
+    for child in multiprocessing.active_children():
+        if not child.is_alive():
+            child.join(timeout=0)
+
+
 def set_process_niceness(pid: int, niceness: int) -> None:
     """Set the OS-level scheduling priority of a process.
 

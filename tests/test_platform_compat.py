@@ -86,3 +86,23 @@ def test_set_process_niceness_silent_on_access_denied():
     with mock.patch("zunzun.platform_compat.psutil.Process", return_value=fake_proc):
         # Should not raise — niceness failure is not fatal
         platform_compat.set_process_niceness(12345, 10)
+
+
+def _noop_child():
+    """Top-level helper for spawn picklability. Module-level, not nested."""
+    pass
+
+
+def test_reap_completed_children_joins_finished_processes():
+    from zunzun import platform_compat
+    import multiprocessing
+
+    ctx = multiprocessing.get_context("spawn")
+    p = ctx.Process(target=_noop_child, args=())
+    p.start()
+    p.join(timeout=5)  # wait for it to finish
+    assert not p.is_alive()
+
+    # Should be a no-op because the process is already joined
+    platform_compat.reap_completed_children()
+    # No assertion — just that it doesn't raise
