@@ -141,3 +141,21 @@ def test_run_tool_raises_on_missing_binary():
     from zunzun import platform_compat
     with pytest.raises(FileNotFoundError):
         platform_compat.run_tool("definitely-not-a-real-binary", [])
+
+
+def test_remove_files_matching_deletes_matches(tmp_path):
+    from zunzun import platform_compat
+    (tmp_path / "frame__01.gif").write_text("x")
+    (tmp_path / "frame__02.gif").write_text("x")
+    (tmp_path / "other.png").write_text("x")
+    count = platform_compat.remove_files_matching(str(tmp_path / "frame__*"))
+    assert count == 2
+    assert not (tmp_path / "frame__01.gif").exists()
+    assert not (tmp_path / "frame__02.gif").exists()
+    assert (tmp_path / "other.png").exists()
+
+
+def test_remove_files_matching_tolerates_no_matches(tmp_path):
+    from zunzun import platform_compat
+    count = platform_compat.remove_files_matching(str(tmp_path / "nothing__*"))
+    assert count == 0

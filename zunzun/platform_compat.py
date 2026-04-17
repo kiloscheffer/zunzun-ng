@@ -10,8 +10,10 @@ platform module.
 from __future__ import annotations
 
 import functools
+import glob
 import logging
 import multiprocessing
+import os
 import subprocess
 from pathlib import Path
 
@@ -141,3 +143,19 @@ def run_tool(binary: str, args: list[str], stdout_file: Path | None = None) -> i
     finally:
         if stdout_target is not None:
             stdout_target.close()
+
+
+def remove_files_matching(pattern: str) -> int:
+    """Delete every file matching a glob pattern; return count removed.
+
+    Replaces os.popen('rm path__*') calls. Silently tolerates missing
+    files (matching the `rm -f` semantics of the original).
+    """
+    count = 0
+    for path in glob.glob(pattern):
+        try:
+            os.remove(path)
+            count += 1
+        except OSError as e:
+            _logger.info("remove_files_matching: failed to remove %s: %s", path, e)
+    return count
