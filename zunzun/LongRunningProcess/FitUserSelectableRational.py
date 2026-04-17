@@ -3,6 +3,7 @@ import inspect, time, math, random, multiprocessing, os, sys, copy
 import numpy, scipy, scipy.stats
 
 from . import FittingBaseClass
+from .child_payload import ChildPayload
 import zunzun.forms
 import zunzun.formConstants
 import pyeq3
@@ -18,6 +19,17 @@ class FitUserSelectableRational(FittingBaseClass.FittingBaseClass):
         self.X2DList = pyeq3.PolyFunctions.GenerateListForRationals_2D()
 
     
+    def build_child_payload(self):
+        payload = super().build_child_payload()
+        payload.extra["rationalNumeratorFlags"] = self.boundForm.equation.rationalNumeratorFlags
+        payload.extra["rationalDenominatorFlags"] = self.boundForm.equation.rationalDenominatorFlags
+        return payload
+
+    def apply_child_payload(self, payload):
+        super().apply_child_payload(payload)
+        self.dataObject.equation.rationalNumeratorFlags = payload.extra["rationalNumeratorFlags"]
+        self.dataObject.equation.rationalDenominatorFlags = payload.extra["rationalDenominatorFlags"]
+
     def SaveSpecificDataToSessionStore(self):
         self.SaveDictionaryOfItemsToSessionStore('data', {'dimensionality':self.dimensionality,
                                                           'equationName':self.inEquationName,

@@ -7,6 +7,7 @@ from django.template.loader import render_to_string
 
 from . import FittingBaseClass
 from . import ReportsAndGraphs
+from .child_payload import ChildPayload
 
 import zunzun.forms
 import pyeq3
@@ -22,6 +23,15 @@ class FitUserDefinedFunction(FittingBaseClass.FittingBaseClass):
         self.reniceLevel = 15
 
     
+    def build_child_payload(self):
+        payload = super().build_child_payload()
+        payload.extra["userDefinedFunctionText"] = self.boundForm.equation.userDefinedFunctionText
+        return payload
+
+    def apply_child_payload(self, payload):
+        super().apply_child_payload(payload)
+        self.dataObject.equation.userDefinedFunctionText = payload.extra["userDefinedFunctionText"]
+
     def SaveSpecificDataToSessionStore(self):
         self.SaveDictionaryOfItemsToSessionStore('data', {'dimensionality':self.dimensionality,
                                                           'equationName':self.inEquationName,

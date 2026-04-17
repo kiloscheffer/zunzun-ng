@@ -3,6 +3,7 @@ import inspect, time, math, random, multiprocessing, os, sys, copy
 import numpy, scipy, scipy.stats
 
 from . import FittingBaseClass
+from .child_payload import ChildPayload
 import zunzun.forms
 import zunzun.formConstants
 
@@ -15,6 +16,19 @@ class FitUserSelectablePolynomial(FittingBaseClass.FittingBaseClass):
         self.interfaceString = 'zunzun/equation_fit_interface.html'
 
     
+    def build_child_payload(self):
+        payload = super().build_child_payload()
+        payload.extra["xPolynomialOrder"] = self.boundForm.equation.xPolynomialOrder
+        if self.dimensionality == 3:
+            payload.extra["yPolynomialOrder"] = self.boundForm.equation.yPolynomialOrder
+        return payload
+
+    def apply_child_payload(self, payload):
+        super().apply_child_payload(payload)
+        self.dataObject.equation.xPolynomialOrder = payload.extra["xPolynomialOrder"]
+        if self.dimensionality == 3:
+            self.dataObject.equation.yPolynomialOrder = payload.extra["yPolynomialOrder"]
+
     def SaveSpecificDataToSessionStore(self):
         self.SaveDictionaryOfItemsToSessionStore('data', {'dimensionality':self.dimensionality,
                                                           'equationName':self.inEquationName,

@@ -5,6 +5,7 @@ import numpy, scipy, scipy.stats
 from django.template.loader import render_to_string
 
 from . import FittingBaseClass
+from .child_payload import ChildPayload
 import zunzun.forms
 
 
@@ -24,6 +25,21 @@ class FitSpline(FittingBaseClass.FittingBaseClass):
                                                           'scipySpline':self.dataObject.equation.scipySpline,
                                                           'solvedCoefficients':self.dataObject.equation.solvedCoefficients})
 
+
+    def build_child_payload(self):
+        payload = super().build_child_payload()
+        payload.extra["smoothingFactor"] = self.boundForm.equation.smoothingFactor
+        payload.extra["xOrder"] = self.boundForm.equation.xOrder
+        if self.dimensionality == 3:
+            payload.extra["yOrder"] = self.boundForm.equation.yOrder
+        return payload
+
+    def apply_child_payload(self, payload):
+        super().apply_child_payload(payload)
+        self.dataObject.equation.smoothingFactor = payload.extra["smoothingFactor"]
+        self.dataObject.equation.xOrder = payload.extra["xOrder"]
+        if self.dimensionality == 3:
+            self.dataObject.equation.yOrder = payload.extra["yOrder"]
 
     def SpecificEquationBoundInterfaceCode(self, request):
         self.boundForm['fittingTarget'].required = False # not used in splines

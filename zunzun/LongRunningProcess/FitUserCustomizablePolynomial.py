@@ -3,6 +3,7 @@ import inspect, time, math, random, multiprocessing, os, sys, copy
 import numpy, scipy, scipy.stats
 
 from . import FittingBaseClass
+from .child_payload import ChildPayload
 import zunzun.forms
 import zunzun.formConstants
 import pyeq3
@@ -16,6 +17,15 @@ class FitUserCustomizablePolynomial(FittingBaseClass.FittingBaseClass):
         self.X2DList = pyeq3.PolyFunctions.GenerateListForCustomPolynomials_2D()
 
     
+    def build_child_payload(self):
+        payload = super().build_child_payload()
+        payload.extra["polynomial2DFlags"] = self.boundForm.equation.polynomial2DFlags
+        return payload
+
+    def apply_child_payload(self, payload):
+        super().apply_child_payload(payload)
+        self.dataObject.equation.polynomial2DFlags = payload.extra["polynomial2DFlags"]
+
     def SaveSpecificDataToSessionStore(self):
         self.SaveDictionaryOfItemsToSessionStore('data', {'dimensionality':self.dimensionality,
                                                           'equationName':self.inEquationName,
