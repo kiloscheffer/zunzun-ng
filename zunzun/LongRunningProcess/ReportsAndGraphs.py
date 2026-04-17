@@ -1514,8 +1514,13 @@ class ScatterAnimation(GraphReport):
                 platform_compat.run_tool('mogrify', ['-format', 'gif', frameName])
 
             plt.close('all')
-            p = os.popen('gifsicle --colors 256 --loopcount  ' + self.physicalFileLocation[:-4] + '__*gif > ' + self.physicalFileLocation)
-            p.close()
+            import glob as _glob
+            _frames = sorted(_glob.glob(self.physicalFileLocation[:-4] + '__*gif'))
+            platform_compat.run_tool(
+                'gifsicle',
+                ['--colors', '256', '--loopcount', *_frames],
+                stdout_file=self.physicalFileLocation,
+            )
             p = os.popen('rm ' + self.physicalFileLocation[:-4] + '__*')
             p.close()
         except:
@@ -1575,8 +1580,13 @@ class SurfaceAnimation(GraphReport):
                 platform_compat.run_tool('mogrify', ['-format', 'gif', frameName])
 
             plt.close('all')
-            p = os.popen('gifsicle --colors 256 --loopcount  ' + self.physicalFileLocation[:-4] + '__*gif > ' + self.physicalFileLocation)
-            p.close()
+            import glob as _glob
+            _frames = sorted(_glob.glob(self.physicalFileLocation[:-4] + '__*gif'))
+            platform_compat.run_tool(
+                'gifsicle',
+                ['--colors', '256', '--loopcount', *_frames],
+                stdout_file=self.physicalFileLocation,
+            )
             p = os.popen('rm ' + self.physicalFileLocation[:-4] + '__*')
             p.close()
         except:
