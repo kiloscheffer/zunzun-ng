@@ -5,6 +5,7 @@ abstraction layer that replaces /proc, vmstat, os.popen, etc.
 """
 from unittest import mock
 
+import psutil
 import pytest
 
 
@@ -68,3 +69,20 @@ def test_get_parallel_process_count_under_high_load():
                     return_value=(cpu + 2.0, cpu + 2.0, cpu + 2.0)):
         n = platform_compat.get_parallel_process_count()
         assert n <= 3
+
+
+def test_set_process_niceness_calls_psutil():
+    from zunzun import platform_compat
+    fake_proc = mock.MagicMock()
+    with mock.patch("zunzun.platform_compat.psutil.Process", return_value=fake_proc):
+        platform_compat.set_process_niceness(12345, 10)
+    fake_proc.nice.assert_called_once_with(10)
+
+
+def test_set_process_niceness_silent_on_access_denied():
+    from zunzun import platform_compat
+    fake_proc = mock.MagicMock()
+    fake_proc.nice.side_effect = psutil.AccessDenied()
+    with mock.patch("zunzun.platform_compat.psutil.Process", return_value=fake_proc):
+        # Should not raise — niceness failure is not fatal
+        platform_compat.set_process_niceness(12345, 10)

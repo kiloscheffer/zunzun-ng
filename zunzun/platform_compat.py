@@ -80,3 +80,22 @@ def get_parallel_process_count(cpu_cap: int | None = None) -> int:
         n = 3
 
     return n
+
+
+def set_process_niceness(pid: int, niceness: int) -> None:
+    """Set the OS-level scheduling priority of a process.
+
+    On Unix, delegates to the standard Unix nice value (-20 to 19).
+    On Windows, psutil translates to priority classes internally:
+      < 0    → HIGH_PRIORITY_CLASS
+      0      → NORMAL_PRIORITY_CLASS
+      1-9    → BELOW_NORMAL_PRIORITY_CLASS
+      >= 10  → IDLE_PRIORITY_CLASS
+
+    Silently tolerates AccessDenied — failing to renice is not fatal,
+    the child just runs at the default priority.
+    """
+    try:
+        psutil.Process(pid).nice(niceness)
+    except (psutil.AccessDenied, psutil.NoSuchProcess) as e:
+        _logger.info("set_process_niceness(%d, %d) failed: %s", pid, niceness, e)
