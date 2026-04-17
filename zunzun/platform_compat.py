@@ -12,6 +12,8 @@ from __future__ import annotations
 import functools
 import logging
 import multiprocessing
+import subprocess
+from pathlib import Path
 
 import psutil
 
@@ -112,3 +114,30 @@ def set_process_niceness(pid: int, niceness: int) -> None:
         psutil.Process(pid).nice(niceness)
     except (psutil.AccessDenied, psutil.NoSuchProcess) as e:
         _logger.info("set_process_niceness(%d, %d) failed: %s", pid, niceness, e)
+
+
+def run_tool(binary: str, args: list[str], stdout_file: Path | None = None) -> int:
+    """Run an external command; return its exit code.
+
+    Replaces os.popen() shellouts. Uses subprocess.run with an argument
+    list (not shell=True) which eliminates shell-injection risk from
+    filenames containing special characters.
+
+    If stdout_file is given, stdout is redirected there (replacing the
+    shell's '> file' operator). Otherwise stdout is inherited.
+
+    Raises FileNotFoundError if the binary is not on PATH.
+    """
+    stdout_target = None
+    if stdout_file is not None:
+        stdout_target = open(stdout_file, "wb")
+    try:
+        result = subprocess.run(
+            [binary, *args],
+            stdout=stdout_target,
+            check=False,
+        )
+        return result.returncode
+    finally:
+        if stdout_target is not None:
+            stdout_target.close()

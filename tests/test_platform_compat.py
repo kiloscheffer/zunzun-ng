@@ -3,6 +3,8 @@
 These tests do not require Django. They cover the cross-platform
 abstraction layer that replaces /proc, vmstat, os.popen, etc.
 """
+import sys
+from pathlib import Path
 from unittest import mock
 
 import psutil
@@ -106,3 +108,36 @@ def test_reap_completed_children_joins_finished_processes():
     # Should be a no-op because the process is already joined
     platform_compat.reap_completed_children()
     # No assertion — just that it doesn't raise
+
+
+def test_run_tool_returns_exit_code_on_success(tmp_path):
+    from zunzun import platform_compat
+    import sys
+    # Use python itself as a known-available cross-platform binary
+    exit_code = platform_compat.run_tool(sys.executable, ["-c", "import sys; sys.exit(0)"])
+    assert exit_code == 0
+
+
+def test_run_tool_returns_nonzero_on_failure():
+    from zunzun import platform_compat
+    import sys
+    exit_code = platform_compat.run_tool(sys.executable, ["-c", "import sys; sys.exit(7)"])
+    assert exit_code == 7
+
+
+def test_run_tool_redirects_stdout_to_file(tmp_path):
+    from zunzun import platform_compat
+    import sys
+    out = tmp_path / "out.txt"
+    platform_compat.run_tool(
+        sys.executable,
+        ["-c", "print('hello')"],
+        stdout_file=out,
+    )
+    assert out.read_text().strip() == "hello"
+
+
+def test_run_tool_raises_on_missing_binary():
+    from zunzun import platform_compat
+    with pytest.raises(FileNotFoundError):
+        platform_compat.run_tool("definitely-not-a-real-binary", [])
