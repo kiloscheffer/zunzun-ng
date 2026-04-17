@@ -19,6 +19,7 @@ from . import DataObject
 from . import ClassForAttachingProperties
 from . import ReportsAndGraphs
 from zunzun import platform_compat
+from .child_payload import ChildPayload
 
 import zunzun.forms
 from . import DefaultData
@@ -149,6 +150,39 @@ You must provide any weights you wish to use.
         self.defaultData1D = DefaultData.defaultData1D
         self.defaultData2D = DefaultData.defaultData2D
         self.defaultData3D = DefaultData.defaultData3D
+
+
+    def build_child_payload(self) -> ChildPayload:
+        """Produce a picklable snapshot for the spawned child process.
+
+        Default implementation covers the common subset (session keys,
+        dimensionality, renice level, dataObject). Subclasses override
+        to add fit-specific fields via the `extra` dict.
+        """
+        return ChildPayload(
+            lrp_class_path=f"{self.__class__.__module__}.{self.__class__.__name__}",
+            session_key_status=self.session_key_status,
+            session_key_data=self.session_key_data,
+            session_key_functionfinder=getattr(self, "session_key_functionfinder", ""),
+            dimensionality=self.dimensionality,
+            renice_level=self.reniceLevel,
+            data_object=getattr(self, "dataObject", None),
+            equation=None,  # overridden by fit subclasses
+            extra={},
+        )
+
+    def apply_child_payload(self, payload: ChildPayload) -> None:
+        """Re-hydrate this instance (in the child process) from the payload.
+
+        Default implementation restores the common fields. Subclasses
+        override to populate fit-specific state from payload.extra.
+        """
+        self.session_key_status = payload.session_key_status
+        self.session_key_data = payload.session_key_data
+        self.session_key_functionfinder = payload.session_key_functionfinder
+        self.dimensionality = payload.dimensionality
+        self.reniceLevel = payload.renice_level
+        self.dataObject = payload.data_object
 
 
     def PerformWorkInParallel(self):
