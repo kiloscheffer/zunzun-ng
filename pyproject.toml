@@ -22,6 +22,9 @@ dependencies = [
 [dependency-groups]
 dev = [
     "mypy",
+    "pytest>=7.0",
+    "pytest-django>=4.5",
+    "requests>=2.28",  # for scripts/smoke_test.py in later phases
     # Note: FunkLoad (used by funkload_tests/) is intentionally NOT listed
     # here. Its setup.py uses ez_setup, which was removed from setuptools
     # and cannot be built on Python 3.11+. If you need to run the FunkLoad
@@ -35,3 +38,11 @@ dev = [
 # top-level Django files, not an importable package). Only dependencies
 # are installed; zunzunsite3 itself is never built as a wheel.
 package = false
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "settings"
+python_files = ["test_*.py"]
+testpaths = ["tests"]
+# Don't let pytest try to collect the funkload_tests directory
+# (its test files need a live server, not pytest, and importing them fails)
+norecursedirs = ["funkload_tests", ".venv", "temp", "session_db"]
