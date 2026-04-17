@@ -18,6 +18,7 @@ import reportlab.lib.pagesizes
 from . import DataObject
 from . import ClassForAttachingProperties
 from . import ReportsAndGraphs
+from zunzun import platform_compat
 
 import zunzun.forms
 from . import DefaultData
@@ -164,34 +165,7 @@ You must provide any weights you wish to use.
 
     def GetParallelProcessCount(self):
         pid_trace.pid_trace()
-
-        # limit based on free memory
-        f = os.popen('vmstat', 'r')
-        f.readline()
-        f.readline()
-        line = f.readline()
-        f.close()
-        freeRAM = line.split()[3]
-        cache = line.split()[5]
-        ppCount = int((float(freeRAM) + float(cache)) / 80000.0)
-
-        if ppCount > multiprocessing.cpu_count(): # *three* extra processes
-            ppCount = multiprocessing.cpu_count()
-        if ppCount < 1: # need at least one process
-            ppCount = 1
-
-        # now limit based on CPU load
-        f = open('/proc/loadavg', 'r')
-        line = f.readline()
-        f.close()
-        load = float(line.split()[0])
-        if load > (float(multiprocessing.cpu_count()) + 0.5) and ppCount > 3:
-            ppCount = 3
-        if load > (float(multiprocessing.cpu_count()) + 1.0) and ppCount > 2:
-            ppCount = 2
-        if load > (float(multiprocessing.cpu_count()) + 1.5) and ppCount > 1:
-            ppCount = 1
-
+        ppCount = platform_compat.get_parallel_process_count()
         pid_trace.pid_trace()
         return ppCount
 
@@ -819,7 +793,7 @@ You must provide any weights you wish to use.
             itemsToRender['EvaluateAtAPointForm'] = eval('zunzun.forms.EvaluateAtAPointForm_' + str(self.dimensionality) + 'D()')
             itemsToRender['IndependentDataName1'] = self.dataObject.IndependentDataName1
             itemsToRender['IndependentDataName2'] = self.dataObject.IndependentDataName2
-        itemsToRender['loadavg'] = os.getloadavg()
+        itemsToRender['loadavg'] = platform_compat.get_loadavg()
         
         pid_trace.pid_trace()
         
