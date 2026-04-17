@@ -1,0 +1,33 @@
+# Claude Code
+# settings.json is team-shared (checked in); only the per-user override is ignored
+.claude/settings.local.json
+
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+.mypy_cache/
+.pytest_cache/
+
+# Django / pyeq3 scratch output from forked fit processes.
+# temp/static_images/ holds committed logos, favicon, jQuery bundle, etc.
+# Everything else written to temp/ is disposable (PDFs, graphs, animations, logs).
+/temp/*
+!/temp/static_images/
+
+# FunkLoad test artifacts (written next to the tests per Simple.conf)
+funkload_tests/*.log
+funkload_tests/*.xml
+
+# Live session database — recreated by: python3 manage.py migrate
+session_db/db.sqlite3
+session_db/db.sqlite3-journal
+
+# Per-fork debug traces (only produced if pid_trace.py early-returns are removed)
+pid_*.trace
+
+# Editor / OS cruft
+.DS_Store
+Thumbs.db
+*.swp
+*~
