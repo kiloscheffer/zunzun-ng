@@ -1,6 +1,7 @@
 import time
 
 from . import StatusMonitoredLongRunningProcessPage
+from .child_payload import ChildPayload
 import zunzun.forms
 from . import ReportsAndGraphs
 
@@ -17,7 +18,15 @@ class CharacterizeData(StatusMonitoredLongRunningProcessPage.StatusMonitoredLong
         self.characterizerOutputTrueOrReportOutputFalse = True
         self.evaluateAtAPointFormNeeded = False
 
-    
+    def build_child_payload(self):
+        payload = super().build_child_payload()
+        payload.extra['pdfTitleHTML'] = self.pdfTitleHTML
+        return payload
+
+    def apply_child_payload(self, payload):
+        super().apply_child_payload(payload)
+        self.pdfTitleHTML = payload.extra['pdfTitleHTML']
+
     def TransferFormDataToDataObject(self, request): # return any error in a user-viewable string (self.dataObject.ErrorString)
         self.pdfTitleHTML = self.webFormName + ' ' + str(self.dimensionality) + 'D'
         self.CommonCreateAndInitializeDataObject(False)
