@@ -21,6 +21,7 @@ import numpy, multiprocessing
 import zunzun
 import pyeq3
 from . import LongRunningProcess
+from . import platform_compat
 import psutil # for killing child zombie processes
 
 # is django_brake used for rate limiting web site slammers?
@@ -213,7 +214,7 @@ def StatusView(request):
     s += '\n'
     s += 'Time of last update   : ' + time.asctime(time.localtime(timeStamp))[:-5]
     
-    loadavg = os.getloadavg()
+    loadavg = platform_compat.get_loadavg()
     s += '\n\n'
     s += 'Server load average for the past 1 minute:   ' + str(loadavg[0]) + '\n'
     s += 'Server load average for the past 5 minutes:  ' + str(loadavg[1]) + '\n'
@@ -540,7 +541,7 @@ def HomePageView(request):
     items_to_render['dim_to_map_list'] = [['2', GetEquationInfoDictionary(2, 'Standard')], ['3', GetEquationInfoDictionary(3, 'Standard')]]
     items_to_render['header_text'] = 'ZunZunSite3 Online Curve Fitting<br>and Surface Fitting Web Site'
     items_to_render['feedbackForm'] = forms.FeedbackForm()
-    items_to_render['loadavg'] = os.getloadavg()
+    items_to_render['loadavg'] = platform_compat.get_loadavg()
 
     return render_to_response('zunzun/home_page.html', items_to_render)
 
