@@ -9,6 +9,9 @@ __pycache__/
 .mypy_cache/
 .pytest_cache/
 
+# uv-managed virtual environment (uv.lock IS committed)
+.venv/
+
 # Django / pyeq3 scratch output from forked fit processes.
 # temp/static_images/ holds committed logos, favicon, jQuery bundle, etc.
 # Everything else written to temp/ is disposable (PDFs, graphs, animations, logs).

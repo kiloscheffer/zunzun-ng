@@ -11,15 +11,24 @@ ZunZunSite3 is a Django site that performs 2D/3D nonlinear curve & surface fitti
 Only a development server is defined; there is no build step and no `manage.py test` target.
 
 ```bash
-python3 manage.py migrate        # one-time: creates the django_session table
-python3 manage.py runserver      # open http://127.0.0.1:8000/
+uv sync                                   # one-time: create .venv, install deps
+uv run python manage.py migrate           # one-time: creates the django_session table
+uv run python manage.py runserver         # open http://127.0.0.1:8000/
 ```
 
 The `session_db/db.sqlite3` file is gitignored — it gets created by `migrate` on first run. Without it, every session write from a forked child fails because `django_session` doesn't exist.
 
 `DEBUG` is toggled automatically by looking for `'runserver'` in `sys.argv` (see `settings.py`), so running under WSGI disables debug regardless of env vars.
 
-External dependencies are not in a `requirements.txt`; see `README.txt` — notably `pyeq3` (pip), `reportlab`, `psutil`, plus system packages `imagemagick` and `gifsicle`.
+## Dependencies
+
+Python deps are declared in `pyproject.toml` and pinned in the committed `uv.lock`. Runtime group: Django (pinned `>=2.2,<3.0` — see "Django version pin" below), pyeq3, scipy, matplotlib, numpy, reportlab, psutil, beautifulsoup4. Dev group: mypy.
+
+**Django version pin.** Django is intentionally held below 3.0 because `render_to_response` (removed in Django 3.0) is called in 6 places in `zunzun/views.py`, and `url()` / the `patterns()` compat shim in `urls.py` break on Django 4.0+. Upgrading to modern Django LTS is a tracked but separate piece of work — see `.claude/agents/fork-pattern-reviewer.md` for the review standards and plan the migration as its own branch.
+
+**FunkLoad is not in pyproject.toml.** Its `setup.py` uses `ez_setup`, which was removed from modern setuptools, so it cannot be installed under the uv-managed Python 3.11 environment. If you need to run the FunkLoad suite, use a separate legacy Python env, or port the HTTP assertions in `funkload_tests/test_Simple.py` to pytest + `requests` (the logic is just GET/POST with string-match assertions).
+
+**System dependencies** (not Python packages, not managed by uv): `imagemagick` and `gifsicle`. See `README.txt`.
 
 ## Tests
 

@@ -1,0 +1,37 @@
+[project]
+name = "zunzunsite3"
+version = "0.0.0"
+description = "Django site for 2D/3D curve and surface fitting via pyeq3 — Python 3 port of zunzun.com"
+readme = "README.txt"
+license = { file = "LICENSE.txt" }
+requires-python = ">=3.11"
+dependencies = [
+    # Django pinned pre-3.0 until render_to_response and the urls.py patterns()
+    # compat shim are migrated. See CLAUDE.md > "Django version compatibility
+    # shim" and views.py's 6 render_to_response call sites.
+    "django>=2.2,<3.0",
+    "pyeq3",
+    "numpy",
+    "scipy",
+    "matplotlib",
+    "reportlab",
+    "psutil",
+    "beautifulsoup4",
+]
+
+[dependency-groups]
+dev = [
+    "mypy",
+    # Note: FunkLoad (used by funkload_tests/) is intentionally NOT listed
+    # here. Its setup.py uses ez_setup, which was removed from setuptools
+    # and cannot be built on Python 3.11+. If you need to run the FunkLoad
+    # suite, install it manually in a separate Python 2.7 / Python 3.9 env,
+    # or port the tests to pytest + requests (the test logic is just HTTP
+    # asserts — see funkload_tests/test_Simple.py PostLongRunningProcess).
+]
+
+[tool.uv]
+# No [build-system] → uv treats the project as virtual (a collection of
+# top-level Django files, not an importable package). Only dependencies
+# are installed; zunzunsite3 itself is never built as a wheel.
+package = false
