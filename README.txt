@@ -19,8 +19,12 @@ apt-get install python3-pip
 pip3 install pyeq3
 
 
-You can now cd to the project's top-level directory and
-run the django development server with the command:
+You can now cd to the project's top-level directory.
+First-time setup creates the session database:
+
+python3 manage.py migrate
+
+Then run the django development server with:
 
 python3 manage.py runserver
 
