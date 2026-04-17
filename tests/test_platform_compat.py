@@ -23,3 +23,24 @@ def test_get_loadavg_unavailable_returns_zero_tuple():
                     side_effect=AttributeError("not available")):
         result = platform_compat.get_loadavg()
         assert result == (0.0, 0.0, 0.0)
+
+
+def test_get_loadavg_logs_warning_once(caplog):
+    """The fallback path logs exactly once per process, not once per call."""
+    import logging
+    from zunzun import platform_compat
+
+    # Re-arm the lru_cache since earlier tests may have consumed it
+    platform_compat._warn_loadavg_unavailable.cache_clear()
+
+    with mock.patch("zunzun.platform_compat.psutil.getloadavg",
+                    side_effect=AttributeError("not available")):
+        with caplog.at_level(logging.WARNING, logger="zunzun.platform_compat"):
+            platform_compat.get_loadavg()
+            platform_compat.get_loadavg()
+            platform_compat.get_loadavg()
+
+    # Exactly one warning record despite three calls
+    matching = [r for r in caplog.records
+                if "psutil.getloadavg() unavailable" in r.getMessage()]
+    assert len(matching) == 1

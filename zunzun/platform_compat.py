@@ -9,12 +9,24 @@ platform module.
 """
 from __future__ import annotations
 
+import functools
 import logging
 
 import psutil
 
 _logger = logging.getLogger(__name__)
-_loadavg_warned = False
+
+
+@functools.lru_cache(maxsize=1)
+def _warn_loadavg_unavailable() -> None:
+    """Emit the loadavg-unavailable warning exactly once per process.
+
+    Use .cache_clear() in tests to re-arm the warning.
+    """
+    _logger.warning(
+        "platform_compat.get_loadavg: psutil.getloadavg() unavailable; "
+        "returning (0.0, 0.0, 0.0)"
+    )
 
 
 def get_loadavg() -> tuple[float, float, float]:
@@ -22,18 +34,12 @@ def get_loadavg() -> tuple[float, float, float]:
 
     On Linux/macOS uses psutil.getloadavg() which wraps os.getloadavg().
     On Windows, psutil simulates a rolling average. If unavailable
-    (e.g. very old psutil or unsupported platform), logs a one-time
-    warning and returns zeros.
+    (e.g. very old psutil, an unsupported platform, or an OSError
+    reading /proc/loadavg), logs a one-time warning and returns zeros.
     """
-    global _loadavg_warned
     try:
         one, five, fifteen = psutil.getloadavg()
         return (float(one), float(five), float(fifteen))
     except (AttributeError, OSError):
-        if not _loadavg_warned:
-            _logger.warning(
-                "platform_compat.get_loadavg: psutil.getloadavg() unavailable; "
-                "returning (0, 0, 0)"
-            )
-            _loadavg_warned = True
+        _warn_loadavg_unavailable()
         return (0.0, 0.0, 0.0)
