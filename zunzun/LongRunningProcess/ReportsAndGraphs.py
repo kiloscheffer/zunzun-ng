@@ -1521,8 +1521,7 @@ class ScatterAnimation(GraphReport):
                 ['--colors', '256', '--loopcount', *_frames],
                 stdout_file=self.physicalFileLocation,
             )
-            p = os.popen('rm ' + self.physicalFileLocation[:-4] + '__*')
-            p.close()
+            platform_compat.remove_files_matching(self.physicalFileLocation[:-4] + '__*')
         except:
             import logging
             logging.basicConfig(filename = os.path.join(settings.TEMP_FILES_DIR,  str(os.getpid()) + '.log'),level=logging.DEBUG)
@@ -1587,8 +1586,7 @@ class SurfaceAnimation(GraphReport):
                 ['--colors', '256', '--loopcount', *_frames],
                 stdout_file=self.physicalFileLocation,
             )
-            p = os.popen('rm ' + self.physicalFileLocation[:-4] + '__*')
-            p.close()
+            platform_compat.remove_files_matching(self.physicalFileLocation[:-4] + '__*')
         except:
             import logging
             logging.basicConfig(filename = os.path.join(settings.TEMP_FILES_DIR,  str(os.getpid()) + '.log'),level=logging.DEBUG)
