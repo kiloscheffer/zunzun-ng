@@ -677,8 +677,6 @@ You must provide any weights you wish to use.
                 
             pid_trace.delete_pid_trace_file()
 
-            os._exit(0) # kills pool processes
-
         # if the status has not been checked in the past 30 seconds, this process was abandoned
         if (time.time() - self.LoadItemFromSessionStore('status', 'time_of_last_status_check')) > 300:
 
@@ -693,8 +691,6 @@ You must provide any weights you wish to use.
                 p.terminate()
                 
             pid_trace.delete_pid_trace_file()
-                
-            os._exit(0) # kills pool processes
 
 
     def SetInitialStatusDataIntoSessionVariables(self, request):
