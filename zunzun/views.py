@@ -22,6 +22,7 @@ import zunzun
 import pyeq3
 from . import LongRunningProcess
 from . import platform_compat
+from .LongRunningProcess.child_payload import _run_fit_child
 
 # is django_brake used for rate limiting web site slammers?
 try: # django_brake installed?
@@ -414,38 +415,15 @@ def LongRunningProcessView(request, inDimensionality, inEquationFamilyName='', i
     db.connections.close_all()
     close_old_connections()
 
-    processID_1 = os.fork()
-    if processID_1 == 0: # child process, kill when done
+    # Build the picklable payload in the parent, then hand it to a spawned
+    # child process. Spawn (vs fork) is mandatory on Windows and safer on
+    # Linux under a multi-threaded WSGI server like Waitress.
+    payload = LRP.build_child_payload()
 
-        os.nice(LRP.reniceLevel)
+    ctx = multiprocessing.get_context("spawn")
+    child = ctx.Process(target=_run_fit_child, args=(payload,), daemon=False)
+    child.start()
 
-        # if top-level exception save data for debugging
-        dataObjectString = ''
-        #try:
-        #    dataObjectString = str(LRP.dataObject)
-        #except:
-        #    dataObjectString = 'could not str(LRP.dataObject)'
-
-        try:
-            LRP.PerformAllWork()
-        except:
-            import logging
-            logging.basicConfig(filename = os.path.join(settings.TEMP_FILES_DIR,  str(os.getpid()) + '.log'),level=logging.DEBUG)
-            
-            logging.exception('Site top-level exception\n' + dataObjectString + '\n')
-        
-            extraInfo = '\n\nrequest.META info:\n'
-            for item in request.META:
-                extraInfo += str(item) + ' : ' + str(request.META[item]) + '\n'
-                
-            LRP.SaveDictionaryOfItemsToSessionStore('status', {'currentStatus':"An unknown exception has occurred, and an email with details has been sent to the site administrator. These are sometimes caused by taking the exponent of large numbers."})
-        finally:
-            time.sleep(1.0)
-            #if LRP.pool:
-            #    LRP.pool.close()
-            #    LRP.pool.join()
-            os._exit(0) # kill this child process
-        
     # using HTTP_HOST allows dev server
     return HttpResponseRedirect('http://' + request.META['HTTP_HOST'] + '/StatusAndResults/')
 
