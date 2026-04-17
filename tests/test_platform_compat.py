@@ -159,3 +159,22 @@ def test_remove_files_matching_tolerates_no_matches(tmp_path):
     from zunzun import platform_compat
     count = platform_compat.remove_files_matching(str(tmp_path / "nothing__*"))
     assert count == 0
+
+
+def test_ensure_external_binaries_returns_missing():
+    from zunzun import platform_compat
+
+    def fake_which(name):
+        # Pretend only mogrify is present
+        return "/usr/bin/mogrify" if name == "mogrify" else None
+
+    with mock.patch("zunzun.platform_compat.shutil.which", side_effect=fake_which):
+        missing = platform_compat.ensure_external_binaries()
+    assert missing == ["gifsicle"]
+
+
+def test_ensure_external_binaries_returns_empty_when_all_present():
+    from zunzun import platform_compat
+    with mock.patch("zunzun.platform_compat.shutil.which", return_value="/usr/bin/anything"):
+        missing = platform_compat.ensure_external_binaries()
+    assert missing == []

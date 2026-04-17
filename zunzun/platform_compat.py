@@ -14,6 +14,7 @@ import glob
 import logging
 import multiprocessing
 import os
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -159,3 +160,24 @@ def remove_files_matching(pattern: str) -> int:
         except OSError as e:
             _logger.info("remove_files_matching: failed to remove %s: %s", path, e)
     return count
+
+
+REQUIRED_BINARIES = ("mogrify", "gifsicle")
+
+
+def ensure_external_binaries() -> list[str]:
+    """Report which optional external binaries are missing from PATH.
+
+    mogrify (part of ImageMagick) and gifsicle are used in
+    ReportsAndGraphs.py to produce animated GIF output. They are not
+    strictly required — fits and PDFs work without them — but 3D
+    animations won't render if they're absent.
+
+    Returns the list of missing binary names. Caller decides whether
+    to warn (log) or fail (raise).
+    """
+    missing = []
+    for binary in REQUIRED_BINARIES:
+        if shutil.which(binary) is None:
+            missing.append(binary)
+    return missing
