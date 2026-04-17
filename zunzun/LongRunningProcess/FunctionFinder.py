@@ -4,6 +4,7 @@ import numpy
 
 from . import StatusMonitoredLongRunningProcessPage
 from . import ReportsAndGraphs
+from .child_payload import ChildPayload
 import settings
 import zunzun.forms
 import zunzun.formConstants
@@ -110,6 +111,27 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
         self.maxFFResultsListSize = 1000 # use ""best"" results  only for database speed and size
         self.bestFFResultTracker = 1.0E300 # to keep track of "best" results
 
+
+    def build_child_payload(self):
+        payload = super().build_child_payload()
+        # FunctionFinder-specific config is set by TransferFormDataToDataObject
+        # entirely on self.dataObject (extendedEquationTypes, equationFamilyInclusion,
+        # fittingTarget, maxCoeffs, maxOrEqual, Max2DPolynomialOrder,
+        # Max3DPolynomialOrder).  All of these travel inside payload.data_object.
+        # The only field the base class leaves as None that we need is payload.equation,
+        # which holds the equationBase (with the populated dataCache) stored at
+        # self.dataObject.equation by TransferFormDataToDataObject.
+        payload.equation = self.dataObject.equation
+        return payload
+
+    def apply_child_payload(self, payload):
+        super().apply_child_payload(payload)
+        # Restore the equationBase with its dataCache onto self.dataObject.equation.
+        # All other FunctionFinder config fields (extendedEquationTypes,
+        # equationFamilyInclusion, fittingTarget, maxCoeffs, maxOrEqual,
+        # Max2DPolynomialOrder, Max3DPolynomialOrder) arrive via self.dataObject
+        # restored by the base class above.
+        self.dataObject.equation = payload.equation
 
     def TransferFormDataToDataObject(self, request): # return any error in a user-viewable string (self.dataObject.ErrorString)
         self.CommonCreateAndInitializeDataObject(True)

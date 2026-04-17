@@ -5,6 +5,7 @@ from django.template.loader import render_to_string
 
 from . import FittingBaseClass
 from . import ReportsAndGraphs
+from .child_payload import ChildPayload
 import pyeq3
 
 from . import pid_trace
@@ -22,6 +23,17 @@ class FunctionFinderResults(FittingBaseClass.FittingBaseClass):
         self.maxNumberOfEquationsToDisplay = 40
     
     
+    def build_child_payload(self):
+        payload = super().build_child_payload()
+        # self.rank is set by the view dispatcher (LRP.rank = rank) before
+        # build_child_payload is called; carry it into the child.
+        payload.extra["rank"] = self.rank
+        return payload
+
+    def apply_child_payload(self, payload):
+        super().apply_child_payload(payload)
+        self.rank = payload.extra["rank"]
+
     def TransferFormDataToDataObject(self, request): # return any error in a user-viewable string (self.dataObject.ErrorString)
         IndependentDataName1 = self.LoadItemFromSessionStore('data', 'IndependentDataName1')
         IndependentDataName2 =self.LoadItemFromSessionStore('data', 'IndependentDataName2')
