@@ -142,7 +142,8 @@ def HistogramPlot_NoDataObject(in_DataToPlot, in_FileNameAndPath, in_DataName, i
     normalized = False
     if in_pdfFlag:
         normalized = True
-    n, bins, patches = ax.hist(in_DataToPlot, numberOfBins, facecolor=in_FillColor, normed=normalized, edgecolor='black', linewidth=1)
+    # matplotlib renamed `normed` to `density` in 3.1 and removed `normed` in 3.2
+    n, bins, patches = ax.hist(in_DataToPlot, numberOfBins, facecolor=in_FillColor, density=normalized, edgecolor='black', linewidth=1)
 
     # if statistical distribution plot, show pdf
     if in_pdfFlag:

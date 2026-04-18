@@ -18,6 +18,8 @@ import reportlab.lib.pagesizes
 from . import DataObject
 from . import ClassForAttachingProperties
 from . import ReportsAndGraphs
+from zunzun import platform_compat
+from .child_payload import ChildPayload
 
 import zunzun.forms
 from . import DefaultData
@@ -150,6 +152,39 @@ You must provide any weights you wish to use.
         self.defaultData3D = DefaultData.defaultData3D
 
 
+    def build_child_payload(self) -> ChildPayload:
+        """Produce a picklable snapshot for the spawned child process.
+
+        Default implementation covers the common subset (session keys,
+        dimensionality, renice level, dataObject). Subclasses override
+        to add fit-specific fields via the `extra` dict.
+        """
+        return ChildPayload(
+            lrp_class_path=f"{self.__class__.__module__}.{self.__class__.__name__}",
+            session_key_status=self.session_key_status,
+            session_key_data=self.session_key_data,
+            session_key_functionfinder=getattr(self, "session_key_functionfinder", ""),
+            dimensionality=self.dimensionality,
+            renice_level=self.reniceLevel,
+            data_object=getattr(self, "dataObject", None),
+            equation=None,  # overridden by fit subclasses
+            extra={},
+        )
+
+    def apply_child_payload(self, payload: ChildPayload) -> None:
+        """Re-hydrate this instance (in the child process) from the payload.
+
+        Default implementation restores the common fields. Subclasses
+        override to populate fit-specific state from payload.extra.
+        """
+        self.session_key_status = payload.session_key_status
+        self.session_key_data = payload.session_key_data
+        self.session_key_functionfinder = payload.session_key_functionfinder
+        self.dimensionality = payload.dimensionality
+        self.reniceLevel = payload.renice_level
+        self.dataObject = payload.data_object
+
+
     def PerformWorkInParallel(self):
         pass
 
@@ -164,34 +199,7 @@ You must provide any weights you wish to use.
 
     def GetParallelProcessCount(self):
         pid_trace.pid_trace()
-
-        # limit based on free memory
-        f = os.popen('vmstat', 'r')
-        f.readline()
-        f.readline()
-        line = f.readline()
-        f.close()
-        freeRAM = line.split()[3]
-        cache = line.split()[5]
-        ppCount = int((float(freeRAM) + float(cache)) / 80000.0)
-
-        if ppCount > multiprocessing.cpu_count(): # *three* extra processes
-            ppCount = multiprocessing.cpu_count()
-        if ppCount < 1: # need at least one process
-            ppCount = 1
-
-        # now limit based on CPU load
-        f = open('/proc/loadavg', 'r')
-        line = f.readline()
-        f.close()
-        load = float(line.split()[0])
-        if load > (float(multiprocessing.cpu_count()) + 0.5) and ppCount > 3:
-            ppCount = 3
-        if load > (float(multiprocessing.cpu_count()) + 1.0) and ppCount > 2:
-            ppCount = 2
-        if load > (float(multiprocessing.cpu_count()) + 1.5) and ppCount > 1:
-            ppCount = 1
-
+        ppCount = platform_compat.get_parallel_process_count()
         pid_trace.pid_trace()
         return ppCount
 
@@ -669,8 +677,6 @@ You must provide any weights you wish to use.
                 
             pid_trace.delete_pid_trace_file()
 
-            os._exit(0) # kills pool processes
-
         # if the status has not been checked in the past 30 seconds, this process was abandoned
         if (time.time() - self.LoadItemFromSessionStore('status', 'time_of_last_status_check')) > 300:
 
@@ -685,8 +691,6 @@ You must provide any weights you wish to use.
                 p.terminate()
                 
             pid_trace.delete_pid_trace_file()
-                
-            os._exit(0) # kills pool processes
 
 
     def SetInitialStatusDataIntoSessionVariables(self, request):
@@ -819,7 +823,7 @@ You must provide any weights you wish to use.
             itemsToRender['EvaluateAtAPointForm'] = eval('zunzun.forms.EvaluateAtAPointForm_' + str(self.dimensionality) + 'D()')
             itemsToRender['IndependentDataName1'] = self.dataObject.IndependentDataName1
             itemsToRender['IndependentDataName2'] = self.dataObject.IndependentDataName2
-        itemsToRender['loadavg'] = os.getloadavg()
+        itemsToRender['loadavg'] = platform_compat.get_loadavg()
         
         pid_trace.pid_trace()
         

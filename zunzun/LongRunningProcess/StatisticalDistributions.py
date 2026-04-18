@@ -3,6 +3,7 @@ import os, sys
 import numpy, scipy, scipy.stats, pyeq3
 
 from . import StatusMonitoredLongRunningProcessPage
+from .child_payload import ChildPayload
 import zunzun.forms
 from . import ReportsAndGraphs
 
@@ -35,7 +36,15 @@ class StatisticalDistributions(StatusMonitoredLongRunningProcessPage.StatusMonit
         self.characterizerOutputTrueOrReportOutputFalse = True
         self.evaluateAtAPointFormNeeded = False
 
-    
+    def build_child_payload(self):
+        payload = super().build_child_payload()
+        payload.extra['pdfTitleHTML'] = self.pdfTitleHTML
+        return payload
+
+    def apply_child_payload(self, payload):
+        super().apply_child_payload(payload)
+        self.pdfTitleHTML = payload.extra['pdfTitleHTML']
+
     def TransferFormDataToDataObject(self, request): # return any error in a user-viewable string (self.dataObject.ErrorString)
         pid_trace.pid_trace()
         

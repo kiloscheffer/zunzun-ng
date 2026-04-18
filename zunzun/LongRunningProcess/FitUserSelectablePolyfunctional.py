@@ -3,6 +3,7 @@ import inspect, time, math, random, multiprocessing, os, sys, copy
 import numpy, scipy, scipy.stats
 
 from . import FittingBaseClass
+from .child_payload import ChildPayload
 import zunzun.forms
 import zunzun.formConstants
 import pyeq3
@@ -18,6 +19,17 @@ class FitUserSelectablePolyfunctional(FittingBaseClass.FittingBaseClass):
         self.Y3DList = pyeq3.PolyFunctions.GenerateListForPolyfunctionals_3D_Y()        
 
     
+    def build_child_payload(self):
+        payload = super().build_child_payload()
+        payload.extra["polyfunctional2DFlags"] = self.boundForm.equation.polyfunctional2DFlags
+        payload.extra["polyfunctional3DFlags"] = self.boundForm.equation.polyfunctional3DFlags
+        return payload
+
+    def apply_child_payload(self, payload):
+        super().apply_child_payload(payload)
+        self.dataObject.equation.polyfunctional2DFlags = payload.extra["polyfunctional2DFlags"]
+        self.dataObject.equation.polyfunctional3DFlags = payload.extra["polyfunctional3DFlags"]
+
     def SaveSpecificDataToSessionStore(self):
         self.SaveDictionaryOfItemsToSessionStore('data', {'dimensionality':self.dimensionality,
                                                           'equationName':self.inEquationName,

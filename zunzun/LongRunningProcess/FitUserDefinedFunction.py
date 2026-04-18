@@ -7,6 +7,7 @@ from django.template.loader import render_to_string
 
 from . import FittingBaseClass
 from . import ReportsAndGraphs
+from .child_payload import ChildPayload
 
 import zunzun.forms
 import pyeq3
@@ -22,6 +23,15 @@ class FitUserDefinedFunction(FittingBaseClass.FittingBaseClass):
         self.reniceLevel = 15
 
     
+    def build_child_payload(self):
+        payload = super().build_child_payload()
+        payload.extra["userDefinedFunctionText"] = self.boundForm.equation.userDefinedFunctionText
+        return payload
+
+    def apply_child_payload(self, payload):
+        super().apply_child_payload(payload)
+        self.dataObject.equation.userDefinedFunctionText = payload.extra["userDefinedFunctionText"]
+
     def SaveSpecificDataToSessionStore(self):
         self.SaveDictionaryOfItemsToSessionStore('data', {'dimensionality':self.dimensionality,
                                                           'equationName':self.inEquationName,
@@ -62,9 +72,12 @@ class FitUserDefinedFunction(FittingBaseClass.FittingBaseClass):
             f = open(os.path.join(settings.TEMP_FILES_DIR, self.dataObject.uniqueString + ".html"), "w")
             f.write(render_to_string('zunzun/exception_while_fitting_an_equation.html', itemsToRender))
             self.SaveDictionaryOfItemsToSessionStore('status', {'redirectToResultsFileOrURL':os.path.join(settings.TEMP_FILES_DIR, self.dataObject.uniqueString + ".html")})
-            import time
-            time.sleep(1.0)
-            os._exit(0)
+            # Raise SystemExit so the spawned child terminates cleanly without
+            # overwriting the redirect already written to the session store.
+            # SystemExit is a BaseException, not Exception, so the generic
+            # "unknown exception" handler in _run_fit_child does not fire.
+            # The finally block in _run_fit_child provides the post-work sleep.
+            raise SystemExit(0)
 
         self.SaveDictionaryOfItemsToSessionStore('status', {'currentStatus':"Calculating Parameter Statistics"})
         self.dataObject.equation.CalculateCoefficientAndFitStatistics()

@@ -21,7 +21,8 @@ import numpy, multiprocessing
 import zunzun
 import pyeq3
 from . import LongRunningProcess
-import psutil # for killing child zombie processes
+from . import platform_compat
+from .LongRunningProcess.child_payload import _run_fit_child
 
 # is django_brake used for rate limiting web site slammers?
 try: # django_brake installed?
@@ -33,6 +34,46 @@ except: # django_brake is not installed, use dummy pass-through decorator
         def temp(*args, **kwargs):
             return args[0]
         return temp
+
+
+def _housekeeping_child(temp_dir: str, max_size_mb: int) -> None:
+    """Top-level entrypoint for the HomePageView housekeeping fork.
+
+    Must be module-level (not nested) for spawn to pickle it.
+    Clears expired sessions and trims temp/ when it exceeds
+    max_size_mb.
+    """
+    from django.contrib.sessions.backends.db import SessionStore as _SessionStore
+    try:
+        _SessionStore().clear_expired()
+
+        totalDirSize = 0
+        dirInfo = []
+        for item in os.listdir(temp_dir):
+            itempath = os.path.join(temp_dir, item)
+            if os.path.isfile(itempath):
+                fileSize = os.path.getsize(itempath)
+                fileMtime = os.path.getmtime(itempath)
+                dirInfo.append([fileMtime, fileSize, item])
+                totalDirSize += fileSize
+
+        maxSize = max_size_mb * 1000000
+
+        if totalDirSize > maxSize:
+            totalReduction = 0
+            reductionAmount = (totalDirSize - maxSize) + (maxSize * 0.25)
+            dirInfo.sort()
+            for fileItem in dirInfo:
+                if totalReduction < reductionAmount:
+                    totalReduction += fileItem[1]
+                    try:
+                        os.remove(os.path.join(temp_dir, fileItem[2]))
+                    except Exception:
+                        pass
+                else:
+                    break
+    except Exception:
+        pass
 
 
 @cache_control(no_cache=True)
@@ -213,7 +254,7 @@ def StatusView(request):
     s += '\n'
     s += 'Time of last update   : ' + time.asctime(time.localtime(timeStamp))[:-5]
     
-    loadavg = os.getloadavg()
+    loadavg = platform_compat.get_loadavg()
     s += '\n\n'
     s += 'Server load average for the past 1 minute:   ' + str(loadavg[0]) + '\n'
     s += 'Server load average for the past 5 minutes:  ' + str(loadavg[1]) + '\n'
@@ -414,38 +455,15 @@ def LongRunningProcessView(request, inDimensionality, inEquationFamilyName='', i
     db.connections.close_all()
     close_old_connections()
 
-    processID_1 = os.fork()
-    if processID_1 == 0: # child process, kill when done
+    # Build the picklable payload in the parent, then hand it to a spawned
+    # child process. Spawn (vs fork) is mandatory on Windows and safer on
+    # Linux under a multi-threaded WSGI server like Waitress.
+    payload = LRP.build_child_payload()
 
-        os.nice(LRP.reniceLevel)
+    ctx = multiprocessing.get_context("spawn")
+    child = ctx.Process(target=_run_fit_child, args=(payload,), daemon=False)
+    child.start()
 
-        # if top-level exception save data for debugging
-        dataObjectString = ''
-        #try:
-        #    dataObjectString = str(LRP.dataObject)
-        #except:
-        #    dataObjectString = 'could not str(LRP.dataObject)'
-
-        try:
-            LRP.PerformAllWork()
-        except:
-            import logging
-            logging.basicConfig(filename = os.path.join(settings.TEMP_FILES_DIR,  str(os.getpid()) + '.log'),level=logging.DEBUG)
-            
-            logging.exception('Site top-level exception\n' + dataObjectString + '\n')
-        
-            extraInfo = '\n\nrequest.META info:\n'
-            for item in request.META:
-                extraInfo += str(item) + ' : ' + str(request.META[item]) + '\n'
-                
-            LRP.SaveDictionaryOfItemsToSessionStore('status', {'currentStatus':"An unknown exception has occurred, and an email with details has been sent to the site administrator. These are sometimes caused by taking the exponent of large numbers."})
-        finally:
-            time.sleep(1.0)
-            #if LRP.pool:
-            #    LRP.pool.close()
-            #    LRP.pool.join()
-            os._exit(0) # kill this child process
-        
     # using HTTP_HOST allows dev server
     return HttpResponseRedirect('http://' + request.META['HTTP_HOST'] + '/StatusAndResults/')
 
@@ -491,43 +509,12 @@ def HomePageView(request):
     # that actual home page generation time is not impacted
     db.connections.close_all()
     close_old_connections()
-    processID_1 = os.fork()
-    if processID_1 == 0: # child process, kill when done
-        try:
-            # whenever the home page is loaded, clear expired sessions
-            SessionStore().clear_expired()
-
-            # whenever the home page is loaded, make sure there is
-            # space in the temp directory for newly created files    
-            totalDirSize = 0
-            dirInfo = []
-            for item in os.listdir(settings.TEMP_FILES_DIR):
-                itempath = os.path.join(settings.TEMP_FILES_DIR, item)
-                if os.path.isfile(itempath):
-                    fileSize = os.path.getsize(itempath)
-                    fileMtime = os.path.getmtime(itempath) # to sort by creation time
-                    dirInfo.append([fileMtime, fileSize, item])
-                    totalDirSize += fileSize
-            
-            # approximately the max temp directory number of bytes
-            maxSize = settings.MAX_TEMP_DIR_SIZE_IN_MBYTES * 1000000
-            tempDir = settings.TEMP_FILES_DIR
-
-            if totalDirSize > maxSize:
-                totalReduction = 0
-                reductionAmount = (totalDirSize - maxSize) + (maxSize * 0.25)
-                dirInfo.sort() # delete oldest files first
-                for fileItem in dirInfo:
-                    if totalReduction < reductionAmount:
-                        totalReduction += fileItem[1]
-                        try: # prevent possible exceptions from race conditions
-                            os.remove(os.path.join(tempDir, fileItem[2]))
-                        except:
-                            pass
-                    else:
-                        break
-        finally:
-            os._exit(0) # kill this child process
+    ctx = multiprocessing.get_context("spawn")
+    ctx.Process(
+        target=_housekeeping_child,
+        args=(settings.TEMP_FILES_DIR, settings.MAX_TEMP_DIR_SIZE_IN_MBYTES),
+        daemon=True,
+    ).start()
 
     # parent process, start code for view generation
     if CommonToAllViews(request): # any referrer blocks or web request checks processed here
@@ -540,7 +527,7 @@ def HomePageView(request):
     items_to_render['dim_to_map_list'] = [['2', GetEquationInfoDictionary(2, 'Standard')], ['3', GetEquationInfoDictionary(3, 'Standard')]]
     items_to_render['header_text'] = 'ZunZunSite3 Online Curve Fitting<br>and Surface Fitting Web Site'
     items_to_render['feedbackForm'] = forms.FeedbackForm()
-    items_to_render['loadavg'] = os.getloadavg()
+    items_to_render['loadavg'] = platform_compat.get_loadavg()
 
     return render_to_response('zunzun/home_page.html', items_to_render)
 
@@ -673,12 +660,9 @@ def GetEquationInfoDictionary(inDimensionality, inAllOrStandardOnly):
 
 def CommonToAllViews(request):
     
-    # if possible, kill any child zombie processes
-    # based on # from https://psutil.readthedocs.io/en/latest/#recipes
-    child_procs = psutil.Process().children()
-    for child in child_procs:
-        if child.status() == psutil.STATUS_ZOMBIE:
-            child.wait() # should return immediately for zombie processes
+    # Reap any completed multiprocessing children so they don't linger.
+    # No-op on Windows (no zombies), proper cleanup on Unix.
+    platform_compat.reap_completed_children()
 
     ip = request.META.get('REMOTE_ADDR')
     if ip in []:
