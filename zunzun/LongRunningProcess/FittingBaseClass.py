@@ -87,12 +87,22 @@ You must provide any weights you wish to use.
         
         self.boundForm.equation.fixedCoefficients = self.boundForm.cleaned_data['fixedCoefficientList']
         
-        self.boundForm.equation.estimatedCoefficients = numpy.array(self.boundForm.cleaned_data['estimatedCoefficientList'])
+        # Keep estimatedCoefficients as a Python list when empty, and only
+        # promote to numpy.array when it holds values. pyeq3's SolverService
+        # checks `if inModel.estimatedCoefficients != []:` — under modern
+        # numpy (>=1.25), `numpy.array([]) != []` produces an empty bool
+        # array and `if` on that raises "The truth value of an empty array
+        # is ambiguous". A plain list [] avoids the ambiguous comparison.
+        _estimates = self.boundForm.cleaned_data['estimatedCoefficientList']
         try:
-            if len(self.boundForm.equation.estimatedCoefficients) > len(self.boundForm.equation.GetCoefficientDesignators()):
-                self.boundForm.equation.estimatedCoefficients = self.boundForm.equation.estimatedCoefficients[:len(self.boundForm.equation.GetCoefficientDesignators())]
-        except:
-            self.boundForm.equation.estimatedCoefficients = numpy.array([])
+            n_coeffs = len(self.boundForm.equation.GetCoefficientDesignators())
+            if len(_estimates) > n_coeffs:
+                _estimates = _estimates[:n_coeffs]
+        except Exception:
+            _estimates = []
+        self.boundForm.equation.estimatedCoefficients = (
+            numpy.array(_estimates) if len(_estimates) > 0 else []
+        )
             
         # estimates for each coefficients were not supplied
         for i in range(len(self.boundForm.equation.estimatedCoefficients)):
