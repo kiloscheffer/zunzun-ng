@@ -1,30 +1,22 @@
 """Cross-platform end-to-end smoke test for zunzunsite3.
 
-Starts a Waitress subprocess on a free port, runs three scenarios against it,
-then stops the server. Exits 0 iff all scenarios pass.
+Starts a Waitress subprocess on a free port, runs the scenarios below
+against it, then stops the server. Exits 0 iff all scenarios pass.
 
 Scenarios
 ---------
 
-1. **polynomial_quadratic_2D** — direct 2D polynomial-quadratic fit via
-   /FitEquation__F__/2/Polynomial/2nd Order (Quadratic)/. Exercises the
-   main LongRunningProcessView → spawn → _run_fit_child → PerformAllWork
-   path. Closed-form least-squares — does NOT exercise pyeq3's
-   differential-evolution initial-estimate code path.
+1. **polynomial_quadratic_2D** — direct 2D polynomial-quadratic fit.
+2. **evaluate_at_a_point** — chained after scenario 1; POSTs X=7.0
+   against the session's solved coefficients.
+3. **function_finder_2D** — ranks an Exponential-only search.
+4. **function_finder_detail_2D** — fits the RANK=1 equation.
+5. **characterize_2D** — descriptive statistics only, no fit.
+6. **all_equations_2D** — GET AllEquations listing.
+7. **feedback_form** — GET form + POST reply.
+8. **invalid_form_post** — malformed data → error template.
 
-2. **function_finder_2D** — POSTs to /FunctionFinder__F__/2/ restricted
-   to the Exponential family so the top-ranked equation is guaranteed
-   nonlinear. Exercises the Pool workers inside
-   FunctionFinder.PerformWorkInParallel (including the dataCache
-   passing through Process args) and lands on the ranking listing page.
-
-3. **function_finder_detail_2D** — immediately after scenario 2,
-   extracts the top-ranked equation's URL from the ranking listing
-   page and POSTs a detailed fit via /FitEquation__F__/{...}/.
-   Exercises the full user click-through flow AND the differential-
-   evolution initial-estimate path in pyeq3. Without this, the
-   numpy-empty-array bug in SolverService.py:144 would only surface
-   when a human clicked a ranked result.
+A 9th scenario (3D polynomial fit) is deferred — see TODO.md.
 
 Usage:
   uv run python scripts/smoke_test.py
