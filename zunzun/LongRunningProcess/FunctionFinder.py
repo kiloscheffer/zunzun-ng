@@ -3,6 +3,7 @@ import inspect, time, math, random, multiprocessing, queue, copy, sys, os
 import numpy
 
 from . import StatusMonitoredLongRunningProcessPage
+from .StatusMonitoredLongRunningProcessPage import _json_native
 from . import ReportsAndGraphs
 from .child_payload import ChildPayload
 import settings
@@ -157,14 +158,14 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
 
     def RenderOutputHTMLToAFileAndSetStatusRedirect(self):
         import time
-        
-        self.SaveDictionaryOfItemsToSessionStore('functionfinder', {'functionFinderResultsList':self.functionFinderResultsList})
-        
-        self.SaveDictionaryOfItemsToSessionStore('data', {'textDataEditor':self.dataObject.textDataEditor,
+
+        self.SaveDictionaryOfItemsToSessionStore('functionfinder', {'functionFinderResultsList':_json_native(self.functionFinderResultsList)})
+
+        self.SaveDictionaryOfItemsToSessionStore('data', _json_native({'textDataEditor':self.dataObject.textDataEditor,
                                                            'weightedFittingChoice':self.dataObject.weightedFittingChoice,
                                                            'fittingTarget':self.dataObject.fittingTarget,
                                                            'DependentDataArray':self.dataObject.DependentDataArray,
-                                                           'IndependentDataArray':self.dataObject.IndependentDataArray})
+                                                           'IndependentDataArray':self.dataObject.IndependentDataArray}))
                     
         if self.dataObject.dimensionality == 2:
             self.SaveDictionaryOfItemsToSessionStore('data', {'logLinX':self.dataObject.logLinX,

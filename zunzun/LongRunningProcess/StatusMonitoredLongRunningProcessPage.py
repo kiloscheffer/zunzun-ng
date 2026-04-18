@@ -29,6 +29,27 @@ import pyeq3
 from . import pid_trace
 
 
+def _json_native(value):
+    """Recursively coerce numpy types to plain Python primitives.
+
+    Session storage uses Django's default JSONSerializer post-Phase-3,
+    which cannot encode numpy scalars or arrays. Ranking tuples and
+    coefficient arrays produced by pyeq3 contain numpy floats; cast
+    them here at the write boundary before handing off to the session
+    helpers.
+    """
+    import numpy
+    if isinstance(value, numpy.ndarray):
+        return value.tolist()
+    if isinstance(value, numpy.generic):
+        return value.item()
+    if isinstance(value, dict):
+        return {k: _json_native(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_native(v) for v in value]
+    return value
+
+
 def ParallelWorker_CreateReportOutput(inReportObject):
     try:
         if inReportObject.dataObject.equation.GetDisplayName() == 'User Defined Function': # User Defined Function will not pickle, see http://support.picloud.com/entries/122330-an-error-i-don-t-understand

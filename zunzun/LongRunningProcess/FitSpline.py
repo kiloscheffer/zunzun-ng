@@ -5,6 +5,7 @@ import numpy, scipy, scipy.stats
 from django.template.loader import render_to_string
 
 from . import FittingBaseClass
+from .StatusMonitoredLongRunningProcessPage import _json_native
 from .child_payload import ChildPayload
 import zunzun.forms
 
@@ -17,13 +18,16 @@ class FitSpline(FittingBaseClass.FittingBaseClass):
         self.interfaceString = 'zunzun/equation_fit_interface.html'
         self.spline = True
 
-    
+
     def SaveSpecificDataToSessionStore(self):
-        self.SaveDictionaryOfItemsToSessionStore('data', {'dimensionality':self.dimensionality,
+        # scipySpline is a tuple of numpy arrays; _json_native converts
+        # the arrays to lists. The EvaluateAtAPointView will need to
+        # reconstruct any spline-typed input from these raw sequences.
+        self.SaveDictionaryOfItemsToSessionStore('data', _json_native({'dimensionality':self.dimensionality,
                                                           'equationName':self.inEquationName,
                                                           'equationFamilyName':self.inEquationFamilyName,
                                                           'scipySpline':self.dataObject.equation.scipySpline,
-                                                          'solvedCoefficients':self.dataObject.equation.solvedCoefficients})
+                                                          'solvedCoefficients':self.dataObject.equation.solvedCoefficients}))
 
 
     def build_child_payload(self):

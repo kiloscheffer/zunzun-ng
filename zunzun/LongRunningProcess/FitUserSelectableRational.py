@@ -3,6 +3,7 @@ import inspect, time, math, random, multiprocessing, os, sys, copy
 import numpy, scipy, scipy.stats
 
 from . import FittingBaseClass
+from .StatusMonitoredLongRunningProcessPage import _json_native
 from .child_payload import ChildPayload
 import zunzun.forms
 import zunzun.formConstants
@@ -31,13 +32,13 @@ class FitUserSelectableRational(FittingBaseClass.FittingBaseClass):
         self.dataObject.equation.rationalDenominatorFlags = payload.extra["rationalDenominatorFlags"]
 
     def SaveSpecificDataToSessionStore(self):
-        self.SaveDictionaryOfItemsToSessionStore('data', {'dimensionality':self.dimensionality,
+        self.SaveDictionaryOfItemsToSessionStore('data', _json_native({'dimensionality':self.dimensionality,
                                                           'equationName':self.inEquationName,
                                                           'equationFamilyName':self.inEquationFamilyName,
                                                           'solvedCoefficients':self.dataObject.equation.solvedCoefficients,
                                                           'fittingTarget':self.dataObject.equation.fittingTarget,
                                                           'rationalNumeratorFlags':self.dataObject.equation.rationalNumeratorFlags,
-                                                          'rationalDenominatorFlags':self.dataObject.equation.rationalDenominatorFlags})
+                                                          'rationalDenominatorFlags':self.dataObject.equation.rationalDenominatorFlags}))
 
 
     def TransferFormDataToDataObject(self, request): # return any error in a user-viewable string (self.dataObject.ErrorString)        
