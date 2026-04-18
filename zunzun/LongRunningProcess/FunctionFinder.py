@@ -18,12 +18,19 @@ from . import pid_trace
 externalDataCache = pyeq3.dataCache()
 
 
-def parallelWorkFunction(inParameterList):
-    global externalDataCache
+def parallelWorkFunction(inParameterList, dataCache):
+    """Worker-side fit of a single equation against shared data.
 
+    `dataCache` is passed explicitly rather than read from a module-level
+    global because this function is invoked inside spawned child
+    processes. Fork children inherit module-level state from the parent;
+    spawn children re-import the module from scratch and see a fresh
+    empty dataCache. Passing it in args ensures the child receives the
+    populated version through multiprocessing's pickle handoff.
+    """
     try:
         j = eval(inParameterList[0] + "." + inParameterList[1] + "('" + inParameterList[9] + "', '" + inParameterList[2] + "')")
-        j.dataCache = externalDataCache
+        j.dataCache = dataCache
         j.polyfunctional2DFlags = inParameterList[3]
         j.polyfunctional3DFlags = inParameterList[4]
         j.xPolynomialOrder = inParameterList[5]
@@ -66,10 +73,10 @@ def parallelWorkFunction(inParameterList):
         return [None, inParameterList[0], inParameterList[1], inParameterList[2]]
 
 
-def serialWorker(obj, inputList, outputList):
+def serialWorker(obj, inputList, outputList, dataCache):
     for i in range(len(inputList)):
         try:
-            result = parallelWorkFunction(inputList[i])
+            result = parallelWorkFunction(inputList[i], dataCache)
             if result[0]:
                 outputList.append(result)
                 obj.countOfSerialWorkItemsRun += 1
@@ -81,10 +88,10 @@ def serialWorker(obj, inputList, outputList):
             logging.exception('serialWorker exception')
 
 
-def parallelWorker(inputList, outputQueue):
+def parallelWorker(inputList, outputQueue, dataCache):
     for i in range(len(inputList)):
         try:
-            outputQueue.put(parallelWorkFunction(inputList[i]))
+            outputQueue.put(parallelWorkFunction(inputList[i], dataCache))
         except:
             import logging
             logging.basicConfig(filename = os.path.join(settings.TEMP_FILES_DIR,  str(os.getpid()) + '.log'),level=logging.DEBUG)
@@ -419,7 +426,10 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
                     taskList = []
                     while len(self.parallelWorkItemsList) > 0 and len(taskList) < equationCount:
                         taskList.append(self.parallelWorkItemsList.pop())
-                    p = _ctx.Process(target=parallelWorker, args=(taskList, fittingResultsQueue))
+                    p = _ctx.Process(
+                        target=parallelWorker,
+                        args=(taskList, fittingResultsQueue, self.dataObject.equation.dataCache),
+                    )
                     p.start()
 
             self.WorkItems_CheckOneSecondSessionUpdates()
@@ -486,7 +496,7 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
         
         # linear fits are very fast - run these in the existing process which saves on interprocess communication overhead
         if self.totalNumberOfSerialWorkItemsToBeRun:
-            serialWorker(self, self.linearFittingList, self.functionFinderResultsList)
+            serialWorker(self, self.linearFittingList, self.functionFinderResultsList, self.dataObject.equation.dataCache)
             
         self.WorkItems_CheckOneSecondSessionUpdates()
         self.SaveDictionaryOfItemsToSessionStore('status', {'currentStatus':"%s Total Equations Fitted, combining lists..." % (self.countOfParallelWorkItemsRun + self.countOfSerialWorkItemsRun)})
