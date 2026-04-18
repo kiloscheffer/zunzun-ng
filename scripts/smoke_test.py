@@ -148,6 +148,16 @@ _CHAR_EXPECTED_MARKERS = [
     "Standard Deviation:",
 ]
 
+_ALL_EQUATIONS_MARKERS = [
+    # /AllEquations/2/Polynomial/ URL — the path-segment `Polynomial`
+    # is the view's `inAllOrStandardOnly` flag, not a family filter.
+    # The header is "ZunZunSite3 List Of All Standard 2D Equations"
+    # and the page lists every family; "Polynomial" appears as a
+    # section heading and in many equation links.
+    "All Standard 2D Equations",
+    "Polynomial",
+]
+
 # Pattern for the first /Equation/{dim}/{family}/{equation}/?RANK=1
 # hyperlink in the FunctionFinder results listing. family and equation
 # segments are URL-encoded (%20 for spaces, %28 for '(', etc.) and
@@ -347,6 +357,13 @@ def run_smoke() -> int:
             errors.append(err)
         else:
             print("[characterize_2D] OK")
+
+        r = session.get(base + "/AllEquations/2/Polynomial/")
+        err = _check_markers("all_equations_2D", r.text, _ALL_EQUATIONS_MARKERS)
+        if err:
+            errors.append(err)
+        else:
+            print("[all_equations_2D] OK")
 
         if errors:
             for msg in errors:
