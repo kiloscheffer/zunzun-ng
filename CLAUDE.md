@@ -41,7 +41,7 @@ Starts a throwaway Waitress, POSTs a 2D polynomial-quadratic fit, polls for comp
 
 Python deps are declared in `pyproject.toml` and pinned in the committed `uv.lock`. Runtime group: Django (pinned `>=2.2,<3.0` — see "Django version pin" below), pyeq3, scipy, matplotlib, numpy, reportlab, psutil, beautifulsoup4, lxml, waitress. Dev group: mypy, pytest, pytest-django, requests.
 
-**Django version pin.** Django is intentionally held below 3.0 because `render_to_response` (removed in Django 3.0) is called in 6 places in `zunzun/views.py`, and `url()` / the `patterns()` compat shim in `urls.py` break on Django 4.0+. Upgrading to modern Django LTS is a tracked but separate piece of work — see `.claude/agents/fork-pattern-reviewer.md` for the review standards and plan the migration as its own branch.
+**Django version.** Django 5.2 LTS, supported through April 2028. The code uses only long-stable APIs (`re_path`, `render`, the `TEMPLATES` settings shape, default `JSONSerializer` for sessions). See `docs/superpowers/specs/2026-04-18-django-upgrade-design.md` for the 2.2 → 5.2 migration history.
 
 **FunkLoad is not in pyproject.toml.** Its `setup.py` uses `ez_setup`, which was removed from modern setuptools, so it cannot be installed under the uv-managed Python 3.11 environment. If you need to run the FunkLoad suite, use a separate legacy Python env, or port the HTTP assertions in `funkload_tests/test_Simple.py` to pytest + `requests` (the logic is just GET/POST with string-match assertions).
 
@@ -75,12 +75,6 @@ Starts Waitress, POSTs a 2D polynomial-quadratic fit against sample data, polls 
 
 Unlike a normal Django project, there is **no inner project package** — `settings.py`, `urls.py`, `wsgi.py`, and `manage.py` sit at the repo root next to the single Django app `zunzun/`. `DJANGO_SETTINGS_MODULE` is just `'settings'`. When touching imports, note that `zunzun/*` does `import settings` directly (not `from project import settings`).
 
-### Django version compatibility shim
-
-The code is written to run across a broad span of Django versions:
-- `urls.py` has a `try: patterns(...) except: [url(...), ...]` split.
-- `settings.py` defines **both** `MIDDLEWARE_CLASSES` and `MIDDLEWARE` (aliased), **both** `TEMPLATE_DIRS` and `TEMPLATES`. The duplication is intentional — don't "clean it up."
-
 ### The spawn-based long-running-process pattern
 
 This is the single most important thing to understand before modifying views or session code.
@@ -107,7 +101,7 @@ Consequences:
 - `session_key_data` — solved coefficients, equation name/family, etc., consumed later by `EvaluateAtAPointView`.
 - `session_key_functionfinder` — ranked results for `FunctionFinder`.
 
-Every value is `pickle.dumps(...).hex()`-encoded before storage and `pickle.loads(bytes.fromhex(...))` on read — because `SESSION_SERIALIZER` is set to `PickleSerializer` but the data still has to survive a JSON round-trip in places. Use the helpers `SaveDictionaryOfItemsToSessionStore` / `LoadItemFromSessionStore` in `StatusMonitoredLongRunningProcessPage.py` rather than writing session keys directly; they handle the hex/pickle dance and SQLite-lock retries.
+Session values are stored as JSON-native Python types (floats, strings, lists of floats, nested dicts of primitives) via the default `JSONSerializer`. The helpers `SaveDictionaryOfItemsToSessionStore` / `LoadItemFromSessionStore` in `StatusMonitoredLongRunningProcessPage.py` wrap `session.save()` in a SQLite-lock retry loop and handle the three-store routing (status / data / functionfinder). Callers are responsible for casting numpy values to plain Python primitives at write time — see `_json_native` in that same module.
 
 **SQLite lock retry idiom**: every `session.save()` is wrapped in a `while not save_complete` loop that retries 100× at 10Hz before re-raising. When adding new session writes, copy this pattern — concurrent spawn children fighting for the SQLite session DB will lock it otherwise. Spawn children open fresh DB connections (vs. fork's inherited ones), so lock contention is arguably more relevant post-migration, not less.
 
@@ -153,4 +147,4 @@ Both functions in `zunzun/LongRunningProcess/pid_trace.py` `return` at the top. 
 
 ## Rate limiting
 
-Views are decorated with `@ratelimit(rate='12/m')` from `django_brake`. If `brake` isn't installed, `views.py` substitutes a pass-through decorator — so decorator presence does not imply the limit is actually enforced. `CommonToAllViews` applies a 5-second `time.sleep` when `request.limited` is set, which only happens when `brake` is present.
+Views are decorated with `@ratelimit(key='ip', rate='12/m', block=False)` from `django-ratelimit`. `request.limited` is set to `True` when the caller exceeds the rate; `CommonToAllViews` applies a 5-second `time.sleep` when this is set. The limiter is always in effect (no install-time gating); to disable it for local testing, set `RATELIMIT_ENABLE = False` in `settings.py`.
