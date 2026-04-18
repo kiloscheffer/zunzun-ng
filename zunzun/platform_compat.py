@@ -59,23 +59,46 @@ def get_parallel_process_count(cpu_cap: int | None = None) -> int:
     but driven by psutil instead of /proc/loadavg and vmstat.
 
     Heuristic:
-    - Start with free+cached memory / 80 MB
-    - Cap at min(cpu_cap, cpu_count)
-    - Reduce further if load average is >= cpu_count + 0.5/1.0/1.5
-    - Floor at 1
+    - Estimate per-worker memory based on start method (fork ≈ 80 MB
+      via copy-on-write; spawn ≈ 750 MB because each worker re-imports
+      numpy/scipy/pyeq3 from scratch).
+    - Ceiling at available memory / per-worker estimate.
+    - Cap at min(cpu_cap, cpu_count). On platforms that use spawn by
+      default (Windows, macOS), hard-cap at 4 to keep total VM usage
+      tractable even on high-core machines with modest RAM.
+    - Reduce under high load.
+    - Floor at 1.
     """
-    cpu_count = multiprocessing.cpu_count()
-    effective_cap = min(cpu_cap, cpu_count) if cpu_cap is not None else cpu_count
+    import sys
 
-    # Memory-based ceiling: free + cached, in KiB, divided by 80 MB
+    cpu_count = multiprocessing.cpu_count()
+
+    # Pick the default multiprocessing start method for this platform.
+    # "fork" on Linux (cheap), "spawn" on Windows + macOS (expensive).
+    default_start = multiprocessing.get_start_method(allow_none=False)
+    uses_spawn = default_start != "fork"
+
+    # Per-worker memory cost scales dramatically with the start method.
+    per_worker_kib = 750_000 if uses_spawn else 80_000
+
+    # On spawn platforms, hard-cap at 4 workers by default — the memory
+    # math alone can permit more, but pagefile pressure and process-startup
+    # overhead make high worker counts counterproductive. Callers that
+    # really want more can pass cpu_cap explicitly.
+    platform_ceiling = 4 if uses_spawn else cpu_count
+
+    if cpu_cap is None:
+        effective_cap = min(platform_ceiling, cpu_count)
+    else:
+        effective_cap = min(cpu_cap, cpu_count)
+
     mem = psutil.virtual_memory()
-    mem_kib_available = (mem.available) / 1024.0
-    n = int(mem_kib_available / 80000.0)
+    mem_kib_available = mem.available / 1024.0
+    n = int(mem_kib_available / per_worker_kib)
 
     n = min(n, effective_cap)
     n = max(n, 1)
 
-    # Load-based throttle
     load1, _, _ = get_loadavg()
     if load1 > (cpu_count + 1.5) and n > 1:
         n = 1
