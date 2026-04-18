@@ -134,6 +134,28 @@ _FF_EXPECTED_MARKERS = [
     "Rank 1",
 ]
 
+_CHAR_2D_FIELDS = {
+    "commaConversion": "I",
+    "dataNameX": "X Data",
+    "dataNameY": "Y Data",
+    "textDataEditor": _DATA_2D_POLY,
+    "graphSize": "320x240",
+    "scientificNotationX": "AUTO",
+    "scientificNotationY": "AUTO",
+    "graphScaleRadioButtonX": "0.050",
+    "graphScaleRadioButtonY": "0.050",
+    "logLinX": "LIN",
+    "logLinY": "LIN",
+}
+
+_CHAR_EXPECTED_MARKERS = [
+    "Data Statistics",
+    "Minimum:",
+    "Maximum:",
+    "Mean:",
+    "Standard Deviation:",
+]
+
 # Pattern for the first /Equation/{dim}/{family}/{equation}/?RANK=1
 # hyperlink in the FunctionFinder results listing. family and equation
 # segments are URL-encoded (%20 for spaces, %28 for '(', etc.) and
@@ -319,6 +341,20 @@ def run_smoke() -> int:
                 errors.append(err)
             else:
                 print("[function_finder_detail_2D] OK")
+
+        err = _run_scenario(
+            session,
+            base,
+            "characterize_2D",
+            base + "/CharacterizeData/2/",
+            _CHAR_2D_FIELDS,
+            _CHAR_EXPECTED_MARKERS,
+            timeout_s=120,
+        )
+        if err:
+            errors.append(err)
+        else:
+            print("[characterize_2D] OK")
 
         if errors:
             for msg in errors:
