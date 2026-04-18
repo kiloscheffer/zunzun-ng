@@ -30,6 +30,8 @@ The architectural heart of the Linux dependency is the **fork-and-redirect patte
 **Non-goals:**
 
 - Not tackled in this work: the Django 2.x → 4.2 LTS migration (`render_to_response`, `url()`, `PickleSerializer`). The existing `django<3.0` pin stays; the `try/except patterns` shim in `urls.py` and the `MIDDLEWARE_CLASSES = MIDDLEWARE` alias in `settings.py` remain untouched.
+
+  > **Update (2026-04-18):** The Django migration has since been completed — see `docs/superpowers/specs/2026-04-18-django-upgrade-design.md` and its plan `docs/superpowers/plans/2026-04-18-django-upgrade.md`. Target was 5.2 LTS, not 4.2. The `try/except patterns` shim and `MIDDLEWARE_CLASSES`/`MIDDLEWARE` alias are gone; the session-storage convention changed from pickle-hex to JSON-native.
 - Not tackled: FunkLoad replacement or porting. FunkLoad is already broken on modern setuptools; the smoke test in this spec partially substitutes for its value but is not a full replacement.
 - Not tackled: CI matrix automation (see Section 7).
 - Not tackled: Docker packaging. Docker already solves cross-platform by running Linux containers; out of scope here.
