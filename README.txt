@@ -29,14 +29,31 @@ Then run the django development server with:
 and open the url http://127.0.0.1:8000/ in a browser. Cool!
 
 
-NOTES: the code uses Unix-style process forking, and this is not
-available on the Windows operating system.
+Cross-platform: zunzunsite3 runs natively on Linux, macOS, and Windows
+as of April 2026. The original os.fork() architecture was replaced
+with multiprocessing.Process(spawn) so the code no longer depends on
+Unix-style process forking.
 
-My tests show that while both mod_wsgi and gunicorn work fine for
-Django production servers, the uwsgi process model would not allow
-os.fork() calls to work as required for this software.
+For production deployment recipes per platform, see docs/deployment/.
+The recommended stack is nginx/IIS + Waitress (works on all three OSes).
+
+If you have existing Linux deployments: gunicorn still works with
+--worker-class sync --threads 1 (multi-threaded workers reintroduce
+fork-safety hazards in view code that spawns subprocesses). Apache +
+mod_wsgi works under the same threads=1 constraint. Waitress is now
+the recommended cross-platform choice.
+
+An end-to-end smoke test is available:
+
+    uv run python scripts/smoke_test.py
+
+It starts a throwaway Waitress, runs a 2D polynomial-quadratic fit
+end-to-end, and asserts the fit results rendered correctly. Useful
+for verifying a fresh deployment or confirming a dev setup works.
 
 The FunkLoad functional tests in funkload_tests/ require a separate
 install. FunkLoad's setup.py depends on ez_setup which has been
 removed from modern setuptools, so it cannot be installed under the
-uv-managed environment; see CLAUDE.md > Tests for current guidance.
+uv-managed environment. scripts/smoke_test.py provides a lighter
+substitute using pytest-style HTTP assertions. See CLAUDE.md > Tests
+for details.
