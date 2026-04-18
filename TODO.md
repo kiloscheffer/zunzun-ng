@@ -52,3 +52,49 @@ leaves 3D coverage as a known hole.
 branch and its own spec/plan cycle, since the root cause is in the
 spawn-Pool pattern (shared with the cross-platform migration), not in
 Django version compatibility.
+
+## Spline + UDF session round-trip not smoke-covered
+
+**Symptom / exposure.** Phase 3 of the Django 5.2 migration introduced
+`_json_native` at all `SaveSpecificDataToSessionStore` sites in the LRP
+subclass tree, which converts numpy arrays to plain Python lists before
+the session write. Two specific shapes land in session data but aren't
+exercised end-to-end by smoke:
+
+1. **`FitSpline.scipySpline` is a tuple `(knots_ndarray, coefs_ndarray, degree_int)`.**
+   After `_json_native`, this becomes `[list_of_floats, list_of_floats, int]`.
+   `EvaluateAtAPointView` reads it back via `LoadItemFromSessionStore` and
+   assigns to `equation.scipySpline`. scipy's `BSpline` / `splev` functions
+   accept tuple-of-arrays but may raise on list-of-lists. There is no smoke
+   scenario for spline fits — `scripts/smoke_test.py` does not POST to any
+   `/FitEquation__F__/[23]/Spline/...` URL.
+
+2. **`FitUserDefinedFunction.solvedCoefficients`** stores a numpy array
+   which is now cast to a list at write time. `EvaluateAtAPointView`
+   converts back via `numpy.array(...)` when loading, so this one is
+   likely fine — but no smoke scenario exercises UDF end-to-end, so the
+   claim is unverified.
+
+**When we hit it.** 2026-04-18, Phase 3 refactor. `_json_native` was
+applied defensively across all Fit* subclasses because numpy → JSON
+would crash at runtime otherwise. Smoke coverage for these paths was
+out of scope for the Django 5.2 branch.
+
+**Hypothesis.** The spline case is the real risk. scipy's BSpline
+constructors are historically strict about array-vs-list types. A user
+who completes a spline fit and then clicks Evaluate-at-a-Point may get
+a TypeError.
+
+**Where to pick up.**
+- Add a `spline_2D` smoke scenario: POST to `/FitEquation__F__/2/Spline/...`
+  with a suitable equation + dataset, chain Evaluate-at-a-Point after it
+  the same way `evaluate_at_a_point` chains after `polynomial_quadratic_2D`.
+- Add a `udf_2D` smoke scenario: POST to `/FitUserDefinedFunction__F__/2/`
+  with a simple formula like `a + b*X`, chain evaluation.
+- If either fails with a scipy type error, the fix is at the load site
+  (`EvaluateAtAPointView`): after `LoadItemFromSessionStore(...)`, cast
+  back to the right scipy-accepted shape before assigning.
+
+**Not in scope of the Django 5.2 branch.** The 5.2 branch delivered its
+intended surface; these two scenarios are low-frequency user paths and
+exercising them is future work.
