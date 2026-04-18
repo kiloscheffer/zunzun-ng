@@ -1,37 +1,16 @@
-from django.views.decorators.cache import cache_page
-from django.conf.urls import *
+from django.urls import re_path
 import zunzun.views
-import settings
 
-try: # newer versions of django
-    urlpatterns = patterns('',
-        (r"^$", zunzun.views.HomePageView),
-        
-        (r"^StatusAndResults/", zunzun.views.StatusView),
-        
-        (r"^CharacterizeData/([123])/$", zunzun.views.LongRunningProcessView),
-        (r"^StatisticalDistributions/([1])/$", zunzun.views.LongRunningProcessView),    
-        (r"^FunctionFinder__.__/([23])/$", zunzun.views.LongRunningProcessView),
-        (r"^FunctionFinderResults/([23])/$", zunzun.views.LongRunningProcessView),
-        (r"^FitEquation__F__/([23])/(.+)/(.+)/$", zunzun.views.LongRunningProcessView),
-        (r"^Equation/([23])/(.+)/(.+)/$", zunzun.views.LongRunningProcessView),
-        
-        (r"^EvaluateAtAPoint/$", zunzun.views.EvaluateAtAPointView),
-
-        (r"^AllEquations/([23])/(.+)/$", zunzun.views.AllEquationsView),
-        (r"^Feedback/$", zunzun.views.FeedbackView),
-    )
-except: # older versions of django
-    urlpatterns = [
-        url(r"^$", zunzun.views.HomePageView),
-        url(r"^StatusAndResults/", zunzun.views.StatusView),
-        url(r"^CharacterizeData/([123])/$", zunzun.views.LongRunningProcessView),
-        url(r"^StatisticalDistributions/([1])/$", zunzun.views.LongRunningProcessView),    
-        url(r"^FunctionFinder__.__/([23])/$", zunzun.views.LongRunningProcessView),
-        url(r"^FunctionFinderResults/([23])/$", zunzun.views.LongRunningProcessView),
-        url(r"^FitEquation__F__/([23])/(.+)/(.+)/$", zunzun.views.LongRunningProcessView),
-        url(r"^Equation/([23])/(.+)/(.+)/$", zunzun.views.LongRunningProcessView),
-        url(r"^EvaluateAtAPoint/$", zunzun.views.EvaluateAtAPointView),
-        url(r"^AllEquations/([23])/(.+)/$", zunzun.views.AllEquationsView),
-        url(r"^Feedback/$", zunzun.views.FeedbackView),
-]   
+urlpatterns = [
+    re_path(r"^$", zunzun.views.HomePageView),
+    re_path(r"^StatusAndResults/", zunzun.views.StatusView),
+    re_path(r"^CharacterizeData/([123])/$", zunzun.views.LongRunningProcessView),
+    re_path(r"^StatisticalDistributions/([1])/$", zunzun.views.LongRunningProcessView),
+    re_path(r"^FunctionFinder__.__/([23])/$", zunzun.views.LongRunningProcessView),
+    re_path(r"^FunctionFinderResults/([23])/$", zunzun.views.LongRunningProcessView),
+    re_path(r"^FitEquation__F__/([23])/(.+)/(.+)/$", zunzun.views.LongRunningProcessView),
+    re_path(r"^Equation/([23])/(.+)/(.+)/$", zunzun.views.LongRunningProcessView),
+    re_path(r"^EvaluateAtAPoint/$", zunzun.views.EvaluateAtAPointView),
+    re_path(r"^AllEquations/([23])/(.+)/$", zunzun.views.AllEquationsView),
+    re_path(r"^Feedback/$", zunzun.views.FeedbackView),
+]

@@ -1,5 +1,4 @@
 from django.shortcuts import render
-from django.shortcuts import render_to_response
 import django.http # to raise 404's
 from django.http import HttpResponse
 from django.http import HttpResponseRedirect
@@ -414,7 +413,7 @@ def LongRunningProcessView(request, inDimensionality, inEquationFamilyName='', i
             LRP.items_to_render = {}
             LRP.items_to_render['mainForm'] = LRP.boundForm
             LRP.items_to_render['EvaluateAtAPointForm'] = LRP.evaluationForm
-            return render_to_response('zunzun/invalid_form_data.html', LRP.items_to_render)
+            return render(request, 'zunzun/invalid_form_data.html', LRP.items_to_render)
 
 
     returnString = LRP.TransferFormDataToDataObject(request)
@@ -425,7 +424,7 @@ def LongRunningProcessView(request, inDimensionality, inEquationFamilyName='', i
     if -1 == request.path.find('FunctionFinderResults/') and LRP.equationInstance:
         errorString = LRP.CheckDataForZeroAndPositiveAndNegative()
         if errorString:
-            return render_to_response('zunzun/generic_error.html', {'error':errorString})
+            return render(request, 'zunzun/generic_error.html', {'error':errorString})
 
     LRP.SetInitialStatusDataIntoSessionVariables(request)
 
@@ -477,12 +476,12 @@ def FeedbackView(request):
         if not form.is_valid(): # validators added, see form definition
             items_to_render = {}
             items_to_render['mainForm'] = form
-            return render_to_response('zunzun/invalid_form_data.html', items_to_render)
+            return render(request, 'zunzun/invalid_form_data.html', items_to_render)
         msg = 'Email from ' + form.cleaned_data['emailAddress'] + '\n\nAt ' + str(datetime.datetime.now()) + "\n\n" + form.cleaned_data['feedbackText']
         if settings.FEEDBACK_EMAIL_ADDRESS:
             EmailMessage('ZunZunSite3 Feedback Form', msg, to = [settings.FEEDBACK_EMAIL_ADDRESS]).send()
 
-        return render_to_response('zunzun/feedback_reply.html', {})
+        return render(request, 'zunzun/feedback_reply.html', {})
     else: # not a POST
         return HttpResponseRedirect('/')
 
@@ -520,7 +519,7 @@ def HomePageView(request):
     items_to_render['feedbackForm'] = forms.FeedbackForm()
     items_to_render['loadavg'] = platform_compat.get_loadavg()
 
-    return render_to_response('zunzun/home_page.html', items_to_render)
+    return render(request, 'zunzun/home_page.html', items_to_render)
 
 
 @cache_control(no_cache=True)
@@ -549,7 +548,7 @@ def AllEquationsView(request, inDimensionality, inAllOrStandardOnly): # from url
         
     items_to_render['dimensionality'] = inDimensionality
     
-    return render_to_response('zunzun/list_all_equations.html', items_to_render)
+    return render(request, 'zunzun/list_all_equations.html', items_to_render)
 
 
 def GetEquationInfoDictionary(inDimensionality, inAllOrStandardOnly):

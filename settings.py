@@ -9,10 +9,8 @@ ALLOWED_HOSTS=['*']
 import sys
 if 'runserver' in sys.argv:
     DEBUG = True
-    TEMPLATE_DEBUG = True
 else:
     DEBUG = False
-    TEMPLATE_DEBUG = False
 
 ADMINS = (
     #(ADMIN_NAME, ADMIN_EMAIL_ADDRESS),
@@ -60,41 +58,23 @@ USE_I18N = False
 # Make this unique, and don't share it with anybody.
 SECRET_KEY = 'super-secret-key'
 
-# List of callables that know how to import templates from various sources.
-# older versions of django use TEMPLATE_*
-TEMPLATE_LOADERS = (
-    'django.template.loaders.filesystem.Loader',
-    'django.template.loaders.app_directories.Loader',
-)
-
-MIDDLEWARE_CLASSES = (
+MIDDLEWARE = [
     'django.middleware.gzip.GZipMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
-    #'django.contrib.auth.middleware.AuthenticationMiddleware',
-)
-MIDDLEWARE=MIDDLEWARE_CLASSES
+    # 'django.contrib.auth.middleware.AuthenticationMiddleware',
+]
 
 ROOT_URLCONF = 'urls'
 
 ROOT_PATH = os.path.dirname(__file__)
 
-# older versions of django use TEMPLATE_*
-TEMPLATE_DIRS = (
-    os.path.join(ROOT_PATH, 'templates'),
-)
-
-# newer versions of django use TEMPLATES below, not the older TEMPLATE_* above
-# this file has both for compatibility although this gives a (harmless) warning
-# because both coding styles are present in the same settings.py file
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': TEMPLATE_DIRS,
+        'DIRS': [os.path.join(ROOT_PATH, 'templates')],
         'APP_DIRS': True,
-        'OPTIONS': {
-            # ... some options here ...
-        },
+        'OPTIONS': {},
     },
 ]
 INSTALLED_APPS = (
