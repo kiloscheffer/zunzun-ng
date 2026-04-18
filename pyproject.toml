@@ -17,6 +17,10 @@ dependencies = [
     "reportlab",
     "psutil",
     "beautifulsoup4",
+    # lxml is the parser BeautifulSoup is invoked with in CreateReportPDF
+    # (BeautifulSoup(html, "lxml")). bs4 itself does not install lxml; we
+    # declare it explicitly so PDF generation works on a fresh `uv sync`.
+    "lxml",
     "waitress>=3.0",
 ]
 
