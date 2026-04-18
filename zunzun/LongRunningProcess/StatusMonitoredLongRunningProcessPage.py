@@ -156,8 +156,8 @@ You must provide any weights you wish to use.
         """Produce a picklable snapshot for the spawned child process.
 
         Default implementation covers the common subset (session keys,
-        dimensionality, renice level, dataObject). Subclasses override
-        to add fit-specific fields via the `extra` dict.
+        dimensionality, renice level, dataObject, equation-name/family).
+        Subclasses override to add fit-specific fields via the `extra` dict.
         """
         return ChildPayload(
             lrp_class_path=f"{self.__class__.__module__}.{self.__class__.__name__}",
@@ -168,7 +168,22 @@ You must provide any weights you wish to use.
             renice_level=self.reniceLevel,
             data_object=getattr(self, "dataObject", None),
             equation=None,  # overridden by fit subclasses
-            extra={},
+            extra={
+                # inEquationName / inEquationFamilyName are set by
+                # views.LongRunningProcessView (parent) from URL path
+                # segments. Read in the child by:
+                #  - CreateReportPDF (pdf title paragraph)
+                #  - Each Fit* subclass's SaveSpecificDataToSessionStore
+                #    which writes them to the 'data' session so that
+                #    EvaluateAtAPointView can later reconstruct the
+                #    equation by name/family.
+                # Without explicit transport the child sees the __init__
+                # defaults (empty strings), the session stores empty
+                # strings, and Evaluate-at-a-Point returns
+                # "Could not find the equation '' in the equation family ''."
+                "inEquationName": getattr(self, "inEquationName", ""),
+                "inEquationFamilyName": getattr(self, "inEquationFamilyName", ""),
+            },
         )
 
     def apply_child_payload(self, payload: ChildPayload) -> None:
@@ -183,6 +198,8 @@ You must provide any weights you wish to use.
         self.dimensionality = payload.dimensionality
         self.reniceLevel = payload.renice_level
         self.dataObject = payload.data_object
+        self.inEquationName = payload.extra.get("inEquationName", "")
+        self.inEquationFamilyName = payload.extra.get("inEquationFamilyName", "")
 
 
     def PerformWorkInParallel(self):
