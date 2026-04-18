@@ -15,3 +15,30 @@ import django
 def pytest_configure(config):
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "settings")
     django.setup()
+
+
+import pytest
+from unittest.mock import patch
+
+
+@pytest.fixture
+def client(db):
+    """Django test Client with a fresh session. Uses pytest-django's
+    `db` fixture to ensure the session DB tables exist (via migrations
+    run once per test session).
+    """
+    from django.test import Client
+    return Client()
+
+
+@pytest.fixture
+def mocked_process_start():
+    """Patches multiprocessing.Process.start to a no-op for view tests
+    that exercise the spawn dispatch path. Each call is recorded on
+    the returned mock so tests can assert dispatch behavior.
+
+    Without this patch, a POST to /FitEquation__F__/.../ in-test would
+    actually spawn a Python subprocess, which is slow and OS-coupled.
+    """
+    with patch("multiprocessing.context.SpawnProcess.start") as mock_start:
+        yield mock_start
