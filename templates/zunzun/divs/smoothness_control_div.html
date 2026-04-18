@@ -5,11 +5,11 @@ Select the maximum number of coefficients for the function finder.
 <BR>Equations with fewer coefficients are generally smoother.
 <br>
 <br>
-{% ifequal dimensionality '2' %}
+{% if dimensionality == '2' %}
 	{{ mainForm.smoothnessControl2D }}
 {% else %}
 	{{ mainForm.smoothnessControl3D }}
-{% endifequal %}
+{% endif %}
 <br>
 <br>
 <br>

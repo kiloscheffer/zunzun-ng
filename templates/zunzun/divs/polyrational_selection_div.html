@@ -1,5 +1,5 @@
 <DIV ID="polyrationalSelection"  align='center' name="hideable_div" style="display:none;">
-{% ifequal dimensionality '2' %}
+{% if dimensionality == '2' %}
     <B>Select Functions</B>
     <BR>
     <BR>
@@ -12,11 +12,11 @@
      <TABLE BORDER=0 CELLSPACING='2'>
       <TR>
         {% for color, index, html in Polyrat2DNumeratorColorList %}
-            {% ifequal html '' %}
+            {% if html == '' %}
 	           	<TD style='background-color:{{ color }}' CLASS=pick ID='CPX_N{{ index }}' onClick='cT(this.id)'>&nbsp;constant&nbsp;</TD>
             {% else %}
                	<TD style='background-color:{{ color }}' CLASS=pick ID='CPX_N{{ index }}' onClick='cT(this.id)'>&nbsp;{{ html }}&nbsp;</TD>
-            {% endifequal %}
+            {% endif %}
         {% endfor %}
       </TR>
      </TABLE>
@@ -25,11 +25,11 @@
      <TABLE BORDER=0 CELLSPACING='2'>
       <TR>
         {% for color, index, html in Polyrat2DDenominatorColorList %}
-            {% ifequal html '' %}
+            {% if html == '' %}
 	           	<TD style='background-color:{{ color }}' CLASS=pick ID='CPX_D{{ index }}' onClick='cT(this.id)'>&nbsp;constant&nbsp;</TD>
             {% else %}
                	<TD style='background-color:{{ color }}' CLASS=pick ID='CPX_D{{ index }}' onClick='cT(this.id)'>&nbsp;{{ html }}&nbsp;</TD>
-            {% endifequal %}
+            {% endif %}
         {% endfor %}
       </TR>
      </TABLE>
@@ -60,32 +60,32 @@
 
      <TABLE BORDER=0 CELLSPACING='2'>
         {% for color, indexX, indexY, htmlX, htmlY in Polyfun3DColorList %}
-            {% ifequal indexY 0 %}
+            {% if indexY == 0 %}
                 <TR>
-            {% endifequal %}
-            {% ifequal htmlX '' %}{#           Both X and Y have empty HTML , yield offset          #}
-                {% ifequal htmlY '' %}
+            {% endif %}
+            {% if htmlX == '' %}{#           Both X and Y have empty HTML , yield offset          #}
+                {% if htmlY == '' %}
                     <TD style='background-color:{{ color }}' CLASS=pick ID='CPX{{ indexX }}Y{{ indexY }}' onClick='cT(this.id)'>&nbsp;constant&nbsp;</TD>
-                {% endifequal %}
-            {% endifequal %}
-            {% ifnotequal htmlX '' %}{#           Neither X and Y have empty HTML , yield XY          #}
-                {% ifnotequal htmlY '' %}
+                {% endif %}
+            {% endif %}
+            {% if htmlX != '' %}{#           Neither X and Y have empty HTML , yield XY          #}
+                {% if htmlY != '' %}
                     <TD style='background-color:{{ color }}' CLASS=pick ID='CPX{{ indexX }}Y{{ indexY }}' onClick='cT(this.id)'>&nbsp;{{ htmlX }}{{ htmlY }}&nbsp;</TD>
-                {% endifnotequal %}
-            {% endifnotequal %}
-            {% ifnotequal htmlX '' %}{#           Only Y has empty HTML , yield X          #}
-                {% ifequal htmlY '' %}
+                {% endif %}
+            {% endif %}
+            {% if htmlX != '' %}{#           Only Y has empty HTML , yield X          #}
+                {% if htmlY == '' %}
                     <TD style='background-color:{{ color }}' CLASS=pick ID='CPX{{ indexX }}Y{{ indexY }}' onClick='cT(this.id)'>&nbsp;{{ htmlX }}&nbsp;</TD>
-                {% endifequal %}
-            {% endifnotequal %}
-            {% ifequal htmlX '' %}{#           Only X has empty HTML , yield Y          #}
-                {% ifnotequal htmlY '' %}
+                {% endif %}
+            {% endif %}
+            {% if htmlX == '' %}{#           Only X has empty HTML , yield Y          #}
+                {% if htmlY != '' %}
                     <TD style='background-color:{{ color }}' CLASS=pick ID='CPX{{ indexX }}Y{{ indexY }}' onClick='cT(this.id)'>&nbsp;{{ htmlY }}&nbsp;</TD>
-                {% endifnotequal %}
-            {% endifequal %}
-            {% ifequal indexY maxPolyfunctionalListIndex %}
+                {% endif %}
+            {% endif %}
+            {% if indexY == maxPolyfunctionalListIndex %}
                 </TR>
-            {% endifequal %}
+            {% endif %}
         {% endfor %}
      </TABLE>
     </TABLE>
@@ -94,5 +94,5 @@
         <INPUT TYPE="hidden" name="polyFunctional_X{{ indexX }}Y{{ indexY }}" value="False" id="id_polyFunctional_X{{ indexX }}Y{{ indexY }}">
     {% endfor %}
 
-{% endifequal %}
+{% endif %}
 </DIV>

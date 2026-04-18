@@ -44,9 +44,9 @@ function xmlhttpPost(strURL) {
 function getquerystring() {
     var form = document.forms['evaluatePointForm'];
     qstr = 'x=' + escape(form.x.value);
-    {% ifequal dimensionality '3' %}
+    {% if dimensionality == '3' %}
         qstr = qstr + '&amp;y=' + escape(form.y.value);
-    {% endifequal %}
+    {% endif %}
     return qstr;
 }
 

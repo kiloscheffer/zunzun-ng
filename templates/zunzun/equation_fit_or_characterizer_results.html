@@ -37,10 +37,10 @@
     <TD ALIGN="CENTER"><BASEFONT SIZE="3">Statistical Scatterplots</TD>
     <TD>&nbsp;</TD>
 {% endif %}
-{% ifnotequal dimensionality '1' %}
+{% if dimensionality != '1' %}
     <TD ALIGN="CENTER"><BASEFONT SIZE="3">Data Graphs</TD>
     <TD>&nbsp;</TD>
-{% endifnotequal %}
+{% endif %}
 </TR>
 <TR>
     <TD ALIGN="CENTER"><BASEFONT SIZE="3">
@@ -69,11 +69,11 @@
         <option>
         <option value='introDiv' SELECTED>Introduction and PDF Link
 		{% for graphReport in graphReports %}
-			{% ifequal graphReport.StatisticsGraph 1 %}
-                {% ifequal graphReport.HistogramFlag 1 %}
+			{% if graphReport.StatisticsGraph == 1 %}
+                {% if graphReport.HistogramFlag == 1 %}
         		<option value='{{ graphReport.uniqueAnchorName }}'>{{ graphReport.name }}
-                {% endifequal %}
-            {% endifequal %}
+                {% endif %}
+            {% endif %}
 		{% endfor %}
 		<option>
 		<option value='scriptureDiv'>{{ scripture.0 }}
@@ -87,11 +87,11 @@
         <option>
         <option value='introDiv' SELECTED>Introduction and PDF Link
 		{% for graphReport in graphReports %}
-			{% ifequal graphReport.StatisticsGraph 1 %}
-                {% ifequal graphReport.HistogramFlag 0 %}
+			{% if graphReport.StatisticsGraph == 1 %}
+                {% if graphReport.HistogramFlag == 0 %}
         		<option value='{{ graphReport.uniqueAnchorName }}'>{{ graphReport.name }}
-                {% endifequal %}
-            {% endifequal %}
+                {% endif %}
+            {% endif %}
 		{% endfor %}
 		<option>
 		<option value='scriptureDiv'>{{ scripture.0 }}
@@ -99,7 +99,7 @@
         </select>
     </TD>
 {% endif %}
-{% ifnotequal dimensionality '1' %}
+{% if dimensionality != '1' %}
     <TD>&nbsp;</TD>
     <TD ALIGN="CENTER"><BASEFONT SIZE="3">
 {% if equationInstance %}
@@ -110,16 +110,16 @@
         <option>
         <option value='introDiv' SELECTED>Introduction and PDF Link
 		{% for graphReport in graphReports %}
-			{% ifequal graphReport.StatisticsGraph 0 %}
+			{% if graphReport.StatisticsGraph == 0 %}
         		<option value='{{ graphReport.uniqueAnchorName }}'>{{ graphReport.name }}
-			{% endifequal %}
+			{% endif %}
 		{% endfor %}
 		<option>
 		<option value='scriptureDiv'>{{ scripture.0 }}
 		<option>
         </select>
     </TD>
-{% endifnotequal %}
+{% endif %}
 </TR>
 </TABLE>
 <br>
@@ -150,7 +150,7 @@ You can download almost all of these reports as <a href='/temp/{{ pdfFileName }}
 <B><FONT SIZE="+1">Evaluate This Equation At A Point</FONT></B><BR><BR>
 {% endif %}
 <FORM name='evaluatePointForm'>
-{% ifequal dimensionality '2' %}
+{% if dimensionality == '2' %}
 {{ EvaluateAtAPointForm.x }}
 <br>
 {{ IndependentDataName1 }}
@@ -159,7 +159,7 @@ You can download almost all of these reports as <a href='/temp/{{ pdfFileName }}
 <tr><td align='center'>{{ EvaluateAtAPointForm.x }} </td><td> &nbsp; &nbsp; &nbsp; </td><td align='center'>{{ EvaluateAtAPointForm.y }}</td></tr>
 <tr><td align='center'>{{ IndependentDataName1 }} </td><td> &nbsp; &nbsp; &nbsp; </td><td align='center'>{{ IndependentDataName2 }}</td></tr>
 </table>
-{% endifequal %}
+{% endif %}
 <BR><BR>
 <input value="Evaluate" type="button" onclick='JavaScript:xmlhttpPost("/EvaluateAtAPoint/")'>
 </form>
@@ -202,7 +202,7 @@ You can download almost all of these reports as <a href='/temp/{{ pdfFileName }}
 {% for graphReport in graphReports %}
 	<div ID="{{ graphReport.uniqueAnchorName }}" align='center' name="hideable_div" style="display:none;">
 	<B><FONT SIZE="+1">{{ graphReport.name }}</FONT></B><BR>
-		{% ifequal graphReport.animationFlag 1 %}
+		{% if graphReport.animationFlag == 1 %}
 		<br>
 			<A HREF="{{ graphReport.websiteFileLocation }}" TARGET="_blank">Click Here</A> to download GIF file ({{ graphReport.fileSize }})<BR><BR>
 			<b>NOTE:</b> The animation may appear jerky and uneven until the<br>
@@ -215,7 +215,7 @@ You can download almost all of these reports as <a href='/temp/{{ pdfFileName }}
 			,
 			<a href="{{ graphReport.websiteFileLocation|slice:':-3' }}svg" target='_blank'>SVG</a>
 	
-	{% endifequal %}
+	{% endif %}
 	
 	{% if graphReport.stringList %}
 		<br><table><tr><td><PRE>{% for stringListItem in graphReport.stringList %}{{ stringListItem }}{% endfor %}</PRE></td></tr></table>

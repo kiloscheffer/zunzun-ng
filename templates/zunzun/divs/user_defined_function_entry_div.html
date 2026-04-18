@@ -11,7 +11,7 @@ Cut-and-paste text or edit your function here
 <b>Example User Defined Functions</b>
 <br>
 <table border=1>
-{% ifequal dimensionality '2' %}
+{% if dimensionality == '2' %}
 <tr><td align='left'><pre> C * exp(2.2/X) + 51.0 + pi ** e - sinc(1.1) / [B + A]  # coefficients are A, B and C </pre></td></tr>
 <tr><td align='left'><pre> Scale * exp(X) + offset  # Scale and offset are coefficents in this example </pre></td></tr>
 <tr><td align='left'><pre> # the following three examples are equivalent 
@@ -27,7 +27,7 @@ Cut-and-paste text or edit your function here
  [X+Y+shift] ** C0     # shift and C0 are coefficients in this example
  (X+Y+shift) ** C0     # shift and C0 are coefficients in this example </pre></td></tr>
 <tr><td align='left'><pre>MXY + B  # This fails, it should be written as M*X*Y + B </pre></td></tr>
-{% endifequal %}
+{% endif %}
 </table>
 
 <br>

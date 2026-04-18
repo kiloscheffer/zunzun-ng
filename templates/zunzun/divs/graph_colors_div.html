@@ -18,7 +18,7 @@ Here you can select various color options for the output graphs.
   <TR>
     {{ mainForm.graphLineColor }}
 	<TD align='left'>Graph line color</TD>
-{% ifequal dimensionality '3' %}
+{% if dimensionality == '3' %}
   </TR>
   <TR>
     {{ mainForm.graphFrameColor }}
@@ -27,7 +27,7 @@ Here you can select various color options for the output graphs.
   <TR>
     {{ mainForm.graphMeshColor }}
 	<TD align='left'>3D mesh color</TD>
-{% endifequal %}
+{% endif %}
   </TR>
  </table>
 </td></tr></TABLE>
