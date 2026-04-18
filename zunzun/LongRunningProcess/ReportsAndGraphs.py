@@ -1511,7 +1511,10 @@ class ScatterAnimation(GraphReport):
                 fig.savefig(frameName, format = 'png')
                 
                 # convert PNG file to GIF for gifsicle
-                platform_compat.run_tool('mogrify', ['-format', 'gif', frameName])
+                platform_compat.run_tool(
+                    platform_compat.resolve_mogrify_command(),
+                    ['-format', 'gif', frameName],
+                )
 
             plt.close('all')
             import glob as _glob
@@ -1576,7 +1579,10 @@ class SurfaceAnimation(GraphReport):
                 fig.savefig(frameName, format = 'png')
                 
                 # convert PNG file to GIF for gifsicle
-                platform_compat.run_tool('mogrify', ['-format', 'gif', frameName])
+                platform_compat.run_tool(
+                    platform_compat.resolve_mogrify_command(),
+                    ['-format', 'gif', frameName],
+                )
 
             plt.close('all')
             import glob as _glob

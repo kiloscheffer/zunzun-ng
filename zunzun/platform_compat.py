@@ -142,31 +142,62 @@ def set_process_niceness(pid: int, niceness: int) -> None:
         _logger.info("set_process_niceness(%d, %d) failed: %s", pid, niceness, e)
 
 
-def run_tool(binary: str, args: list[str], stdout_file: Path | None = None) -> int:
+def run_tool(binary: str | list[str], args: list[str], stdout_file: Path | None = None) -> int:
     """Run an external command; return its exit code.
 
     Replaces os.popen() shellouts. Uses subprocess.run with an argument
     list (not shell=True) which eliminates shell-injection risk from
     filenames containing special characters.
 
+    `binary` may be either a string (single executable name/path) or a list
+    (e.g. ["magick", "mogrify"] for ImageMagick 7's subcommand form).
+    In the list case, every element is prepended to the command before `args`.
+
     If stdout_file is given, stdout is redirected there (replacing the
     shell's '> file' operator). Otherwise stdout is inherited.
 
     Raises FileNotFoundError if the binary is not on PATH.
     """
+    if isinstance(binary, str):
+        cmd = [binary, *args]
+    else:
+        cmd = [*binary, *args]
     stdout_target = None
     if stdout_file is not None:
         stdout_target = open(stdout_file, "wb")
     try:
-        result = subprocess.run(
-            [binary, *args],
-            stdout=stdout_target,
-            check=False,
-        )
+        result = subprocess.run(cmd, stdout=stdout_target, check=False)
         return result.returncode
     finally:
         if stdout_target is not None:
             stdout_target.close()
+
+
+def resolve_mogrify_command() -> list[str]:
+    """Return the command prefix for mogrify, handling ImageMagick 6 vs 7.
+
+    ImageMagick 6 shipped a standalone `mogrify` binary. ImageMagick 7
+    (current as of 2024) consolidates tools into one `magick` binary with
+    subcommands — `magick mogrify ...` — and modern Windows/macOS installers
+    typically do NOT ship a legacy `mogrify.exe` shim.
+
+    Returns a list suitable as the `binary` argument to run_tool:
+    - `["mogrify"]` if the standalone is on PATH (ImageMagick 6, Linux distros)
+    - `["magick", "mogrify"]` if only `magick` is on PATH (ImageMagick 7)
+
+    Raises FileNotFoundError if neither is available. Callers that have
+    gated on `ensure_external_binaries()` at startup should already have
+    logged a warning, so this exception is a true fail-closed.
+    """
+    if shutil.which("mogrify"):
+        return ["mogrify"]
+    if shutil.which("magick"):
+        return ["magick", "mogrify"]
+    raise FileNotFoundError(
+        "Neither `mogrify` nor `magick` found on PATH. Install ImageMagick "
+        "(winget install ImageMagick.ImageMagick on Windows, apt-get install "
+        "imagemagick on Debian/Ubuntu, brew install imagemagick on macOS)."
+    )
 
 
 def remove_files_matching(pattern: str) -> int:
@@ -185,11 +216,13 @@ def remove_files_matching(pattern: str) -> int:
     return count
 
 
-REQUIRED_BINARIES = ("mogrify", "gifsicle")
-
-
 def ensure_external_binaries() -> list[str]:
     """Report which optional external binaries are missing from PATH.
+
+    `mogrify` is considered present if EITHER the standalone binary or
+    the IM7 `magick` dispatcher is available (see resolve_mogrify_command).
+    This avoids a spurious "missing: mogrify" warning on ImageMagick 7
+    installs that correctly ship only `magick`.
 
     mogrify (part of ImageMagick) and gifsicle are used in
     ReportsAndGraphs.py to produce animated GIF output. They are not
@@ -200,7 +233,8 @@ def ensure_external_binaries() -> list[str]:
     to warn (log) or fail (raise).
     """
     missing = []
-    for binary in REQUIRED_BINARIES:
-        if shutil.which(binary) is None:
-            missing.append(binary)
+    if not (shutil.which("mogrify") or shutil.which("magick")):
+        missing.append("mogrify")
+    if not shutil.which("gifsicle"):
+        missing.append("gifsicle")
     return missing

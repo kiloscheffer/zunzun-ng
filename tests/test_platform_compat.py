@@ -143,6 +143,48 @@ def test_run_tool_raises_on_missing_binary():
         platform_compat.run_tool("definitely-not-a-real-binary", [])
 
 
+def test_run_tool_accepts_list_binary_prefix(tmp_path):
+    """binary can be a list (e.g. ['magick', 'mogrify']) for IM7's subcommand form."""
+    from zunzun import platform_compat
+    import sys
+    # Use python + "-c" as a fake two-part command prefix
+    out = tmp_path / "out.txt"
+    platform_compat.run_tool(
+        [sys.executable, "-c"],
+        ["print('list-form works')"],
+        stdout_file=out,
+    )
+    assert out.read_text().strip() == "list-form works"
+
+
+def test_resolve_mogrify_command_prefers_standalone_mogrify():
+    from zunzun import platform_compat
+
+    def fake_which(name):
+        return "/usr/bin/mogrify" if name == "mogrify" else None
+
+    with mock.patch("zunzun.platform_compat.shutil.which", side_effect=fake_which):
+        assert platform_compat.resolve_mogrify_command() == ["mogrify"]
+
+
+def test_resolve_mogrify_command_falls_back_to_magick():
+    from zunzun import platform_compat
+
+    def fake_which(name):
+        # Only `magick` is present (ImageMagick 7 on Windows/modern installs)
+        return r"C:\Program Files\ImageMagick\magick.exe" if name == "magick" else None
+
+    with mock.patch("zunzun.platform_compat.shutil.which", side_effect=fake_which):
+        assert platform_compat.resolve_mogrify_command() == ["magick", "mogrify"]
+
+
+def test_resolve_mogrify_command_raises_when_neither_present():
+    from zunzun import platform_compat
+    with mock.patch("zunzun.platform_compat.shutil.which", return_value=None):
+        with pytest.raises(FileNotFoundError, match="mogrify.*magick"):
+            platform_compat.resolve_mogrify_command()
+
+
 def test_remove_files_matching_deletes_matches(tmp_path):
     from zunzun import platform_compat
     (tmp_path / "frame__01.gif").write_text("x")
@@ -178,3 +220,35 @@ def test_ensure_external_binaries_returns_empty_when_all_present():
     with mock.patch("zunzun.platform_compat.shutil.which", return_value="/usr/bin/anything"):
         missing = platform_compat.ensure_external_binaries()
     assert missing == []
+
+
+def test_ensure_external_binaries_accepts_imagemagick_7_magick_alone():
+    """On ImageMagick 7 (modern Windows/macOS installs), only `magick` exists
+    — no standalone `mogrify`. ensure_external_binaries should NOT flag
+    mogrify as missing if `magick` is available.
+    """
+    from zunzun import platform_compat
+
+    def fake_which(name):
+        # IM7: magick is present, mogrify is NOT. gifsicle is present.
+        if name == "magick":
+            return r"C:\Program Files\ImageMagick\magick.exe"
+        if name == "gifsicle":
+            return r"C:\Users\x\gifsicle.exe"
+        return None  # including name == "mogrify"
+
+    with mock.patch("zunzun.platform_compat.shutil.which", side_effect=fake_which):
+        missing = platform_compat.ensure_external_binaries()
+    assert missing == []
+
+
+def test_ensure_external_binaries_flags_mogrify_when_neither_imagemagick_available():
+    """If neither `mogrify` nor `magick` is on PATH, mogrify is genuinely missing."""
+    from zunzun import platform_compat
+
+    def fake_which(name):
+        return "/usr/bin/gifsicle" if name == "gifsicle" else None
+
+    with mock.patch("zunzun.platform_compat.shutil.which", side_effect=fake_which):
+        missing = platform_compat.ensure_external_binaries()
+    assert missing == ["mogrify"]
