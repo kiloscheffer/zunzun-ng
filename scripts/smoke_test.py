@@ -109,14 +109,27 @@ _FF_2D_FIELDS = {
     "textDataEditor": _DATA_2D_FF,
 }
 
-# Both scenarios land on a fit-results page with the same structural
-# markers after completion. See module docstring on why we don't assert
-# on exact numerical values.
-_EXPECTED_MARKERS = [
+# Different scenarios land on different pages. Polynomial direct-fit ends
+# at the per-equation detailed results; FunctionFinder ends at the ranking
+# listing showing model-plot thumbnails for each equation's rank. The two
+# pages share no reliable marker strings, so we assert per-scenario.
+# See module docstring on why we don't assert exact numerical values.
+
+_POLY_EXPECTED_MARKERS = [
     "Coefficient and Fit Statistics",
     "Coefficient Covariance Matrix",
     "Minimum:",
     "Maximum:",
+]
+
+_FF_EXPECTED_MARKERS = [
+    # The results-listing page's header text
+    "Function Finder Results",
+    # The column headers above each equation's plot row
+    "Model Plots",
+    "Error Plots",
+    # The rank label next to the #1 best-fit equation
+    "Rank 1",
 ]
 
 
@@ -145,6 +158,7 @@ def _run_scenario(
     name: str,
     post_url: str,
     form_fields: dict,
+    expected_markers: list[str],
     timeout_s: float,
 ) -> str | None:
     """POST to `post_url`, poll /StatusAndResults/ until the fit completes,
@@ -167,7 +181,7 @@ def _run_scenario(
         body = r.text
         if "REDIRECT" not in body and "REFRESH" not in body.upper():
             # Final page reached — check structural markers
-            missing = [m for m in _EXPECTED_MARKERS if m not in body]
+            missing = [m for m in expected_markers if m not in body]
             if missing:
                 dump_path = f"temp/_smoke_last_body_{name}.html"
                 try:
@@ -214,6 +228,7 @@ def run_smoke() -> int:
             "polynomial_quadratic_2D",
             base + "/FitEquation__F__/2/Polynomial/2nd%20Order%20(Quadratic)/",
             _POLY_QUAD_FIELDS,
+            _POLY_EXPECTED_MARKERS,
             timeout_s=600,
         )
         if err:
@@ -221,15 +236,17 @@ def run_smoke() -> int:
         else:
             print("[polynomial_quadratic_2D] OK")
 
-        # Scenario 2: FunctionFinder 2D — two-phase ranking → detailed-fit.
-        # Higher timeout because ranking tests many equations and the
-        # detailed-fit phase runs afterward.
+        # Scenario 2: FunctionFinder 2D — two-phase ranking → results listing.
+        # Phase 1 ranks all equations in the enabled families; phase 2 renders
+        # the top-N results page with model-plot thumbnails for each rank.
+        # Final landing is the ranking listing (not a per-equation fit page).
         err = _run_scenario(
             session,
             base,
             "function_finder_2D",
             base + "/FunctionFinder__F__/2/",
             _FF_2D_FIELDS,
+            _FF_EXPECTED_MARKERS,
             timeout_s=900,
         )
         if err:
