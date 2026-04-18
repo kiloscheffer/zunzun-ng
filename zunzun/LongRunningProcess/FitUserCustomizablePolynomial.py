@@ -3,6 +3,7 @@ import inspect, time, math, random, multiprocessing, os, sys, copy
 import numpy, scipy, scipy.stats
 
 from . import FittingBaseClass
+from .StatusMonitoredLongRunningProcessPage import _json_native
 from .child_payload import ChildPayload
 import zunzun.forms
 import zunzun.formConstants
@@ -27,12 +28,12 @@ class FitUserCustomizablePolynomial(FittingBaseClass.FittingBaseClass):
         self.dataObject.equation.polynomial2DFlags = payload.extra["polynomial2DFlags"]
 
     def SaveSpecificDataToSessionStore(self):
-        self.SaveDictionaryOfItemsToSessionStore('data', {'dimensionality':self.dimensionality,
+        self.SaveDictionaryOfItemsToSessionStore('data', _json_native({'dimensionality':self.dimensionality,
                                                           'equationName':self.inEquationName,
                                                           'equationFamilyName':self.inEquationFamilyName,
                                                           'solvedCoefficients':self.dataObject.equation.solvedCoefficients,
                                                           'fittingTarget':self.dataObject.equation.fittingTarget,
-                                                          'polynomial2DFlags':self.dataObject.equation.polynomial2DFlags})
+                                                          'polynomial2DFlags':self.dataObject.equation.polynomial2DFlags}))
 
 
     def TransferFormDataToDataObject(self, request): # return any error in a user-viewable string (self.dataObject.ErrorString)        

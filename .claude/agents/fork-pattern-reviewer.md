@@ -47,7 +47,7 @@ Any view that kicks off heavy work (curve fitting, function finding, characteriz
 
 ## Secondary checks (lower severity)
 
-- **Session data is pickle-hex encoded.** Values written to `session_key_status` / `_data` / `_functionfinder` should pass through `pickle.dumps(x, pickle.HIGHEST_PROTOCOL).hex()` and be read with `pickle.loads(bytes.fromhex(...))`. Use the `SaveDictionaryOfItemsToSessionStore` / `LoadItemFromSessionStore` helpers rather than encoding by hand.
+- **Session data is JSON-native.** Values written to `session_key_status` / `_data` / `_functionfinder` must be JSON-serializable (floats, strings, lists, nested dicts of primitives). The `SaveDictionaryOfItemsToSessionStore` / `LoadItemFromSessionStore` helpers in `StatusMonitoredLongRunningProcessPage.py` handle the SQLite-retry loop; callers are responsible for casting numpy values to plain Python primitives via `_json_native` before write.
 - **`os.nice(LRP.reniceLevel)`** should be the first call inside the child branch (process-wide priority change).
 - **`dispatcher` branch ordering** — substring matches in `LongRunningProcessView` are order-sensitive. Flag when a new branch is added after a broader match (e.g. `'Polynomial'` before `'User-Selectable Polynomial'`).
 

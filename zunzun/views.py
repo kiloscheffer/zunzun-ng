@@ -1,5 +1,4 @@
 from django.shortcuts import render
-from django.shortcuts import render_to_response
 import django.http # to raise 404's
 from django.http import HttpResponse
 from django.http import HttpResponseRedirect
@@ -14,7 +13,7 @@ from django.core.mail import EmailMessage
 import settings
 import django.http
 
-import os, sys, time, urllib.request, urllib.parse, urllib.error, signal, copy, pickle
+import os, sys, time, urllib.request, urllib.parse, urllib.error, signal, copy
 from . import forms, formConstants
 import numpy, multiprocessing
 
@@ -24,16 +23,7 @@ from . import LongRunningProcess
 from . import platform_compat
 from .LongRunningProcess.child_payload import _run_fit_child
 
-# is django_brake used for rate limiting web site slammers?
-try: # django_brake installed?
-    from brake.decorators import ratelimit
-    brake_available = True
-except: # django_brake is not installed, use dummy pass-through decorator
-    brake_available = False
-    def ratelimit(*args, **kwargs):
-        def temp(*args, **kwargs):
-            return args[0]
-        return temp
+from django_ratelimit.decorators import ratelimit
 
 
 def _housekeeping_child(temp_dir: str, max_size_mb: int) -> None:
@@ -77,7 +67,7 @@ def _housekeeping_child(temp_dir: str, max_size_mb: int) -> None:
 
 
 @cache_control(no_cache=True)
-@ratelimit(rate='12/m') # if faster than once every five seconds, apply brake in CommonToAllViews() if django_brake installed
+@ratelimit(key='ip', rate='12/m', block=False)
 def EvaluateAtAPointView(request):
     import os, sys, time
     
@@ -184,10 +174,10 @@ def StatusView(request):
 
     # this is done so that the "back" button does not return users to a status page when viewing FF results
     if 'redirectToResultsFileOrURL' in session_status:
-        if pickle.loads(bytes.fromhex(session_status['redirectToResultsFileOrURL'])) != '':
+        if session_status['redirectToResultsFileOrURL'] != '':
             # read and reset
-            redirect = pickle.loads(bytes.fromhex(session_status['redirectToResultsFileOrURL']))
-            session_status['redirectToResultsFileOrURL'] = pickle.dumps('', pickle.HIGHEST_PROTOCOL).hex()
+            redirect = session_status['redirectToResultsFileOrURL']
+            session_status['redirectToResultsFileOrURL'] = ''
             
             # sometimes database is momentarily locked, so retry on exception to mitigate
             s = session_status
@@ -213,7 +203,7 @@ def StatusView(request):
             else: # URL
                 return HttpResponseRedirect(redirect)
 
-    session_status['time_of_last_status_check'] = pickle.dumps(time.time(), pickle.HIGHEST_PROTOCOL).hex()
+    session_status['time_of_last_status_check'] = time.time()
     
     # sometimes database is momentarily locked, so retry on exception to mitigate
     s = session_status
@@ -233,9 +223,9 @@ def StatusView(request):
     close_old_connections()
    
     try:
-        currentStatus = pickle.loads(bytes.fromhex(session_status['currentStatus']))
-        startTime = pickle.loads(bytes.fromhex(session_status['start_time']))
-        timeStamp = pickle.loads(bytes.fromhex(session_status['timestamp']))
+        currentStatus = session_status['currentStatus']
+        startTime = session_status['start_time']
+        timeStamp = session_status['timestamp']
     except:
         return HttpResponse("I could not read your session data, my apologies. This is usually caused by a stale browser cookie. Please delete the zunzunsite3 browser cookie and try again.")
     
@@ -282,7 +272,7 @@ Load > %s means the server cores each average 100%% CPU with multiple users.
 
 
 @cache_control(no_cache=True)
-@ratelimit(rate='12/m') # if faster than once every five seconds, apply brake in CommonToAllViews() if django_brake installed
+@ratelimit(key='ip', rate='12/m', block=False)
 def LongRunningProcessView(request, inDimensionality, inEquationFamilyName='', inEquationName=''): # from urls.py, inDimensionality can only be '1', '2' or '3'
     import os, sys, time
 
@@ -423,7 +413,7 @@ def LongRunningProcessView(request, inDimensionality, inEquationFamilyName='', i
             LRP.items_to_render = {}
             LRP.items_to_render['mainForm'] = LRP.boundForm
             LRP.items_to_render['EvaluateAtAPointForm'] = LRP.evaluationForm
-            return render_to_response('zunzun/invalid_form_data.html', LRP.items_to_render)
+            return render(request, 'zunzun/invalid_form_data.html', LRP.items_to_render)
 
 
     returnString = LRP.TransferFormDataToDataObject(request)
@@ -434,7 +424,7 @@ def LongRunningProcessView(request, inDimensionality, inEquationFamilyName='', i
     if -1 == request.path.find('FunctionFinderResults/') and LRP.equationInstance:
         errorString = LRP.CheckDataForZeroAndPositiveAndNegative()
         if errorString:
-            return render_to_response('zunzun/generic_error.html', {'error':errorString})
+            return render(request, 'zunzun/generic_error.html', {'error':errorString})
 
     LRP.SetInitialStatusDataIntoSessionVariables(request)
 
@@ -469,7 +459,7 @@ def LongRunningProcessView(request, inDimensionality, inEquationFamilyName='', i
 
 
 @cache_control(no_cache=True)
-@ratelimit(rate='12/m') # if faster than once every five seconds, apply brake in CommonToAllViews() if django_brake installed
+@ratelimit(key='ip', rate='12/m', block=False)
 def FeedbackView(request):
     import datetime
     import os, sys, time
@@ -486,18 +476,18 @@ def FeedbackView(request):
         if not form.is_valid(): # validators added, see form definition
             items_to_render = {}
             items_to_render['mainForm'] = form
-            return render_to_response('zunzun/invalid_form_data.html', items_to_render)
+            return render(request, 'zunzun/invalid_form_data.html', items_to_render)
         msg = 'Email from ' + form.cleaned_data['emailAddress'] + '\n\nAt ' + str(datetime.datetime.now()) + "\n\n" + form.cleaned_data['feedbackText']
         if settings.FEEDBACK_EMAIL_ADDRESS:
             EmailMessage('ZunZunSite3 Feedback Form', msg, to = [settings.FEEDBACK_EMAIL_ADDRESS]).send()
 
-        return render_to_response('zunzun/feedback_reply.html', {})
+        return render(request, 'zunzun/feedback_reply.html', {})
     else: # not a POST
         return HttpResponseRedirect('/')
 
 
 @cache_page(60 * 60) # 60 minutes
-@ratelimit(rate='12/m') # if faster than once every five seconds, apply brake in CommonToAllViews() if django_brake installed
+@ratelimit(key='ip', rate='12/m', block=False)
 def HomePageView(request):
     import os, sys, time
 
@@ -529,11 +519,11 @@ def HomePageView(request):
     items_to_render['feedbackForm'] = forms.FeedbackForm()
     items_to_render['loadavg'] = platform_compat.get_loadavg()
 
-    return render_to_response('zunzun/home_page.html', items_to_render)
+    return render(request, 'zunzun/home_page.html', items_to_render)
 
 
 @cache_control(no_cache=True)
-@ratelimit(rate='12/m') # if faster than once every five seconds, apply brake in CommonToAllViews() if django_brake installed
+@ratelimit(key='ip', rate='12/m', block=False)
 def AllEquationsView(request, inDimensionality, inAllOrStandardOnly): # from urls.py, inDimensionality can only be '2' or '3'
     import os, sys, time
 
@@ -558,7 +548,7 @@ def AllEquationsView(request, inDimensionality, inAllOrStandardOnly): # from url
         
     items_to_render['dimensionality'] = inDimensionality
     
-    return render_to_response('zunzun/list_all_equations.html', items_to_render)
+    return render(request, 'zunzun/list_all_equations.html', items_to_render)
 
 
 def GetEquationInfoDictionary(inDimensionality, inAllOrStandardOnly):
@@ -671,12 +661,12 @@ def CommonToAllViews(request):
     if request.META['REQUEST_METHOD'] not in ['GET', 'POST']:
         raise django.http.Http404
     
-    if brake_available:
-        # see https://github.com/gmcquillan/django-brake
-        was_limited = getattr(request, 'limited', False)
-        if was_limited:
-            time.sleep(5.0) # sleep for 5 seconds to slow down slammers
-    
+    # django-ratelimit sets request.limited=True when the caller
+    # exceeds the rate (with block=False, the decorator does not raise).
+    was_limited = getattr(request, 'limited', False)
+    if was_limited:
+        time.sleep(5.0) # sleep for 5 seconds to slow down slammers
+
     return False # all OK
 
 

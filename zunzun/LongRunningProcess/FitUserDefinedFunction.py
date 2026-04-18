@@ -7,6 +7,7 @@ from django.template.loader import render_to_string
 
 from . import FittingBaseClass
 from . import ReportsAndGraphs
+from .StatusMonitoredLongRunningProcessPage import _json_native
 from .child_payload import ChildPayload
 
 import zunzun.forms
@@ -33,11 +34,11 @@ class FitUserDefinedFunction(FittingBaseClass.FittingBaseClass):
         self.dataObject.equation.userDefinedFunctionText = payload.extra["userDefinedFunctionText"]
 
     def SaveSpecificDataToSessionStore(self):
-        self.SaveDictionaryOfItemsToSessionStore('data', {'dimensionality':self.dimensionality,
+        self.SaveDictionaryOfItemsToSessionStore('data', _json_native({'dimensionality':self.dimensionality,
                                                           'equationName':self.inEquationName,
                                                           'equationFamilyName':self.inEquationFamilyName,
                                                           'solvedCoefficients':self.dataObject.equation.solvedCoefficients,
-                                                          'udfEditor_' + str(self.dimensionality) + 'D':self.dataObject.equation.userDefinedFunctionText})
+                                                          'udfEditor_' + str(self.dimensionality) + 'D':self.dataObject.equation.userDefinedFunctionText}))
 
 
     def TransferFormDataToDataObject(self, request): # return any error in a user-viewable string (self.dataObject.ErrorString)

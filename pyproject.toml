@@ -6,10 +6,12 @@ readme = "README.txt"
 license = { file = "LICENSE.txt" }
 requires-python = ">=3.11"
 dependencies = [
-    # Django pinned pre-3.0 until render_to_response and the urls.py patterns()
-    # compat shim are migrated. See CLAUDE.md > "Django version compatibility
-    # shim" and views.py's 6 render_to_response call sites.
-    "django>=2.2,<3.0",
+    # Django 5.2 is an LTS release supported through April 2028. The
+    # site's code uses only long-stable APIs (re_path, render, TEMPLATES
+    # settings, default JSONSerializer). See docs/superpowers/specs/
+    # 2026-04-18-django-upgrade-design.md for migration history.
+    "django>=5.2,<5.3",
+    "django-ratelimit",
     "pyeq3",
     "numpy",
     "scipy",

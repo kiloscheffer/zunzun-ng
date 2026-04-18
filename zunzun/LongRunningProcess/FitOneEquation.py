@@ -3,6 +3,7 @@ import inspect, time, math, random, multiprocessing, os, sys, copy
 import numpy, scipy, scipy.stats
 
 from . import FittingBaseClass
+from .StatusMonitoredLongRunningProcessPage import _json_native
 import zunzun.forms
 
 from . import pid_trace
@@ -15,15 +16,15 @@ class FitOneEquation(FittingBaseClass.FittingBaseClass):
         super().__init__()
         self.interfaceString = 'zunzun/equation_fit_interface.html'
 
-    
+
     def SaveSpecificDataToSessionStore(self):
-        self.SaveDictionaryOfItemsToSessionStore('data', {'dimensionality':self.dimensionality,
+        self.SaveDictionaryOfItemsToSessionStore('data', _json_native({'dimensionality':self.dimensionality,
                                                           'equationName':self.inEquationName,
                                                           'equationFamilyName':self.inEquationFamilyName,
                                                           'solvedCoefficients':self.dataObject.equation.solvedCoefficients,
                                                           'fittingTarget':self.dataObject.equation.fittingTarget,
                                                           'logLinX':self.dataObject.logLinX,
-                                                          'logLinY':self.dataObject.logLinY})
+                                                          'logLinY':self.dataObject.logLinY}))
 
 
     def TransferFormDataToDataObject(self, request): # return any error in a user-viewable string (self.dataObject.ErrorString)

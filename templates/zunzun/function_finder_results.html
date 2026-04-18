@@ -34,9 +34,9 @@
 <table border='1'>
 <tr>
     <td align='center'>Model Plots</td>
-{% ifequal dimensionality '3' %}
+{% if dimensionality == '3' %}
     <td align='center'>Contour Plots</td>
-{% endifequal %}
+{% endif %}
 {% if RelativeErrorPlotsFlag %}
     <td align='center'>Relative Error Plots</td>
 {% else %}

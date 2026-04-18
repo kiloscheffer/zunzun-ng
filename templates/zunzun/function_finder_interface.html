@@ -34,9 +34,9 @@
         <option value='dataEntry'>Text Data Editor
         <option value='fittingTarget'>Fitting Target
         <option value='dataLabels'>Data Labels For Graphs
-{% ifequal dimensionality '2' %}
+{% if dimensionality == '2' %}
         <option value='linLog'>Lin/Log Control
-{% endifequal %}
+{% endif %}
         <option value='smoothnessControl'>Smoothness Control
         <option value='equationFamilyInclusion'>Equation Family Inclusion
         <option value='extendedEquationTypes'>Extended Equation Types
@@ -75,7 +75,7 @@ to start, then increase the Smoothness Control value as needed.
 {% include "zunzun/divs/equation_family_inclusion_div.html" %}
 {% include "zunzun/divs/extended_equation_types_control_div.html" %}
 
-{% ifequal dimensionality '2' %}
+{% if dimensionality == '2' %}
 <div ID="linLog" align='center' name="hideable_div">
 <B>Lin/log control</B><BR><BR>
 Log plots require data values greater than zero.
@@ -118,7 +118,7 @@ Log plots require data values greater than zero.
     </TR>
 </TABLE>
 </div>
-{% endifequal %}
+{% endif %}
 
 </form>
 {% endblock body_contents %}

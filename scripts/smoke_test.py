@@ -1,30 +1,22 @@
 """Cross-platform end-to-end smoke test for zunzunsite3.
 
-Starts a Waitress subprocess on a free port, runs three scenarios against it,
-then stops the server. Exits 0 iff all scenarios pass.
+Starts a Waitress subprocess on a free port, runs the scenarios below
+against it, then stops the server. Exits 0 iff all scenarios pass.
 
 Scenarios
 ---------
 
-1. **polynomial_quadratic_2D** — direct 2D polynomial-quadratic fit via
-   /FitEquation__F__/2/Polynomial/2nd Order (Quadratic)/. Exercises the
-   main LongRunningProcessView → spawn → _run_fit_child → PerformAllWork
-   path. Closed-form least-squares — does NOT exercise pyeq3's
-   differential-evolution initial-estimate code path.
+1. **polynomial_quadratic_2D** — direct 2D polynomial-quadratic fit.
+2. **evaluate_at_a_point** — chained after scenario 1; POSTs X=7.0
+   against the session's solved coefficients.
+3. **function_finder_2D** — ranks an Exponential-only search.
+4. **function_finder_detail_2D** — fits the RANK=1 equation.
+5. **characterize_2D** — descriptive statistics only, no fit.
+6. **all_equations_2D** — GET AllEquations listing.
+7. **feedback_form** — GET form + POST reply.
+8. **invalid_form_post** — malformed data → error template.
 
-2. **function_finder_2D** — POSTs to /FunctionFinder__F__/2/ restricted
-   to the Exponential family so the top-ranked equation is guaranteed
-   nonlinear. Exercises the Pool workers inside
-   FunctionFinder.PerformWorkInParallel (including the dataCache
-   passing through Process args) and lands on the ranking listing page.
-
-3. **function_finder_detail_2D** — immediately after scenario 2,
-   extracts the top-ranked equation's URL from the ranking listing
-   page and POSTs a detailed fit via /FitEquation__F__/{...}/.
-   Exercises the full user click-through flow AND the differential-
-   evolution initial-estimate path in pyeq3. Without this, the
-   numpy-empty-array bug in SolverService.py:144 would only surface
-   when a human clicked a ranked result.
+A 9th scenario (3D polynomial fit) is deferred — see TODO.md.
 
 Usage:
   uv run python scripts/smoke_test.py
@@ -132,6 +124,88 @@ _FF_EXPECTED_MARKERS = [
     "Model Plots",
     "Error Plots",
     "Rank 1",
+]
+
+_CHAR_2D_FIELDS = {
+    "commaConversion": "I",
+    "dataNameX": "X Data",
+    "dataNameY": "Y Data",
+    "textDataEditor": _DATA_2D_POLY,
+    "graphSize": "320x240",
+    "scientificNotationX": "AUTO",
+    "scientificNotationY": "AUTO",
+    "graphScaleRadioButtonX": "0.050",
+    "graphScaleRadioButtonY": "0.050",
+    "logLinX": "LIN",
+    "logLinY": "LIN",
+}
+
+_CHAR_EXPECTED_MARKERS = [
+    "Data Statistics",
+    "Minimum:",
+    "Maximum:",
+    "Mean:",
+    "Standard Deviation:",
+]
+
+_ALL_EQUATIONS_MARKERS = [
+    # /AllEquations/2/Polynomial/ URL — the path-segment `Polynomial`
+    # is the view's `inAllOrStandardOnly` flag, not a family filter.
+    # The header is "ZunZunSite3 List Of All Standard 2D Equations"
+    # and the page lists every family; "Polynomial" appears as a
+    # section heading and in many equation links.
+    "All Standard 2D Equations",
+    "Polynomial",
+]
+
+# FeedbackView GET redirects to '/' (home page), so there is no form-
+# rendering GET to anchor on. The POST path is the only render_to_response
+# site exercised here (feedback_reply.html). Field names must match
+# FeedbackForm: feedbackText and emailAddress.
+_FEEDBACK_POST_FIELDS = {
+    "feedbackText": "Automated smoke test submission — please ignore.",
+    "emailAddress": "smoke@example.com",
+}
+
+_FEEDBACK_POST_MARKERS = [
+    "Thank you",
+]
+
+# /Feedback/ GET redirects to '/'; we only assert the redirect lands
+# somewhere that renders the home page (non-empty, contains ZunZunSite3).
+_FEEDBACK_GET_MARKERS = [
+    "ZunZunSite3",
+]
+
+_EVAL_AT_POINT_FIELDS = {
+    "x": "7.0",  # EvaluateAtAPointForm_2D uses lowercase 'x'
+}
+
+# EvaluateAtAPointView returns plain HTML "evaluates to <b>{value}</b>"
+# on success (see views.py:153). The "evaluates to" anchor is stable
+# across pyeq3 output variants.
+_EVAL_AT_POINT_MARKERS = [
+    "evaluates to",
+]
+
+# Deliberately malformed data: Y column missing entirely, plus a
+# non-numeric row. FittingBaseClass validation should reject and
+# render invalid_form_data.html.
+_INVALID_DATA = """X
+not_a_number
+5.357
+6.097
+"""
+
+_INVALID_FIELDS = dict(_POLY_QUAD_FIELDS, textDataEditor=_INVALID_DATA)
+
+# invalid_form_data.html / Equation_2D.clean() message fragments. The
+# plan's "could not" string is not actually in the error template on
+# this codebase; the shipped error is "No data points found..." under
+# an "Error In Form" / "Form error :" heading.
+_INVALID_MARKERS = [
+    "Error In Form",
+    "Form error",
 ]
 
 # Pattern for the first /Equation/{dim}/{family}/{equation}/?RANK=1
@@ -288,6 +362,16 @@ def run_smoke() -> int:
             errors.append(err)
         else:
             print("[polynomial_quadratic_2D] OK")
+            r = session.post(
+                base + "/EvaluateAtAPoint/",
+                data=_EVAL_AT_POINT_FIELDS,
+                allow_redirects=True,
+            )
+            err = _check_markers("evaluate_at_a_point", r.text, _EVAL_AT_POINT_MARKERS)
+            if err:
+                errors.append(err)
+            else:
+                print("[evaluate_at_a_point] OK")
 
         # Scenario 2: FunctionFinder ranking. Capture the final body for scenario 3.
         session.post(
@@ -319,6 +403,54 @@ def run_smoke() -> int:
                 errors.append(err)
             else:
                 print("[function_finder_detail_2D] OK")
+
+        err = _run_scenario(
+            session,
+            base,
+            "characterize_2D",
+            base + "/CharacterizeData/2/",
+            _CHAR_2D_FIELDS,
+            _CHAR_EXPECTED_MARKERS,
+            timeout_s=120,
+        )
+        if err:
+            errors.append(err)
+        else:
+            print("[characterize_2D] OK")
+
+        r = session.get(base + "/AllEquations/2/Polynomial/")
+        err = _check_markers("all_equations_2D", r.text, _ALL_EQUATIONS_MARKERS)
+        if err:
+            errors.append(err)
+        else:
+            print("[all_equations_2D] OK")
+
+        r = session.get(base + "/Feedback/")
+        err = _check_markers("feedback_form_get", r.text, _FEEDBACK_GET_MARKERS)
+        if err:
+            errors.append(err)
+        else:
+            r = session.post(
+                base + "/Feedback/",
+                data=_FEEDBACK_POST_FIELDS,
+                allow_redirects=True,
+            )
+            err = _check_markers("feedback_form_post", r.text, _FEEDBACK_POST_MARKERS)
+            if err:
+                errors.append(err)
+            else:
+                print("[feedback_form] OK")
+
+        r = session.post(
+            base + "/FitEquation__F__/2/Polynomial/2nd%20Order%20(Quadratic)/",
+            data=_INVALID_FIELDS,
+            allow_redirects=True,
+        )
+        err = _check_markers("invalid_form_post", r.text, _INVALID_MARKERS)
+        if err:
+            errors.append(err)
+        else:
+            print("[invalid_form_post] OK")
 
         if errors:
             for msg in errors:

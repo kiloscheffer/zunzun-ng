@@ -3,6 +3,7 @@ import inspect, time, math, random, multiprocessing, os, sys, copy
 import numpy, scipy, scipy.stats
 
 from . import FittingBaseClass
+from .StatusMonitoredLongRunningProcessPage import _json_native
 from .child_payload import ChildPayload
 import zunzun.forms
 import zunzun.formConstants
@@ -31,13 +32,13 @@ class FitUserSelectablePolyfunctional(FittingBaseClass.FittingBaseClass):
         self.dataObject.equation.polyfunctional3DFlags = payload.extra["polyfunctional3DFlags"]
 
     def SaveSpecificDataToSessionStore(self):
-        self.SaveDictionaryOfItemsToSessionStore('data', {'dimensionality':self.dimensionality,
+        self.SaveDictionaryOfItemsToSessionStore('data', _json_native({'dimensionality':self.dimensionality,
                                                           'equationName':self.inEquationName,
                                                           'equationFamilyName':self.inEquationFamilyName,
                                                           'solvedCoefficients':self.dataObject.equation.solvedCoefficients,
                                                           'fittingTarget':self.dataObject.equation.fittingTarget,
                                                           'polyfunctional2DFlags':self.dataObject.equation.polyfunctional2DFlags,
-                                                          'polyfunctional3DFlags':self.dataObject.equation.polyfunctional3DFlags})
+                                                          'polyfunctional3DFlags':self.dataObject.equation.polyfunctional3DFlags}))
 
 
     def TransferFormDataToDataObject(self, request): # return any error in a user-viewable string (self.dataObject.ErrorString)        
