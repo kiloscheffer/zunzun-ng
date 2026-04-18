@@ -188,6 +188,26 @@ _EVAL_AT_POINT_MARKERS = [
     "evaluates to",
 ]
 
+# Deliberately malformed data: Y column missing entirely, plus a
+# non-numeric row. FittingBaseClass validation should reject and
+# render invalid_form_data.html.
+_INVALID_DATA = """X
+not_a_number
+5.357
+6.097
+"""
+
+_INVALID_FIELDS = dict(_POLY_QUAD_FIELDS, textDataEditor=_INVALID_DATA)
+
+# invalid_form_data.html / Equation_2D.clean() message fragments. The
+# plan's "could not" string is not actually in the error template on
+# this codebase; the shipped error is "No data points found..." under
+# an "Error In Form" / "Form error :" heading.
+_INVALID_MARKERS = [
+    "Error In Form",
+    "Form error",
+]
+
 # Pattern for the first /Equation/{dim}/{family}/{equation}/?RANK=1
 # hyperlink in the FunctionFinder results listing. family and equation
 # segments are URL-encoded (%20 for spaces, %28 for '(', etc.) and
@@ -420,6 +440,17 @@ def run_smoke() -> int:
                 errors.append(err)
             else:
                 print("[feedback_form] OK")
+
+        r = session.post(
+            base + "/FitEquation__F__/2/Polynomial/2nd%20Order%20(Quadratic)/",
+            data=_INVALID_FIELDS,
+            allow_redirects=True,
+        )
+        err = _check_markers("invalid_form_post", r.text, _INVALID_MARKERS)
+        if err:
+            errors.append(err)
+        else:
+            print("[invalid_form_post] OK")
 
         if errors:
             for msg in errors:
