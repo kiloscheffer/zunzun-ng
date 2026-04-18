@@ -8,7 +8,37 @@
 
 **Tech Stack:** Python 3.11, Django 2.2.28, multiprocessing (spawn context), psutil, Waitress, pytest + pytest-django, uv for dependency management.
 
-**Reference:** Design spec at `docs/superpowers/specs/2026-04-17-cross-platform-design.md` (commit 874b6de).
+**Reference:** Design spec at `docs/superpowers/specs/2026-04-17-cross-platform-design.md` (commit 874b6de). The spec has been updated post-execution with a §12 "Lessons learned" section — read it before attempting a similar migration.
+
+---
+
+## ⚠ Lessons from execution (added 2026-04-18)
+
+This plan was executed through Phase 4 (smoke test pass) on a Windows 11 box. Several task code blocks below have bugs or missing pieces discovered during execution. If you are re-running this plan, apply these corrections:
+
+1. **Task 4 — `get_parallel_process_count`** must be platform-aware. The plan's heuristic (80 MB per worker) is accurate only for Linux fork; Windows/macOS spawn workers are ~750 MB each. Additionally, hard-cap at 4 workers on spawn platforms to avoid pagefile exhaustion. See spec §12.2.
+
+2. **Task 19 — `_run_fit_child`** must bootstrap Django at the top of the function before any ORM access:
+   ```python
+   os.environ.setdefault("DJANGO_SETTINGS_MODULE", "settings")
+   import django
+   django.setup()
+   ```
+   Without this, the child raises `AppRegistryNotReady` on first `SessionStore` save. See spec §12.1.
+
+3. **Task 21 — `FittingBaseClass.build_child_payload`** must also carry `pdfTitleHTML` and `webFormName` (both set on `self`, not `self.dataObject`, during form processing). Missing these causes `AttributeError` in the child's `CreateReportPDF`. See spec §12.3.
+
+4. **Task 22 — Fit* subclass overrides** should read fields from `self.boundForm.equation.X` (not `self.dataObject.X` as the plan suggests). The Task 22 implementer caught this during execution. See commit `41c35de`.
+
+5. **New task — `normed` → `density`.** Fix `zunzun/LongRunningProcess/MatplotlibGraphs_2D.py:145`: matplotlib 3.2+ removed the `normed=` kwarg (now `density=`). Not a migration issue per se, but exposed by uv-locking to modern matplotlib. See spec §12.4.
+
+6. **Task 28 — `scripts/smoke_test.py`** readiness probe: use `socket.create_connection`, NOT `requests.get`. The HTTP-based probe poisons session cookies because `HomePageView` is `@cache_page`-decorated. Also: timeout = 600s (not 240s), and assert on *structural* markers (`"Coefficient and Fit Statistics"`, `"Minimum:"`, `"Maximum:"`), not FunkLoad's hardcoded numerical coefficients which are stale under modern numpy/scipy/pyeq3. See spec §§12.6, 12.7, 12.8.
+
+7. **Task 32 — dependencies** must include `lxml` in addition to `waitress`. `BeautifulSoup(..., "lxml")` is used in `CreateReportPDF`; bs4 does not transitively install lxml. See spec §12.5.
+
+8. **Task 31 — inner UDF fork** doesn't exist as described. The plan assumed `FitUserDefinedFunction.py` had its own `os.fork()` for isolating user-code compilation. In reality the only `os._exit(0)` there is a hard-abort in an already-spawned child's error path, not an inner fork. Replace with `raise SystemExit(0)`. See commit `df3113a`.
+
+If re-running: fold these corrections into the task code blocks before dispatch. The current plan's code blocks will not work without them.
 
 ---
 

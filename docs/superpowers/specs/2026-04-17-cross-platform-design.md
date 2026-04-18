@@ -285,19 +285,100 @@ Cross-platform migration is complete when all are true:
 
 ## 11. Risks & open questions
 
-- **Pickle-across-spawn for pyeq3 equations.** Strong prior signal (existing Pool pickles them), but must be verified empirically in Phase 0 before committing Phase 2.
-- **macOS deployment recipe is unverified.** No macOS hardware in the migration author's environment; `launchd` plist is written by structural extension from the Linux systemd unit. Explicit caveat in `docs/deployment/macos.md`.
-- **Windows Defender interaction.** Anecdotally slows fits substantially when scanning `.venv/`. Mitigation is documented (exclusion recommendation) but not forced.
-- **Session DB contention under spawn.** Spawn children open fresh DB connections; concurrent writes may contend more than under fork. Existing 100-retry loop should absorb this, but smoke test under simulated concurrency is prudent.
-- **`FitUserDefinedFunction` inner fork** compiling user-supplied Python in an isolated child: the isolation property must survive the spawn migration (it does — `multiprocessing.Process(spawn)` provides the same isolation as fork plus a fresh interpreter).
+Status updated after Phase 2–4 execution (2026-04-18).
 
-## 12. Follow-ups (out of scope for this spec)
+- ✅ **Pickle-across-spawn for pyeq3 equations.** RESOLVED. Phase 0 Task 10's pickle spike (commit `3ab0a4b`) plus Phase 2 Task 25's per-subclass round-trip tests (commit `115fe85`) empirically verified all concrete LRP subclasses' payloads survive `HIGHEST_PROTOCOL` pickle.
+- ⚠️ **macOS deployment recipe is unverified.** UNCHANGED. No macOS hardware available during migration; `launchd` plist remains written-but-untested.
+- ⚠️ **Windows Defender interaction.** Not exercised during the smoke test; mitigation documented but not required for the test to pass. Performance impact under sustained production load is still unknown.
+- ✅ **Session DB contention under spawn.** NOT OBSERVED. Single-fit smoke passed without triggering the 100-retry loop. Concurrent multi-user load not exercised.
+- ✅ **`FitUserDefinedFunction` inner fork.** RESOLVED — and the plan's assumption was wrong. There was no inner fork to migrate; the `os._exit(0)` in that file was a hard-abort inside an already-spawned child's error path. Replaced with `raise SystemExit(0)` (commit `df3113a`).
+
+## 12. Lessons learned from execution
+
+Discovered during Phase 2–4 debugging on Windows. Preserved here because future migrations of similar Linux-fork applications to cross-platform spawn will hit the same surface.
+
+### 12.1 Spawn children need explicit Django bootstrap
+
+A `multiprocessing.Process(spawn)` child starts a fresh Python interpreter that does NOT inherit the parent's Django app-registry state. The first attempt to touch the ORM (`SessionStore` save) raises `django.core.exceptions.AppRegistryNotReady: Apps aren't loaded yet.`
+
+Fix: at the top of the child entrypoint (before importing any app code that uses the ORM), call:
+
+```python
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "settings")
+import django
+django.setup()
+```
+
+This mirrors what `wsgi.py` does for the HTTP-facing parent. The plan's original `_run_fit_child` in §4.2 is missing these lines; production code (commit `563d81e` TBD) has them.
+
+### 12.2 Windows spawn per-worker memory is ~15× Linux fork
+
+On Linux, a `multiprocessing.Pool` worker is ~50 MB because `fork` uses copy-on-write. On Windows, a spawned worker re-imports numpy + scipy + matplotlib + pyeq3 + OpenBLAS from scratch — ~750 MB per worker. On an 8-core box, a full-CPU-count worker pool commits ~6 GB of virtual memory just for Pool workers, easily exhausting the default Windows pagefile and producing:
+
+```
+ImportError: DLL load failed while importing _flapack:
+  The paging file is too small for this operation to complete.
+```
+
+Fix: `get_parallel_process_count()` must be platform-aware. On spawn platforms (Windows, macOS), hard-cap at 4 workers *and* use a realistic per-worker memory estimate (~750 MB) for the available-memory ceiling. On fork platforms (Linux), the original ~80 MB estimate is accurate.
+
+This changes the §5.2 `get_parallel_process_count` signature and heuristic. Ref: `zunzun/platform_compat.py`.
+
+### 12.3 `pdfTitleHTML` and `webFormName` need explicit payload transport
+
+The plan's Task 21 `FittingBaseClass.build_child_payload` override only carried `self.boundForm.equation` into the payload. It missed `self.pdfTitleHTML` and `self.webFormName`, which are set on the LRP instance (not on `self.dataObject`) during `TransferFormDataToDataObject` in the parent. The child's fresh LRP instance doesn't have them, and `PerformAllWork` → `CreateReportPDF` fails with `AttributeError: 'FitOneEquation' object has no attribute 'pdfTitleHTML'`.
+
+Fix: carry both in `payload.extra` and restore in `apply_child_payload`.
+
+General lesson: when migrating a fork-based architecture to spawn, enumerate *every* attribute the parent sets on `self` between form processing and the fork point — these all need explicit payload transport because the child's fresh instance has only `__init__` defaults.
+
+### 12.4 Modern matplotlib rejects `hist(..., normed=...)`
+
+Pre-existing line in `MatplotlibGraphs_2D.py:145`:
+
+```python
+ax.hist(data, bins, facecolor=c, normed=True, ...)
+```
+
+`normed=` was renamed to `density=` in matplotlib 3.1 and removed in 3.2. Uv-locked version is 3.10. This was dormant under the original Linux deployment's older matplotlib, but the uv migration (which picked up matplotlib latest) exposed it.
+
+Fix: `normed=` → `density=`. Trivial one-line change; not a migration concern per se, but an API-rot landmine that surfaces any time an old codebase gets its dep floors raised.
+
+### 12.5 `bs4` requires explicit `lxml` dependency
+
+`CreateReportPDF` calls `BeautifulSoup(html, "lxml")`. `beautifulsoup4` does NOT install `lxml` as a transitive dependency — it only imports whatever parser backend is available. The original Linux setup had `lxml` as a system package. The uv-managed environment did not.
+
+Fix: add `lxml` to `pyproject.toml` runtime dependencies.
+
+### 12.6 Smoke-test readiness probes must not run the app
+
+The original smoke test used `requests.get("/")` in a loop to wait for Waitress to accept connections. But `HomePageView` is decorated with `@cache_page(60 * 60)`. The first readiness probe runs the view, session middleware adds `Set-Cookie`, and the cache stores the complete response. Subsequent requests from the real test `requests.Session()` hit the cached response — which contains the *first* request's Set-Cookie header, but since the session middleware doesn't run again on cache hits for cookie-less requests, the real session never gets a valid session ID. The subsequent `POST /FitEquation__F__/...` then hits the "This web site requires a temporary session cookie" early-exit path and the fit never runs.
+
+Fix: use a raw-socket probe (`socket.create_connection`) for readiness. Never make HTTP requests to the app before the real test session starts.
+
+This is a general anti-pattern: any probe against an HTTP endpoint with session-sensitive caching will poison downstream session state.
+
+### 12.7 FunkLoad's numerical assertions are stale
+
+FunkLoad's `test_Simple.py` hardcoded specific coefficient values like `-5.824100E-02`. These were produced by numpy/scipy/pyeq3 as they existed in ~2016. Modern library versions produce slightly different (equally valid) values — the genetic algorithm's random seeding, scipy's optimization routines, and pyeq3's internal computations have all shifted subtly.
+
+The smoke test should assert on *structural* markers (`"Coefficient and Fit Statistics"`, `"Minimum:"`, `"Maximum:"`) rather than exact numerical coefficients. A structural pass proves the fit ran end-to-end and rendered results; exact-value parity proves the libraries didn't change, which isn't a migration goal.
+
+### 12.8 Spawn fit runtime is 2–3× longer than fork on Windows
+
+The FunkLoad suite used a 240-second timeout per fit. That was comfortable for fork-based Linux. On Windows with spawn, each Pool worker's re-import of numpy+scipy takes 5–10 seconds; the full fit completes in ~3–5 minutes for the 2D polynomial-quadratic smoke case.
+
+Fix: smoke test timeout = 600 seconds. Production deployments should not rely on fit-runtime parity with Linux.
+
+## 13. Follow-ups (out of scope for this spec)
 
 - GitHub Actions 3-OS CI matrix (if repo moves to or mirrors on GitHub).
 - Django 2.x → 4.2 LTS migration — separate branch, separate spec.
 - FunkLoad replacement with pytest + requests (substantially richer than `scripts/smoke_test.py`).
 - Consideration of Approach 3 (external task queue via RQ or Huey) if site traffic grows.
+- **macOS verification** — run `scripts/smoke_test.py` on a real Mac and either confirm it works or document the delta.
+- **Concurrent multi-user smoke** — the current smoke test exercises one fit at a time. The SQLite session-store retry loop is untested under contention.
 
 ---
 
-**Next step:** invoke `writing-plans` skill to produce the implementation plan.
+**Post-execution note (2026-04-18):** the spec is preserved with its original architectural intent intact; §§11–12 record what actually happened during execution so future readers can see planned vs. actual.
