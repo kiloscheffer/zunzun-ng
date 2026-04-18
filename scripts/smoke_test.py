@@ -1,32 +1,36 @@
 """Cross-platform end-to-end smoke test for zunzunsite3.
 
-Starts a Waitress subprocess on a free port, runs two scenarios against it,
-then stops the server. Exits 0 iff both scenarios pass.
+Starts a Waitress subprocess on a free port, runs three scenarios against it,
+then stops the server. Exits 0 iff all scenarios pass.
 
 Scenarios
 ---------
 
-1. **Polynomial quadratic 2D direct fit** — POSTs to
-   /FitEquation__F__/2/Polynomial/2nd Order (Quadratic)/ with the same
-   10-point XY data FunkLoad's test_Simple.py used. Exercises the main
-   LongRunningProcessView → spawn → _run_fit_child → PerformAllWork path.
+1. **polynomial_quadratic_2D** — direct 2D polynomial-quadratic fit via
+   /FitEquation__F__/2/Polynomial/2nd Order (Quadratic)/. Exercises the
+   main LongRunningProcessView → spawn → _run_fit_child → PerformAllWork
+   path. Closed-form least-squares — does NOT exercise pyeq3's
+   differential-evolution initial-estimate code path.
 
-2. **FunctionFinder 2D** — POSTs to /FunctionFinder__F__/2/ with the
-   default 11-point dataset pre-filled on the FunctionFinder form.
-   Exercises the two-phase ranking → detailed-fit pipeline, including
-   the spawned Pool workers inside FunctionFinder.PerformWorkInParallel
-   that rely on dataCache being passed through Process args (a bug in
-   the original fork-era global-state pattern).
+2. **function_finder_2D** — POSTs to /FunctionFinder__F__/2/ restricted
+   to the Exponential family so the top-ranked equation is guaranteed
+   nonlinear. Exercises the Pool workers inside
+   FunctionFinder.PerformWorkInParallel (including the dataCache
+   passing through Process args) and lands on the ranking listing page.
 
-Both scenarios assert structural markers on the final results page —
-"Coefficient and Fit Statistics", "Minimum:", "Maximum:" — rather than
-exact numerical coefficients, because pyeq3/numpy/scipy version drift
-changes the exact values while the structure stays stable.
+3. **function_finder_detail_2D** — immediately after scenario 2,
+   extracts the top-ranked equation's URL from the ranking listing
+   page and POSTs a detailed fit via /FitEquation__F__/{...}/.
+   Exercises the full user click-through flow AND the differential-
+   evolution initial-estimate path in pyeq3. Without this, the
+   numpy-empty-array bug in SolverService.py:144 would only surface
+   when a human clicked a ranked result.
 
 Usage:
   uv run python scripts/smoke_test.py
 """
 import contextlib
+import re
 import socket
 import subprocess
 import sys
@@ -57,8 +61,8 @@ _DATA_2D_POLY = """X Y
 """
 
 # Default FunctionFinder 2D dataset (matches DefaultData.defaultData2D).
-# Monotonic increasing Y — a fittable shape that all equation families
-# can score against.
+# Monotonic increasing Y — a fittable shape that the Exponential family
+# can score reasonably well against.
 _DATA_2D_FF = """
 5.357    0.376
 5.457    0.489
@@ -90,17 +94,17 @@ _POLY_QUAD_FIELDS = {
     "textDataEditor": _DATA_2D_POLY,
 }
 
-# Minimal FunctionFinder fields. Two equation families is enough to
-# exercise the Pool-worker flow without testing hundreds of equations.
-# smoothnessControl2D=2 keeps per-equation coefficient count tiny so
-# the ranking phase completes quickly even on Windows spawn.
+# FunctionFinder fields. Only the Exponential family is enabled so the
+# top-ranked equation is guaranteed nonlinear — this exercises pyeq3's
+# differential-evolution initial-estimate path in the subsequent detail
+# fit. smoothnessControl2D=2 keeps per-equation coefficient count small.
 _FF_2D_FIELDS = {
     "commaConversion": "I",
     "dataNameX": "X Data",
     "dataNameY": "Y Data",
     "smoothnessControl2D": "2",
     "smoothnessExactOrMax": "M",
-    "equationFamilyInclusion": ["Polynomial", "Exponential"],
+    "equationFamilyInclusion": ["Exponential"],
     "extendedEquationTypes": ["STANDARD"],
     "fittingTarget": "SSQABS",
     "logLinX": "LIN",
@@ -108,12 +112,6 @@ _FF_2D_FIELDS = {
     "logLinZ": "LIN",
     "textDataEditor": _DATA_2D_FF,
 }
-
-# Different scenarios land on different pages. Polynomial direct-fit ends
-# at the per-equation detailed results; FunctionFinder ends at the ranking
-# listing showing model-plot thumbnails for each equation's rank. The two
-# pages share no reliable marker strings, so we assert per-scenario.
-# See module docstring on why we don't assert exact numerical values.
 
 _POLY_EXPECTED_MARKERS = [
     "Coefficient and Fit Statistics",
@@ -123,14 +121,17 @@ _POLY_EXPECTED_MARKERS = [
 ]
 
 _FF_EXPECTED_MARKERS = [
-    # The results-listing page's header text
     "Function Finder Results",
-    # The column headers above each equation's plot row
     "Model Plots",
     "Error Plots",
-    # The rank label next to the #1 best-fit equation
     "Rank 1",
 ]
+
+# Pattern for the first /Equation/{dim}/{family}/{equation}/?RANK=1
+# hyperlink in the FunctionFinder results listing. family and equation
+# segments are URL-encoded (%20 for spaces, %28 for '(', etc.) and
+# intentionally stay encoded — the fit POST URL reuses them verbatim.
+_RANK1_LINK = re.compile(r"/Equation/(?P<dim>\d+)/(?P<family>[^/?\"<>]+)/(?P<equation>[^/?\"<>]+)/\?RANK=1")
 
 
 def _wait_for_port(port: int, timeout_s: float = 30.0) -> bool:
@@ -152,6 +153,47 @@ def _wait_for_port(port: int, timeout_s: float = 30.0) -> bool:
     return False
 
 
+def _poll_until_done(session: requests.Session, base: str, timeout_s: float) -> str | None:
+    """Poll /StatusAndResults/ until a final body (no REDIRECT/REFRESH) arrives.
+
+    Returns the final body on success or None on timeout. Handles chained
+    redirects transparently (requests default follows them).
+    """
+    deadline = time.time() + timeout_s
+    while time.time() < deadline:
+        r = session.get(base + "/StatusAndResults/")
+        body = r.text
+        if "REDIRECT" not in body and "REFRESH" not in body.upper():
+            return body
+        time.sleep(3)
+    return None
+
+
+def _dump_body(tag: str, body: str) -> str:
+    """Write the body to temp/_smoke_last_body_{tag}.html for inspection."""
+    path = f"temp/_smoke_last_body_{tag}.html"
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(body)
+    except Exception:
+        pass
+    return path
+
+
+def _check_markers(name: str, body: str, expected: list[str]) -> str | None:
+    """Return an error string if any marker is missing, else None."""
+    missing = [m for m in expected if m not in body]
+    if not missing:
+        return None
+    path = _dump_body(name, body)
+    preview = body[:2000]
+    return (
+        f"[{name}] missing markers: {missing}\n"
+        f"full body written to {path} ({len(body)} chars)\n"
+        f"--- preview (first 2000 chars) ---\n{preview}\n--- end ---"
+    )
+
+
 def _run_scenario(
     session: requests.Session,
     base: str,
@@ -161,44 +203,52 @@ def _run_scenario(
     expected_markers: list[str],
     timeout_s: float,
 ) -> str | None:
-    """POST to `post_url`, poll /StatusAndResults/ until the fit completes,
-    verify structural markers on the final body. Returns None on success
-    or an error string on failure.
-
-    The polling loop follows redirects automatically (requests default).
-    For scenarios with chained redirects — FunctionFinder completes its
-    ranking phase by 302'ing to /FunctionFinderResults/?RANK=1, which
-    spawns the detailed-fit phase and 302's back to /StatusAndResults/ —
-    requests handles the chain transparently and we keep polling until
-    /StatusAndResults/ returns a 200 that contains neither "REFRESH" nor
-    "REDIRECT". That's the final results HTML.
+    """POST to post_url, poll until done, assert structural markers.
+    Returns None on success or an error string.
     """
     session.post(post_url, data=form_fields, allow_redirects=True)
+    body = _poll_until_done(session, base, timeout_s)
+    if body is None:
+        return f"[{name}] did not complete within {int(timeout_s)}s"
+    return _check_markers(name, body, expected_markers)
 
-    deadline = time.time() + timeout_s
-    while time.time() < deadline:
-        r = session.get(base + "/StatusAndResults/")
-        body = r.text
-        if "REDIRECT" not in body and "REFRESH" not in body.upper():
-            # Final page reached — check structural markers
-            missing = [m for m in expected_markers if m not in body]
-            if missing:
-                dump_path = f"temp/_smoke_last_body_{name}.html"
-                try:
-                    with open(dump_path, "w", encoding="utf-8") as _f:
-                        _f.write(body)
-                except Exception:
-                    pass
-                preview = body[:2000]
-                return (
-                    f"[{name}] missing markers: {missing}\n"
-                    f"full body written to {dump_path} ({len(body)} chars)\n"
-                    f"--- preview (first 2000 chars) ---\n{preview}\n--- end ---"
-                )
-            return None
-        time.sleep(3)
 
-    return f"[{name}] fit did not complete within {int(timeout_s)}s"
+def _run_ff_detail_scenario(
+    session: requests.Session,
+    base: str,
+    name: str,
+    ff_ranking_body: str,
+    timeout_s: float,
+) -> str | None:
+    """Click into the top-ranked equation from a FunctionFinder ranking
+    page and run its detailed fit.
+
+    `ff_ranking_body` is the HTML from the preceding function_finder_2D
+    scenario. Extracts the RANK=1 /Equation/.../ link and POSTs a fit to
+    the corresponding /FitEquation__F__/.../ URL with the same form
+    fields the direct polynomial-quadratic scenario uses (both routes
+    through FitOneEquation with Equation_2D form fields).
+    """
+    match = _RANK1_LINK.search(ff_ranking_body)
+    if not match:
+        _dump_body(f"{name}_parent", ff_ranking_body)
+        return f"[{name}] could not find RANK=1 equation link in the ranking body"
+    dim = match.group("dim")
+    family = match.group("family")
+    equation = match.group("equation")
+    print(f"[{name}] top-ranked: /{family}/{equation}/ (dim={dim})")
+
+    fit_url = f"{base}/FitEquation__F__/{dim}/{family}/{equation}/"
+    # Replace the data field with the FF data so the detail fit runs
+    # against the same points the ranking saw. Everything else matches
+    # the polynomial scenario's Equation_2D form expectations.
+    detail_fields = dict(_POLY_QUAD_FIELDS, textDataEditor=_DATA_2D_FF)
+    session.post(fit_url, data=detail_fields, allow_redirects=True)
+
+    body = _poll_until_done(session, base, timeout_s)
+    if body is None:
+        return f"[{name}] detailed fit did not complete within {int(timeout_s)}s"
+    return _check_markers(name, body, _POLY_EXPECTED_MARKERS)
 
 
 def run_smoke() -> int:
@@ -213,15 +263,11 @@ def run_smoke() -> int:
             return 1
 
         session = requests.Session()
-        # Hit homepage once to establish the session cookie. Must be
-        # AFTER the readiness probe (not as part of it) so the cookie
-        # lands on `session`, not discarded in a throwaway request.
-        session.get(base + "/")
+        session.get(base + "/")  # establish session cookie
 
         errors = []
 
-        # Scenario 1: direct polynomial-quadratic fit (~1 min on Linux fork,
-        # ~3 min on Windows spawn for the smoke data).
+        # Scenario 1: direct polynomial-quadratic fit
         err = _run_scenario(
             session,
             base,
@@ -236,23 +282,36 @@ def run_smoke() -> int:
         else:
             print("[polynomial_quadratic_2D] OK")
 
-        # Scenario 2: FunctionFinder 2D — two-phase ranking → results listing.
-        # Phase 1 ranks all equations in the enabled families; phase 2 renders
-        # the top-N results page with model-plot thumbnails for each rank.
-        # Final landing is the ranking listing (not a per-equation fit page).
-        err = _run_scenario(
-            session,
-            base,
-            "function_finder_2D",
+        # Scenario 2: FunctionFinder ranking. Capture the final body for scenario 3.
+        session.post(
             base + "/FunctionFinder__F__/2/",
-            _FF_2D_FIELDS,
-            _FF_EXPECTED_MARKERS,
-            timeout_s=900,
+            data=_FF_2D_FIELDS,
+            allow_redirects=True,
         )
-        if err:
-            errors.append(err)
+        ff_body = _poll_until_done(session, base, timeout_s=900)
+        if ff_body is None:
+            errors.append("[function_finder_2D] ranking did not complete within 900s")
+            ff_body = ""
         else:
-            print("[function_finder_2D] OK")
+            err = _check_markers("function_finder_2D", ff_body, _FF_EXPECTED_MARKERS)
+            if err:
+                errors.append(err)
+            else:
+                print("[function_finder_2D] OK")
+
+        # Scenario 3: detailed fit of the top-ranked equation (skip if scenario 2 failed)
+        if ff_body:
+            err = _run_ff_detail_scenario(
+                session,
+                base,
+                "function_finder_detail_2D",
+                ff_body,
+                timeout_s=600,
+            )
+            if err:
+                errors.append(err)
+            else:
+                print("[function_finder_detail_2D] OK")
 
         if errors:
             for msg in errors:
