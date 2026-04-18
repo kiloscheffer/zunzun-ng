@@ -14,7 +14,7 @@ from django.core.mail import EmailMessage
 import settings
 import django.http
 
-import os, sys, time, urllib.request, urllib.parse, urllib.error, signal, copy, pickle
+import os, sys, time, urllib.request, urllib.parse, urllib.error, signal, copy
 from . import forms, formConstants
 import numpy, multiprocessing
 
@@ -184,10 +184,10 @@ def StatusView(request):
 
     # this is done so that the "back" button does not return users to a status page when viewing FF results
     if 'redirectToResultsFileOrURL' in session_status:
-        if pickle.loads(bytes.fromhex(session_status['redirectToResultsFileOrURL'])) != '':
+        if session_status['redirectToResultsFileOrURL'] != '':
             # read and reset
-            redirect = pickle.loads(bytes.fromhex(session_status['redirectToResultsFileOrURL']))
-            session_status['redirectToResultsFileOrURL'] = pickle.dumps('', pickle.HIGHEST_PROTOCOL).hex()
+            redirect = session_status['redirectToResultsFileOrURL']
+            session_status['redirectToResultsFileOrURL'] = ''
             
             # sometimes database is momentarily locked, so retry on exception to mitigate
             s = session_status
@@ -213,7 +213,7 @@ def StatusView(request):
             else: # URL
                 return HttpResponseRedirect(redirect)
 
-    session_status['time_of_last_status_check'] = pickle.dumps(time.time(), pickle.HIGHEST_PROTOCOL).hex()
+    session_status['time_of_last_status_check'] = time.time()
     
     # sometimes database is momentarily locked, so retry on exception to mitigate
     s = session_status
@@ -233,9 +233,9 @@ def StatusView(request):
     close_old_connections()
    
     try:
-        currentStatus = pickle.loads(bytes.fromhex(session_status['currentStatus']))
-        startTime = pickle.loads(bytes.fromhex(session_status['start_time']))
-        timeStamp = pickle.loads(bytes.fromhex(session_status['timestamp']))
+        currentStatus = session_status['currentStatus']
+        startTime = session_status['start_time']
+        timeStamp = session_status['timestamp']
     except:
         return HttpResponse("I could not read your session data, my apologies. This is usually caused by a stale browser cookie. Please delete the zunzunsite3 browser cookie and try again.")
     

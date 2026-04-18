@@ -1,4 +1,4 @@
-import sys, os, time, multiprocessing, io, string, pickle
+import sys, os, time, multiprocessing, io, string
 from bs4 import BeautifulSoup # don't need everything, it has several components
 
 import settings
@@ -503,28 +503,26 @@ You must provide any weights you wish to use.
 
     def SaveDictionaryOfItemsToSessionStore(self, inSessionStoreName, inDictionary):
         pid_trace.pid_trace(inSessionStoreName)
-        
+
         session = eval('self.session_' + inSessionStoreName)
         if session is None:
             pid_trace.pid_trace('No session in sessionstore, creating new session')
             session = eval('SessionStore(self.session_key_' + inSessionStoreName + ')')
-            
+
         pid_trace.pid_trace()
-        
+
         for i in list(inDictionary.keys()):
             item = inDictionary[i]
             pid_trace.pid_trace(str(i) + ' type: ' + str(type(item)))
-            pickled = pickle.dumps(item, pickle.HIGHEST_PROTOCOL).hex()
-            pid_trace.pid_trace(str(i) + ' saving to session')
-            if str(i) == 'processID':
-                pid_trace.pid_trace(str(item) + ' pickled = ' + pickled)
-            session[i] = pickled
+            # Store the raw value. Callers are responsible for producing
+            # JSON-native values (no numpy scalars, sets, or datetime).
+            session[i] = item
             pid_trace.pid_trace(str(i) + ' saved to session')
 
         pid_trace.pid_trace()
 
         if inSessionStoreName == 'status':
-            session["timestamp"] = pickle.dumps(time.time(), pickle.HIGHEST_PROTOCOL).hex()
+            session["timestamp"] = time.time()
 
         # sometimes database is momentarily locked, so retry on exception to mitigate
         s = session
@@ -535,11 +533,11 @@ You must provide any weights you wish to use.
                 s.save()
                 save_complete = True
             except Exception as e:
-                time.sleep(0.1) # wait 1/10 second before retry
-                saveRetries += 1 # increment retry count
-                if saveRetries > 100: # 10 per second * 10 seconds
-                    raise e # re-raise exception from save operation
-            
+                time.sleep(0.1)
+                saveRetries += 1
+                if saveRetries > 100:
+                    raise e
+
         pid_trace.pid_trace()
 
         db.connections.close_all()
@@ -551,22 +549,20 @@ You must provide any weights you wish to use.
 
     def LoadItemFromSessionStore(self, inSessionStoreName, inItemName):
         pid_trace.pid_trace()
-        
+
         session = eval('self.session_' + inSessionStoreName)
         if session is None:
             session = eval('SessionStore(self.session_key_' + inSessionStoreName + ')')
         try:
             returnItem = session[inItemName]
-        except:
-            returnItem = pickle.dumps(None, pickle.HIGHEST_PROTOCOL).hex()
+        except KeyError:
+            returnItem = None
         db.connections.close_all()
         close_old_connections()
         session = None
-                
-        returnItem = pickle.loads(bytes.fromhex(returnItem))
-        
+
         pid_trace.delete_pid_trace_file()
-        
+
         return returnItem
 
 
