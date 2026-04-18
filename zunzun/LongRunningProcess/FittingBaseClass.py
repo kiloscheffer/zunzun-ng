@@ -33,10 +33,17 @@ You must provide any weights you wish to use.
         # Fit subclasses always have a bound equation via boundForm
         if self.boundForm is not None:
             payload.equation = self.boundForm.equation
+        # pdfTitleHTML and webFormName are set during TransferFormDataToDataObject
+        # in the parent (against self, not self.dataObject). The child's fresh
+        # LRP instance doesn't have them; carry them explicitly.
+        payload.extra["pdfTitleHTML"] = getattr(self, "pdfTitleHTML", "")
+        payload.extra["webFormName"] = getattr(self, "webFormName", "")
         return payload
 
     def apply_child_payload(self, payload):
         super().apply_child_payload(payload)
+        self.pdfTitleHTML = payload.extra.get("pdfTitleHTML", "")
+        self.webFormName = payload.extra.get("webFormName", "")
         # In the child, there is no request and no boundForm — the
         # equation comes directly from the payload.
         self.equationFromPayload = payload.equation
