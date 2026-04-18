@@ -118,6 +118,13 @@ _POLY_EXPECTED_MARKERS = [
     "Coefficient Covariance Matrix",
     "Minimum:",
     "Maximum:",
+    # Dropdown section titles that only render when equationInstance is
+    # truthy on the LRP (see FittingBaseClass.build_child_payload). These
+    # catch regressions where parent-only state doesn't cross the spawn
+    # payload boundary and the template falls back to its "no equation"
+    # rendering.
+    "Coefficients And Text Reports",
+    "Statistical Scatterplots",
 ]
 
 _FF_EXPECTED_MARKERS = [
