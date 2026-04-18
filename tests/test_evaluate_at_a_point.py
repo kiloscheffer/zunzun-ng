@@ -7,11 +7,9 @@ with an X value and asserts the response contains a numeric Y.
 Phase 1 calibration: the POST field is lowercase 'x'; success marker
 is 'evaluates to' (views.py line 153).
 
-Phase 3: the _encode helper becomes a no-op (native values in the
-session). Test assertion remains unchanged.
+Phase 3: seeds JSON-native values to match what production now writes
+(pickle/hex encoding was removed from the session helpers).
 """
-import pickle
-
 import pytest
 
 
@@ -19,21 +17,21 @@ def _seed_data_session(client, equation_name, equation_family, dimensionality,
                       coefficients):
     """Seed session_data with the minimum keys EvaluateAtAPointView needs.
 
-    Uses the current pickle/hex wire format. In Phase 3 this helper is
-    rewritten to use native values; the test assertion remains unchanged.
+    Writes JSON-native values (dict/list/str/int/float). The production
+    session helpers no longer pickle, so the seed matches on-the-wire
+    format directly. Coefficients are stored as a plain list; pyeq3's
+    CalculateModelPredictions accepts both list and numpy.ndarray.
     """
     from django.contrib.sessions.backends.db import SessionStore
     session_data = SessionStore()
     session_data.create()
 
-    def _encode(v):
-        return pickle.dumps(v, pickle.HIGHEST_PROTOCOL).hex()
-
-    session_data["dimensionality"] = _encode(dimensionality)
-    session_data["equationName"] = _encode(equation_name)
-    session_data["equationFamilyName"] = _encode(equation_family)
-    session_data["solvedCoefficients"] = _encode(coefficients)
-    session_data["fittingTarget"] = _encode("SSQABS")
+    session_data["dimensionality"] = dimensionality
+    session_data["equationName"] = equation_name
+    session_data["equationFamilyName"] = equation_family
+    # numpy array → plain list for JSON-serialisable session storage
+    session_data["solvedCoefficients"] = list(coefficients)
+    session_data["fittingTarget"] = "SSQABS"
     session_data.save()
 
     client_session = client.session
