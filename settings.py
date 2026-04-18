@@ -106,10 +106,6 @@ INSTALLED_APPS = (
     'zunzun',
 )
 
-# the default JSON serializer yields error in this application
-# http://stackoverflow.com/questions/24229397/django-object-is-not-json-serializable-error-after-upgrading-django-to-1-6-5
-SESSION_SERIALIZER = 'django.contrib.sessions.serializers.PickleSerializer'
-
 STATIC_URL = '/temp/'
 
 TEMP_FILES_DIR = os.path.join(ROOT_PATH, 'temp')
