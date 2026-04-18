@@ -38,12 +38,20 @@ You must provide any weights you wish to use.
         # LRP instance doesn't have them; carry them explicitly.
         payload.extra["pdfTitleHTML"] = getattr(self, "pdfTitleHTML", "")
         payload.extra["webFormName"] = getattr(self, "webFormName", "")
+        # equationInstance is set in CreateBoundInterfaceForm (parent) and
+        # used by the results template to decide whether to show the
+        # "Coefficients And Text Reports" and "Statistical Scatterplots"
+        # dropdowns. Default in __init__ is 0 (falsy); without explicit
+        # transport the child would render the results page as if no
+        # equation were bound, dropping both sections.
+        payload.extra["equationInstance"] = getattr(self, "equationInstance", 0)
         return payload
 
     def apply_child_payload(self, payload):
         super().apply_child_payload(payload)
         self.pdfTitleHTML = payload.extra.get("pdfTitleHTML", "")
         self.webFormName = payload.extra.get("webFormName", "")
+        self.equationInstance = payload.extra.get("equationInstance", 0)
         # In the child, there is no request and no boundForm — the
         # equation comes directly from the payload.
         self.equationFromPayload = payload.equation
