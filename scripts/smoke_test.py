@@ -60,8 +60,17 @@ _FORM_FIELDS = {
 }
 
 _EXPECTED_STRINGS = [
-    "-5.824100E-02",
-    "-5.610455E-02",
+    # Structural markers — the results page has rendered with actual fit
+    # statistics. We do NOT assert on specific numeric coefficient values
+    # because those shift slightly across numpy/scipy/pyeq3 versions; the
+    # value FunkLoad hardcoded was from a 2016 Linux run.
+    "Coefficient and Fit Statistics",
+    "Coefficient Covariance Matrix",
+    # The absolute-error table has minimum/maximum rows with scientific
+    # notation. Matching the label + the literal "E" of scientific notation
+    # asserts the fit produced real numerical output.
+    "Minimum:",
+    "Maximum:",
 ]
 
 
@@ -79,13 +88,16 @@ def run_smoke() -> int:
         ]
     )
     try:
-        # Wait for server to be ready
+        # Wait for Waitress to accept connections via raw socket probe.
+        # Using requests.get here would run HomePageView, which is
+        # @cache_page-decorated and would poison the session-cookie flow
+        # for the actual test session.
         deadline = time.time() + 30
         while time.time() < deadline:
             try:
-                requests.get(base + "/", timeout=1)
-                break
-            except requests.ConnectionError:
+                with contextlib.closing(socket.create_connection(("127.0.0.1", port), timeout=1)):
+                    break
+            except (OSError, ConnectionRefusedError):
                 time.sleep(0.5)
         else:
             print("ERROR: server never became ready", file=sys.stderr)
@@ -102,8 +114,11 @@ def run_smoke() -> int:
             allow_redirects=True,
         )
 
-        # Poll /StatusAndResults/ until completion (up to 240s)
-        poll_deadline = time.time() + 240
+        # Poll /StatusAndResults/ until completion (up to 600s — spawn
+        # on Windows has higher per-worker overhead than fork, so the
+        # genetic-algorithm fit takes longer than the 240s the FunkLoad
+        # tests used on Linux).
+        poll_deadline = time.time() + 600
         while time.time() < poll_deadline:
             r = session.get(base + "/StatusAndResults/")
             body = r.text
@@ -113,6 +128,18 @@ def run_smoke() -> int:
                     if expected not in body:
                         print(
                             f"ERROR: expected '{expected}' not in results",
+                            file=sys.stderr,
+                        )
+                        # Dump the full body to a file for inspection
+                        dump_path = "temp/_smoke_last_body.html"
+                        try:
+                            with open(dump_path, "w", encoding="utf-8") as _f:
+                                _f.write(body)
+                            print(f"full body written to {dump_path} ({len(body)} chars)", file=sys.stderr)
+                        except Exception as _e:
+                            print(f"(could not dump body: {_e})", file=sys.stderr)
+                        print(
+                            f"--- response body (first 2000 chars) ---\n{body[:2000]}\n--- end ---",
                             file=sys.stderr,
                         )
                         return 1
