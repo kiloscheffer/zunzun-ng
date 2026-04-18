@@ -158,6 +158,25 @@ _ALL_EQUATIONS_MARKERS = [
     "Polynomial",
 ]
 
+# FeedbackView GET redirects to '/' (home page), so there is no form-
+# rendering GET to anchor on. The POST path is the only render_to_response
+# site exercised here (feedback_reply.html). Field names must match
+# FeedbackForm: feedbackText and emailAddress.
+_FEEDBACK_POST_FIELDS = {
+    "feedbackText": "Automated smoke test submission — please ignore.",
+    "emailAddress": "smoke@example.com",
+}
+
+_FEEDBACK_POST_MARKERS = [
+    "Thank you",
+]
+
+# /Feedback/ GET redirects to '/'; we only assert the redirect lands
+# somewhere that renders the home page (non-empty, contains ZunZunSite3).
+_FEEDBACK_GET_MARKERS = [
+    "ZunZunSite3",
+]
+
 # Pattern for the first /Equation/{dim}/{family}/{equation}/?RANK=1
 # hyperlink in the FunctionFinder results listing. family and equation
 # segments are URL-encoded (%20 for spaces, %28 for '(', etc.) and
@@ -364,6 +383,22 @@ def run_smoke() -> int:
             errors.append(err)
         else:
             print("[all_equations_2D] OK")
+
+        r = session.get(base + "/Feedback/")
+        err = _check_markers("feedback_form_get", r.text, _FEEDBACK_GET_MARKERS)
+        if err:
+            errors.append(err)
+        else:
+            r = session.post(
+                base + "/Feedback/",
+                data=_FEEDBACK_POST_FIELDS,
+                allow_redirects=True,
+            )
+            err = _check_markers("feedback_form_post", r.text, _FEEDBACK_POST_MARKERS)
+            if err:
+                errors.append(err)
+            else:
+                print("[feedback_form] OK")
 
         if errors:
             for msg in errors:
