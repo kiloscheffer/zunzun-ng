@@ -17,6 +17,7 @@ dependencies = [
     "reportlab",
     "psutil",
     "beautifulsoup4",
+    "waitress>=3.0",
 ]
 
 [dependency-groups]
