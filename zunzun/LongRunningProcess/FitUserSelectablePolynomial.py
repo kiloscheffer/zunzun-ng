@@ -62,7 +62,7 @@ class FitUserSelectablePolynomial(FittingBaseClass.FittingBaseClass):
                 if self.boundForm.equation.xPolynomialOrder < 0:
                     self.boundForm.equation.xPolynomialOrder = 0
                 if self.boundForm.equation.xPolynomialOrder > (len(zunzun.formConstants.polynomialOrder3DChoices) - 1):
-                    self.boundForm.equation.xPolynomialOrder = len(fzunzun.ormConstants.polynomialOrder3DChoices) - 1
+                    self.boundForm.equation.xPolynomialOrder = len(zunzun.formConstants.polynomialOrder3DChoices) - 1
             if 'polynomialOrderY3D' in request.POST:
                 self.boundForm.equation.yPolynomialOrder = int(request.POST['polynomialOrderY3D'])
                 if self.boundForm.equation.yPolynomialOrder < 0:

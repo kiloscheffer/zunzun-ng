@@ -263,5 +263,5 @@ class FunctionFinderResults(FittingBaseClass.FittingBaseClass):
 
     
     def CreateReportPDF(self):
-        pass # no PDF file 
-()
+        pass # no PDF file
+

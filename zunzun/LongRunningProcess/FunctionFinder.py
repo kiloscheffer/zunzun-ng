@@ -393,8 +393,14 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
         self.totalNumberOfParallelWorkItemsToBeRun = len(self.parallelWorkItemsList)
         self.totalNumberOfSerialWorkItemsToBeRun = len(self.linearFittingList)
         self.parallelWorkItemsList.reverse()
-        
-        fittingResultsQueue = multiprocessing.Queue()
+
+        # Use explicit spawn context for both the Queue and the Processes
+        # below, matching the pattern established in views.LongRunningProcessView
+        # and views.HomePageView. Queues and Processes created from the same
+        # context communicate cleanly across the parent/child boundary on
+        # every platform.
+        _ctx = multiprocessing.get_context("spawn")
+        fittingResultsQueue = _ctx.Queue()
         
         while len(self.parallelWorkItemsList) > 0:
 
@@ -413,7 +419,7 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
                     taskList = []
                     while len(self.parallelWorkItemsList) > 0 and len(taskList) < equationCount:
                         taskList.append(self.parallelWorkItemsList.pop())
-                    p = multiprocessing.Process(target=parallelWorker, args=(taskList, fittingResultsQueue))
+                    p = _ctx.Process(target=parallelWorker, args=(taskList, fittingResultsQueue))
                     p.start()
 
             self.WorkItems_CheckOneSecondSessionUpdates()
