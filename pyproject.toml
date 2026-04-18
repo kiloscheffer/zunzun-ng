@@ -10,6 +10,7 @@ dependencies = [
     # compat shim are migrated. See CLAUDE.md > "Django version compatibility
     # shim" and views.py's 6 render_to_response call sites.
     "django>=2.2,<3.0",
+    "django-ratelimit",
     "pyeq3",
     "numpy",
     "scipy",
