@@ -39,7 +39,7 @@ Starts a throwaway Waitress, POSTs a 2D polynomial-quadratic fit, polls for comp
 
 ## Dependencies
 
-Python deps are declared in `pyproject.toml` and pinned in the committed `uv.lock`. Runtime group: Django (pinned `>=2.2,<3.0` — see "Django version pin" below), pyeq3, scipy, matplotlib, numpy, reportlab, psutil, beautifulsoup4, lxml, waitress. Dev group: mypy, pytest, pytest-django, requests.
+Python deps are declared in `pyproject.toml` and pinned in the committed `uv.lock`. Runtime group: Django (pinned `>=5.2,<5.3`), django-ratelimit, pyeq3, scipy, matplotlib, numpy, reportlab, psutil, beautifulsoup4, lxml, waitress. Dev group: mypy, pytest, pytest-django, requests.
 
 **Django version.** Django 5.2 LTS, supported through April 2028. The code uses only long-stable APIs (`re_path`, `render`, the `TEMPLATES` settings shape, default `JSONSerializer` for sessions). See `docs/superpowers/specs/2026-04-18-django-upgrade-design.md` for the 2.2 → 5.2 migration history.
 
