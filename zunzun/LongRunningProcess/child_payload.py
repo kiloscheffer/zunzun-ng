@@ -58,6 +58,13 @@ def _run_fit_child(payload: ChildPayload) -> None:
     existing logging pattern in views.LongRunningProcessView) before
     the child exits.
     """
+    # Spawn starts a fresh Python interpreter — it does not inherit the
+    # parent's Django bootstrap. Without this setup, any ORM access
+    # (e.g. SessionStore save) raises AppRegistryNotReady.
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "settings")
+    import django
+    django.setup()
+
     from zunzun import platform_compat
 
     # Apply nice level to the child process itself
