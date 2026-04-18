@@ -177,6 +177,17 @@ _FEEDBACK_GET_MARKERS = [
     "ZunZunSite3",
 ]
 
+_EVAL_AT_POINT_FIELDS = {
+    "x": "7.0",  # EvaluateAtAPointForm_2D uses lowercase 'x'
+}
+
+# EvaluateAtAPointView returns plain HTML "evaluates to <b>{value}</b>"
+# on success (see views.py:153). The "evaluates to" anchor is stable
+# across pyeq3 output variants.
+_EVAL_AT_POINT_MARKERS = [
+    "evaluates to",
+]
+
 # Pattern for the first /Equation/{dim}/{family}/{equation}/?RANK=1
 # hyperlink in the FunctionFinder results listing. family and equation
 # segments are URL-encoded (%20 for spaces, %28 for '(', etc.) and
@@ -331,6 +342,16 @@ def run_smoke() -> int:
             errors.append(err)
         else:
             print("[polynomial_quadratic_2D] OK")
+            r = session.post(
+                base + "/EvaluateAtAPoint/",
+                data=_EVAL_AT_POINT_FIELDS,
+                allow_redirects=True,
+            )
+            err = _check_markers("evaluate_at_a_point", r.text, _EVAL_AT_POINT_MARKERS)
+            if err:
+                errors.append(err)
+            else:
+                print("[evaluate_at_a_point] OK")
 
         # Scenario 2: FunctionFinder ranking. Capture the final body for scenario 3.
         session.post(
