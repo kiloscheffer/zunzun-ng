@@ -1,14 +1,27 @@
 """Cross-platform end-to-end smoke test for zunzunsite3.
 
-Starts a Waitress subprocess on a free port, POSTs a 2D polynomial-
-quadratic fit against the default sample data, polls /StatusAndResults/
-until the fit completes, asserts on known numeric coefficients, then
-stops the server. Exits 0 on success, nonzero on failure.
+Starts a Waitress subprocess on a free port, runs two scenarios against it,
+then stops the server. Exits 0 iff both scenarios pass.
 
-Reference coefficients (from funkload_tests/test_Simple.py — preserved
-here because FunkLoad no longer runs):
-  Minimum: -5.824100E-02, -5.610455E-02
-  Maximum:  7.692989E-02,  1.154094E-02
+Scenarios
+---------
+
+1. **Polynomial quadratic 2D direct fit** — POSTs to
+   /FitEquation__F__/2/Polynomial/2nd Order (Quadratic)/ with the same
+   10-point XY data FunkLoad's test_Simple.py used. Exercises the main
+   LongRunningProcessView → spawn → _run_fit_child → PerformAllWork path.
+
+2. **FunctionFinder 2D** — POSTs to /FunctionFinder__F__/2/ with the
+   default 11-point dataset pre-filled on the FunctionFinder form.
+   Exercises the two-phase ranking → detailed-fit pipeline, including
+   the spawned Pool workers inside FunctionFinder.PerformWorkInParallel
+   that rely on dataCache being passed through Process args (a bug in
+   the original fork-era global-state pattern).
+
+Both scenarios assert structural markers on the final results page —
+"Coefficient and Fit Statistics", "Minimum:", "Maximum:" — rather than
+exact numerical coefficients, because pyeq3/numpy/scipy version drift
+changes the exact values while the structure stays stable.
 
 Usage:
   uv run python scripts/smoke_test.py
@@ -28,8 +41,9 @@ def _find_free_port() -> int:
         return s.getsockname()[1]
 
 
-# Sample data lifted from funkload_tests/test_Simple.py default_data2D
-_DATA_2D = """X Y
+# 10-point dataset used by the direct polynomial-quadratic fit scenario
+# (matches funkload_tests/test_Simple.py default_data2D).
+_DATA_2D_POLY = """X Y
 5.357 3.76
 5.684 6.1
 6.097 4.94
@@ -42,7 +56,24 @@ _DATA_2D = """X Y
 9.861 1.95
 """
 
-_FORM_FIELDS = {
+# Default FunctionFinder 2D dataset (matches DefaultData.defaultData2D).
+# Monotonic increasing Y — a fittable shape that all equation families
+# can score against.
+_DATA_2D_FF = """
+5.357    0.376
+5.457    0.489
+5.797    0.874
+5.936    1.049
+6.161    1.327
+6.697    2.054
+6.731    2.077
+6.775    2.138
+8.442    4.744
+9.769    7.068
+9.861    7.104
+"""
+
+_POLY_QUAD_FIELDS = {
     "commaConversion": "I",
     "graphSize": "320x240",
     "animationSize": "0x0",
@@ -56,99 +87,162 @@ _FORM_FIELDS = {
     "logLinY": "LIN",
     "logLinZ": "LIN",
     "fittingTarget": "SSQABS",
-    "textDataEditor": _DATA_2D,
+    "textDataEditor": _DATA_2D_POLY,
 }
 
-_EXPECTED_STRINGS = [
-    # Structural markers — the results page has rendered with actual fit
-    # statistics. We do NOT assert on specific numeric coefficient values
-    # because those shift slightly across numpy/scipy/pyeq3 versions; the
-    # value FunkLoad hardcoded was from a 2016 Linux run.
+# Minimal FunctionFinder fields. Two equation families is enough to
+# exercise the Pool-worker flow without testing hundreds of equations.
+# smoothnessControl2D=2 keeps per-equation coefficient count tiny so
+# the ranking phase completes quickly even on Windows spawn.
+_FF_2D_FIELDS = {
+    "commaConversion": "I",
+    "dataNameX": "X Data",
+    "dataNameY": "Y Data",
+    "smoothnessControl2D": "2",
+    "smoothnessExactOrMax": "M",
+    "equationFamilyInclusion": ["Polynomial", "Exponential"],
+    "extendedEquationTypes": ["STANDARD"],
+    "fittingTarget": "SSQABS",
+    "logLinX": "LIN",
+    "logLinY": "LIN",
+    "logLinZ": "LIN",
+    "textDataEditor": _DATA_2D_FF,
+}
+
+# Both scenarios land on a fit-results page with the same structural
+# markers after completion. See module docstring on why we don't assert
+# on exact numerical values.
+_EXPECTED_MARKERS = [
     "Coefficient and Fit Statistics",
     "Coefficient Covariance Matrix",
-    # The absolute-error table has minimum/maximum rows with scientific
-    # notation. Matching the label + the literal "E" of scientific notation
-    # asserts the fit produced real numerical output.
     "Minimum:",
     "Maximum:",
 ]
 
 
+def _wait_for_port(port: int, timeout_s: float = 30.0) -> bool:
+    """Raw-socket readiness probe. Returns True if Waitress accepts a
+    connection on `port` within the timeout, False otherwise.
+
+    Using requests.get as a warmup probe would execute HomePageView,
+    which is @cache_page-decorated; the cached response poisons session
+    cookies for the real test session afterward. A raw TCP connect
+    never touches Django so it leaves no server-side side effects.
+    """
+    deadline = time.time() + timeout_s
+    while time.time() < deadline:
+        try:
+            with contextlib.closing(socket.create_connection(("127.0.0.1", port), timeout=1)):
+                return True
+        except (OSError, ConnectionRefusedError):
+            time.sleep(0.5)
+    return False
+
+
+def _run_scenario(
+    session: requests.Session,
+    base: str,
+    name: str,
+    post_url: str,
+    form_fields: dict,
+    timeout_s: float,
+) -> str | None:
+    """POST to `post_url`, poll /StatusAndResults/ until the fit completes,
+    verify structural markers on the final body. Returns None on success
+    or an error string on failure.
+
+    The polling loop follows redirects automatically (requests default).
+    For scenarios with chained redirects — FunctionFinder completes its
+    ranking phase by 302'ing to /FunctionFinderResults/?RANK=1, which
+    spawns the detailed-fit phase and 302's back to /StatusAndResults/ —
+    requests handles the chain transparently and we keep polling until
+    /StatusAndResults/ returns a 200 that contains neither "REFRESH" nor
+    "REDIRECT". That's the final results HTML.
+    """
+    session.post(post_url, data=form_fields, allow_redirects=True)
+
+    deadline = time.time() + timeout_s
+    while time.time() < deadline:
+        r = session.get(base + "/StatusAndResults/")
+        body = r.text
+        if "REDIRECT" not in body and "REFRESH" not in body.upper():
+            # Final page reached — check structural markers
+            missing = [m for m in _EXPECTED_MARKERS if m not in body]
+            if missing:
+                dump_path = f"temp/_smoke_last_body_{name}.html"
+                try:
+                    with open(dump_path, "w", encoding="utf-8") as _f:
+                        _f.write(body)
+                except Exception:
+                    pass
+                preview = body[:2000]
+                return (
+                    f"[{name}] missing markers: {missing}\n"
+                    f"full body written to {dump_path} ({len(body)} chars)\n"
+                    f"--- preview (first 2000 chars) ---\n{preview}\n--- end ---"
+                )
+            return None
+        time.sleep(3)
+
+    return f"[{name}] fit did not complete within {int(timeout_s)}s"
+
+
 def run_smoke() -> int:
     port = _find_free_port()
     base = f"http://127.0.0.1:{port}"
-    # Use the installed waitress-serve console script. On uv-managed envs
-    # it's on PATH when the script is invoked via `uv run`. No sys.executable
-    # wrapper because `python -m waitress` is not a standard entry point.
     proc = subprocess.Popen(
-        [
-            "waitress-serve",
-            f"--listen=127.0.0.1:{port}",
-            "wsgi:application",
-        ]
+        ["waitress-serve", f"--listen=127.0.0.1:{port}", "wsgi:application"]
     )
     try:
-        # Wait for Waitress to accept connections via raw socket probe.
-        # Using requests.get here would run HomePageView, which is
-        # @cache_page-decorated and would poison the session-cookie flow
-        # for the actual test session.
-        deadline = time.time() + 30
-        while time.time() < deadline:
-            try:
-                with contextlib.closing(socket.create_connection(("127.0.0.1", port), timeout=1)):
-                    break
-            except (OSError, ConnectionRefusedError):
-                time.sleep(0.5)
-        else:
+        if not _wait_for_port(port):
             print("ERROR: server never became ready", file=sys.stderr)
             return 1
 
-        # Get homepage to establish session cookie
         session = requests.Session()
+        # Hit homepage once to establish the session cookie. Must be
+        # AFTER the readiness probe (not as part of it) so the cookie
+        # lands on `session`, not discarded in a throwaway request.
         session.get(base + "/")
 
-        # POST the fit
-        session.post(
+        errors = []
+
+        # Scenario 1: direct polynomial-quadratic fit (~1 min on Linux fork,
+        # ~3 min on Windows spawn for the smoke data).
+        err = _run_scenario(
+            session,
+            base,
+            "polynomial_quadratic_2D",
             base + "/FitEquation__F__/2/Polynomial/2nd%20Order%20(Quadratic)/",
-            data=_FORM_FIELDS,
-            allow_redirects=True,
+            _POLY_QUAD_FIELDS,
+            timeout_s=600,
         )
+        if err:
+            errors.append(err)
+        else:
+            print("[polynomial_quadratic_2D] OK")
 
-        # Poll /StatusAndResults/ until completion (up to 600s — spawn
-        # on Windows has higher per-worker overhead than fork, so the
-        # genetic-algorithm fit takes longer than the 240s the FunkLoad
-        # tests used on Linux).
-        poll_deadline = time.time() + 600
-        while time.time() < poll_deadline:
-            r = session.get(base + "/StatusAndResults/")
-            body = r.text
-            if "REDIRECT" not in body and "REFRESH" not in body.upper():
-                # Done — check expected strings
-                for expected in _EXPECTED_STRINGS:
-                    if expected not in body:
-                        print(
-                            f"ERROR: expected '{expected}' not in results",
-                            file=sys.stderr,
-                        )
-                        # Dump the full body to a file for inspection
-                        dump_path = "temp/_smoke_last_body.html"
-                        try:
-                            with open(dump_path, "w", encoding="utf-8") as _f:
-                                _f.write(body)
-                            print(f"full body written to {dump_path} ({len(body)} chars)", file=sys.stderr)
-                        except Exception as _e:
-                            print(f"(could not dump body: {_e})", file=sys.stderr)
-                        print(
-                            f"--- response body (first 2000 chars) ---\n{body[:2000]}\n--- end ---",
-                            file=sys.stderr,
-                        )
-                        return 1
-                print("SMOKE OK: fit completed and numeric asserts passed")
-                return 0
-            time.sleep(3)
+        # Scenario 2: FunctionFinder 2D — two-phase ranking → detailed-fit.
+        # Higher timeout because ranking tests many equations and the
+        # detailed-fit phase runs afterward.
+        err = _run_scenario(
+            session,
+            base,
+            "function_finder_2D",
+            base + "/FunctionFinder__F__/2/",
+            _FF_2D_FIELDS,
+            timeout_s=900,
+        )
+        if err:
+            errors.append(err)
+        else:
+            print("[function_finder_2D] OK")
 
-        print("ERROR: fit did not complete within 240s", file=sys.stderr)
-        return 1
+        if errors:
+            for msg in errors:
+                print("ERROR:", msg, file=sys.stderr)
+            return 1
+        print("SMOKE OK: all scenarios passed")
+        return 0
     finally:
         proc.terminate()
         try:

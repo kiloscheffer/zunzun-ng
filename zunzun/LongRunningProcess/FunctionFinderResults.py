@@ -28,11 +28,32 @@ class FunctionFinderResults(FittingBaseClass.FittingBaseClass):
         # self.rank is set by the view dispatcher (LRP.rank = rank) before
         # build_child_payload is called; carry it into the child.
         payload.extra["rank"] = self.rank
+        # These are set in TransferFormDataToDataObject (runs in the
+        # parent) and read later by GenerateListOfOutputReports +
+        # CreateReportOutput templates (run in the child). Fresh spawn
+        # child instance has no __init__ defaults for them, so without
+        # explicit transport the child raises AttributeError.
+        for attr in (
+            "functionFinderResultsList",
+            "numberOfEquationsToDisplay",
+            "previousSelectorRank",
+            "nextSelectorRank",
+        ):
+            if hasattr(self, attr):
+                payload.extra[attr] = getattr(self, attr)
         return payload
 
     def apply_child_payload(self, payload):
         super().apply_child_payload(payload)
         self.rank = payload.extra["rank"]
+        for attr in (
+            "functionFinderResultsList",
+            "numberOfEquationsToDisplay",
+            "previousSelectorRank",
+            "nextSelectorRank",
+        ):
+            if attr in payload.extra:
+                setattr(self, attr, payload.extra[attr])
 
     def TransferFormDataToDataObject(self, request): # return any error in a user-viewable string (self.dataObject.ErrorString)
         IndependentDataName1 = self.LoadItemFromSessionStore('data', 'IndependentDataName1')
