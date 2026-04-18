@@ -36,6 +36,46 @@ except: # django_brake is not installed, use dummy pass-through decorator
         return temp
 
 
+def _housekeeping_child(temp_dir: str, max_size_mb: int) -> None:
+    """Top-level entrypoint for the HomePageView housekeeping fork.
+
+    Must be module-level (not nested) for spawn to pickle it.
+    Clears expired sessions and trims temp/ when it exceeds
+    max_size_mb.
+    """
+    from django.contrib.sessions.backends.db import SessionStore as _SessionStore
+    try:
+        _SessionStore().clear_expired()
+
+        totalDirSize = 0
+        dirInfo = []
+        for item in os.listdir(temp_dir):
+            itempath = os.path.join(temp_dir, item)
+            if os.path.isfile(itempath):
+                fileSize = os.path.getsize(itempath)
+                fileMtime = os.path.getmtime(itempath)
+                dirInfo.append([fileMtime, fileSize, item])
+                totalDirSize += fileSize
+
+        maxSize = max_size_mb * 1000000
+
+        if totalDirSize > maxSize:
+            totalReduction = 0
+            reductionAmount = (totalDirSize - maxSize) + (maxSize * 0.25)
+            dirInfo.sort()
+            for fileItem in dirInfo:
+                if totalReduction < reductionAmount:
+                    totalReduction += fileItem[1]
+                    try:
+                        os.remove(os.path.join(temp_dir, fileItem[2]))
+                    except Exception:
+                        pass
+                else:
+                    break
+    except Exception:
+        pass
+
+
 @cache_control(no_cache=True)
 @ratelimit(rate='12/m') # if faster than once every five seconds, apply brake in CommonToAllViews() if django_brake installed
 def EvaluateAtAPointView(request):
@@ -469,43 +509,12 @@ def HomePageView(request):
     # that actual home page generation time is not impacted
     db.connections.close_all()
     close_old_connections()
-    processID_1 = os.fork()
-    if processID_1 == 0: # child process, kill when done
-        try:
-            # whenever the home page is loaded, clear expired sessions
-            SessionStore().clear_expired()
-
-            # whenever the home page is loaded, make sure there is
-            # space in the temp directory for newly created files    
-            totalDirSize = 0
-            dirInfo = []
-            for item in os.listdir(settings.TEMP_FILES_DIR):
-                itempath = os.path.join(settings.TEMP_FILES_DIR, item)
-                if os.path.isfile(itempath):
-                    fileSize = os.path.getsize(itempath)
-                    fileMtime = os.path.getmtime(itempath) # to sort by creation time
-                    dirInfo.append([fileMtime, fileSize, item])
-                    totalDirSize += fileSize
-            
-            # approximately the max temp directory number of bytes
-            maxSize = settings.MAX_TEMP_DIR_SIZE_IN_MBYTES * 1000000
-            tempDir = settings.TEMP_FILES_DIR
-
-            if totalDirSize > maxSize:
-                totalReduction = 0
-                reductionAmount = (totalDirSize - maxSize) + (maxSize * 0.25)
-                dirInfo.sort() # delete oldest files first
-                for fileItem in dirInfo:
-                    if totalReduction < reductionAmount:
-                        totalReduction += fileItem[1]
-                        try: # prevent possible exceptions from race conditions
-                            os.remove(os.path.join(tempDir, fileItem[2]))
-                        except:
-                            pass
-                    else:
-                        break
-        finally:
-            os._exit(0) # kill this child process
+    ctx = multiprocessing.get_context("spawn")
+    ctx.Process(
+        target=_housekeeping_child,
+        args=(settings.TEMP_FILES_DIR, settings.MAX_TEMP_DIR_SIZE_IN_MBYTES),
+        daemon=True,
+    ).start()
 
     # parent process, start code for view generation
     if CommonToAllViews(request): # any referrer blocks or web request checks processed here
