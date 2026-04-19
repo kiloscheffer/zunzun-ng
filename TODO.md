@@ -273,3 +273,83 @@ delivered pure-Python animated GIF rendering; smoke coverage for
 3D paths is blocked on a different TODO item (the spawn-Pool
 deadlock), so adding smoke coverage here would depend on
 unblocking that first.
+
+## Investigate lifting the 4-worker cap on spawn platforms
+
+**Symptom / constraint.** `platform_compat.get_parallel_process_count`
+hard-caps at 4 workers on spawn platforms (Windows, macOS). On
+fork platforms (Linux) the cap is `cpu_count`. On an 8- or 16-core
+Windows box doing a FunctionFinder run or a many-report 3D fit,
+this leaves half to three-quarters of the CPU idle.
+
+**Why we picked 4 originally.** During the cross-platform migration
+(2026-04-17) we measured spawned Pool workers at ~750 MB resident
+each because each worker re-imports numpy / scipy / matplotlib /
+pyeq3 / OpenBLAS from scratch — spawn doesn't inherit the parent's
+memory. Running a full-cpu-count pool on an 8-core Windows box with
+modest RAM committed ~6 GB of virtual memory just for the workers,
+overflowing the default Windows pagefile and producing opaque
+`ImportError: DLL load failed while importing _flapack` failures.
+The 4-worker cap was a conservative fix that kept the symptom from
+recurring without requiring deeper investigation. See
+`docs/superpowers/specs/2026-04-17-cross-platform-design.md` §12.2.
+
+**Why it might be worth revisiting.** Several things have changed
+since 2026-04-17 that the 4-cap hasn't been re-evaluated against:
+
+- numpy 2.4.4, scipy 1.17.1, matplotlib 3.10.8, Python 3.14.4 —
+  each upgrade likely shifted per-worker memory footprint
+  (probably up, but worth measuring).
+- Python 3.14 introduced subinterpreters as a supported feature
+  (PEP 734). They share more memory than subprocesses. Not a drop-
+  in replacement for `multiprocessing.Pool` but a potential
+  alternative pattern.
+- Lazy-import refactors inside `ParallelWorker_CreateReportOutput`
+  and FunctionFinder's worker function could defer the heaviest
+  imports until actually needed per-report, reducing the baseline.
+- `Pool(initializer=...)` is already being used implicitly (workers
+  are reused across tasks within a Pool), so the one-time import
+  cost is amortized — the only question is how many concurrent
+  workers the system can hold.
+- Modern Windows machines commonly have 16-32 GB RAM; the pagefile
+  concern is less sharp than on an 8 GB laptop.
+
+**Where to pick up.**
+1. **Measure baseline today.** Add an instrumentation pass that
+   calls `psutil.Process(pid).memory_info().rss` inside
+   `ParallelWorker_CreateReportOutput` right after the expensive
+   imports are resolved. Run the `polynomial_quadratic_3D` smoke
+   scenario with the animation enabled (already in smoke as of
+   commit `debdafe`). Collect per-worker peak RSS and compare to
+   the 750 MB estimate.
+2. **Try lifting the cap on the measurement box.** Pass
+   `cpu_cap=8` to `get_parallel_process_count` from the 3D scenario
+   (or temporarily patch `platform_ceiling`). Re-run smoke. If it
+   still succeeds and no pagefile pressure is observed, the 4-cap
+   was overly conservative for this hardware class.
+3. **If step 2 works, decide on a dynamic cap.** Options:
+   (a) compute cap from `psutil.virtual_memory().total`
+   (e.g., `max(4, total_gb // 2)`); (b) read from an env var
+   `ZUNZUN_MAX_WORKERS` so the user can tune per-machine;
+   (c) keep 4 as default but expose `cpu_cap` kwarg through the
+   form so power users can override.
+4. **If step 2 fails or introduces flakiness**, the 4-cap is
+   load-bearing and should stay. Document the measurement.
+5. **Stretch: investigate subinterpreters.** Python 3.14's
+   `_interpreters` stdlib module (PEP 734) shares memory better
+   than subprocesses. Would require a significant rewrite of the
+   Pool dispatch logic — only worth it if the memory ceiling is
+   actually the bottleneck.
+
+**Risk of lifting the cap without measurement.** The original
+symptom (`ImportError: DLL load failed while importing _flapack`)
+is noisy but not fatal — Django's try/except swallows it, logs to
+`temp/{pid}.log`, and the fit appears to succeed with missing
+reports. Easy to miss. Any cap-lifting change must be validated
+against smoke on at least the target hardware class (16 GB
+Windows 11 is a good baseline) before merging.
+
+**Not in scope of any current branch.** This is a performance
+optimization, not a correctness fix. It deserves its own branch
+with its own spec and before/after benchmark measurements
+captured in the design doc.
