@@ -32,7 +32,7 @@ def SurfacePlot(dataObject, inFileName):
     # matplotlib specific code for the plots
     fig = plt.figure(figsize=(float(dataObject.graphWidth) / 100.0, float(dataObject.graphHeight) / 100.0), dpi=100)
     fig.patch.set_visible(True)
-    ax = fig.gca(projection='3d')
+    ax = fig.add_subplot(projection='3d')
 
     ax.tick_params(pad=2) # distance between tick marks and tick numeric labels
 
@@ -65,7 +65,7 @@ def SurfacePlot(dataObject, inFileName):
 def ScatterPlot3D(dataObject, inFileName):
     fig = plt.figure(figsize=(float(dataObject.graphWidth) / 100.0, float(dataObject.graphHeight) / 100.0), dpi=100)
     fig.patch.set_visible(True)
-    ax = fig.gca(projection='3d')
+    ax = fig.add_subplot(projection='3d')
 
     ax.tick_params(pad=2) # distance between tick marks and tick numeric labels
 
