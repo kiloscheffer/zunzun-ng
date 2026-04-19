@@ -98,3 +98,58 @@ a TypeError.
 **Not in scope of the Django 5.2 branch.** The 5.2 branch delivered its
 intended surface; these two scenarios are low-frequency user paths and
 exercising them is future work.
+
+## pyeq3 imports `scipy.odr` which scipy 1.19.0 will remove
+
+**Symptom.** Every `pytest` run and every smoke run emits:
+
+```
+.venv/Lib/site-packages/pyeq3/Services/SolverService.py:19:
+DeprecationWarning: `scipy.odr` is deprecated as of version 1.17.0
+and will be removed in SciPy 1.19.0. Please use
+`https://pypi.org/project/odrpack/` instead.
+    import scipy.odr
+```
+
+When scipy 1.19.0 ships and `uv sync` picks it up, `import pyeq3` will
+fail at module-import time with `ModuleNotFoundError: No module named
+'scipy.odr'`. Every view that touches a fit path crashes; the smoke test
+dies at scenario 1.
+
+**When we hit it.** The warning was present before both the Django 5.2
+and Django 6.0 migrations — pre-existing, not introduced by either
+upgrade. Expected hard break: ~late 2026 / early 2027 when scipy 1.19
+ships.
+
+**Hypothesis.** pyeq3 12.6.1 uses `scipy.odr` for orthogonal distance
+regression (ODR fitting — one of the fit-target options exposed in the
+"fittingTarget" form field). scipy moved the canonical implementation
+out to a standalone `odrpack` package on PyPI. pyeq3 maintenance has
+been dormant since the Python 3.10 era (classifiers top out at 3.10,
+though the code itself works on 3.11–3.14 empirically).
+
+**Where to pick up.**
+- Monitor scipy releases. The warning moves to `ImportWarning` or the
+  module is removed entirely when 1.19.0 lands.
+- Fix options (pick one, in order of preference):
+  1. **Upstream patch.** Fork pyeq3, replace `import scipy.odr` with
+     `import odrpack as odr` (and update any `scipy.odr.X` references
+     accordingly), submit PR or pin to the fork.
+  2. **Vendor patch.** Apply a small local patch to
+     `.venv/Lib/site-packages/pyeq3/Services/SolverService.py`
+     post-install via a uv hook or a pyproject.toml `[tool.uv.sources]`
+     override pointing at a patched fork.
+  3. **Pin scipy below 1.19.** Add `"scipy<1.19"` to
+     `pyproject.toml`'s dependency list. Simplest and works
+     indefinitely, but loses future scipy improvements.
+- Verification: smoke test exercises the fit path through pyeq3
+  end-to-end; if it passes post-fix, the ODR code path is healthy.
+  FunctionFinder's Exponential family smoke scenario implicitly
+  exercises nonlinear fitting via differential evolution, which is the
+  path most likely to touch the deprecated module.
+
+**Not in scope of either Django migration.** The Django upgrades were
+pin bumps that left pyeq3 untouched. Fixing the scipy coupling
+requires a pyeq3-side change, which deserves its own branch — small
+enough that it doesn't need a full spec, but disruptive enough to
+warrant isolated commits.
