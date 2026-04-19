@@ -202,13 +202,30 @@ requires a pyeq3-side change, which deserves its own branch — small
 enough that it doesn't need a full spec, but disruptive enough to
 warrant isolated commits.
 
-## Animation smoke coverage still open (no longer blocked)
+## ~~Animation smoke coverage still blocked~~ RESOLVED 2026-04-19
 
-> **2026-04-19 update.** The blocking dependency on the 3D fit
-> "deadlock" is gone — that entry was resolved (see above; it was
-> a test-data bug, never a deadlock). The two animation scenarios
-> described below can now be added whenever anyone wants to. Not
-> done in this session; tracked here as a bounded future task.
+> **Resolution.** The blocking dependency on the 3D fit "deadlock"
+> was closed first (see above — it was a test-data bug). Then both
+> animation smoke scenarios were added to `scripts/smoke_test.py`:
+>
+> - `characterize_3D` — POSTs 3D data to `/CharacterizeData/3/` with
+>   `animationSize=320x240`, extracts the
+>   `/temp/ScatterAnimation<...>.gif` href from the result body, reads
+>   the file off disk, asserts `PIL.Image.open(path).n_frames >= 2`.
+> - `polynomial_quadratic_3D` — was modified in the same session to
+>   enable animation; same pattern, asserts
+>   `/temp/SurfaceAnimation<...>.gif` has ≥ 2 frames.
+>
+> On-disk reads (not HTTP) because Django under Waitress with
+> `DEBUG=False` doesn't serve `STATIC_URL` paths — that's nginx's
+> job in production. Smoke runs on the same machine, so
+> `open("temp/<filename>")` is simpler and version-independent.
+>
+> The smoke suite is now at 10 scenarios; all pass. The
+> `ScatterAnimation` and `SurfaceAnimation` Pillow paths are end-
+> to-end verified.
+
+Historical notes, preserved:
 
 **Symptom / exposure.** As of 2026-04-19, `ScatterAnimation` and
 `SurfaceAnimation` produce animated GIFs via

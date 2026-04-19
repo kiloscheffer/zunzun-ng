@@ -12,11 +12,13 @@ Scenarios
 3. **function_finder_2D** — ranks an Exponential-only search.
 4. **function_finder_detail_2D** — fits the RANK=1 equation.
 5. **characterize_2D** — descriptive statistics only, no fit.
-6. **polynomial_quadratic_3D** — 3D full-quadratic fit on non-overlapping
-   X/Y ranges.
-7. **all_equations_2D** — GET AllEquations listing.
-8. **feedback_form** — GET form + POST reply.
-9. **invalid_form_post** — malformed data → error template.
+6. **characterize_3D** — 3D characterize with animationSize enabled;
+   verifies the ScatterAnimation GIF loads with ≥2 frames.
+7. **polynomial_quadratic_3D** — 3D full-quadratic fit with animation
+   enabled; verifies the SurfaceAnimation GIF loads with ≥2 frames.
+8. **all_equations_2D** — GET AllEquations listing.
+9. **feedback_form** — GET form + POST reply.
+10. **invalid_form_post** — malformed data → error template.
 
 Usage:
   uv run python scripts/smoke_test.py
@@ -172,7 +174,9 @@ _DATA_3D_POLY = """X Y Z
 _POLY_QUAD_3D_FIELDS = {
     "commaConversion": "I",
     "graphSize": "320x240",
-    "animationSize": "0x0",
+    # animationSize=320x240 (not 0x0) exercises the ScatterAnimation and
+    # SurfaceAnimation paths that use matplotlib.animation.PillowWriter.
+    "animationSize": "320x240",
     "scientificNotationX": "AUTO",
     "scientificNotationY": "AUTO",
     "scientificNotationZ": "AUTO",
@@ -186,6 +190,29 @@ _POLY_QUAD_3D_FIELDS = {
     "logLinY": "LIN",
     "logLinZ": "LIN",
     "fittingTarget": "SSQABS",
+    "textDataEditor": _DATA_3D_POLY,
+    "rotationAnglesAzimuth": "165",
+    "rotationAnglesAltimuth": "20",
+}
+
+# CharacterizeData 3D + animation. Reuses the same 3D dataset as the fit
+# scenario; distinct-values requirement doesn't apply to characterize.
+_CHAR_3D_FIELDS = {
+    "commaConversion": "I",
+    "graphSize": "320x240",
+    "animationSize": "320x240",
+    "scientificNotationX": "AUTO",
+    "scientificNotationY": "AUTO",
+    "scientificNotationZ": "AUTO",
+    "dataNameX": "X Data",
+    "dataNameY": "Y Data",
+    "dataNameZ": "Z Data",
+    "graphScaleRadioButtonX": "0.050",
+    "graphScaleRadioButtonY": "0.050",
+    "graphScaleRadioButtonZ": "0.050",
+    "logLinX": "LIN",
+    "logLinY": "LIN",
+    "logLinZ": "LIN",
     "textDataEditor": _DATA_3D_POLY,
     "rotationAnglesAzimuth": "165",
     "rotationAnglesAltimuth": "20",
@@ -256,6 +283,47 @@ _INVALID_MARKERS = [
 # segments are URL-encoded (%20 for spaces, %28 for '(', etc.) and
 # intentionally stay encoded — the fit POST URL reuses them verbatim.
 _RANK1_LINK = re.compile(r"/Equation/(?P<dim>\d+)/(?P<family>[^/?\"<>]+)/(?P<equation>[^/?\"<>]+)/\?RANK=1")
+
+
+def _check_animation_gif(session, base, body, name_prefix, min_frames=2):
+    """Find a /temp/{name_prefix}*.gif href in body, read that file
+    directly off disk, verify the bytes load as a GIF with ≥min_frames
+    animated frames.
+
+    Returns None on success, or an error string on failure.
+
+    Used by the 3D scenarios to confirm matplotlib.animation.PillowWriter
+    actually produced a multi-frame animated GIF. The name_prefix is
+    `ScatterAnimation` (for CharacterizeData output) or `SurfaceAnimation`
+    (for fit output); both are constants set on GraphReport subclasses
+    in zunzun/LongRunningProcess/ReportsAndGraphs.py.
+
+    Reads off disk (rather than via HTTP) because Django under Waitress
+    with DEBUG=False does not serve STATIC_URL paths — that's nginx's
+    job in production. The smoke runs on the same machine as the
+    server, so reading `temp/{filename}` directly is both simpler and
+    version-independent. `session` and `base` are unused but kept in
+    the signature so future variants (fetching via HTTP on a remote
+    staging server, say) can slot in without changing call sites.
+    """
+    del session, base  # intentionally unused for the on-disk form
+    import os
+    from PIL import Image
+
+    pattern = re.compile(r'/temp/(' + re.escape(name_prefix) + r'[^"\']*\.gif)')
+    match = pattern.search(body)
+    if not match:
+        return f"[{name_prefix}] no /temp/{name_prefix}*.gif href found in response body"
+    filename = match.group(1)
+    path = os.path.join("temp", filename)
+    if not os.path.exists(path):
+        return f"[{name_prefix}] {path} does not exist on disk"
+    with Image.open(path) as img:
+        if img.format != "GIF":
+            return f"[{name_prefix}] {path} is not GIF (format={img.format!r})"
+        if img.n_frames < min_frames:
+            return f"[{name_prefix}] {path} has {img.n_frames} frames, expected >= {min_frames}"
+    return None
 
 
 def _wait_for_port(port: int, timeout_s: float = 30.0) -> bool:
@@ -461,19 +529,48 @@ def run_smoke() -> int:
         else:
             print("[characterize_2D] OK")
 
-        err = _run_scenario(
-            session,
-            base,
-            "polynomial_quadratic_3D",
-            base + "/FitEquation__F__/3/Polynomial/Full%20Quadratic/",
-            _POLY_QUAD_3D_FIELDS,
-            _POLY_EXPECTED_MARKERS,
-            timeout_s=120,
+        # characterize_3D: CharacterizeData with 3D data AND animationSize
+        # enabled, to exercise ScatterAnimation's PillowWriter path.
+        session.post(
+            base + "/CharacterizeData/3/",
+            data=_CHAR_3D_FIELDS,
+            allow_redirects=True,
         )
-        if err:
-            errors.append(err)
+        char3d_body = _poll_until_done(session, base, timeout_s=300)
+        if char3d_body is None:
+            errors.append("[characterize_3D] did not complete within 300s")
         else:
-            print("[polynomial_quadratic_3D] OK")
+            err = _check_markers("characterize_3D", char3d_body, _CHAR_EXPECTED_MARKERS)
+            if err:
+                errors.append(err)
+            else:
+                err = _check_animation_gif(session, base, char3d_body, "ScatterAnimation")
+                if err:
+                    errors.append(err)
+                else:
+                    print("[characterize_3D] OK")
+
+        # polynomial_quadratic_3D: 3D fit with animationSize enabled, to
+        # exercise both SurfaceAnimation (fitted-surface rotation) and
+        # ScatterAnimation (data-point rotation) via PillowWriter.
+        session.post(
+            base + "/FitEquation__F__/3/Polynomial/Full%20Quadratic/",
+            data=_POLY_QUAD_3D_FIELDS,
+            allow_redirects=True,
+        )
+        poly3d_body = _poll_until_done(session, base, timeout_s=300)
+        if poly3d_body is None:
+            errors.append("[polynomial_quadratic_3D] did not complete within 300s")
+        else:
+            err = _check_markers("polynomial_quadratic_3D", poly3d_body, _POLY_EXPECTED_MARKERS)
+            if err:
+                errors.append(err)
+            else:
+                err = _check_animation_gif(session, base, poly3d_body, "SurfaceAnimation")
+                if err:
+                    errors.append(err)
+                else:
+                    print("[polynomial_quadratic_3D] OK")
 
         r = session.get(base + "/AllEquations/2/Polynomial/")
         err = _check_markers("all_equations_2D", r.text, _ALL_EQUATIONS_MARKERS)
