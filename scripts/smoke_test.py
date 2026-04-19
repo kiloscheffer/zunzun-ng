@@ -19,6 +19,9 @@ Scenarios
 8. **all_equations_2D** — GET AllEquations listing.
 9. **feedback_form** — GET form + POST reply.
 10. **invalid_form_post** — malformed data → error template.
+11. **spline_2D** — 2D cubic spline fit with smoothness=1.0, chained into
+    an `/EvaluateAtAPoint/` POST to verify the `_json_native`-mangled
+    `scipySpline` round-trips through the session.
 
 Usage:
   uv run python scripts/smoke_test.py
@@ -87,6 +90,39 @@ _POLY_QUAD_FIELDS = {
     "fittingTarget": "SSQABS",
     "textDataEditor": _DATA_2D_POLY,
 }
+
+# Spline 2D form fields. Derived from _POLY_QUAD_FIELDS but without
+# fittingTarget (FitSpline.SpecificEquationBoundInterfaceCode marks it
+# required=False on bind), plus splineSmoothness and splineOrderX which
+# FitSpline forces required=True. splineOrderX=3 needs at least 4 distinct
+# X values, and _DATA_2D_POLY has 10.
+_SPLINE_2D_FIELDS = {
+    "commaConversion": "I",
+    "graphSize": "320x240",
+    "animationSize": "0x0",
+    "scientificNotationX": "AUTO",
+    "scientificNotationY": "AUTO",
+    "dataNameX": "X Data",
+    "dataNameY": "Y Data",
+    "graphScaleRadioButtonX": "0.050",
+    "graphScaleRadioButtonY": "0.050",
+    "logLinX": "LIN",
+    "logLinY": "LIN",
+    "logLinZ": "LIN",
+    "textDataEditor": _DATA_2D_POLY,
+    "splineSmoothness": "1.0",
+    "splineOrderX": "3",
+}
+
+# Spline output pages do not render "Coefficient Covariance Matrix" —
+# splines have knots and B-spline coefficients, not parameter covariance
+# in the Fisher-information sense. Marker set is pruned accordingly.
+_SPLINE_EXPECTED_MARKERS = [
+    "Coefficient and Fit Statistics",
+    "Minimum:",
+    "Maximum:",
+    "Coefficients And Text Reports",
+]
 
 # FunctionFinder fields. Only the Exponential family is enabled so the
 # top-ranked equation is guaranteed nonlinear — this exercises pyeq3's
@@ -605,6 +641,37 @@ def run_smoke() -> int:
             errors.append(err)
         else:
             print("[invalid_form_post] OK")
+
+        # spline_2D + round-trip through EvaluateAtAPointView. The
+        # round-trip is the real target — FitSpline stores scipySpline as a
+        # tuple of ndarrays which _json_native converts to [list, list, int]
+        # before session write. EvaluateAtAPointView at views.py:98 loads
+        # this verbatim and scipy's splev/BSpline path consumes it.
+        err = _run_scenario(
+            session,
+            base,
+            "spline_2D",
+            base + "/FitEquation__F__/2/Spline/Spline/",
+            _SPLINE_2D_FIELDS,
+            _SPLINE_EXPECTED_MARKERS,
+            timeout_s=600,
+        )
+        if err:
+            errors.append(err)
+        else:
+            print("[spline_2D] OK")
+            r = session.post(
+                base + "/EvaluateAtAPoint/",
+                data=_EVAL_AT_POINT_FIELDS,
+                allow_redirects=True,
+            )
+            err = _check_markers(
+                "evaluate_at_a_point_spline", r.text, _EVAL_AT_POINT_MARKERS
+            )
+            if err:
+                errors.append(err)
+            else:
+                print("[evaluate_at_a_point_spline] OK")
 
         if errors:
             for msg in errors:
