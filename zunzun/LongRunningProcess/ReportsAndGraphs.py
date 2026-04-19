@@ -6,6 +6,9 @@ import uuid
 import settings
 from zunzun import platform_compat
 
+# matplotlib animation helpers for ScatterAnimation / SurfaceAnimation
+from matplotlib.animation import FuncAnimation, PillowWriter
+
 
 class Report(object):
 
@@ -1491,43 +1494,29 @@ class ScatterAnimation(GraphReport):
 
     def CreateCharacterizerOutput(self):
         from . import MatplotlibGraphs_3D
-        
+
         self.dataObject.graphHeight = self.dataObject.animationHeight
         self.dataObject.graphWidth = self.dataObject.animationWidth
         self.dataObject.CalculateGraphBoundaries()
-        
+
         try:
             [fig, ax, plt] = eval(self.functionString + '(self.dataObject, None)')
 
-            for i in range(0,360, self.animationFrameSeparation): 
-                padstr = ''
-                if i < 100:
-                    padstr = '0'
-                if i  < 10:
-                    padstr = '00'
+            elev = self.dataObject.altimuth3D
+            def _update(azim):
+                ax.view_init(elev=elev, azim=azim)
 
-                ax.view_init(elev=self.dataObject.altimuth3D, azim=i)
-                frameName = self.physicalFileLocation[:-4] + '__' + padstr + str(i) + ".png"
-                fig.savefig(frameName, format = 'png')
-                
-                # convert PNG file to GIF for gifsicle
-                platform_compat.run_tool(
-                    platform_compat.resolve_mogrify_command(),
-                    ['-format', 'gif', frameName],
-                )
-
-            plt.close('all')
-            import glob as _glob
-            _frames = sorted(_glob.glob(self.physicalFileLocation[:-4] + '__*gif'))
-            platform_compat.run_tool(
-                'gifsicle',
-                ['--colors', '256', '--loopcount', *_frames],
-                stdout_file=self.physicalFileLocation,
+            anim = FuncAnimation(
+                fig,
+                _update,
+                frames=range(0, 360, self.animationFrameSeparation),
+                blit=False,
             )
-            platform_compat.remove_files_matching(self.physicalFileLocation[:-4] + '__*')
+            anim.save(self.physicalFileLocation, writer=PillowWriter(fps=10))
+            plt.close('all')
         except:
             import logging
-            logging.basicConfig(filename = os.path.join(settings.TEMP_FILES_DIR,  str(os.getpid()) + '.log'),level=logging.DEBUG)
+            logging.basicConfig(filename = os.path.join(settings.TEMP_FILES_DIR, str(os.getpid()) + '.log'), level=logging.DEBUG)
             logging.exception('Exception creating GIF animation')
 
 
@@ -1559,43 +1548,28 @@ class SurfaceAnimation(GraphReport):
     def CreateReportOutput(self):
         try:
             from . import MatplotlibGraphs_3D
-            
+
             self.dataObject.graphHeight = self.dataObject.animationHeight
             self.dataObject.graphWidth = self.dataObject.animationWidth
             self.dataObject.CalculateGraphBoundaries()
 
             [fig, ax, plt] = eval(self.functionString + '(self.dataObject, None)')
 
+            elev = self.dataObject.altimuth3D
+            def _update(azim):
+                ax.view_init(elev=elev, azim=azim)
 
-            for i in range(0,360,self.animationFrameSeparation): 
-                padstr = ''
-                if i < 100:
-                    padstr = '0'
-                if i  < 10:
-                    padstr = '00'
-
-                ax.view_init(elev=self.dataObject.altimuth3D, azim=i)
-                frameName = self.physicalFileLocation[:-4] + '__' + padstr + str(i) + ".png"
-                fig.savefig(frameName, format = 'png')
-                
-                # convert PNG file to GIF for gifsicle
-                platform_compat.run_tool(
-                    platform_compat.resolve_mogrify_command(),
-                    ['-format', 'gif', frameName],
-                )
-
-            plt.close('all')
-            import glob as _glob
-            _frames = sorted(_glob.glob(self.physicalFileLocation[:-4] + '__*gif'))
-            platform_compat.run_tool(
-                'gifsicle',
-                ['--colors', '256', '--loopcount', *_frames],
-                stdout_file=self.physicalFileLocation,
+            anim = FuncAnimation(
+                fig,
+                _update,
+                frames=range(0, 360, self.animationFrameSeparation),
+                blit=False,
             )
-            platform_compat.remove_files_matching(self.physicalFileLocation[:-4] + '__*')
+            anim.save(self.physicalFileLocation, writer=PillowWriter(fps=10))
+            plt.close('all')
         except:
             import logging
-            logging.basicConfig(filename = os.path.join(settings.TEMP_FILES_DIR,  str(os.getpid()) + '.log'),level=logging.DEBUG)
+            logging.basicConfig(filename = os.path.join(settings.TEMP_FILES_DIR, str(os.getpid()) + '.log'), level=logging.DEBUG)
             logging.exception('Exception creating GIF animation')
 
 

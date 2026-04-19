@@ -5,18 +5,11 @@
 ## System dependencies
 
 ```bash
-brew install python@3.14 nginx imagemagick gifsicle
+brew install python@3.14 nginx
 
 # uv installer:
 curl -LsSf https://astral.sh/uv/install.sh | sh
 # or: brew install uv
-```
-
-Verify `mogrify` and `gifsicle` are on `PATH`:
-
-```bash
-which magick
-which gifsicle
 ```
 
 ## Site installation

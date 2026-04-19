@@ -6,21 +6,12 @@ Tested configuration: Ubuntu 22.04 / 24.04 LTS. Adapt package names and paths fo
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y python3-venv nginx imagemagick gifsicle
+sudo apt-get install -y python3-venv nginx
 
 # uv installer (pick one):
 curl -LsSf https://astral.sh/uv/install.sh | sh
 # or: sudo apt-get install pipx && pipx install uv
 ```
-
-Verify `mogrify` and `gifsicle` are on `PATH`:
-
-```bash
-which magick  # or: which mogrify
-which gifsicle
-```
-
-If either is missing, `imagemagick` / `gifsicle` isn't installed correctly; the site will log a prominent warning on startup and animated GIF output will fail (fits and PDFs still work).
 
 ## Site installation
 

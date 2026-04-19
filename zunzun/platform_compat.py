@@ -14,7 +14,6 @@ import glob
 import logging
 import multiprocessing
 import os
-import shutil
 import subprocess
 from pathlib import Path
 
@@ -173,33 +172,6 @@ def run_tool(binary: str | list[str], args: list[str], stdout_file: Path | None 
             stdout_target.close()
 
 
-def resolve_mogrify_command() -> list[str]:
-    """Return the command prefix for mogrify, handling ImageMagick 6 vs 7.
-
-    ImageMagick 6 shipped a standalone `mogrify` binary. ImageMagick 7
-    (current as of 2024) consolidates tools into one `magick` binary with
-    subcommands — `magick mogrify ...` — and modern Windows/macOS installers
-    typically do NOT ship a legacy `mogrify.exe` shim.
-
-    Returns a list suitable as the `binary` argument to run_tool:
-    - `["mogrify"]` if the standalone is on PATH (ImageMagick 6, Linux distros)
-    - `["magick", "mogrify"]` if only `magick` is on PATH (ImageMagick 7)
-
-    Raises FileNotFoundError if neither is available. Callers that have
-    gated on `ensure_external_binaries()` at startup should already have
-    logged a warning, so this exception is a true fail-closed.
-    """
-    if shutil.which("mogrify"):
-        return ["mogrify"]
-    if shutil.which("magick"):
-        return ["magick", "mogrify"]
-    raise FileNotFoundError(
-        "Neither `mogrify` nor `magick` found on PATH. Install ImageMagick "
-        "(winget install ImageMagick.ImageMagick on Windows, apt-get install "
-        "imagemagick on Debian/Ubuntu, brew install imagemagick on macOS)."
-    )
-
-
 def remove_files_matching(pattern: str) -> int:
     """Delete every file matching a glob pattern; return count removed.
 
@@ -219,22 +191,14 @@ def remove_files_matching(pattern: str) -> int:
 def ensure_external_binaries() -> list[str]:
     """Report which optional external binaries are missing from PATH.
 
-    `mogrify` is considered present if EITHER the standalone binary or
-    the IM7 `magick` dispatcher is available (see resolve_mogrify_command).
-    This avoids a spurious "missing: mogrify" warning on ImageMagick 7
-    installs that correctly ship only `magick`.
-
-    mogrify (part of ImageMagick) and gifsicle are used in
-    ReportsAndGraphs.py to produce animated GIF output. They are not
-    strictly required — fits and PDFs work without them — but 3D
-    animations won't render if they're absent.
+    Reserved as a hook for future platform-specific binary checks. As
+    of 2026-04-19 the codebase has no non-Python runtime dependencies
+    (animated GIF output was migrated to matplotlib's PillowWriter,
+    replacing ImageMagick's mogrify and gifsicle). The function still
+    returns a list so apps.py's AppConfig.ready() warning infrastructure
+    stays in place for future use.
 
     Returns the list of missing binary names. Caller decides whether
     to warn (log) or fail (raise).
     """
-    missing = []
-    if not (shutil.which("mogrify") or shutil.which("magick")):
-        missing.append("mogrify")
-    if not shutil.which("gifsicle"):
-        missing.append("gifsicle")
-    return missing
+    return []

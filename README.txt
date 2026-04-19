@@ -13,11 +13,6 @@ Django, pyeq3, scipy, matplotlib, reportlab, psutil, bs4, numpy:
 
     uv sync
 
-System dependencies for PDF and GIF output are not Python packages
-and must be installed separately. On Debian and Ubuntu:
-
-    apt-get install imagemagick gifsicle
-
 First-time setup creates the session database:
 
     uv run python manage.py migrate
