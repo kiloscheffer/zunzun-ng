@@ -16,7 +16,19 @@ fine — the deadlock is only reproducible under smoke.
 
 See also: the "Animation smoke coverage still blocked" entry below, which is gated on this one being resolved first.
 
-Additional 2026-04-19 context: the `MatplotlibGraphs_3D.py` `fig.gca(projection='3d')` bug was fixed in commit `0ac249a` (Phase 1a of the Pillow GIF migration). This fix may partially or wholly resolve the deadlock described above — a silent TypeError during matplotlib 3D figure construction inside a Pool worker would present identically to the described symptom. Worth re-testing the 3D smoke scenario (see plan Task 4 in docs/superpowers/plans/2026-04-18-django-upgrade.md) after this migration lands.
+**2026-04-19 re-test result (partial progress, deadlock still present):**
+Post-Pillow migration (which landed commit `0ac249a` fixing
+`MatplotlibGraphs_3D.py`'s `fig.gca(projection='3d')`), the 3D
+smoke scenario was re-added and run. **The matplotlib fix was
+necessary but not sufficient.** Observations:
+
+- Before the fix: main python.exe silent after **~15 PNGs** written to `temp/`.
+- After the fix: main python.exe silent after **~60 PNGs** (PID 4816 generated 60 files, visible via `ls temp/*.png | grep -oE '_[0-9]+_' | sort | uniq -c`).
+- Progress is ~4x deeper into the report-generation pipeline than before, but still hangs.
+- **No `temp/{pid}.log` file produced by the 3D run** (contrast with pre-fix behavior, where mogrify/projection TypeErrors logged). So the worker isn't raising anything Python-visible — it's hanging cleanly.
+- **ImageMagick/gifsicle hypothesis is definitively dead.** The Pillow migration removed all mogrify/gifsicle shellouts from the runtime path, yet the deadlock persists. Cause is inside pure-Python matplotlib / multiprocessing.Pool.
+
+Refined hypothesis for next investigator: a `multiprocessing.Pool` task in `CreateOutputReportsInParallelUsingProcessPool` (StatusMonitoredLongRunningProcessPage.py) never returns. Likely one of the heavier 3D report types between PNGs #16 and #60 (3D scatter error plots, surface/contour pairs) hangs inside matplotlib's agg backend on Windows-spawn workers. Instrumenting per-worker lifecycle events (diagnose option 1 below) would identify which report type triggers it.
 
 **When we hit it.** 2026-04-18, Phase 1 of the Django 2.2 → 5.2 LTS migration
 (plan: `docs/superpowers/plans/2026-04-18-django-upgrade.md`, Task 4).
