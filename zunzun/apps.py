@@ -1,8 +1,9 @@
 """Django app config for zunzun.
 
-Uses AppConfig.ready() to check for required external binaries
-(mogrify, gifsicle) on startup and log a prominent warning if
-they're missing. Fits still work without them; 3D animations do not.
+Uses AppConfig.ready() to log a startup warning if any required
+external binaries are missing from PATH. As of 2026-04-19 the
+codebase has no non-Python runtime binary dependencies; the hook
+is retained for future platform-specific checks.
 """
 import logging
 
@@ -20,9 +21,6 @@ class ZunZunConfig(AppConfig):
         if missing:
             _logger.warning(
                 "zunzunsite3: missing external binaries on PATH: %s. "
-                "Fits will work, but animated GIF output will fail. "
-                "Install with: apt-get install imagemagick gifsicle (Linux), "
-                "brew install imagemagick gifsicle (macOS), or "
-                "winget install ImageMagick.ImageMagick and winget install gifsicle.gifsicle (Windows).",
+                "Install the missing binaries via your platform's package manager.",
                 ", ".join(missing),
             )
