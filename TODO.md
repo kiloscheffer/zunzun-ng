@@ -14,6 +14,10 @@ report generation and stays idle for 80+ minutes with 3 zombie spawn-Pool
 workers at ~5 MB resident each. Manual click-through on the live server works
 fine — the deadlock is only reproducible under smoke.
 
+See also: the "Animation smoke coverage still blocked" entry below, which is gated on this one being resolved first.
+
+Additional 2026-04-19 context: the `MatplotlibGraphs_3D.py` `fig.gca(projection='3d')` bug was fixed in commit `0ac249a` (Phase 1a of the Pillow GIF migration). This fix may partially or wholly resolve the deadlock described above — a silent TypeError during matplotlib 3D figure construction inside a Pool worker would present identically to the described symptom. Worth re-testing the 3D smoke scenario (see plan Task 4 in docs/superpowers/plans/2026-04-18-django-upgrade.md) after this migration lands.
+
 **When we hit it.** 2026-04-18, Phase 1 of the Django 2.2 → 5.2 LTS migration
 (plan: `docs/superpowers/plans/2026-04-18-django-upgrade.md`, Task 4).
 
@@ -153,3 +157,52 @@ pin bumps that left pyeq3 untouched. Fixing the scipy coupling
 requires a pyeq3-side change, which deserves its own branch — small
 enough that it doesn't need a full spec, but disruptive enough to
 warrant isolated commits.
+
+## Animation smoke coverage still blocked
+
+**Symptom / exposure.** As of 2026-04-19, `ScatterAnimation` and
+`SurfaceAnimation` produce animated GIFs via
+`matplotlib.animation.PillowWriter` (previously via mogrify +
+gifsicle shellouts — see
+`docs/superpowers/specs/2026-04-19-pillow-gif-design.md`). The two
+animation classes have pytest coverage in `tests/test_animation.py`,
+but no smoke-test coverage exists, because:
+
+1. Both classes require `animationHeight > 0`, which means a 3D
+   form submission with `animationSize != "0x0"`.
+2. Any 3D smoke scenario currently hits the deadlock documented
+   in "3D fit spawn-Pool deadlock on Windows smoke" (above).
+3. The 3D CharacterizeData path would be a third scenario not
+   currently in smoke — even once the deadlock is fixed, it's an
+   additional scenario to add.
+
+**When we hit it.** 2026-04-19, Pillow GIF migration. The unit
+tests cover code correctness; what's uncovered is the full end-
+to-end pipeline through the spawn child, waitress, matplotlib
+rendering inside a subprocess, and the resulting `.gif` file
+being served from `temp/`.
+
+**Hypothesis.** The existing animation unit tests catch code
+correctness (produces a valid multi-frame GIF from the class's
+public API). What they don't exercise: session state plumbing,
+reports-and-graphs HTML integration, cross-process pickling of
+any state the animation classes consume.
+
+**Where to pick up (once the 3D deadlock fix lands).**
+- Add a `characterize_3D` smoke scenario that POSTs 3D sample
+  data to `/CharacterizeData/3/` with `animationSize=320x240`.
+  After completion, GET the response, extract the
+  `ScatterAnimation<uniqueString>.gif` URL, fetch the file, assert
+  `PIL.Image.open(fp).n_frames >= 2`.
+- Add a `polynomial_quadratic_3D_with_animation` scenario (or
+  extend the existing `polynomial_quadratic_3D` when that gets
+  added to smoke) to POST `animationSize=320x240`, then fetch
+  `SurfaceAnimation<...>.gif` and assert the same.
+- Estimated added smoke runtime per scenario: 2–3 min on Windows
+  on top of the base 3D fit time.
+
+**Not in scope of the Pillow migration branch.** The migration
+delivered pure-Python animated GIF rendering; smoke coverage for
+3D paths is blocked on a different TODO item (the spawn-Pool
+deadlock), so adding smoke coverage here would depend on
+unblocking that first.
