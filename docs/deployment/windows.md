@@ -29,23 +29,6 @@ winget install --id=astral-sh.uv
 uv python install 3.14
 ```
 
-### mogrify (ImageMagick) and gifsicle
-
-```powershell
-winget install ImageMagick.ImageMagick
-# gifsicle: if the winget package is unavailable, download gifsicle.exe from
-# https://eternallybored.org/misc/gifsicle/ and add its directory to PATH.
-```
-
-Verify both are discoverable:
-
-```powershell
-where.exe magick
-where.exe gifsicle
-```
-
-If either `where.exe` returns nothing, fix `PATH` via System Properties → Environment Variables before continuing. The site's `AppConfig.ready()` logs a prominent warning at startup for any missing binary, but fits-without-animation still work; only animated GIF output fails.
-
 ## Phase 2 — Site layout
 
 Choose a path outside `C:\inetpub` (IIS doesn't need to host the code — it proxies to Waitress):

@@ -28,6 +28,11 @@ dependencies = [
     # MatplotlibGraphs_2D.py calls density=; older matplotlib TypeErrors.
     "matplotlib>=3.2",
     "reportlab",
+    # Pillow powers matplotlib.animation.PillowWriter, which is used
+    # directly by ScatterAnimation / SurfaceAnimation for 3D animated
+    # GIF output. Pillow is also a transitive matplotlib dep; declaring
+    # it explicitly documents the direct dependency.
+    "pillow",
     "psutil",
     "beautifulsoup4",
     # lxml is the parser BeautifulSoup is invoked with in CreateReportPDF
