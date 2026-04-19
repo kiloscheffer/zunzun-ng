@@ -10,7 +10,7 @@ All three use **[Waitress](https://docs.pylonsproject.org/projects/waitress/)** 
 
 ## Minimum stack
 
-- Python 3.11 (uv-managed; see `README.txt`)
+- Python 3.14 (uv-managed; see `README.txt`)
 - `uv sync --no-dev` to install production dependencies
 - A reverse proxy for TLS + static files (nginx or IIS)
 - A process supervisor appropriate to the OS (systemd, launchd, NSSM)
@@ -26,7 +26,7 @@ zunzunsite3 runs natively on Linux, macOS, and Windows as of the April 2026 migr
 
 ## Docker
 
-If you're containerized, pick a `python:3.11-slim` base image and follow the [Linux](linux.md) recipe inside the container. Docker itself handles cross-platform (Linux containers run on all three host OSes via WSL2/Hyper-V on Windows and Virtualization.framework on macOS).
+If you're containerized, pick a `python:3.14-slim` base image and follow the [Linux](linux.md) recipe inside the container. Docker itself handles cross-platform (Linux containers run on all three host OSes via WSL2/Hyper-V on Windows and Virtualization.framework on macOS).
 
 ## What isn't documented
 
