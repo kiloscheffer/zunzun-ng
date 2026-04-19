@@ -39,11 +39,11 @@ Starts a throwaway Waitress, POSTs a 2D polynomial-quadratic fit, polls for comp
 
 ## Dependencies
 
-Python deps are declared in `pyproject.toml` and pinned in the committed `uv.lock`. Runtime group: Django (pinned `>=5.2,<5.3`), django-ratelimit, pyeq3, scipy, matplotlib, numpy, reportlab, psutil, beautifulsoup4, lxml, waitress. Dev group: mypy, pytest, pytest-django, requests.
+Python deps are declared in `pyproject.toml` and pinned in the committed `uv.lock`. Runtime group: Django (pinned `>=6.0,<6.1`), django-ratelimit, pyeq3, scipy, matplotlib, numpy, reportlab, psutil, beautifulsoup4, lxml, waitress. Dev group: mypy, pytest, pytest-django, requests.
 
-**Django version.** Django 5.2 LTS, supported through April 2028. The code uses only long-stable APIs (`re_path`, `render`, the `TEMPLATES` settings shape, default `JSONSerializer` for sessions). See `docs/superpowers/specs/2026-04-18-django-upgrade-design.md` for the 2.2 → 5.2 migration history.
+**Django version.** Django 6.0 (short-term support, EOL ~December 2026). Next LTS is 6.2, expected April 2027. The code uses only long-stable APIs (`re_path`, `render`, the `TEMPLATES` settings shape, default `JSONSerializer` for sessions). Migration history: `docs/superpowers/specs/2026-04-18-django-upgrade-design.md` (2.2 → 5.2) and `docs/superpowers/specs/2026-04-19-django-6-upgrade-design.md` (5.2 → 6.0 + Python 3.11 → 3.14).
 
-**FunkLoad is not in pyproject.toml.** Its `setup.py` uses `ez_setup`, which was removed from modern setuptools, so it cannot be installed under the uv-managed Python 3.11 environment. If you need to run the FunkLoad suite, use a separate legacy Python env, or port the HTTP assertions in `funkload_tests/test_Simple.py` to pytest + `requests` (the logic is just GET/POST with string-match assertions).
+**FunkLoad is not in pyproject.toml.** Its `setup.py` uses `ez_setup`, which was removed from modern setuptools, so it cannot be installed under the uv-managed Python 3.14 environment. If you need to run the FunkLoad suite, use a separate legacy Python env, or port the HTTP assertions in `funkload_tests/test_Simple.py` to pytest + `requests` (the logic is just GET/POST with string-match assertions).
 
 **System dependencies** (not Python packages, not managed by uv): `imagemagick` and `gifsicle`. See `README.txt`.
 

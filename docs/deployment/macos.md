@@ -5,7 +5,7 @@
 ## System dependencies
 
 ```bash
-brew install python@3.11 nginx imagemagick gifsicle
+brew install python@3.14 nginx imagemagick gifsicle
 
 # uv installer:
 curl -LsSf https://astral.sh/uv/install.sh | sh

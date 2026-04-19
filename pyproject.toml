@@ -4,13 +4,16 @@ version = "0.0.0"
 description = "Django site for 2D/3D curve and surface fitting via pyeq3 — Python 3 port of zunzun.com"
 readme = "README.txt"
 license = { file = "LICENSE.txt" }
-requires-python = ">=3.11"
+requires-python = ">=3.14"
 dependencies = [
-    # Django 5.2 is an LTS release supported through April 2028. The
-    # site's code uses only long-stable APIs (re_path, render, TEMPLATES
+    # Django 6.0 is a short-term support release, end-of-life around
+    # December 2026. Next LTS is 6.2, expected April 2027. The site's
+    # code uses only long-stable APIs (re_path, render, TEMPLATES
     # settings, default JSONSerializer). See docs/superpowers/specs/
-    # 2026-04-18-django-upgrade-design.md for migration history.
-    "django>=5.2,<5.3",
+    # 2026-04-18-django-upgrade-design.md and
+    # docs/superpowers/specs/2026-04-19-django-6-upgrade-design.md
+    # for migration history.
+    "django>=6.0,<6.1",
     "django-ratelimit",
     "pyeq3",
     "numpy",

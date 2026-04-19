@@ -26,7 +26,7 @@ Internet
 
 ```powershell
 winget install --id=astral-sh.uv
-uv python install 3.11
+uv python install 3.14
 ```
 
 ### mogrify (ImageMagick) and gifsicle
