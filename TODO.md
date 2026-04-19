@@ -4,15 +4,47 @@ Tracked items that are real defects or loose ends, but are scoped out of the
 current branch. Each entry documents the symptom, the hypothesis, what we
 *didn't* do, and where to pick up from.
 
-## 3D fit spawn-Pool deadlock on Windows smoke
+## ~~3D fit spawn-Pool deadlock on Windows smoke~~ RESOLVED 2026-04-19
 
-**Symptom.** When `scripts/smoke_test.py` runs a 3D polynomial-quadratic fit
+> **Resolution.** There was no deadlock. The 3D POST was returning an
+> HTTP 200 error-form response (`Error In Form: The selected model has
+> more coefficients than distinct independent data values`) because the
+> test dataset had X ∈ {1,2,3,4} and Y ∈ {1,2,3} — overlapping ranges
+> whose union is only 4 distinct values, less than the 6 coefficients
+> of a 3D Full Quadratic. `Equation_3D.clean()` rejected the form
+> instantly. The smoke harness then polled `/StatusAndResults/`
+> watching for REFRESH/REDIRECT to disappear, but the status session
+> still held the PREVIOUS scenario's (completed) `characterize_2D`
+> state which kept rendering the REFRESH meta tag, so the polling
+> loop never terminated and hit the 1800s scenario timeout.
+>
+> Fixed in `scripts/smoke_test.py` by using non-overlapping X ∈ {1,2,3,4}
+> and Y ∈ {5,6,7} (7 distinct values union). The scenario now completes
+> in ~5 s. `polynomial_quadratic_3D` is scenario 6 of 9 in smoke.
+>
+> The `MatplotlibGraphs_3D.py` `fig.gca(projection='3d')` bug fixed in
+> commit `0ac249a` (Phase 1a of the Pillow GIF migration) was a
+> genuine adjacent bug, also affecting 3D rendering but via a
+> completely different mechanism (silent try/except swallowing at the
+> live site's report-generation path). Both bugs manifested as
+> "3D broken on Windows" but were unrelated in code and symptom.
+>
+> Historical investigation notes below, preserved for reference.
+
+**Symptom (original, now understood to be measurement artifact).**
+When `scripts/smoke_test.py` runs a 3D polynomial-quadratic fit
 against a 12-point (X, Y, Z) grid (`/FitEquation__F__/3/Polynomial/Full Quadratic/`),
 the smoke harness never sees the final result body. The main waitress-server
 python.exe silently stops writing output ~15 matplotlib reports into the fit's
 report generation and stays idle for 80+ minutes with 3 zombie spawn-Pool
 workers at ~5 MB resident each. Manual click-through on the live server works
 fine — the deadlock is only reproducible under smoke.
+
+The "~15 matplotlib reports" and "~60 matplotlib reports" counts were
+conflated across scenarios: those PNGs came from the 2D/FunctionFinder
+scenarios that ran BEFORE the 3D POST in the same smoke session. No 3D
+worker actually ran, because form validation rejected the POST before
+any spawn.
 
 See also: the "Animation smoke coverage still blocked" entry below, which is gated on this one being resolved first.
 
@@ -170,7 +202,13 @@ requires a pyeq3-side change, which deserves its own branch — small
 enough that it doesn't need a full spec, but disruptive enough to
 warrant isolated commits.
 
-## Animation smoke coverage still blocked
+## Animation smoke coverage still open (no longer blocked)
+
+> **2026-04-19 update.** The blocking dependency on the 3D fit
+> "deadlock" is gone — that entry was resolved (see above; it was
+> a test-data bug, never a deadlock). The two animation scenarios
+> described below can now be added whenever anyone wants to. Not
+> done in this session; tracked here as a bounded future task.
 
 **Symptom / exposure.** As of 2026-04-19, `ScatterAnimation` and
 `SurfaceAnimation` produce animated GIFs via

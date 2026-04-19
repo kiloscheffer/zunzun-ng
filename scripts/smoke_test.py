@@ -12,11 +12,11 @@ Scenarios
 3. **function_finder_2D** — ranks an Exponential-only search.
 4. **function_finder_detail_2D** — fits the RANK=1 equation.
 5. **characterize_2D** — descriptive statistics only, no fit.
-6. **all_equations_2D** — GET AllEquations listing.
-7. **feedback_form** — GET form + POST reply.
-8. **invalid_form_post** — malformed data → error template.
-
-A 9th scenario (3D polynomial fit) is deferred — see TODO.md.
+6. **polynomial_quadratic_3D** — 3D full-quadratic fit on non-overlapping
+   X/Y ranges.
+7. **all_equations_2D** — GET AllEquations listing.
+8. **feedback_form** — GET form + POST reply.
+9. **invalid_form_post** — malformed data → error template.
 
 Usage:
   uv run python scripts/smoke_test.py
@@ -147,6 +147,49 @@ _CHAR_EXPECTED_MARKERS = [
     "Mean:",
     "Standard Deviation:",
 ]
+
+# 3D dataset for the polynomial_quadratic_3D scenario. Uses
+# non-overlapping X and Y ranges (X in {1,2,3,4}, Y in {5,6,7}) so the
+# union of distinct independent values is 7 — larger than the 6
+# coefficients of a 3D Full Quadratic (required by Equation_3D.clean()).
+# Z follows z = X + 2*Y + small quadratic variation so the fit is
+# well-posed.
+_DATA_3D_POLY = """X Y Z
+1.0 5.0 11.0
+1.0 6.0 13.0
+1.0 7.0 15.0
+2.0 5.0 12.0
+2.0 6.0 14.0
+2.0 7.0 16.0
+3.0 5.0 13.5
+3.0 6.0 15.5
+3.0 7.0 17.5
+4.0 5.0 15.0
+4.0 6.0 17.0
+4.0 7.0 19.0
+"""
+
+_POLY_QUAD_3D_FIELDS = {
+    "commaConversion": "I",
+    "graphSize": "320x240",
+    "animationSize": "0x0",
+    "scientificNotationX": "AUTO",
+    "scientificNotationY": "AUTO",
+    "scientificNotationZ": "AUTO",
+    "dataNameX": "X Data",
+    "dataNameY": "Y Data",
+    "dataNameZ": "Z Data",
+    "graphScaleRadioButtonX": "0.050",
+    "graphScaleRadioButtonY": "0.050",
+    "graphScaleRadioButtonZ": "0.050",
+    "logLinX": "LIN",
+    "logLinY": "LIN",
+    "logLinZ": "LIN",
+    "fittingTarget": "SSQABS",
+    "textDataEditor": _DATA_3D_POLY,
+    "rotationAnglesAzimuth": "165",
+    "rotationAnglesAltimuth": "20",
+}
 
 _ALL_EQUATIONS_MARKERS = [
     # /AllEquations/2/Polynomial/ URL — the path-segment `Polynomial`
@@ -417,6 +460,20 @@ def run_smoke() -> int:
             errors.append(err)
         else:
             print("[characterize_2D] OK")
+
+        err = _run_scenario(
+            session,
+            base,
+            "polynomial_quadratic_3D",
+            base + "/FitEquation__F__/3/Polynomial/Full%20Quadratic/",
+            _POLY_QUAD_3D_FIELDS,
+            _POLY_EXPECTED_MARKERS,
+            timeout_s=120,
+        )
+        if err:
+            errors.append(err)
+        else:
+            print("[polynomial_quadratic_3D] OK")
 
         r = session.get(base + "/AllEquations/2/Polynomial/")
         err = _check_markers("all_equations_2D", r.text, _ALL_EQUATIONS_MARKERS)
