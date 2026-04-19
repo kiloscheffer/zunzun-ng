@@ -288,44 +288,95 @@ covariance matrix from pyeq3's CalculateCoefficientAndFitStatistics."
 
 ---
 
-## Task 4: Apply load-site casts in `EvaluateAtAPointView`
+## Task 4: Fix spline session round-trip — drop live object at write, reconstruct at load
+
+**Scope refinement (2026-04-20).** Task 2's smoke exposed that the write side is broken, not the read side as originally predicted. `FitSpline.SaveSpecificDataToSessionStore` passes the live `scipy.interpolate.UnivariateSpline` object through `_json_native`, which does not know how to collapse it, so Django's `JSONSerializer` raises `TypeError: Object of type UnivariateSpline is not JSON serializable` and the fit never completes. The real fix is to drop the `scipySpline` key from the session write (it is redundant with `solvedCoefficients`, which already is the spline's tck tuple per `pyeq3/Services/SolverService.py:368, 379`), and reconstruct a `scipy.interpolate.BSpline` at the load site. See the spec's §3 scope-refinement note.
 
 **Files:**
-- Modify: `zunzun/views.py` — two sites: `scipySpline` load at line ~97-98, `solvedCoefficients` load at line ~116.
+- Modify: `zunzun/LongRunningProcess/FitSpline.py` — remove `scipySpline` from the session-store dict in `SaveSpecificDataToSessionStore`.
+- Modify: `zunzun/views.py` — rewrite the `splineFlag` load branch in `EvaluateAtAPointView` to reconstruct the spline from `solvedCoefficients` (the tck). Add a `numpy.array` cast on the shared `solvedCoefficients` line for UDF and other paths.
 
-This task runs whether or not Tasks 2/3 hit outcome B. If they passed (outcome A), the cast is belt-and-braces hardening against future scipy/pyeq3 strictness; if they failed (outcome B), the cast is the fix that makes them pass.
+- [ ] **Step 1: Drop the scipySpline key at the write site**
 
-- [ ] **Step 1: Import numpy at the top of `EvaluateAtAPointView`**
+Open `zunzun/LongRunningProcess/FitSpline.py`. Find the `SaveSpecificDataToSessionStore` method (currently lines 22-30):
 
-Open `zunzun/views.py` and locate `EvaluateAtAPointView`. It already does `import numpy` at module scope (see line 130: `numpy.array([[evaluationForm.cleaned_data['x']], [1.0]])`), so no new import is needed. Skip to Step 2 — this step exists only to make you confirm the import is present.
+```python
+    def SaveSpecificDataToSessionStore(self):
+        # scipySpline is a tuple of numpy arrays; _json_native converts
+        # the arrays to lists. The EvaluateAtAPointView will need to
+        # reconstruct any spline-typed input from these raw sequences.
+        self.SaveDictionaryOfItemsToSessionStore('data', _json_native({'dimensionality':self.dimensionality,
+                                                          'equationName':self.inEquationName,
+                                                          'equationFamilyName':self.inEquationFamilyName,
+                                                          'scipySpline':self.dataObject.equation.scipySpline,
+                                                          'solvedCoefficients':self.dataObject.equation.solvedCoefficients}))
+```
 
-- [ ] **Step 2: Cast `scipySpline` back to `(ndarray, ndarray, int)` at the load site**
+Replace the method body with:
 
-In `zunzun/views.py`, find the `if equation.splineFlag:` block (currently line 97-98):
+```python
+    def SaveSpecificDataToSessionStore(self):
+        # The live scipy.interpolate.UnivariateSpline / SmoothBivariateSpline
+        # object is not JSON-serializable; storing it here crashes the
+        # session save. It is redundant anyway — solvedCoefficients holds
+        # the spline's tck tuple (see pyeq3/Services/SolverService.py:
+        # line 368 for 2D UnivariateSpline._eval_args, line 379 for 3D
+        # SmoothBivariateSpline.tck). The load site in EvaluateAtAPointView
+        # reconstructs the callable from that tck.
+        self.SaveDictionaryOfItemsToSessionStore('data', _json_native({'dimensionality':self.dimensionality,
+                                                          'equationName':self.inEquationName,
+                                                          'equationFamilyName':self.inEquationFamilyName,
+                                                          'solvedCoefficients':self.dataObject.equation.solvedCoefficients}))
+```
+
+The only change is removing the `'scipySpline': ...` line. Everything else is preserved.
+
+- [ ] **Step 2: Confirm numpy and scipy.interpolate are importable in views.py**
+
+Open `zunzun/views.py`. `import numpy` is already present at module scope (used at line 130 among others). `scipy.interpolate` is **not** currently imported in views.py but is transitively imported via pyeq3; adding an explicit `import scipy.interpolate` at the module top is clearer. If you see an existing `import scipy` line, upgrade it to `import scipy.interpolate`. Otherwise add a new line near the other stdlib/scipy imports.
+
+- [ ] **Step 3: Rewrite the splineFlag branch to reconstruct from tck**
+
+Find the `if equation.splineFlag:` block in `EvaluateAtAPointView` (currently lines 97-98):
 
 ```python
     if equation.splineFlag:
         equation.scipySpline = LRP.LoadItemFromSessionStore('data', 'scipySpline')
 ```
 
-Replace the assignment with:
+Replace with:
 
 ```python
     if equation.splineFlag:
-        # scipySpline is stored as [knots, coefs, degree] after
-        # _json_native collapses the original (ndarray, ndarray, int) tuple.
-        # scipy's BSpline / splev want the original shape.
-        raw_spline = LRP.LoadItemFromSessionStore('data', 'scipySpline')
-        equation.scipySpline = (
-            numpy.array(raw_spline[0]),
-            numpy.array(raw_spline[1]),
-            int(raw_spline[2]),
-        )
+        # scipySpline is a live scipy spline object (UnivariateSpline in 2D,
+        # SmoothBivariateSpline in 3D) and is not saved to the session — see
+        # FitSpline.SaveSpecificDataToSessionStore. solvedCoefficients IS
+        # the tck tuple, which we reconstruct into a callable spline here.
+        # pyeq3's Models_2D.Spline.CalculateModelPredictions calls
+        # self.scipySpline(X); a BSpline instance is callable with matching
+        # semantics. For 3D, wrap bisplev in an .ev(X, Y) helper to match
+        # Models_3D.Spline.CalculateModelPredictions' call shape.
+        tck = LRP.LoadItemFromSessionStore('data', 'solvedCoefficients')
+        if LRP.dimensionality == 2:
+            t = numpy.array(tck[0])
+            c = numpy.array(tck[1])
+            k = int(tck[2])
+            equation.scipySpline = scipy.interpolate.BSpline(t, c, k)
+        else:
+            tx = numpy.array(tck[0])
+            ty = numpy.array(tck[1])
+            c = numpy.array(tck[2])
+            kx = int(tck[3])
+            ky = int(tck[4])
+            class _BivariateSplineFromTck:
+                def ev(self, X, Y):
+                    return scipy.interpolate.bisplev(X, Y, (tx, ty, c, kx, ky))
+            equation.scipySpline = _BivariateSplineFromTck()
 ```
 
-- [ ] **Step 3: Cast `solvedCoefficients` back to ndarray at the shared load line**
+- [ ] **Step 4: Cast `solvedCoefficients` to ndarray at the shared load line — with a spline exception**
 
-Find the line (currently line 116):
+Find the line (currently line 116 pre-edit, shifted a few lines by Step 3):
 
 ```python
     equation.solvedCoefficients = LRP.LoadItemFromSessionStore('data', 'solvedCoefficients')
@@ -335,40 +386,53 @@ Replace with:
 
 ```python
     # solvedCoefficients is stored as a list after _json_native. pyeq3's
-    # CalculateModelPredictions expects an ndarray.
-    equation.solvedCoefficients = numpy.array(
-        LRP.LoadItemFromSessionStore('data', 'solvedCoefficients')
-    )
+    # CalculateModelPredictions expects an ndarray for regular equations.
+    # For splines, solvedCoefficients IS the tck tuple (already consumed
+    # above to reconstruct equation.scipySpline), and pyeq3's
+    # Models_2D/3D.Spline.CalculateModelPredictions ignores inCoeffs —
+    # so leave it as-is for the spline case.
+    raw_coeffs = LRP.LoadItemFromSessionStore('data', 'solvedCoefficients')
+    if equation.splineFlag:
+        equation.solvedCoefficients = raw_coeffs
+    else:
+        equation.solvedCoefficients = numpy.array(raw_coeffs)
 ```
 
-- [ ] **Step 4: Run full smoke to confirm both round-trips pass**
+- [ ] **Step 5: Run full smoke to confirm both round-trips pass**
 
-Run:
 ```bash
 UV_LINK_MODE=copy uv run python scripts/smoke_test.py
 ```
-Expected: `SMOKE OK: all scenarios passed`. Both `[evaluate_at_a_point_spline] OK` and `[evaluate_at_a_point_udf] OK` in the output.
+Budget 8 min (480000ms) timeout. Expected: `SMOKE OK: all scenarios passed`. Both `[evaluate_at_a_point_spline] OK` and `[evaluate_at_a_point_udf] OK` in the output. All 12 scenarios pass.
 
-- [ ] **Step 5: Run pytest to confirm no regression**
+If `[evaluate_at_a_point_spline]` still fails after this, dump `temp/_smoke_last_body_evaluate_at_a_point_spline.html` and report — the BSpline reconstruction may need a different shape than anticipated.
 
-Run:
+- [ ] **Step 6: Run pytest to confirm no regression**
+
 ```bash
 UV_LINK_MODE=copy uv run pytest tests/ -v
 ```
-Expected: same pass count as Task 1 Step 3 (no change — pytest doesn't exercise `EvaluateAtAPointView`).
+Expected: same pass count as Task 1 Step 3 (the growing suite — whichever number was observed in baseline, that number here too).
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
-git add zunzun/views.py
-git commit -m "Cast session-loaded spline + coefficients back to numpy shape
+git add zunzun/LongRunningProcess/FitSpline.py zunzun/views.py
+git commit -m "Fix spline session round-trip: drop live object, reconstruct at load
 
-EvaluateAtAPointView was reading scipySpline as [list, list, int] (the
-_json_native output) and handing it to scipy's splev, which historically
-expected a tuple of ndarrays. Likewise solvedCoefficients was a plain
-list where pyeq3 expects an ndarray. Cast back at the load sites so the
-shape matches what the downstream consumers expect, independent of
-future scipy/pyeq3 strictness."
+FitSpline.SaveSpecificDataToSessionStore was storing the live
+scipy.interpolate.UnivariateSpline / SmoothBivariateSpline object
+through _json_native, which does not collapse it — Django's
+JSONSerializer then raises TypeError on session save and the fit never
+completes. The key is redundant: solvedCoefficients already holds the
+spline's tck tuple (see pyeq3/Services/SolverService.py:368, 379).
+Drop the scipySpline key entirely at the write site.
+
+EvaluateAtAPointView now reconstructs a callable spline from the tck at
+load time — scipy.interpolate.BSpline for 2D, a tiny bisplev-based
+wrapper for 3D. Also adds a numpy.array cast for non-spline
+solvedCoefficients so pyeq3's CalculateModelPredictions receives the
+ndarray shape it expects."
 ```
 
 ---

@@ -132,6 +132,19 @@ else:
 
 ## 3. Fix-in-branch policy for round-trip failures
 
+### 2026-04-20 scope refinement (applied after Task 2 smoke observation)
+
+The original hypothesis below was off by one level of the stack. Task 2's smoke revealed that `FitSpline.SaveSpecificDataToSessionStore` writes the **live** `scipy.interpolate.UnivariateSpline` object into the session dict, not a pre-extracted tck tuple. `_json_native` does not know how to collapse a scipy spline object (it falls through all `isinstance` checks), so Django's `JSONSerializer` crashes on session save with `TypeError: Object of type UnivariateSpline is not JSON serializable` — the spline fit never completes, and the read-side cast the spec originally prescribed is never reached.
+
+The real fix is at the write site: drop the `scipySpline` key from the session dict entirely. It is redundant because `solvedCoefficients` already holds the spline's tck tuple — see `pyeq3/Services/SolverService.py:365-368` for 2D (`scipySpline = scipy.interpolate.UnivariateSpline(...)` then `solvedCoefficients = scipySpline._eval_args`) and line 371-379 for 3D (`scipySpline.tck`). The load site then reconstructs a callable spline from the tck:
+
+- 2D: `scipy.interpolate.BSpline(t, c, k)` — callable with the same `scipySpline(X)` semantics pyeq3 uses at `Models_2D/Spline.py:57`.
+- 3D: a small wrapper class exposing `.ev(X, Y)` via `scipy.interpolate.bisplev(X, Y, (tx, ty, c, kx, ky))`, matching `Models_3D/Spline.py:60`'s `self.scipySpline.ev(X, Y)` call shape.
+
+The UDF read-side cast from the original spec is still good — UDF does not have the same write-site problem because its saved values (the function-text string and the `solvedCoefficients` numpy array) both pass through `_json_native` cleanly. The cast is still worth adding as hardening.
+
+### Original hypothesis, preserved
+
 The primary hypothesis in the TODO entry is that spline `Evaluate-at-a-Point` will raise a `TypeError` inside scipy because `scipySpline` was stored as `[list, list, int]` (the `_json_native` output) but scipy's `BSpline`/`splev` path expects a tuple of ndarrays.
 
 If the new smoke fails at the evaluate step, the fix is to cast back at the **load site** in `EvaluateAtAPointView`, not the write site — the `_json_native` contract across all Fit* subclasses is "whatever goes in comes out JSON-native". Each consumer casts to the shape it needs.
