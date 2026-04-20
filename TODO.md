@@ -197,7 +197,51 @@ a TypeError.
 intended surface; these two scenarios are low-frequency user paths and
 exercising them is future work.
 
-## pyeq3 imports `scipy.odr` which scipy 1.19.0 will remove
+## ~~pyeq3 imports `scipy.odr` which scipy 1.19.0 will remove~~ RESOLVED 2026-04-20
+
+> **Resolution.** Forked `github.com/equations-project/pyeq3`
+> (the upstream actually published to PyPI as pyeq3) into
+> `github.com/kiloscheffer/pyeq3ng`, ported `pyeq3/IModel.py` and
+> `pyeq3/Services/SolverService.py` from `scipy.odr.{Model,Data,ODR}`
+> to `odrpack.odr_fit`. Tagged `v1.0.0-ng`. zunzunsite3's
+> `pyproject.toml` pins to that tag via `[tool.uv.sources]`.
+> The `scipy.odr` DeprecationWarning is gone from both pytest and
+> smoke logs.
+>
+> **Validation:**
+> - pyeq3ng's UnitTests: 118 pass / 1 pre-existing fail (UDF Fpv,
+>   unrelated to ODR).
+> - Captured a one-shot scipy.odr baseline fixture, confirmed ported
+>   coefficients match within `rtol=1e-3` across 4 polynomial cases
+>   (2D/3D × ODR/SSQABS), then removed the fixture post-merge.
+> - zunzunsite3 pytest: 78/78 pass.
+> - zunzunsite3 smoke: 12/12 pass.
+>
+> **Key mapping:** scipy.odr's class-based API (`Model(f_beta_x)` +
+> `Data(x, y[, we])` + `ODR(...).run()`) maps to odrpack's
+> `odr_fit(f_x_beta, xdata, ydata, beta0=..., weight_y=..., task=...,
+> diff_scheme=..., maxit=...)` with a per-callsite closure handling
+> the `(beta, x)` → `(x, beta)` arg-order swap. `set_job(fit_type=0,
+> deriv=0)` = `task="explicit-ODR", diff_scheme="forward"`;
+> `set_job(fit_type=2)` + `maxit=0` (OLS, no iterations — used for
+> covariance extraction) = `task="OLS", maxit=1`.
+>
+> **Fork scope:**
+> - `github.com/kiloscheffer/pyeq3ng` is a permanent fork. Upstream
+>   (equations-project) has not addressed scipy.odr yet; an earlier
+>   iteration of the fork targeted the older `bitbucket.org/zunzuncode/pyeq3`
+>   which has been dormant since 2020-01, but was rebased once we
+>   discovered PyPI's pyeq3 comes from equations-project.
+> - Additional fork-only changes in `pyproject.toml`: numpy upper
+>   bound removed (upstream's `^1.24` blocked numpy 2.x),
+>   `odrpack>=0.5.0` and `pypandoc>=1.10` added (the latter was
+>   undeclared in upstream but imported by `pyeq3.Utilities.Multifit`).
+>
+> See `docs/superpowers/specs/2026-04-20-pyeq3ng-odr-port-design.md`
+> and `docs/superpowers/plans/2026-04-20-pyeq3ng-odr-port.md` for
+> the design and execution record.
+>
+> Historical notes below, preserved for reference.
 
 **Symptom.** Every `pytest` run and every smoke run emits:
 

@@ -408,6 +408,27 @@ wheels = [
 ]
 
 [[package]]
+name = "odrpack"
+version = "0.5.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/99/4f/4a84fdeaeac67dc5a5d13fd2cb4fb9861bcb1a4045b547c58aa655c4ae93/odrpack-0.5.0.tar.gz", hash = "sha256:0898475969cf4119a340879b99f632ffd9fbe1c88fdcbeea62eeb91fba1cda70", size = 107336, upload-time = "2026-02-07T09:30:23.751Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/61/79/17120de09a56f614da30642e6e7993182860c84929924c4be24a11e3d9bd/odrpack-0.5.0-cp314-cp314-macosx_14_0_arm64.whl", hash = "sha256:5221179d33c37efe83084051b2bfcfa02d6a8c97f399bafd90cb85245c0713bd", size = 1916156, upload-time = "2026-02-07T09:30:00.354Z" },
+    { url = "https://files.pythonhosted.org/packages/b5/5a/d2352827f017fc072a7d6db838189f2e7f413940760f24da79022839ac54/odrpack-0.5.0-cp314-cp314-macosx_15_0_x86_64.whl", hash = "sha256:f860c2a0b35518015230317d6f85473995c9561d70e8551e51bbe7ab6a090757", size = 2634613, upload-time = "2026-02-07T09:30:02.775Z" },
+    { url = "https://files.pythonhosted.org/packages/7d/c9/02c9037421a725f9b8ee01aba640d53f77751d3f8f2d8fade0a7dd5e0ef3/odrpack-0.5.0-cp314-cp314-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:5e4e0c21ade6d498d91e270eac8239fd225b77f8e4aaee594cbbe0db09a87e58", size = 12149095, upload-time = "2026-02-07T09:30:04.963Z" },
+    { url = "https://files.pythonhosted.org/packages/05/b6/d75b56da8a83aa194dd5503c96e30697ecae17dbc8ce7aee01484bc68e1f/odrpack-0.5.0-cp314-cp314-musllinux_1_2_x86_64.whl", hash = "sha256:9f798309b6a27a5f1a83f83292ca3434ea5ad0343ba11cea8f43df978eda0e40", size = 12997127, upload-time = "2026-02-07T09:30:07.357Z" },
+    { url = "https://files.pythonhosted.org/packages/0c/07/f44c322051cb4713b4ba62cfd7f0cd61565647dcd6daa3fb0f663ae5d802/odrpack-0.5.0-cp314-cp314-win_amd64.whl", hash = "sha256:64d58bcf1df055e744d4037bdfe50ea11336b3b4715bf70c3b526abdf9010cc9", size = 17891344, upload-time = "2026-02-07T09:30:10.259Z" },
+    { url = "https://files.pythonhosted.org/packages/79/a6/4a1e99c0fa1b5d6ce17241ede766a74948ab02604d2bbd82cfcb3aab0fa7/odrpack-0.5.0-cp314-cp314t-macosx_14_0_arm64.whl", hash = "sha256:648bca74d81084a6bec9aebe54244dc2bf9e0b5aca97a161eff2c76819be5508", size = 1914226, upload-time = "2026-02-07T09:30:13.007Z" },
+    { url = "https://files.pythonhosted.org/packages/0a/cc/7f1b1b41444ad31cd6ecd4d3a80e867ad31ced538cf174554c285f912153/odrpack-0.5.0-cp314-cp314t-macosx_15_0_x86_64.whl", hash = "sha256:b861c4383873725bd267da7572ce6f4fa3f43bf186c20ee7c364f20b6cd91106", size = 2632435, upload-time = "2026-02-07T09:30:14.536Z" },
+    { url = "https://files.pythonhosted.org/packages/83/ee/ce2db4388f817ead49dfd53c2409eb6142ba2881515ad900c2a80345db10/odrpack-0.5.0-cp314-cp314t-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:4e6317741e2642e7a42eb32af3a6bab9ce56d0cc7032ba66a6e33c491dba0fc6", size = 12146909, upload-time = "2026-02-07T09:30:16.213Z" },
+    { url = "https://files.pythonhosted.org/packages/77/5f/f579c35cde75d3e27ee7bfbdd17e9347409a975407bff79eadd6a0086b5d/odrpack-0.5.0-cp314-cp314t-musllinux_1_2_x86_64.whl", hash = "sha256:7533af7845880c17158b8f3f3a40fabdd1558f96592695f8284e3bd6786f0d5f", size = 12994715, upload-time = "2026-02-07T09:30:18.97Z" },
+    { url = "https://files.pythonhosted.org/packages/fe/d1/f28cc79e1810a005b0f3f4a2e2fba3e1d2f8484a8548b3d4c8b92d9cbd1a/odrpack-0.5.0-cp314-cp314t-win_amd64.whl", hash = "sha256:94786133199ab449c17b07be5582ae1869cb50f4f10d4dd87707051217c3a07a", size = 17892367, upload-time = "2026-02-07T09:30:21.342Z" },
+]
+
+[[package]]
 name = "packaging"
 version = "26.1"
 source = { registry = "https://pypi.org/simple" }
@@ -491,16 +512,14 @@ wheels = [
 
 [[package]]
 name = "pyeq3"
-version = "12.6.1"
-source = { registry = "https://pypi.org/simple" }
+version = "12.6.2a0+ng"
+source = { git = "https://github.com/kiloscheffer/pyeq3ng.git?tag=v1.0.0-ng#ee565e7cdbade71c73c43640196526ab3d196f59" }
 dependencies = [
     { name = "matplotlib" },
     { name = "numpy" },
+    { name = "odrpack" },
+    { name = "pypandoc" },
     { name = "scipy" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/40/23/d36d5d3806ba7329f986077494b9d2c07293a5da1dcad9ee3370380ba7c7/pyeq3-12.6.1.tar.gz", hash = "sha256:20e95a2e1030bf97c362bac7aa9cadcf9b0c94c67b8db240c8de0260c2c5767d", size = 119343, upload-time = "2022-12-04T16:38:07.931Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/23/c6/24c0475098baafafced6e77288512555378d4a25f6b2a5141070dcae718c/pyeq3-12.6.1-py3-none-any.whl", hash = "sha256:b9a19923ee9162ea4bd2cc3156eb10f449a15cbf239064291ac0fba4c151084d", size = 180283, upload-time = "2022-12-04T16:38:05.627Z" },
 ]
 
 [[package]]
@@ -510,6 +529,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/c3/b2/bc9c9196916376152d655522fdcebac55e66de6603a76a02bca1b6414f6c/pygments-2.20.0.tar.gz", hash = "sha256:6757cd03768053ff99f3039c1a36d6c0aa0b263438fcab17520b30a303a82b5f", size = 4955991, upload-time = "2026-03-29T13:29:33.898Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/f4/7e/a72dd26f3b0f4f2bf1dd8923c85f7ceb43172af56d63c7383eb62b332364/pygments-2.20.0-py3-none-any.whl", hash = "sha256:81a9e26dd42fd28a23a2d169d86d7ac03b46e2f8b59ed4698fb4785f946d0176", size = 1231151, upload-time = "2026-03-29T13:29:30.038Z" },
+]
+
+[[package]]
+name = "pypandoc"
+version = "1.17"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/ea/d6/410615fc433e5d1eacc00db2044ae2a9c82302df0d35366fe2bd15de024d/pypandoc-1.17.tar.gz", hash = "sha256:51179abfd6e582a25ed03477541b48836b5bba5a4c3b282a547630793934d799", size = 69071, upload-time = "2026-03-14T22:39:07.21Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0c/86/e2ffa604eacfbec3f430b1d850e7e04c4101eca1a5828f9ae54bf51dfba4/pypandoc-1.17-py3-none-any.whl", hash = "sha256:01fdbffa61edb9f8e82e8faad6954efcb7b6f8f0634aead4d89e322a00225a67", size = 23554, upload-time = "2026-03-14T22:38:46.007Z" },
 ]
 
 [[package]]
@@ -720,7 +748,7 @@ requires-dist = [
     { name = "numpy", specifier = ">=2.0" },
     { name = "pillow" },
     { name = "psutil" },
-    { name = "pyeq3" },
+    { name = "pyeq3", git = "https://github.com/kiloscheffer/pyeq3ng.git?tag=v1.0.0-ng" },
     { name = "reportlab" },
     { name = "scipy" },
     { name = "waitress", specifier = ">=3.0" },

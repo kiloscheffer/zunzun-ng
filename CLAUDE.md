@@ -47,6 +47,8 @@ Python deps are declared in `pyproject.toml` and pinned in the committed `uv.loc
 
 **No non-Python runtime deps.** Earlier versions required `imagemagick` and `gifsicle` system binaries for animated GIF output; as of 2026-04-19 those paths are pure-Python via matplotlib's `PillowWriter`. See `docs/superpowers/specs/2026-04-19-pillow-gif-design.md` for the migration history.
 
+**pyeq3 fork.** `pyeq3` is pinned to `pyeq3ng` (`github.com/kiloscheffer/pyeq3ng`, tag `v1.0.0-ng`) via `[tool.uv.sources]` in `pyproject.toml`. The fork replaces `scipy.odr` (deprecated in scipy 1.17, slated for removal in 1.19) with the independent `odrpack` package on PyPI. Neither the original pyeq3 (bitbucket `zunzuncode`, dormant since 2020-01) nor the active PyPI-published fork (`github.com/equations-project/pyeq3`) has addressed this; pyeq3ng is a permanent fork. See `docs/superpowers/specs/2026-04-20-pyeq3ng-odr-port-design.md` for migration rationale.
+
 ## Tests
 
 Two layers:

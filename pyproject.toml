@@ -68,7 +68,7 @@ package = false
 # removed in 1.19) in favor of the independent odrpack package on PyPI.
 # Upstream pyeq3 has been dormant since 2020-01 and is not a PR
 # target. See docs/superpowers/specs/2026-04-20-pyeq3ng-odr-port-design.md.
-pyeq3 = { git = "https://github.com/kiloscheffer/pyeq3ng.git", rev = "drop-scipy-odr" }
+pyeq3 = { git = "https://github.com/kiloscheffer/pyeq3ng.git", tag = "v1.0.0-ng" }
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "settings"
