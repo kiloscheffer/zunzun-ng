@@ -368,6 +368,95 @@ delivered pure-Python animated GIF rendering; smoke coverage for
 deadlock), so adding smoke coverage here would depend on
 unblocking that first.
 
+## Complete ZunZunNG rebrand in user-facing strings
+
+**Symptom / exposure.** As of 2026-04-20, the top-level project
+identity was renamed from ZunZunSite3 to ZunZunNG in `pyproject.toml`,
+`CLAUDE.md`, `README.txt`, and `CHANGELOG`, and the code was pushed to
+`github.com/kiloscheffer/zunzunng`. However, ~25 user-visible display
+strings and URLs still say "ZunZunSite3" or reference
+`bitbucket.org/zunzuncode/zunzunsite3`:
+
+- **HTML templates (10 files).** `templates/zunzun/home_page.html`
+  (welcome header, Bitbucket link, Google-group alt text × 2),
+  `templates/zunzun/divs/about.html` (heading + prose), and the page
+  titles / header strings in `function_finder_interface.html`,
+  `function_finder_results.html`, `generic_error.html`,
+  `generic_page_template.html`, `invalid_form_data.html`,
+  `list_all_equations.html`, `feedback_reply.html`, and
+  `divs/feedback_entry.html`.
+- **View-generated HTML (`zunzun/views.py`).** `header_text` for the
+  home page and list-all-equations page (3 sites); feedback-email
+  subject line (`ZunZunSite3 Feedback Form`); cookie-stale error
+  message.
+- **LRP-generated HTML / PDF (`zunzun/LongRunningProcess/*.py`).**
+  `FittingBaseClass.py`, `FunctionFinder.py` × 2,
+  `FunctionFinderResults.py` × 2,
+  `StatusMonitoredLongRunningProcessPage.py` × 5 produce `title_string`
+  and `header_text` strings. `StatusMonitoredLongRunningProcessPage.py`
+  also hard-codes the PDF watermark URL
+  (`https://bitbucket.org/zunzuncode/zunzunsite3`) and the
+  `'ZunZunSite3'` credit line drawn on every generated PDF.
+- **Graph watermark (`MatplotlibGraphs_2D.py`).** Every 2D plot has
+  `ax.text(..., 'zunzunsite3', ...)` as a semi-transparent watermark.
+- **Internal log strings (low priority).** `apps.py` emits
+  `"zunzunsite3: missing external binaries on PATH"` at startup.
+  `platform_compat.py`'s module docstring opens with
+  `"""Platform-specific shim layer for zunzunsite3."""`.
+
+**When we hit it.** 2026-04-20, the ZunZunNG rebrand commit
+introducing the top-level rename. The scope was intentionally kept
+narrow — the historical design specs, plans, and CHANGELOG entries
+reference "zunzunsite3" as the project name at the time of the work,
+and rewriting those would rewrite history. User-facing branding is
+separable follow-up work.
+
+**Hypothesis.** A straightforward search-and-replace over the
+filtered file set (templates/ + zunzun/ only, excluding docs/ and
+TODO.md and fork-pattern-reviewer agent), changing `ZunZunSite3` →
+`ZunZunNG`, `zunzunsite3` → `zunzunng` (carefully, since "zunzunng"
+is lowercase branding — the package name — while display headers
+use mixed case "ZunZunNG"), and
+`https://bitbucket.org/zunzuncode/zunzunsite3` →
+`https://github.com/kiloscheffer/zunzunng`. The `about.html` prose
+("The name of the project, ZunZunSite3, is taken from my wife's
+Burmese nickname") is a personal attribution from Ray Harrington —
+it should either be rewritten to add an NG-fork note or removed
+entirely; silent substitution would be dishonest.
+
+**Where to pick up.**
+1. Enumerate: `grep -ri 'zunzunsite3\|ZunZunSite3' templates/ zunzun/`
+   produces the canonical list (~25 sites).
+2. Apply substitution per file, manually reviewing each hit for
+   context (URL vs display header vs log string vs watermark).
+3. Rewrite `templates/zunzun/divs/about.html` prose to preserve
+   James R. Phillips's origin-story attribution ("dedicated to
+   Jesus of Nazareth, and was written by James R. Phillips" +
+   "The name of the project, ZunZunSite3, is taken from my wife's
+   Burmese nickname") while framing the NG fork. Rationale: the
+   original name has personal meaning to the original author;
+   erasing the attribution would be disrespectful AND a BSD-2-clause
+   violation, but so would silently rewriting it so the "my wife"
+   phrasing implicitly attributes to the current maintainer. The
+   clean solution is two adjacent sections — "About the original
+   ZunZunSite3 (James R. Phillips, 2016)" preserving the original
+   prose verbatim, and "About the NG fork (Kilo Scheffer, 2026-)"
+   with the fork's own framing.
+4. Update the smoke test's assertion strings if any match on
+   `ZunZunSite3` header text — grep `scripts/smoke_test.py` for
+   `"ZunZun"` after the template edits.
+5. Verify with `UV_LINK_MODE=copy uv run python scripts/smoke_test.py`
+   — the 12 scenarios include home-page, characterize, function
+   finder, and evaluate-at-a-point, all of which render the
+   affected templates.
+
+**Not in scope of the NG-rebrand branch.** The top-level rename
+delivered: project identity, GitHub repo, version tag. User-facing
+display strings are their own surface (site-visible), and merging
+them in the same commit would make the rebrand unreviewable. A
+dedicated `nailing-zunzunng-branding` branch with its own spec is
+the right shape for this.
+
 ## Investigate lifting the 4-worker cap on spawn platforms
 
 **Symptom / constraint.** `platform_compat.get_parallel_process_count`

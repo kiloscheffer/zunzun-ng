@@ -1,8 +1,17 @@
-Welcome to zunzunsite3, a Django site in Python 3 for curve fitting 2D
-and 3D data that can output source code in several computing languages
-and run a genetic algorithm for initial parameter estimation. Includes
-orthogonal distance and relative error regressions. Generates PDF files
-and surface animations. Based on code from zunzun.com.
+Welcome to ZunZunNG (Next Generation), a Django site in Python 3 for
+curve fitting 2D and 3D data that can output source code in several
+computing languages and run a genetic algorithm for initial parameter
+estimation. Includes orthogonal distance and relative error regressions.
+Generates PDF files and surface animations. Based on code from zunzun.com.
+
+ZunZunNG is a permanent fork of James R. Phillips's zunzunsite3
+(bitbucket.org/zunzuncode/zunzunsite3, Copyright (C) 2016 James R.
+Phillips, BSD-2-clause; dormant since 2020), modernized for Python
+3.14 / Django 6.0, cross-platform (Linux, macOS, Windows), and ported
+off scipy.odr via the companion pyeq3ng fork
+(github.com/kiloscheffer/pyeq3ng). Hosted at
+github.com/kiloscheffer/zunzunng. The original copyright notice in
+LICENSE.txt is retained per the BSD-2-clause terms.
 
 Python dependencies are managed with uv (https://docs.astral.sh/uv/).
 To install uv, see https://docs.astral.sh/uv/getting-started/install/
