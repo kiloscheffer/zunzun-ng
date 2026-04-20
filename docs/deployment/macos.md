@@ -15,17 +15,17 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 ## Site installation
 
 ```bash
-sudo mkdir -p /usr/local/var/zunzunsite3
-sudo chown "$USER":staff /usr/local/var/zunzunsite3
-cd /usr/local/var/zunzunsite3
-git clone https://bitbucket.org/zunzuncode/zunzunsite3.git .
+sudo mkdir -p /usr/local/var/zunzunng
+sudo chown "$USER":staff /usr/local/var/zunzunng
+cd /usr/local/var/zunzunng
+git clone https://github.com/kiloscheffer/zunzunng.git .
 uv sync --no-dev
 uv run python manage.py migrate
 ```
 
 ## launchd plist
 
-Write `~/Library/LaunchAgents/com.zunzunsite3.waitress.plist` (user-level) or `/Library/LaunchDaemons/com.zunzunsite3.waitress.plist` (system-level):
+Write `~/Library/LaunchAgents/com.zunzunng.waitress.plist` (user-level) or `/Library/LaunchDaemons/com.zunzunng.waitress.plist` (system-level):
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -34,17 +34,17 @@ Write `~/Library/LaunchAgents/com.zunzunsite3.waitress.plist` (user-level) or `/
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.zunzunsite3.waitress</string>
+    <string>com.zunzunng.waitress</string>
 
     <key>ProgramArguments</key>
     <array>
-        <string>/usr/local/var/zunzunsite3/.venv/bin/waitress-serve</string>
+        <string>/usr/local/var/zunzunng/.venv/bin/waitress-serve</string>
         <string>--listen=127.0.0.1:8000</string>
         <string>wsgi:application</string>
     </array>
 
     <key>WorkingDirectory</key>
-    <string>/usr/local/var/zunzunsite3</string>
+    <string>/usr/local/var/zunzunng</string>
 
     <key>RunAtLoad</key>
     <true/>
@@ -53,10 +53,10 @@ Write `~/Library/LaunchAgents/com.zunzunsite3.waitress.plist` (user-level) or `/
     <true/>
 
     <key>StandardOutPath</key>
-    <string>/usr/local/var/zunzunsite3/waitress.log</string>
+    <string>/usr/local/var/zunzunng/waitress.log</string>
 
     <key>StandardErrorPath</key>
-    <string>/usr/local/var/zunzunsite3/waitress.err</string>
+    <string>/usr/local/var/zunzunng/waitress.err</string>
 </dict>
 </plist>
 ```
@@ -64,8 +64,8 @@ Write `~/Library/LaunchAgents/com.zunzunsite3.waitress.plist` (user-level) or `/
 Load:
 
 ```bash
-launchctl load ~/Library/LaunchAgents/com.zunzunsite3.waitress.plist
-launchctl start com.zunzunsite3.waitress
+launchctl load ~/Library/LaunchAgents/com.zunzunng.waitress.plist
+launchctl start com.zunzunng.waitress
 ```
 
 Verify the site responds:
@@ -88,10 +88,10 @@ For TLS, Let's Encrypt via `brew install certbot` works the same as on Linux.
 - **Fit runtime parity:** macOS uses spawn by default on Python 3.8+ (same as Windows). Per-worker memory is similar to Windows (~750 MB), so `get_parallel_process_count` caps at 4 workers. Fits will be 2–3× slower than Linux fork on the same hardware.
 - **Restart the service:**
   ```bash
-  launchctl stop com.zunzunsite3.waitress
-  launchctl start com.zunzunsite3.waitress
+  launchctl stop com.zunzunng.waitress
+  launchctl start com.zunzunng.waitress
   ```
-- **Logs:** `/usr/local/var/zunzunsite3/waitress.log` and `waitress.err`.
+- **Logs:** `/usr/local/var/zunzunng/waitress.log` and `waitress.err`.
 - **No Defender equivalent required.** macOS's XProtect doesn't scan `.venv/` aggressively the way Windows Defender does.
 
 ## Verification required
@@ -99,6 +99,6 @@ For TLS, Let's Encrypt via `brew install certbot` works the same as on Linux.
 Before relying on this recipe in production, a macOS maintainer should:
 
 1. Run `scripts/smoke_test.py` against a freshly-installed macOS box and confirm `SMOKE OK`.
-2. Confirm the launchd plist actually starts Waitress at boot (`launchctl list | grep zunzunsite3`).
+2. Confirm the launchd plist actually starts Waitress at boot (`launchctl list | grep zunzunng`).
 3. Confirm nginx reverse-proxy serves static files and forwards to Waitress.
 4. Report findings back into this doc by removing the "verification status" banner at the top.
