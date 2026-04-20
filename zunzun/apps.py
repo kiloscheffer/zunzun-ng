@@ -20,7 +20,7 @@ class ZunZunConfig(AppConfig):
         missing = platform_compat.ensure_external_binaries()
         if missing:
             _logger.warning(
-                "zunzunng: missing external binaries on PATH: %s. "
+                "zunzun-ng: missing external binaries on PATH: %s. "
                 "Install the missing binaries via your platform's package manager.",
                 ", ".join(missing),
             )

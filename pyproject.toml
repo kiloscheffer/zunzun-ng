@@ -1,5 +1,5 @@
 [project]
-name = "zunzunng"
+name = "zunzun-ng"
 version = "1.0.0"
 description = "ZunZunNG — Django site for 2D/3D curve and surface fitting via pyeq3. Fork of zunzunsite3 (bitbucket.org/zunzuncode), modernized for Python 3.14 / Django 6.0 and cross-platform deployment."
 readme = "README.txt"
@@ -59,16 +59,16 @@ dev = [
 [tool.uv]
 # No [build-system] → uv treats the project as virtual (a collection of
 # top-level Django files, not an importable package). Only dependencies
-# are installed; zunzunsite3 itself is never built as a wheel.
+# are installed; zunzun-ng itself is never built as a wheel.
 package = false
 
 [tool.uv.sources]
-# pyeq3 is pinned to the pyeq3ng fork (github.com/kiloscheffer/pyeq3ng)
+# pyeq3 is pinned to the pyeq3-ng fork (github.com/kiloscheffer/pyeq3-ng)
 # which removes the scipy.odr dependency (deprecated in scipy 1.17,
 # removed in 1.19) in favor of the independent odrpack package on PyPI.
 # Upstream pyeq3 has been dormant since 2020-01 and is not a PR
-# target. See docs/superpowers/specs/2026-04-20-pyeq3ng-odr-port-design.md.
-pyeq3 = { git = "https://github.com/kiloscheffer/pyeq3ng.git", tag = "v1.0.0-ng" }
+# target. See docs/superpowers/specs/2026-04-20-pyeq3-ng-odr-port-design.md.
+pyeq3 = { git = "https://github.com/kiloscheffer/pyeq3-ng.git", tag = "v1.0.0-ng" }
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "settings"
