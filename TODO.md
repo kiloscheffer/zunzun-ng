@@ -368,7 +368,34 @@ delivered pure-Python animated GIF rendering; smoke coverage for
 deadlock), so adding smoke coverage here would depend on
 unblocking that first.
 
-## Complete ZunZunNG rebrand in user-facing strings
+## ~~Complete ZunZunNG rebrand in user-facing strings~~ RESOLVED 2026-04-20
+
+> **Resolution.** Landed on a dedicated `zunzunng-branding` feature
+> branch and merged to master via `--no-ff` (merge commit `c013b87`,
+> implementation commit `9d3ba63`). Applied the five substitution
+> rules from the design spec across 19 files: display-text
+> `ZunZunSite3` → `ZunZunNG`, lowercase `zunzunsite3` → `zunzunng`,
+> bitbucket upstream URL → `github.com/kiloscheffer/zunzunng`, legacy
+> Google-group URL → `https://groups.google.com/g/findcurves`,
+> display label → `FindCurves Google Group`. `about.html` rewritten
+> as two sections preserving James R. Phillips's original prose
+> byte-for-byte. pytest 78/78 + smoke all-scenarios stayed green
+> before and after.
+>
+> Intentional residue: 3 `ZunZunSite3` matches remain in
+> `templates/zunzun/divs/about.html` — the NG section's "fork of
+> ZunZunSite3" description, the "About the original ZunZunSite3"
+> heading, and Phillips's verbatim nickname-origin sentence — all
+> required by the spec's preserved-attribution design. Other
+> Phillips repos in `generic_page_template.html` footer
+> (`zunzunsite` without the 3, `FlaskFit`, `CherryPyFit`, `BottleFit`,
+> etc.) remain on their original bitbucket URLs per spec Non-Goals.
+>
+> See `docs/superpowers/specs/2026-04-20-zunzunng-branding-design.md`
+> and `docs/superpowers/plans/2026-04-20-zunzunng-branding.md` for
+> design and execution records.
+>
+> Historical notes below, preserved for reference.
 
 **Symptom / exposure.** As of 2026-04-20, the top-level project
 identity was renamed from ZunZunSite3 to ZunZunNG in `pyproject.toml`,
