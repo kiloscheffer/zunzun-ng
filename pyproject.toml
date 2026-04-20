@@ -62,6 +62,14 @@ dev = [
 # are installed; zunzunsite3 itself is never built as a wheel.
 package = false
 
+[tool.uv.sources]
+# pyeq3 is pinned to the pyeq3ng fork (github.com/kiloscheffer/pyeq3ng)
+# which removes the scipy.odr dependency (deprecated in scipy 1.17,
+# removed in 1.19) in favor of the independent odrpack package on PyPI.
+# Upstream pyeq3 has been dormant since 2020-01 and is not a PR
+# target. See docs/superpowers/specs/2026-04-20-pyeq3ng-odr-port-design.md.
+pyeq3 = { git = "https://github.com/kiloscheffer/pyeq3ng.git", rev = "drop-scipy-odr" }
+
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "settings"
 python_files = ["test_*.py"]
