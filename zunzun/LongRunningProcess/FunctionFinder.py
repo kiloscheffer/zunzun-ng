@@ -562,8 +562,8 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
         dictionaryToReturn = {}
         dictionaryToReturn['dimensionality'] = str(self.dimensionality)
         
-        dictionaryToReturn['header_text'] = 'ZunZunSite3 ' + str(self.dimensionality) + 'D Function Finder Interface'
-        dictionaryToReturn['title_string'] = 'ZunZunSite3 ' + str(self.dimensionality) + 'D Function Finder Interface'
+        dictionaryToReturn['header_text'] = 'ZunZunNG ' + str(self.dimensionality) + 'D Function Finder Interface'
+        dictionaryToReturn['title_string'] = 'ZunZunNG ' + str(self.dimensionality) + 'D Function Finder Interface'
 
         # make a dimensionality-based unbound Django form
         if self.dimensionality == 2:

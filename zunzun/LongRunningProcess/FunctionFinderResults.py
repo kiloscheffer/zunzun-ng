@@ -110,8 +110,8 @@ class FunctionFinderResults(FittingBaseClass.FittingBaseClass):
 
         itemsToRender = {}
         itemsToRender['dimensionality'] = str(self.dataObject.dimensionality)
-        itemsToRender['header_text'] = 'ZunZunSite3<br>' + str(self.dataObject.dimensionality) + 'D ' + self.webFormName
-        itemsToRender['title_string'] = 'ZunZunSite3 ' + str(self.dataObject.dimensionality) + 'D ' + self.webFormName
+        itemsToRender['header_text'] = 'ZunZunNG<br>' + str(self.dataObject.dimensionality) + 'D ' + self.webFormName
+        itemsToRender['title_string'] = 'ZunZunNG ' + str(self.dataObject.dimensionality) + 'D ' + self.webFormName
         itemsToRender['equationDataForDjangoTemplate'] = self.equationDataForDjangoTemplate
         itemsToRender['uniqueTime'] = str(time.time())
         itemsToRender['previousSelectorRank'] = self.previousSelectorRank

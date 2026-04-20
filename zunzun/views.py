@@ -258,7 +258,7 @@ def StatusView(request):
         startTime = session_status['start_time']
         timeStamp = session_status['timestamp']
     except:
-        return HttpResponse("I could not read your session data, my apologies. This is usually caused by a stale browser cookie. Please delete the zunzunsite3 browser cookie and try again.")
+        return HttpResponse("I could not read your session data, my apologies. This is usually caused by a stale browser cookie. Please delete the ZunZunNG browser cookie and try again.")
     
     # reload every three seconds
     s = '''<html><head><meta HTTP-EQUIV=REFRESH CONTENT="3; URL='/StatusAndResults/'">
@@ -510,7 +510,7 @@ def FeedbackView(request):
             return render(request, 'zunzun/invalid_form_data.html', items_to_render)
         msg = 'Email from ' + form.cleaned_data['emailAddress'] + '\n\nAt ' + str(datetime.datetime.now()) + "\n\n" + form.cleaned_data['feedbackText']
         if settings.FEEDBACK_EMAIL_ADDRESS:
-            EmailMessage('ZunZunSite3 Feedback Form', msg, to = [settings.FEEDBACK_EMAIL_ADDRESS]).send()
+            EmailMessage('ZunZunNG Feedback Form', msg, to = [settings.FEEDBACK_EMAIL_ADDRESS]).send()
 
         return render(request, 'zunzun/feedback_reply.html', {})
     else: # not a POST
@@ -546,7 +546,7 @@ def HomePageView(request):
     items_to_render = {}
     items_to_render['dim_to_spline_list'] = [['2',  pyeq3.Models_2D.Spline.Spline()], ['3',  pyeq3.Models_3D.Spline.Spline()]]
     items_to_render['dim_to_map_list'] = [['2', GetEquationInfoDictionary(2, 'Standard')], ['3', GetEquationInfoDictionary(3, 'Standard')]]
-    items_to_render['header_text'] = 'ZunZunSite3 Online Curve Fitting<br>and Surface Fitting Web Site'
+    items_to_render['header_text'] = 'ZunZunNG Online Curve Fitting<br>and Surface Fitting Web Site'
     items_to_render['feedbackForm'] = forms.FeedbackForm()
     items_to_render['loadavg'] = platform_compat.get_loadavg()
 
@@ -573,9 +573,9 @@ def AllEquationsView(request, inDimensionality, inAllOrStandardOnly): # from url
         items_to_render['sortedEquationClassPropertiesList'] = GetEquationInfoDictionary(3, inAllOrStandardOnly)
     
     if inAllOrStandardOnly == 'All':
-        items_to_render['header_text'] = 'ZunZunSite3 List Of All ' + inDimensionality + 'D Equations'
+        items_to_render['header_text'] = 'ZunZunNG List Of All ' + inDimensionality + 'D Equations'
     else:
-        items_to_render['header_text'] = 'ZunZunSite3 List Of All Standard ' + inDimensionality + 'D Equations'
+        items_to_render['header_text'] = 'ZunZunNG List Of All Standard ' + inDimensionality + 'D Equations'
         
     items_to_render['dimensionality'] = inDimensionality
     
