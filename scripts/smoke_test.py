@@ -19,6 +19,12 @@ Scenarios
 8. **all_equations_2D** — GET AllEquations listing.
 9. **feedback_form** — GET form + POST reply.
 10. **invalid_form_post** — malformed data → error template.
+11. **spline_2D** — 2D cubic spline fit with smoothness=1.0, chained into
+    an `/EvaluateAtAPoint/` POST to verify the `_json_native`-mangled
+    `scipySpline` round-trips through the session.
+12. **udf_2D** — 2D User Defined Function fit with formula `a + b*X`,
+    chained into an `/EvaluateAtAPoint/` POST to verify
+    `solvedCoefficients` round-trips through the session.
 
 Usage:
   uv run python scripts/smoke_test.py
@@ -87,6 +93,52 @@ _POLY_QUAD_FIELDS = {
     "fittingTarget": "SSQABS",
     "textDataEditor": _DATA_2D_POLY,
 }
+
+# Spline 2D form fields. Derived from _POLY_QUAD_FIELDS but without
+# fittingTarget (FitSpline.SpecificEquationBoundInterfaceCode marks it
+# required=False on bind), plus splineSmoothness and splineOrderX which
+# FitSpline forces required=True. splineOrderX=3 needs at least 4 distinct
+# X values, and _DATA_2D_POLY has 10.
+_SPLINE_2D_FIELDS = {
+    "commaConversion": "I",
+    "graphSize": "320x240",
+    "animationSize": "0x0",
+    "scientificNotationX": "AUTO",
+    "scientificNotationY": "AUTO",
+    "dataNameX": "X Data",
+    "dataNameY": "Y Data",
+    "graphScaleRadioButtonX": "0.050",
+    "graphScaleRadioButtonY": "0.050",
+    "logLinX": "LIN",
+    "logLinY": "LIN",
+    "logLinZ": "LIN",
+    "textDataEditor": _DATA_2D_POLY,
+    "splineSmoothness": "1.0",
+    "splineOrderX": "3",
+}
+
+# Spline output pages differ from polynomial pages: no covariance
+# matrix (B-splines have knots/coefs, not parameter covariance in the
+# Fisher-information sense), and the section heading is just "Fit
+# Statistics" without the "Coefficient and" prefix. The spline-specific
+# "Coefficients And Knot Points" dropdown is a strong signal that the
+# spline report template rendered correctly end-to-end.
+_SPLINE_EXPECTED_MARKERS = [
+    "Fit Statistics",
+    "Minimum:",
+    "Maximum:",
+    "Coefficients And Knot Points",
+]
+
+# UDF 2D form fields. Same base as _POLY_QUAD_FIELDS (UDF uses
+# fittingTarget, unlike spline) plus the udfEditor text. "a + b*X" is the
+# simplest non-trivial linear UDF — two coefficients, guaranteed to fit
+# the 10-point polynomial dataset, and exercises the session
+# userDefinedFunctionText round-trip + ParseAndCompileUserFunctionString.
+_UDF_2D_FIELDS = dict(
+    _POLY_QUAD_FIELDS,
+    udfEditor="a + b*X",
+)
 
 # FunctionFinder fields. Only the Exponential family is enabled so the
 # top-ranked equation is guaranteed nonlinear — this exercises pyeq3's
@@ -605,6 +657,66 @@ def run_smoke() -> int:
             errors.append(err)
         else:
             print("[invalid_form_post] OK")
+
+        # spline_2D + round-trip through EvaluateAtAPointView. The
+        # round-trip is the real target — FitSpline stores scipySpline as a
+        # tuple of ndarrays which _json_native converts to [list, list, int]
+        # before session write. EvaluateAtAPointView at views.py:98 loads
+        # this verbatim and scipy's splev/BSpline path consumes it.
+        err = _run_scenario(
+            session,
+            base,
+            "spline_2D",
+            base + "/FitEquation__F__/2/Spline/Spline/",
+            _SPLINE_2D_FIELDS,
+            _SPLINE_EXPECTED_MARKERS,
+            timeout_s=600,
+        )
+        if err:
+            errors.append(err)
+        else:
+            print("[spline_2D] OK")
+            r = session.post(
+                base + "/EvaluateAtAPoint/",
+                data=_EVAL_AT_POINT_FIELDS,
+                allow_redirects=True,
+            )
+            err = _check_markers(
+                "evaluate_at_a_point_spline", r.text, _EVAL_AT_POINT_MARKERS
+            )
+            if err:
+                errors.append(err)
+            else:
+                print("[evaluate_at_a_point_spline] OK")
+
+        # udf_2D + round-trip through EvaluateAtAPointView. Exercises
+        # FitUserDefinedFunction's solvedCoefficients write (list after
+        # _json_native) and EvaluateAtAPointView's load site.
+        err = _run_scenario(
+            session,
+            base,
+            "udf_2D",
+            base + "/FitEquation__F__/2/UserDefinedFunction/UserDefinedFunction/",
+            _UDF_2D_FIELDS,
+            _POLY_EXPECTED_MARKERS,
+            timeout_s=600,
+        )
+        if err:
+            errors.append(err)
+        else:
+            print("[udf_2D] OK")
+            r = session.post(
+                base + "/EvaluateAtAPoint/",
+                data=_EVAL_AT_POINT_FIELDS,
+                allow_redirects=True,
+            )
+            err = _check_markers(
+                "evaluate_at_a_point_udf", r.text, _EVAL_AT_POINT_MARKERS
+            )
+            if err:
+                errors.append(err)
+            else:
+                print("[evaluate_at_a_point_udf] OK")
 
         if errors:
             for msg in errors:

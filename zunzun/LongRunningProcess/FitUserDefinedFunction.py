@@ -27,11 +27,23 @@ class FitUserDefinedFunction(FittingBaseClass.FittingBaseClass):
     def build_child_payload(self):
         payload = super().build_child_payload()
         payload.extra["userDefinedFunctionText"] = self.boundForm.equation.userDefinedFunctionText
+        # ParseAndCompileUserFunctionString (called during form validation
+        # to verify the formula compiles) leaves a compiled code object on
+        # the equation at .userFunctionCodeObject. Code objects are not
+        # picklable, so multiprocessing.Popen's spawn handoff would raise
+        # TypeError("cannot pickle code objects"). Drop it here; the child
+        # re-parses in apply_child_payload to reconstruct the code object.
+        if hasattr(payload.equation, "userFunctionCodeObject"):
+            del payload.equation.userFunctionCodeObject
         return payload
 
     def apply_child_payload(self, payload):
         super().apply_child_payload(payload)
-        self.dataObject.equation.userDefinedFunctionText = payload.extra["userDefinedFunctionText"]
+        text = payload.extra["userDefinedFunctionText"]
+        self.dataObject.equation.userDefinedFunctionText = text
+        # Re-parse in the child to recreate userFunctionCodeObject (dropped
+        # at the pickle boundary — see build_child_payload).
+        self.dataObject.equation.ParseAndCompileUserFunctionString(text, payload.dimensionality)
 
     def SaveSpecificDataToSessionStore(self):
         self.SaveDictionaryOfItemsToSessionStore('data', _json_native({'dimensionality':self.dimensionality,
@@ -57,7 +69,7 @@ class FitUserDefinedFunction(FittingBaseClass.FittingBaseClass):
 
     def SpecificEquationBoundInterfaceCode(self, request):
         self.boundForm.equation.userDefinedFunctionText = request.POST['udfEditor']
-        self.boundForm.equation.ParseAndCompileUserFunctionString(self.boundForm.equation.userDefinedFunctionText)
+        self.boundForm.equation.ParseAndCompileUserFunctionString(self.boundForm.equation.userDefinedFunctionText, self.dimensionality)
 
         
     def SpecificCodeForGeneratingListOfOutputReports(self):

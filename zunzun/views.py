@@ -16,6 +16,7 @@ import django.http
 import os, sys, time, urllib.request, urllib.parse, urllib.error, signal, copy
 from . import forms, formConstants
 import numpy, multiprocessing
+import scipy.interpolate
 
 import zunzun
 import pyeq3
@@ -95,10 +96,31 @@ def EvaluateAtAPointView(request):
     
     # read equation-specific information from session data and assign to equation object
     if equation.splineFlag:
-        equation.scipySpline = LRP.LoadItemFromSessionStore('data', 'scipySpline')
+        # scipySpline (the live scipy spline object) isn't saved — see
+        # FitSpline.SaveSpecificDataToSessionStore. solvedCoefficients IS
+        # the tck tuple, which we reconstruct into a callable spline.
+        # pyeq3/Models_2D/Spline.CalculateModelPredictions calls
+        # self.scipySpline(X); BSpline is callable with matching
+        # semantics. For 3D, wrap bisplev in an .ev(X, Y) helper to
+        # match Models_3D/Spline's self.scipySpline.ev(X, Y) call shape.
+        tck = LRP.LoadItemFromSessionStore('data', 'solvedCoefficients')
+        if LRP.dimensionality == 2:
+            equation.scipySpline = scipy.interpolate.BSpline(
+                numpy.array(tck[0]), numpy.array(tck[1]), int(tck[2])
+            )
+        else:
+            tx = numpy.array(tck[0])
+            ty = numpy.array(tck[1])
+            c = numpy.array(tck[2])
+            kx = int(tck[3])
+            ky = int(tck[4])
+            class _BivariateSplineFromTck:
+                def ev(self, X, Y):
+                    return scipy.interpolate.bisplev(X, Y, (tx, ty, c, kx, ky))
+            equation.scipySpline = _BivariateSplineFromTck()
     elif equation.userDefinedFunctionFlag:
         equation.userDefinedFunctionText = LRP.LoadItemFromSessionStore('data', 'udfEditor_' + str(equation.GetDimensionality()) + 'D')
-        equation.ParseAndCompileUserFunctionString(equation.userDefinedFunctionText)        
+        equation.ParseAndCompileUserFunctionString(equation.userDefinedFunctionText, LRP.dimensionality)
     elif equation.userSelectablePolynomialFlag:
         equation.xPolynomialOrder = LRP.LoadItemFromSessionStore('data', 'xPolynomialOrder')
         equation.yPolynomialOrder = LRP.LoadItemFromSessionStore('data', 'yPolynomialOrder')
@@ -113,7 +135,16 @@ def EvaluateAtAPointView(request):
     else:
         equation.fittingTarget = LRP.LoadItemFromSessionStore('data', 'fittingTarget')
 
-    equation.solvedCoefficients = LRP.LoadItemFromSessionStore('data', 'solvedCoefficients')
+    # solvedCoefficients is stored as a list after _json_native. pyeq3's
+    # CalculateModelPredictions expects an ndarray for regular equations.
+    # For splines, solvedCoefficients IS the tck tuple (already consumed
+    # above to reconstruct equation.scipySpline) and pyeq3's Spline
+    # CalculateModelPredictions ignores inCoeffs, so leave it as-is.
+    raw_coeffs = LRP.LoadItemFromSessionStore('data', 'solvedCoefficients')
+    if equation.splineFlag:
+        equation.solvedCoefficients = raw_coeffs
+    else:
+        equation.solvedCoefficients = numpy.array(raw_coeffs)
     
     # make bound Django form and call form.is_valid()
     try:

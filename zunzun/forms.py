@@ -491,7 +491,7 @@ class Equation_2D(CharacterizeDataForm_2D) :
             if self.equation.userDefinedFunctionText == '':
                 raise django.forms.ValidationError("You entered no text as a User Defined Function. Please enter a function.")
             try:
-                self.equation.ParseAndCompileUserFunctionString(self.equation.userDefinedFunctionText)
+                self.equation.ParseAndCompileUserFunctionString(self.equation.userDefinedFunctionText, self.equation.GetDimensionality())
             except:
                 raise django.forms.ValidationError(str(sys.exc_info()[1])) # re-raise as validation error
                 
@@ -633,7 +633,7 @@ class Equation_3D (CharacterizeDataForm_3D) :
             if self.equation.userDefinedFunctionText == '':
                 raise django.forms.ValidationError("You entered no text as a User Defined Function. Please enter a function.")
             try:
-                self.equation.ParseAndCompileUserFunctionString(self.equation.userDefinedFunctionText)
+                self.equation.ParseAndCompileUserFunctionString(self.equation.userDefinedFunctionText, self.equation.GetDimensionality())
             except:
                 raise django.forms.ValidationError(str(sys.exc_info()[1])) # re-raise as validation error
                 
