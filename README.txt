@@ -8,9 +8,9 @@ ZunZunNG is a permanent fork of James R. Phillips's zunzunsite3
 (bitbucket.org/zunzuncode/zunzunsite3, Copyright (C) 2016 James R.
 Phillips, BSD-2-clause; dormant since 2020), modernized for Python
 3.14 / Django 6.0, cross-platform (Linux, macOS, Windows), and ported
-off scipy.odr via the companion pyeq3ng fork
-(github.com/kiloscheffer/pyeq3ng). Hosted at
-github.com/kiloscheffer/zunzunng. The original copyright notice in
+off scipy.odr via the companion pyeq3-ng fork
+(github.com/kiloscheffer/pyeq3-ng). Hosted at
+github.com/kiloscheffer/zunzun-ng. The original copyright notice in
 LICENSE.txt is retained per the BSD-2-clause terms.
 
 Python dependencies are managed with uv (https://docs.astral.sh/uv/).
@@ -33,7 +33,7 @@ Then run the django development server with:
 and open the url http://127.0.0.1:8000/ in a browser. Cool!
 
 
-Cross-platform: zunzunsite3 runs natively on Linux, macOS, and Windows
+Cross-platform: ZunZunNG runs natively on Linux, macOS, and Windows
 as of April 2026. The original os.fork() architecture was replaced
 with multiprocessing.Process(spawn) so the code no longer depends on
 Unix-style process forking.

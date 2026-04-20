@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ZunZunNG is a Django site that performs 2D/3D nonlinear curve & surface fitting via the `pyeq3` library, with genetic-algorithm initial parameter estimation, PDF/animation output, and source-code generation in multiple languages.
 
-It is a permanent fork of `bitbucket.org/zunzuncode/zunzunsite3` (James R. Phillips's Python 3 port of zunzun.com — see `LICENSE.txt` for the `Copyright (C) 2016 James R. Phillips` notice, retained under BSD-2-clause terms), modernized for Python 3.14 / Django 6.0, ported off `scipy.odr` via the `pyeq3ng` fork, and made cross-platform (Linux, macOS, Windows) by replacing the original `os.fork()` architecture with `multiprocessing.Process(spawn)`. Hosted at `github.com/kiloscheffer/zunzunng`. The original bitbucket repo has been dormant since 2020.
+It is a permanent fork of `bitbucket.org/zunzuncode/zunzunsite3` (James R. Phillips's Python 3 port of zunzun.com — see `LICENSE.txt` for the `Copyright (C) 2016 James R. Phillips` notice, retained under BSD-2-clause terms), modernized for Python 3.14 / Django 6.0, ported off `scipy.odr` via the `pyeq3-ng` fork, and made cross-platform (Linux, macOS, Windows) by replacing the original `os.fork()` architecture with `multiprocessing.Process(spawn)`. Hosted at `github.com/kiloscheffer/zunzun-ng`. The original bitbucket repo has been dormant since 2020.
 
 **Identity-rename scope note.** The top-level project identity is ZunZunNG, but the user-facing HTML templates (page titles, headers, about page) and PDF / graph watermark strings still display "ZunZunSite3". That cleanup is scoped as its own follow-up branch (see `TODO.md`) — this README, `pyproject.toml`, and `CLAUDE.md` are renamed; internal display strings are not. The Django app folder is still `zunzun/` (renaming it would churn ~every file path and add zero value).
 
@@ -51,7 +51,7 @@ Python deps are declared in `pyproject.toml` and pinned in the committed `uv.loc
 
 **No non-Python runtime deps.** Earlier versions required `imagemagick` and `gifsicle` system binaries for animated GIF output; as of 2026-04-19 those paths are pure-Python via matplotlib's `PillowWriter`. See `docs/superpowers/specs/2026-04-19-pillow-gif-design.md` for the migration history.
 
-**pyeq3 fork.** `pyeq3` is pinned to `pyeq3ng` (`github.com/kiloscheffer/pyeq3ng`, tag `v1.0.0-ng`) via `[tool.uv.sources]` in `pyproject.toml`. The fork replaces `scipy.odr` (deprecated in scipy 1.17, slated for removal in 1.19) with the independent `odrpack` package on PyPI. Neither the original pyeq3 (bitbucket `zunzuncode`, dormant since 2020-01) nor the active PyPI-published fork (`github.com/equations-project/pyeq3`) has addressed this; pyeq3ng is a permanent fork. See `docs/superpowers/specs/2026-04-20-pyeq3ng-odr-port-design.md` for migration rationale.
+**pyeq3 fork.** `pyeq3` is pinned to `pyeq3-ng` (`github.com/kiloscheffer/pyeq3-ng`, tag `v1.0.0-ng`) via `[tool.uv.sources]` in `pyproject.toml`. The fork replaces `scipy.odr` (deprecated in scipy 1.17, slated for removal in 1.19) with the independent `odrpack` package on PyPI. Neither the original pyeq3 (bitbucket `zunzuncode`, dormant since 2020-01) nor the active PyPI-published fork (`github.com/equations-project/pyeq3`) has addressed this; pyeq3-ng is a permanent fork. See `docs/superpowers/specs/2026-04-20-pyeq3ng-odr-port-design.md` for migration rationale.
 
 ## Tests
 

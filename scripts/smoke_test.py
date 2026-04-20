@@ -1,4 +1,4 @@
-"""Cross-platform end-to-end smoke test for zunzunng.
+"""Cross-platform end-to-end smoke test for zunzun-ng.
 
 Starts a Waitress subprocess on a free port, runs the scenarios below
 against it, then stops the server. Exits 0 iff all scenarios pass.
