@@ -22,6 +22,9 @@ Scenarios
 11. **spline_2D** — 2D cubic spline fit with smoothness=1.0, chained into
     an `/EvaluateAtAPoint/` POST to verify the `_json_native`-mangled
     `scipySpline` round-trips through the session.
+12. **udf_2D** — 2D User Defined Function fit with formula `a + b*X`,
+    chained into an `/EvaluateAtAPoint/` POST to verify
+    `solvedCoefficients` round-trips through the session.
 
 Usage:
   uv run python scripts/smoke_test.py
@@ -123,6 +126,16 @@ _SPLINE_EXPECTED_MARKERS = [
     "Maximum:",
     "Coefficients And Text Reports",
 ]
+
+# UDF 2D form fields. Same base as _POLY_QUAD_FIELDS (UDF uses
+# fittingTarget, unlike spline) plus the udfEditor text. "a + b*X" is the
+# simplest non-trivial linear UDF — two coefficients, guaranteed to fit
+# the 10-point polynomial dataset, and exercises the session
+# userDefinedFunctionText round-trip + ParseAndCompileUserFunctionString.
+_UDF_2D_FIELDS = dict(
+    _POLY_QUAD_FIELDS,
+    udfEditor="a + b*X",
+)
 
 # FunctionFinder fields. Only the Exponential family is enabled so the
 # top-ranked equation is guaranteed nonlinear — this exercises pyeq3's
@@ -672,6 +685,35 @@ def run_smoke() -> int:
                 errors.append(err)
             else:
                 print("[evaluate_at_a_point_spline] OK")
+
+        # udf_2D + round-trip through EvaluateAtAPointView. Exercises
+        # FitUserDefinedFunction's solvedCoefficients write (list after
+        # _json_native) and EvaluateAtAPointView's load site.
+        err = _run_scenario(
+            session,
+            base,
+            "udf_2D",
+            base + "/FitEquation__F__/2/UserDefinedFunction/UserDefinedFunction/",
+            _UDF_2D_FIELDS,
+            _POLY_EXPECTED_MARKERS,
+            timeout_s=600,
+        )
+        if err:
+            errors.append(err)
+        else:
+            print("[udf_2D] OK")
+            r = session.post(
+                base + "/EvaluateAtAPoint/",
+                data=_EVAL_AT_POINT_FIELDS,
+                allow_redirects=True,
+            )
+            err = _check_markers(
+                "evaluate_at_a_point_udf", r.text, _EVAL_AT_POINT_MARKERS
+            )
+            if err:
+                errors.append(err)
+            else:
+                print("[evaluate_at_a_point_udf] OK")
 
         if errors:
             for msg in errors:
