@@ -1,4 +1,4 @@
-"""Platform-specific shim layer for zunzunsite3.
+"""Platform-specific shim layer for zunzunng.
 
 Consolidates all calls that vary across Linux/macOS/Windows so the
 rest of the codebase can stay platform-agnostic. Delegates to psutil

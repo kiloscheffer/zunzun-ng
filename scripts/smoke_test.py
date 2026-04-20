@@ -1,4 +1,4 @@
-"""Cross-platform end-to-end smoke test for zunzunsite3.
+"""Cross-platform end-to-end smoke test for zunzunng.
 
 Starts a Waitress subprocess on a free port, runs the scenarios below
 against it, then stops the server. Exits 0 iff all scenarios pass.
@@ -273,7 +273,7 @@ _CHAR_3D_FIELDS = {
 _ALL_EQUATIONS_MARKERS = [
     # /AllEquations/2/Polynomial/ URL — the path-segment `Polynomial`
     # is the view's `inAllOrStandardOnly` flag, not a family filter.
-    # The header is "ZunZunSite3 List Of All Standard 2D Equations"
+    # The header is "ZunZunNG List Of All Standard 2D Equations"
     # and the page lists every family; "Polynomial" appears as a
     # section heading and in many equation links.
     "All Standard 2D Equations",
@@ -294,9 +294,9 @@ _FEEDBACK_POST_MARKERS = [
 ]
 
 # /Feedback/ GET redirects to '/'; we only assert the redirect lands
-# somewhere that renders the home page (non-empty, contains ZunZunSite3).
+# somewhere that renders the home page (non-empty, contains ZunZunNG).
 _FEEDBACK_GET_MARKERS = [
-    "ZunZunSite3",
+    "ZunZunNG",
 ]
 
 _EVAL_AT_POINT_FIELDS = {
