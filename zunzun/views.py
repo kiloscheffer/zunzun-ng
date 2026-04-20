@@ -120,7 +120,7 @@ def EvaluateAtAPointView(request):
             equation.scipySpline = _BivariateSplineFromTck()
     elif equation.userDefinedFunctionFlag:
         equation.userDefinedFunctionText = LRP.LoadItemFromSessionStore('data', 'udfEditor_' + str(equation.GetDimensionality()) + 'D')
-        equation.ParseAndCompileUserFunctionString(equation.userDefinedFunctionText)        
+        equation.ParseAndCompileUserFunctionString(equation.userDefinedFunctionText, LRP.dimensionality)
     elif equation.userSelectablePolynomialFlag:
         equation.xPolynomialOrder = LRP.LoadItemFromSessionStore('data', 'xPolynomialOrder')
         equation.yPolynomialOrder = LRP.LoadItemFromSessionStore('data', 'yPolynomialOrder')

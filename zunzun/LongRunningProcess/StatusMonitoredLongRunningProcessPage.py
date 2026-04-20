@@ -54,7 +54,7 @@ def ParallelWorker_CreateReportOutput(inReportObject):
     try:
         if inReportObject.dataObject.equation.GetDisplayName() == 'User Defined Function': # User Defined Function will not pickle, see http://support.picloud.com/entries/122330-an-error-i-don-t-understand
             inReportObject.dataObject.equation.userDefinedFunctionText = inReportObject.dataObject.userDefinedFunctionText
-            inReportObject.dataObject.equation.ParseAndCompileUserFunctionString(inReportObject.dataObject.equation.userDefinedFunctionText)
+            inReportObject.dataObject.equation.ParseAndCompileUserFunctionString(inReportObject.dataObject.equation.userDefinedFunctionText, inReportObject.dataObject.equation.GetDimensionality())
             
         inReportObject.CreateReportOutput()
 
