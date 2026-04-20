@@ -20,13 +20,16 @@ class FitSpline(FittingBaseClass.FittingBaseClass):
 
 
     def SaveSpecificDataToSessionStore(self):
-        # scipySpline is a tuple of numpy arrays; _json_native converts
-        # the arrays to lists. The EvaluateAtAPointView will need to
-        # reconstruct any spline-typed input from these raw sequences.
+        # scipySpline is a live scipy.interpolate.UnivariateSpline (2D) or
+        # SmoothBivariateSpline (3D) instance — not JSON-serializable.
+        # Storing it here crashes the session save. The object is
+        # redundant: solvedCoefficients holds the spline's tck tuple (see
+        # pyeq3/Services/SolverService.py:368 for 2D _eval_args, line 379
+        # for 3D .tck). EvaluateAtAPointView reconstructs a callable
+        # spline from that tck at the load site.
         self.SaveDictionaryOfItemsToSessionStore('data', _json_native({'dimensionality':self.dimensionality,
                                                           'equationName':self.inEquationName,
                                                           'equationFamilyName':self.inEquationFamilyName,
-                                                          'scipySpline':self.dataObject.equation.scipySpline,
                                                           'solvedCoefficients':self.dataObject.equation.solvedCoefficients}))
 
 

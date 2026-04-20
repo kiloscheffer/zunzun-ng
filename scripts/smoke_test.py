@@ -117,14 +117,17 @@ _SPLINE_2D_FIELDS = {
     "splineOrderX": "3",
 }
 
-# Spline output pages do not render "Coefficient Covariance Matrix" —
-# splines have knots and B-spline coefficients, not parameter covariance
-# in the Fisher-information sense. Marker set is pruned accordingly.
+# Spline output pages differ from polynomial pages: no covariance
+# matrix (B-splines have knots/coefs, not parameter covariance in the
+# Fisher-information sense), and the section heading is just "Fit
+# Statistics" without the "Coefficient and" prefix. The spline-specific
+# "Coefficients And Knot Points" dropdown is a strong signal that the
+# spline report template rendered correctly end-to-end.
 _SPLINE_EXPECTED_MARKERS = [
-    "Coefficient and Fit Statistics",
+    "Fit Statistics",
     "Minimum:",
     "Maximum:",
-    "Coefficients And Text Reports",
+    "Coefficients And Knot Points",
 ]
 
 # UDF 2D form fields. Same base as _POLY_QUAD_FIELDS (UDF uses
