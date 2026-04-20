@@ -101,7 +101,57 @@ branch and its own spec/plan cycle, since the root cause is in the
 spawn-Pool pattern (shared with the cross-platform migration), not in
 Django version compatibility.
 
-## Spline + UDF session round-trip not smoke-covered
+## ~~Spline + UDF session round-trip not smoke-covered~~ RESOLVED 2026-04-20
+
+> **Resolution.** Two smoke scenarios added to `scripts/smoke_test.py`
+> and four real bugs shaken out along the way. The smoke suite is now
+> at 12 scenarios; all pass.
+>
+> **New scenarios:**
+> - `spline_2D` — 2D cubic spline fit (smoothness=1.0, order=3),
+>   chained into `/EvaluateAtAPoint/` to verify the full round-trip.
+> - `udf_2D` — 2D User Defined Function fit (`a + b*X`), chained the
+>   same way.
+>
+> **Bugs fixed in the process:**
+> 1. **Spline write-site crashed on session save.**
+>    `FitSpline.SaveSpecificDataToSessionStore` was storing the live
+>    `scipy.interpolate.UnivariateSpline` object through `_json_native`
+>    (which doesn't collapse it), so Django's `JSONSerializer` raised
+>    `TypeError: Object of type UnivariateSpline is not JSON
+>    serializable`. The key was redundant — `solvedCoefficients`
+>    already holds the spline's tck tuple. Dropped the key at the
+>    write site. `EvaluateAtAPointView` now reconstructs a
+>    `scipy.interpolate.BSpline` (2D) or a tiny bisplev wrapper (3D)
+>    from the tck at load time.
+> 2. **pyeq3 API drift:**
+>    `IModel.ParseAndCompileUserFunctionString` gained a required
+>    `dim` parameter. Five zunzun callsites still passed one
+>    argument, so the UDF POST fell over in form validation with
+>    `TypeError: missing 1 required positional argument 'dim'`.
+>    Adapted all five callsites (`forms.py` × 2,
+>    `FitUserDefinedFunction.py`,
+>    `StatusMonitoredLongRunningProcessPage.py`, `views.py`).
+> 3. **UDF code object is not picklable.** The parse call caches a
+>    `compile()` result on the equation at `.userFunctionCodeObject`,
+>    which spawn's `Popen.reduction.dump` choked on when pickling
+>    the `ChildPayload`. Stripped the attribute in
+>    `build_child_payload` and re-parse in `apply_child_payload` to
+>    reconstruct in the child.
+> 4. **Read-site cast for non-spline `solvedCoefficients`.** Added a
+>    `numpy.array(...)` cast at the shared load line so pyeq3's
+>    `CalculateModelPredictions` receives the ndarray shape it
+>    expects, independent of future scipy/pyeq3 strictness.
+>
+> All four bugs were pre-existing latent issues that only surfaced
+> once the two smoke scenarios actually exercised the full
+> fit + round-trip. Pytest count unchanged at 78/78.
+>
+> See `docs/superpowers/specs/2026-04-19-spline-udf-smoke-design.md`
+> and `docs/superpowers/plans/2026-04-19-spline-udf-smoke.md` for the
+> original design and the 2026-04-20 scope-refinement notes.
+>
+> Historical notes below, preserved for reference.
 
 **Symptom / exposure.** Phase 3 of the Django 5.2 migration introduced
 `_json_native` at all `SaveSpecificDataToSessionStore` sites in the LRP
