@@ -1,6 +1,6 @@
 ---
 name: add-fit-flow
-description: Add a new curve-fit flow to zunzunsite3. Use when introducing a new LRP class (new spline type, polynomial variant, custom fit) that must be wired into the URL dispatcher and LongRunningProcess package. Not for edits to existing fit flows.
+description: Add a new curve-fit flow to ZunZunNG. Use when introducing a new LRP class (new spline type, polynomial variant, custom fit) that must be wired into the URL dispatcher and LongRunningProcess package. Not for edits to existing fit flows.
 disable-model-invocation: true
 ---
 

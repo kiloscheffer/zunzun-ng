@@ -1,6 +1,6 @@
 ---
 name: run-funkload
-description: Run the zunzunsite3 FunkLoad functional test suite. Starts the Django dev server if needed, runs fl-run-test against 127.0.0.1:8000, and surfaces pass/fail assertions. Use for verifying fit flows end-to-end since there is no pytest/manage.py test target.
+description: Run the ZunZunNG FunkLoad functional test suite. Starts the Django dev server if needed, runs fl-run-test against 127.0.0.1:8000, and surfaces pass/fail assertions. Use for verifying fit flows end-to-end since there is no pytest/manage.py test target.
 ---
 
 # Running FunkLoad tests

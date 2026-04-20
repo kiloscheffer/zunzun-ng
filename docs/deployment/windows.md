@@ -34,18 +34,18 @@ uv python install 3.14
 Choose a path outside `C:\inetpub` (IIS doesn't need to host the code — it proxies to Waitress):
 
 ```powershell
-mkdir C:\sites\zunzunsite3
-cd C:\sites\zunzunsite3
-git clone https://bitbucket.org/zunzuncode/zunzunsite3.git .
+mkdir C:\sites\zunzunng
+cd C:\sites\zunzunng
+git clone https://github.com/kiloscheffer/zunzunng.git .
 uv sync --no-dev
 uv run python manage.py migrate
 ```
 
-Grant the IIS Application Pool identity (commonly `IIS APPPOOL\zunzunsite3`) or the NSSM service account read-on-code and write-on-temp/session_db:
+Grant the IIS Application Pool identity (commonly `IIS APPPOOL\zunzunng`) or the NSSM service account read-on-code and write-on-temp/session_db:
 
 ```powershell
-icacls C:\sites\zunzunsite3\temp /grant "IIS APPPOOL\zunzunsite3:(OI)(CI)M"
-icacls C:\sites\zunzunsite3\session_db /grant "IIS APPPOOL\zunzunsite3:(OI)(CI)M"
+icacls C:\sites\zunzunng\temp /grant "IIS APPPOOL\zunzunng:(OI)(CI)M"
+icacls C:\sites\zunzunng\session_db /grant "IIS APPPOOL\zunzunng:(OI)(CI)M"
 ```
 
 Adjust the identity string to match your configuration. For NSSM-managed Waitress (Phase 3), the service's `LocalService` or a dedicated service account needs the same ACLs.
@@ -57,14 +57,14 @@ Download NSSM from https://nssm.cc/ and place `nssm.exe` in a known location (e.
 Install the service (elevated PowerShell):
 
 ```powershell
-C:\Tools\nssm\nssm.exe install zunzunsite3 `
-    "C:\sites\zunzunsite3\.venv\Scripts\waitress-serve.exe" `
+C:\Tools\nssm\nssm.exe install zunzunng `
+    "C:\sites\zunzunng\.venv\Scripts\waitress-serve.exe" `
     "--listen=127.0.0.1:8000" "wsgi:application"
-nssm set zunzunsite3 AppDirectory C:\sites\zunzunsite3
-nssm set zunzunsite3 AppStdout C:\sites\zunzunsite3\waitress.log
-nssm set zunzunsite3 AppStderr C:\sites\zunzunsite3\waitress.err
-nssm set zunzunsite3 Start SERVICE_AUTO_START
-nssm start zunzunsite3
+nssm set zunzunng AppDirectory C:\sites\zunzunng
+nssm set zunzunng AppStdout C:\sites\zunzunng\waitress.log
+nssm set zunzunng AppStderr C:\sites\zunzunng\waitress.err
+nssm set zunzunng Start SERVICE_AUTO_START
+nssm start zunzunng
 ```
 
 Verify Waitress responds directly (before IIS):
@@ -97,8 +97,8 @@ IIS Manager → (server node) → **Application Request Routing Cache** → (rig
 ### Create IIS site
 
 1. Sites → Add Website:
-   - **Site name:** `zunzunsite3`
-   - **Physical path:** `C:\sites\zunzunsite3\temp` (IIS will serve static files directly from here)
+   - **Site name:** `zunzunng`
+   - **Physical path:** `C:\sites\zunzunng\temp` (IIS will serve static files directly from here)
    - **Binding:** port 80 (or 443 with a TLS certificate)
 
 2. Select the site → **URL Rewrite** → Add Rules → Reverse Proxy → enter `localhost:8000` as the inbound rule's backend.
@@ -113,15 +113,15 @@ For a production cert, use `win-acme` (https://www.win-acme.com/) to issue a Let
 
 ### Logs
 
-- **Waitress stdout/stderr:** `C:\sites\zunzunsite3\waitress.log` and `waitress.err` (captured by NSSM).
-- **Child-process tracebacks:** `C:\sites\zunzunsite3\temp\{pid}.log` — one file per failed fit child. Rotate with a scheduled task.
+- **Waitress stdout/stderr:** `C:\sites\zunzunng\waitress.log` and `waitress.err` (captured by NSSM).
+- **Child-process tracebacks:** `C:\sites\zunzunng\temp\{pid}.log` — one file per failed fit child. Rotate with a scheduled task.
 - **IIS access logs:** `C:\inetpub\logs\LogFiles\` (standard W3C format).
 
 ### Service management
 
 ```powershell
-nssm restart zunzunsite3   # after deploying new code
-nssm status zunzunsite3    # check if it's running
+nssm restart zunzunng   # after deploying new code
+nssm status zunzunng    # check if it's running
 Services.msc               # GUI alternative
 ```
 
@@ -149,7 +149,7 @@ ImportError: DLL load failed while importing _flapack:
 
 Windows Defender real-time scanning of `.venv/` during fit imports causes significant latency (can add 10–20 s to each fit). Add the project directory as a scan exclusion:
 
-Settings → Windows Security → Virus & threat protection → Manage settings → Exclusions → Add `C:\sites\zunzunsite3\.venv\`.
+Settings → Windows Security → Virus & threat protection → Manage settings → Exclusions → Add `C:\sites\zunzunng\.venv\`.
 
 ### Expected fit runtime
 
@@ -160,7 +160,7 @@ A 2D polynomial-quadratic fit on the sample data completes in ~60–120 seconds 
 After the service is running, exercise it end-to-end:
 
 ```powershell
-cd C:\sites\zunzunsite3
+cd C:\sites\zunzunng
 uv run python scripts/smoke_test.py
 ```
 

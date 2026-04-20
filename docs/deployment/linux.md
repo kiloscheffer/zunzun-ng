@@ -16,10 +16,10 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 ## Site installation
 
 ```bash
-sudo mkdir -p /var/www/zunzunsite3
-sudo chown "$USER":www-data /var/www/zunzunsite3
-cd /var/www/zunzunsite3
-git clone https://bitbucket.org/zunzuncode/zunzunsite3.git .
+sudo mkdir -p /var/www/zunzunng
+sudo chown "$USER":www-data /var/www/zunzunng
+cd /var/www/zunzunng
+git clone https://github.com/kiloscheffer/zunzunng.git .
 uv sync --no-dev
 uv run python manage.py migrate
 ```
@@ -29,7 +29,7 @@ uv run python manage.py migrate
 Ensure the service account (`www-data` below) owns `temp/` and `session_db/` so the child processes can write there:
 
 ```bash
-sudo chown -R www-data:www-data /var/www/zunzunsite3/temp /var/www/zunzunsite3/session_db
+sudo chown -R www-data:www-data /var/www/zunzunng/temp /var/www/zunzunng/session_db
 ```
 
 ## Stack A (recommended): nginx → Waitress
@@ -38,25 +38,25 @@ Waitress is the cross-platform WSGI server. Its thread-based worker model plays 
 
 ### systemd unit
 
-Write `/etc/systemd/system/zunzunsite3.service`:
+Write `/etc/systemd/system/zunzunng.service`:
 
 ```ini
 [Unit]
-Description=ZunZunSite3 (Waitress)
+Description=ZunZunNG (Waitress)
 After=network.target
 
 [Service]
 Type=simple
 User=www-data
 Group=www-data
-WorkingDirectory=/var/www/zunzunsite3
-ExecStart=/var/www/zunzunsite3/.venv/bin/waitress-serve --listen=127.0.0.1:8000 wsgi:application
+WorkingDirectory=/var/www/zunzunng
+ExecStart=/var/www/zunzunng/.venv/bin/waitress-serve --listen=127.0.0.1:8000 wsgi:application
 Restart=on-failure
 RestartSec=5s
 StandardOutput=journal
 StandardError=journal
 # Allow the service account to reach uv-managed Python
-Environment=PATH=/var/www/zunzunsite3/.venv/bin:/usr/local/bin:/usr/bin:/bin
+Environment=PATH=/var/www/zunzunng/.venv/bin:/usr/local/bin:/usr/bin:/bin
 
 [Install]
 WantedBy=multi-user.target
@@ -66,28 +66,28 @@ Enable and start:
 
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable --now zunzunsite3
-sudo systemctl status zunzunsite3
+sudo systemctl enable --now zunzunng
+sudo systemctl status zunzunng
 ```
 
 Logs:
 
 ```bash
-sudo journalctl -u zunzunsite3 -f
+sudo journalctl -u zunzunng -f
 ```
 
 ### nginx config
 
-Write `/etc/nginx/sites-available/zunzunsite3`:
+Write `/etc/nginx/sites-available/zunzunng`:
 
 ```nginx
 server {
     listen 80;
-    server_name zunzunsite3.example.com;
+    server_name zunzunng.example.com;
 
     # Serve static files directly (bypasses Waitress for performance)
     location /temp/static_images/ {
-        alias /var/www/zunzunsite3/temp/static_images/;
+        alias /var/www/zunzunng/temp/static_images/;
         expires 7d;
     }
 
@@ -106,12 +106,12 @@ server {
 Enable:
 
 ```bash
-sudo ln -s /etc/nginx/sites-available/zunzunsite3 /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/zunzunng /etc/nginx/sites-enabled/
 sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-For TLS: `sudo certbot --nginx -d zunzunsite3.example.com`.
+For TLS: `sudo certbot --nginx -d zunzunng.example.com`.
 
 ## Stack B (alternate): nginx → gunicorn
 
