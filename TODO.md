@@ -434,6 +434,20 @@ since 2026-04-17 that the 4-cap hasn't been re-evaluated against:
    than subprocesses. Would require a significant rewrite of the
    Pool dispatch logic — only worth it if the memory ceiling is
    actually the bottleneck.
+6. **Reference: pyeq3's Multifit uses queue-based workers.**
+   `pyeq3.Utilities.Multifit.FitModelsInParallel` (added upstream
+   in equations-project's PR #7) ranks many equations using
+   `multiprocessing.Queue` + explicit worker processes rather than
+   `multiprocessing.Pool`. On Windows-spawn platforms, queue-based
+   workers can be less fragile than Pool because each worker's
+   lifecycle is independent — a worker that dies during import
+   doesn't silently consume a Pool slot. Worth studying as a
+   reference implementation when refactoring `FunctionFinder`'s
+   `PerformWorkInParallel`, since zunzun and pyeq3 share the
+   dependency stack (numpy, scipy, pyeq3, matplotlib) and the same
+   per-worker import cost drives the 750 MB estimate.
+   File to read: `pyeq3/Utilities/Multifit.py` around
+   `FitModelsInParallel` + `parallelWorker` + `SubmitTasksToQueue`.
 
 **Risk of lifting the cap without measurement.** The original
 symptom (`ImportError: DLL load failed while importing _flapack`)
