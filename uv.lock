@@ -513,7 +513,7 @@ wheels = [
 [[package]]
 name = "pyeq3"
 version = "12.6.2a0+ng"
-source = { git = "https://github.com/kiloscheffer/pyeq3-ng.git?tag=v1.0.0-ng#ee565e7cdbade71c73c43640196526ab3d196f59" }
+source = { git = "https://github.com/kiloscheffer/pyeq3-ng.git?tag=v1.0.2-ng#504baf0649b61ba04679059b1eb3ddfae0c03b63" }
 dependencies = [
     { name = "matplotlib" },
     { name = "numpy" },
@@ -748,7 +748,7 @@ requires-dist = [
     { name = "numpy", specifier = ">=2.0" },
     { name = "pillow" },
     { name = "psutil" },
-    { name = "pyeq3", git = "https://github.com/kiloscheffer/pyeq3-ng.git?tag=v1.0.0-ng" },
+    { name = "pyeq3", git = "https://github.com/kiloscheffer/pyeq3-ng.git?tag=v1.0.2-ng" },
     { name = "reportlab" },
     { name = "scipy" },
     { name = "waitress", specifier = ">=3.0" },
