@@ -1,4 +1,4 @@
-<div ID="graphScale" align='center' name="hideable_div" style="display:none;">
+<div id="graphScale" align='center' name="hideable_div" style="display:none;">
 <b>Graph scaling and lin/log control</b><br><br>
 Here you can choose the scaling of the data{% if dimensionality != '3' %} plots.{% else %}<br>plots and the 3D scatterplots.{% endif %}
 <br>
@@ -7,23 +7,23 @@ Log plots require data values greater than zero.
 <br>
 <table >
     <tr>
-        <td ALIGN=CENTER>X Scale (2D Only)</td>
+        <td align=CENTER>X Scale (2D Only)</td>
 {% if dimensionality != '1' %}
         <td> &nbsp; </td>
-        <td ALIGN=CENTER>Y Scale (2D Only)</td>
+        <td align=CENTER>Y Scale (2D Only)</td>
 {% if dimensionality == '3' %}
         <td> &nbsp; </td>
-        <td ALIGN=CENTER>Z Scale (2D Only)</td>
+        <td align=CENTER>Z Scale (2D Only)</td>
 {% endif %}
 {% endif %}
     </tr>
     <tr>
         <td>
-            <table BORDER="1">
+            <table border="1">
             <tr>
             <td>
                 <table >
-                <tr><td ALIGN=LEFT>
+                <tr><td align=LEFT>
                    {{ mainForm.graphScaleRadioButtonX }}
                 </td></tr>
                 <tr><td align='right'>
@@ -42,11 +42,11 @@ Log plots require data values greater than zero.
 {% if dimensionality != '1' %}
         <td> &nbsp; </td>
         <td>
-            <table BORDER="1">
+            <table border="1">
             <tr>
             <td>
                 <table >
-                <tr><td ALIGN=LEFT>
+                <tr><td align=LEFT>
                     {{ mainForm.graphScaleRadioButtonY }}
                 </td></tr>
                 <tr><td align='right'>
@@ -65,11 +65,11 @@ Log plots require data values greater than zero.
 {% if dimensionality == '3' %}
         <td> &nbsp; </td>
         <td>
-            <table BORDER="1">
+            <table border="1">
             <tr>
             <td>
                 <table >
-                <tr><td ALIGN=LEFT>
+                <tr><td align=LEFT>
                    {{ mainForm.graphScaleRadioButtonZ }}
                 </td></tr>
                 <tr><td align='right'>

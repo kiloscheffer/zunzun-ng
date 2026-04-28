@@ -1,4 +1,4 @@
-<div ID="dataLabels" align='center' name="hideable_div" style="display:none;">
+<div id="dataLabels" align='center' name="hideable_div" style="display:none;">
 <b>Data labels for graphs</b><br><br>
 Here you can enter the
 {% if dimensionality == '1' %}X data label {% endif %}
@@ -12,7 +12,7 @@ to be printed on the report graphs.
 <td>
     <table>
         <tr>
-        <td ALIGN="CENTER">
+        <td align="CENTER">
         <small>Label for first independent data (X)</small>
         <hr>
         {{ mainForm.dataNameX }}
@@ -25,7 +25,7 @@ to be printed on the report graphs.
     <td>
         <table>
             <tr>
-            <td ALIGN="CENTER">
+            <td align="CENTER">
 {% if dimensionality == '2' %}
             <small>Label for dependent data (Y)</small>
             <hr>
@@ -45,7 +45,7 @@ to be printed on the report graphs.
 <br>
 <table>
     <tr>
-    <td ALIGN="CENTER">
+    <td align="CENTER">
     <small>Label for dependent data (Z)</small>
     <hr>
     {{ mainForm.dataNameZ }}
