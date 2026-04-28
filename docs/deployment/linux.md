@@ -99,9 +99,14 @@ server {
         expires 1h;
     }
 
-    # Serve vendored "Common Problems" static content directly.
-    location /commonproblems/ {
+    # Serve vendored "Common Problems" static content directly. The
+    # `index index.html;` directive auto-serves index.html when the
+    # bare /CommonProblems/ URL is requested. Note the URL is
+    # CapitalCase (matching upstream's bitbucket URL) but the on-disk
+    # directory is lowercase — the alias bridges the two.
+    location /CommonProblems/ {
         alias /var/www/zunzun-ng/commonproblems/;
+        index index.html;
         expires 7d;
     }
 

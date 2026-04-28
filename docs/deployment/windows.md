@@ -104,7 +104,7 @@ IIS Manager → (server node) → **Application Request Routing Cache** → (rig
 2. Add three virtual directories under the site for direct file serving:
    - `/static` → physical path `C:\sites\zunzun-ng\static` (committed assets: logo, jQuery bundle, favicons, custom.css)
    - `/temp` → physical path `C:\sites\zunzun-ng\temp` (runtime-generated PDFs, plots, animations)
-   - `/commonproblems` → physical path `C:\sites\zunzun-ng\commonproblems` (vendored "Common Problems" static reference site)
+   - `/CommonProblems` → physical path `C:\sites\zunzun-ng\commonproblems` (vendored "Common Problems" static reference site; on-disk directory is lowercase but the IIS virtual directory and URL alias use CapitalCase to match upstream's bitbucket URL. Ensure IIS's "Default Document" includes `index.html` so the bare URL serves the index)
 
 3. Select the site → **URL Rewrite** → Add Rules → Reverse Proxy → enter `localhost:8000` as the inbound rule's backend.
 
