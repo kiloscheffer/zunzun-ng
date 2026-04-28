@@ -1,47 +1,34 @@
-/* ZunZunNG custom CSS — overrides on top of modern-normalize + simple.css.
- *
- * Loaded after both of those via <link> tags in
- * templates/zunzun/generic_page_template.html. Keep this file minimal;
- * simple.css does most of the work.
- *
- * The cleanup logic in zunzun/views.py only inspects top-level files
- * in temp/, so this file (sitting inside temp/static_images/) is safe
- * from housekeeping deletion alongside the other persistent static
- * assets (jQuery, logos, favicon).
- */
-
-
-/* Lists in the existing menus relied on bullets being suppressed. */
-ul
-{
-    list-style-type: none;
+/* ------------------------------------------------------------------------ */
+/*   USE LIGHT MODE ONLY                                                    */
+/* ------------------------------------------------------------------------ */
+@media (prefers-color-scheme: dark) {
+    :root {
+        color-scheme: light;
+        --bg: #fff;
+        --accent-bg: #f5f7ff;
+        --text: #212121;
+        --text-light: #585858;
+        --accent: #0d47a1;
+        --accent-hover: #1266e2;
+        --accent-text: var(--bg);
+        --code: #d81b60;
+        --preformatted: #444;
+        --marked: #ffdd33;
+        --disabled: #efefef;
+    }
 }
 
+/* ------------------------------------------------------------------------ */
+/*   RESET COLOR SCHEME                                                     */
+/* ------------------------------------------------------------------------ */
 
-/* Override simple.css table styling.
- *
- * This codebase uses <table> purely for layout (page header, dropdown
- * menus, form-cell positioning) — there are no actual data tables.
- * simple.css applies prominent data-table styling (borders, alternating
- * row backgrounds, padding) to every <table>, which is wrong for layout
- * use. Reset that styling globally; if a real data table is ever
- * introduced, it can opt into simple.css's styling via a class.
- */
-table
-{
-    border-collapse: collapse;
-    border: none;
-    background: none;
-    margin: 0;
-}
-table th, table td
-{
-    border: none;
-    background: none;
-    padding: 0.15rem 0.25rem;
-}
-table tbody tr:nth-child(odd),
-table tbody tr:nth-child(even)
-{
-    background: none;
+@media (prefers-color-scheme: dark) {
+    :root {
+        color-scheme: revert;
+    }
+
+    img,
+    video {
+        opacity: revert;
+    }
 }

@@ -822,7 +822,8 @@ You must provide any weights you wish to use.
 
         itemsToRender['dimensionality'] = str(self.dimensionality)
 
-        itemsToRender['header_text'] = 'ZunZunNG<br>' + self.webFormName
+        itemsToRender['header_text'] = 'ZunZunNG'
+        itemsToRender['subtitle_text'] = self.webFormName
         itemsToRender['title_string'] = 'ZunZunNG ' + self.webFormName.replace('<br>', ' ')
 
         itemsToRender['textReports'] = self.textReports
@@ -881,7 +882,8 @@ You must provide any weights you wish to use.
         dictionaryToReturn = {}
         dictionaryToReturn['dimensionality'] = str(self.dimensionality)
 
-        dictionaryToReturn['header_text'] = 'ZunZunNG ' + str(self.dimensionality) + 'D Interface<br>' + self.webFormName
+        dictionaryToReturn['header_text'] = 'ZunZunNG'
+        dictionaryToReturn['subtitle_text'] = str(self.dimensionality) + 'D Interface<br>' + self.webFormName
         dictionaryToReturn['title_string'] = 'ZunZunNG ' + str(self.dimensionality) + 'D Interface ' + self.webFormName
 
         # make a dimensionality-based unbound Django form
