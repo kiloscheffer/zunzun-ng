@@ -751,23 +751,65 @@ mechanism for "do something on every request." Converting:
 **Not in scope of any current branch.** Pure refactor; no behavior
 change visible to users.
 
-## Modernize HTML/CSS in templates
+## Modernize HTML/CSS in templates (in progress)
 
-**Symptom / exposure.** `templates/zunzun/*.html` uses deprecated
-HTML 4.01 elements throughout:
+**Status:** pass 1 landed in commit `0011366` / merge `39676c6` (2026-04-28).
+Pass 2 (HTML5 DOCTYPE + semantic wrappers + non-conforming attribute
+removal) is the in-flight work as of the same date. Remaining: layout
+table → grid/flexbox conversion (the bigger structural pass) is still
+deferred to a future dedicated effort.
 
-- `<TABLE ALIGN="CENTER">` and table-based layouts everywhere.
-- `<TD ALIGN="CENTER">`, `<BASEFONT SIZE="3">`, `<FONT SIZE="+1">`.
-- Inline `align`, `border`, `nowrap`, `cellpadding`, `cellspacing`
-  attributes.
-- `<center>` element.
-- No external CSS file — styles are inline or attribute-based.
+**Pass 1 (done — commit `0011366`):**
 
-All of these have been deprecated since HTML 4.01 (1999) and are
-not part of HTML5. Modern browsers still parse and display them
-(HTML's backwards-compatibility story is generous), but the
-visual result is locked in 1990s aesthetics and the markup fails
-any contemporary HTML linter.
+- Added `modern-normalize` and `simple.css` via `<link>` tags in
+  `generic_page_template.html`.
+- Removed obsolete elements: `<center>`, `<font>`, `<basefont>`,
+  `<style type="text/css">` → `<style>`.
+- Removed `border="0"` on images.
+- Replaced `<HR WIDTH="X%">` with `<hr style="width:X%">`.
+- 27 templates touched, -8 net lines.
+
+**Pass 2 (in this commit):**
+
+- Upgraded HTML 4.01 DOCTYPE → `<!DOCTYPE html>` in the 3 templates
+  that declared one.
+- Wrapped `generic_page_template.html`'s page-level structure in
+  semantic `<header>` / `<main>` / `<footer>` so simple.css's
+  body-scoped styles apply correctly (footer auto-centers, content
+  gets main padding).
+- Removed non-conforming attributes: `cellpadding`, `cellspacing`,
+  `valign`, `nowrap` (35 sites across templates).
+
+**Remaining work (future passes):**
+
+**Symptom / exposure (original, partially addressed).**
+`templates/zunzun/*.html` originally used deprecated HTML 4.01
+elements and attributes throughout. Pass 1 + pass 2 have addressed
+the elements and several attribute classes; what remains:
+
+- **Layout tables:** `<table>` used for visual positioning rather
+  than tabular data. Most of the home page's menu, the function
+  finder interface form layout, etc. are layout tables. simple.css
+  styles them as data tables (borders, alternating rows, padding),
+  which is visually wrong for layout use.
+- **`align="center"` on tables, divs, and cells:** non-conforming
+  in HTML5 but functionally important — removing them shifts
+  layout left. Replacement requires either a `.layout-table`
+  class that resets simple.css's table styling, or full conversion
+  to grid/flexbox.
+- **`<TABLE BORDER="1">` for visible-bordered data-entry tables:**
+  non-conforming but functional. simple.css's table styling
+  partially overrides; needs review per-table.
+- **Inline `style="display:none"` and `align='center'` on `<div>`s:**
+  used by the show/hide JavaScript on the home page. Replacement
+  requires touching the JS too, not just templates.
+- **Uppercase HTML tag names (`<TABLE>`, `<TR>`, `<TD>`, etc.):**
+  cosmetic; HTML5 is case-insensitive. A search-and-replace pass
+  would lowercase everything for stylistic consistency. Big diff,
+  no functional change.
+
+Pre-pass-1, all the original deprecated patterns were present
+(see commit `0011366` for the full list with substitution rules).
 
 **Why it's worth fixing.**
 

@@ -1,4 +1,4 @@
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<!DOCTYPE html>
 {% autoescape off %}
 {% spaceless %}
 <html lang="en">
@@ -91,6 +91,7 @@ function f4() {
 </head>
 <body {% block within_body_opening_html_tag %}{% endblock %}>
 
+<header>
 <TABLE ALIGN="CENTER">
 <TR>
 <TD><IMG SRC="/temp/static_images/small_logo.png" ALT="Logo"></TD>
@@ -100,10 +101,13 @@ function f4() {
 <TD><IMG SRC="/temp/static_images/small_logo.png" ALT="Logo"></TD>
 </TR>
 </TABLE>
+</header>
 
+<main>
 {% block body_contents %}{% endblock %}
+</main>
 
-<div align='center' style="display:block;" id='page_footer'>
+<footer style="display:block;" id='page_footer'>
 <BR>
 <BR>
 <BR>
@@ -155,7 +159,7 @@ Core fitting library source code<br>
 <hr style="width:20%">
 <BR>
 <BR>
-</div>
+</footer>
 
 </body>
 </html>
