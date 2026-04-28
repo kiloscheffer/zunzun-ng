@@ -20,15 +20,14 @@
 
 {# menu item titles ------------------------------------------------------- #}
 <TABLE ALIGN="CENTER"><TR>
-    <TD ALIGN="CENTER"><BASEFONT SIZE="3">Pulldown Menu</TD>
+    <TD ALIGN="CENTER">Pulldown Menu</TD>
     <TD>&nbsp;</TD>
     <TD>&nbsp;</TD>
     <TD>&nbsp;</TD>
     <TD>&nbsp;</TD>
 </TR>
 <TR>
-    <TD ALIGN="CENTER"><BASEFONT SIZE="3">
-        <select ID="s1" size=1>
+    <TD ALIGN="CENTER">        <select ID="s1" size=1>
         <option>
         <option value='introDiv' SELECTED>Introduction
         <option value='dataEntry'>Text Data Editor
@@ -43,11 +42,10 @@
         </select>
     </TD>
     <TD>&nbsp;</TD>
-    <TD><BASEFONT SIZE="3">
-        <INPUT TYPE="SUBMIT" VALUE="Submit">
+    <TD>        <INPUT TYPE="SUBMIT" VALUE="Submit">
     </TD>
     <TD>&nbsp;</TD>
-    <TD><BASEFONT SIZE="3"><A HREF="https://github.com/kiloscheffer/zunzun-ng" TARGET="_parent">Home</A></TD>
+    <TD><A HREF="https://github.com/kiloscheffer/zunzun-ng" TARGET="_parent">Home</A></TD>
 </TR>
 </TABLE>
 <br>
@@ -60,7 +58,7 @@
 
 {# introduction div ------------------------------------------------------- #}
 <div ID="introDiv" align='center' name="hideable_div">
-<B><FONT SIZE="+1">Introduction</FONT></B><BR><BR>
+<B><span style="font-size:larger">Introduction</span></B><BR><BR>
 Please select an option from the pull-down menu above.<br>
 <br>
 <b>Advice:</b> Most users should turn off the Polyfunctional family<br>
@@ -81,7 +79,7 @@ to start, then increase the Smoothness Control value as needed.
 Log plots require data values greater than zero.
 <br>
 <br>
-<TABLE BORDER="0">
+<TABLE >
     <TR>
         <TD ALIGN=CENTER>Select X Lin/Log Scaling</TD>
         <TD> &nbsp; </TD>
@@ -92,7 +90,7 @@ Log plots require data values greater than zero.
             <TABLE BORDER="1" CELLPADDING="5">
             <TR>
             <TD>
-                <TABLE BORDER="0">
+                <TABLE >
                 <tr><td align='left'>
                    {{ mainForm.logLinX }}
                 </TD></TR>
@@ -106,7 +104,7 @@ Log plots require data values greater than zero.
             <TABLE BORDER="1" CELLPADDING="5">
             <TR>
             <TD>
-                <TABLE BORDER="0">
+                <TABLE >
                 <tr><td align='left'>
                    {{ mainForm.logLinY }}
                 </TD></TR>

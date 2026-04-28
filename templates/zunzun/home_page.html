@@ -15,7 +15,7 @@ Online Curve Fitting and Surface Fitting with Python Source Code
 {% block body_contents %}
 
 <noscript>
-  <center><br><br>This web site requires JavaScript to function properly.<br><br>Please enable JavaScript and reload the web page.</center>
+  <div style="text-align:center"><br><br>This web site requires JavaScript to function properly.<br><br>Please enable JavaScript and reload the web page.</div>
 </noscript>
 
 <div ID="javaScriptDetectedDiv" style="display:none;">
@@ -24,21 +24,20 @@ Online Curve Fitting and Surface Fitting with Python Source Code
 {# menu item titles ------------------------------------------------------- #}
 <TABLE ALIGN="CENTER">
 <TR>
-<TD ALIGN="CENTER"><BASEFONT SIZE="3"><B>2D Functions</B></TD>
+<TD ALIGN="CENTER"><B>2D Functions</B></TD>
 <TD>&nbsp;</TD>
-<TD ALIGN="CENTER"><BASEFONT SIZE="3"><B>3D Functions</B></TD>
+<TD ALIGN="CENTER"><B>3D Functions</B></TD>
 <TD>&nbsp;</TD>
-<TD ALIGN="CENTER"><BASEFONT SIZE="3"><B>Characterizers</B></TD>
+<TD ALIGN="CENTER"><B>Characterizers</B></TD>
 <TD>&nbsp;</TD>
-<TD ALIGN="CENTER"><BASEFONT SIZE="3"><B>Site Related</B></TD>
+<TD ALIGN="CENTER"><B>Site Related</B></TD>
 </TR>
 <TR>
 
 {# equation menus ------------------------------------------------------- #}
 {# equation menus ------------------------------------------------------- #}
 {% for dim_to_map in dim_to_map_list %}
-    <TD ALIGN="CENTER"><BASEFONT SIZE="3">
-    <select ID="s{{ forloop.counter }}" size=1>
+    <TD ALIGN="CENTER">    <select ID="s{{ forloop.counter }}" size=1>
     <option>
     <option value='introDiv' SELECTED>Introduction
     <option value='spline{{ dim_to_map.0 }}DDiv'>Spline Interpolation
@@ -53,8 +52,7 @@ Online Curve Fitting and Surface Fitting with Python Source Code
 
 {# characterize data menu ------------------------------------------------------- #}
 {# characterize data menu ------------------------------------------------------- #}
-<TD ALIGN="CENTER"><BASEFONT SIZE="3">
-<select ID="s3" size=1>
+<TD ALIGN="CENTER"><select ID="s3" size=1>
 <option>
 <option value='introDiv' SELECTED>Introduction
 <option value='characterizeDataDiv'>Characterizers
@@ -65,8 +63,7 @@ Online Curve Fitting and Surface Fitting with Python Source Code
 
 {# about, etc menu ------------------------------------------------------- #}
 {# about, etc menu ------------------------------------------------------- #}
-<TD ALIGN="CENTER"><BASEFONT SIZE="3">
-<select ID="s4" size=1>
+<TD ALIGN="CENTER"><select ID="s4" size=1>
 <option>
 <option value='introDiv' SELECTED>Introduction
 <option value='aboutDiv'>About
@@ -88,7 +85,7 @@ Online Curve Fitting and Surface Fitting with Python Source Code
 {# introduction div ------------------------------------------------------- #}
 {# introduction div ------------------------------------------------------- #}
 <div ID="introDiv" align='center' name="hideable_div">
-<B><FONT SIZE="+1">Welcome to ZunZunNG</FONT></B><BR><BR>
+<B><span style="font-size:larger">Welcome to ZunZunNG</span></B><BR><BR>
 Here you can curve fit and surface fit your 2D and 3D data online with<br>
 a rich set of error histograms, error plots, curve plots, surface plots,<br>
 contour plots, auto-generated source code, and PDF file output.<br>
@@ -98,15 +95,15 @@ the site for you! Source code is available at the <a href="https://github.com/ki
 <BR>
 To begin, select an equation family from the drop-down menus above or try<BR>
 the "Function Finders" to help determine the best curve fit for your data.<BR>
-<BR><BR><HR WIDTH="50%" ALIGN="CENTER"><BR>
+<BR><BR><hr style="width:50%; margin:0 auto"><BR>
 
 <TABLE ALIGN="CENTER">
   <TR>
-    <TD ALIGN="CENTER"><A HREF="https://www.debian.org"><IMG SRC="/temp/static_images/DebianLogo.png" BORDER="0" ALT="Powered by Debian Linux"></A></TD>
+    <TD ALIGN="CENTER"><A HREF="https://www.debian.org"><IMG SRC="/temp/static_images/DebianLogo.png" ALT="Powered by Debian Linux"></A></TD>
     <TD>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</TD>
-    <TD ALIGN="CENTER"><A HREF="http://www.python.org/"><IMG SRC="/temp/static_images/tbtfpython.png" BORDER="0" ALT="Written in Python"></A></TD>
+    <TD ALIGN="CENTER"><A HREF="http://www.python.org/"><IMG SRC="/temp/static_images/tbtfpython.png" ALT="Written in Python"></A></TD>
     <TD>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</TD>
-    <TD ALIGN="CENTER"><A HREF="http://www.djangoproject.com/"><IMG SRC="/temp/static_images/django.png" BORDER="0" ALT="Using the Django Web Framework"></A></TD>
+    <TD ALIGN="CENTER"><A HREF="http://www.djangoproject.com/"><IMG SRC="/temp/static_images/django.png" ALT="Using the Django Web Framework"></A></TD>
   </TR>
   <TR>
     <TD ALIGN="CENTER">Powered by<br><A HREF="https://www.debian.org">Debian Linux</A></TD>
@@ -123,11 +120,11 @@ the "Function Finders" to help determine the best curve fit for your data.<BR>
     <TD>&nbsp;</TD>
   </TR>
   <TR>
-    <TD ALIGN="CENTER"><a href="http://wingware.com/"><img src="/temp/static_images/wingware_logo.png" BORDER="0" alt="Wingware"></A></TD>
+    <TD ALIGN="CENTER"><a href="http://wingware.com/"><img src="/temp/static_images/wingware_logo.png" alt="Wingware"></A></TD>
     <TD>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</TD>
-    <TD ALIGN="CENTER"><A HREF="https://github.com/matplotlib/matplotlib"><IMG SRC="/temp/static_images/matplotlib.png" BORDER="0" ALT="Plotted by Matplotlib"></A></TD>
+    <TD ALIGN="CENTER"><A HREF="https://github.com/matplotlib/matplotlib"><IMG SRC="/temp/static_images/matplotlib.png" ALT="Plotted by Matplotlib"></A></TD>
     <TD>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</TD>
-    <TD ALIGN="CENTER"><a href="http://www.reportlab.com/software/opensource/"><img src="/temp/static_images/ReportLabLogo.png" BORDER="0" alt="PDF Generation by ReportLab"></A></TD>
+    <TD ALIGN="CENTER"><a href="http://www.reportlab.com/software/opensource/"><img src="/temp/static_images/ReportLabLogo.png" alt="PDF Generation by ReportLab"></A></TD>
   </TR>
   <TR>
     <TD ALIGN="CENTER">Coded with<br><A HREF="http://wingware.com/">Wingware</A></TD>
@@ -144,11 +141,11 @@ the "Function Finders" to help determine the best curve fit for your data.<BR>
     <TD>&nbsp;</TD>
   </TR>
   <TR>
-    <TD ALIGN="CENTER"><a href="https://www.xfce.org/"><img src="/temp/static_images/xfce_logo.png" BORDER="0" alt="geany"></A></TD>
+    <TD ALIGN="CENTER"><a href="https://www.xfce.org/"><img src="/temp/static_images/xfce_logo.png" alt="geany"></A></TD>
     <TD>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</TD>
-    <TD ALIGN="CENTER"><a href="https://groups.google.com/g/findcurves"><img src="/temp/static_images/groups_logo.gif" BORDER="0" alt="FindCurves Google Group"></A></TD>
+    <TD ALIGN="CENTER"><a href="https://groups.google.com/g/findcurves"><img src="/temp/static_images/groups_logo.gif" alt="FindCurves Google Group"></A></TD>
     <TD>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</TD>
-    <TD ALIGN="CENTER"><a href="https://www.geany.org/"><img src="/temp/static_images/geany_logo.png" BORDER="0" alt="geany"></A></TD>
+    <TD ALIGN="CENTER"><a href="https://www.geany.org/"><img src="/temp/static_images/geany_logo.png" alt="geany"></A></TD>
   </TR>
   <TR>
     <TD ALIGN="CENTER">Developed on<br><A HREF="https://www.xfce.org/">XFCE</A></TD>
@@ -235,7 +232,7 @@ the "Function Finders" to help determine the best curve fit for your data.<BR>
 
 {# equation classes divs ------------------------------------------------------- #}
 {# equation classes divs ------------------------------------------------------- #}
-{% for dim_to_map in dim_to_map_list %}{% for equationClassProperties in dim_to_map.1 %}{% if equationClassProperties.firstItemInSubmoduleFlag %}<div ID ="A{{ dim_to_map.0 }}DA{{ equationClassProperties.submoduleName }}" align='center' name="hideable_div" style="display:none;"><b>{{ dim_to_map.0 }}D {{ equationClassProperties.submoduleName }}</b><br><br><table>{% endif %}<tr><td nowrap align='right'><a href='Equation/{{ dim_to_map.0 }}/{{ equationClassProperties.submoduleName }}/{{ equationClassProperties.url_quote_name }}/'>{{ equationClassProperties.name }} {{ dim_to_map.0 }}D</a></td><td> &nbsp; </td><td align='left'>{% if equationClassProperties.multiLineHtmlFlag %}<br>{% endif %}{{ equationClassProperties.HTML }}{% if equationClassProperties.webCitationLink %} &nbsp; <a href='{{ equationClassProperties.webCitationLink }}' target='_blank'>[web citation]</a>{% endif %}{% if equationClassProperties.multiLineHtmlFlag %}<br>{% endif %}</td></tr>{% if equationClassProperties.lastItemInSubmoduleFlag %}</table></div>{% else %}{% if equationClassProperties.lastItemInExtendedNameFlag %}<tr><td align='right'> &nbsp; </td><td> &nbsp; </td><td align='left'> &nbsp; </td></tr><tr><td colspan=3><hr width='50%'></td></tr><tr><td align='right'> &nbsp; </td><td> &nbsp; </td><td align='left'> &nbsp; </td></tr>{% endif %}{% endif %}{% endfor %}{% endfor %}
+{% for dim_to_map in dim_to_map_list %}{% for equationClassProperties in dim_to_map.1 %}{% if equationClassProperties.firstItemInSubmoduleFlag %}<div ID ="A{{ dim_to_map.0 }}DA{{ equationClassProperties.submoduleName }}" align='center' name="hideable_div" style="display:none;"><b>{{ dim_to_map.0 }}D {{ equationClassProperties.submoduleName }}</b><br><br><table>{% endif %}<tr><td nowrap align='right'><a href='Equation/{{ dim_to_map.0 }}/{{ equationClassProperties.submoduleName }}/{{ equationClassProperties.url_quote_name }}/'>{{ equationClassProperties.name }} {{ dim_to_map.0 }}D</a></td><td> &nbsp; </td><td align='left'>{% if equationClassProperties.multiLineHtmlFlag %}<br>{% endif %}{{ equationClassProperties.HTML }}{% if equationClassProperties.webCitationLink %} &nbsp; <a href='{{ equationClassProperties.webCitationLink }}' target='_blank'>[web citation]</a>{% endif %}{% if equationClassProperties.multiLineHtmlFlag %}<br>{% endif %}</td></tr>{% if equationClassProperties.lastItemInSubmoduleFlag %}</table></div>{% else %}{% if equationClassProperties.lastItemInExtendedNameFlag %}<tr><td align='right'> &nbsp; </td><td> &nbsp; </td><td align='left'> &nbsp; </td></tr><tr><td colspan=3><hr style="width:50%"></td></tr><tr><td align='right'> &nbsp; </td><td> &nbsp; </td><td align='left'> &nbsp; </td></tr>{% endif %}{% endif %}{% endfor %}{% endfor %}
 
 
 {# lists of all equations divs ------------------------------------------------------- #}

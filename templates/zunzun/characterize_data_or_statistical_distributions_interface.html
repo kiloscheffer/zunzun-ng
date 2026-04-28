@@ -20,15 +20,14 @@
 
 {# menu item titles ------------------------------------------------------- #}
 <TABLE ALIGN="CENTER"><TR>
-    <TD ALIGN="CENTER"><BASEFONT SIZE="3">Pulldown Menu</TD>
+    <TD ALIGN="CENTER">Pulldown Menu</TD>
     <TD>&nbsp;</TD>
     <TD>&nbsp;</TD>
     <TD>&nbsp;</TD>
     <TD>&nbsp;</TD>
 </TR>
 <TR>
-    <TD ALIGN="CENTER"><BASEFONT SIZE="3">
-             <select ID="s1" size=1>
+    <TD ALIGN="CENTER">             <select ID="s1" size=1>
         <option>
         <option value='introDiv' SELECTED>Introduction
         <option value='dataEntry'>Text Data Editor
@@ -56,15 +55,14 @@
         </select>
     </TD>
     <TD>&nbsp;</TD>
-    <TD><BASEFONT SIZE="3">
-{% if statisticalDistributions %}
+    <TD>{% if statisticalDistributions %}
         <INPUT TYPE="SUBMIT" VALUE="Submit (may take a few minutes)">
 {% else %}
         <INPUT TYPE="SUBMIT" VALUE="Submit">
 {% endif %}
     </TD>
     <TD>&nbsp;</TD>
-    <TD><BASEFONT SIZE="3"><A HREF="/">Home</A></TD>
+    <TD><A HREF="/">Home</A></TD>
 </TR>
 </TABLE>
 <br>
@@ -77,7 +75,7 @@
 
 {# introduction div ------------------------------------------------------- #}
 <div ID="introDiv" align='center' name="hideable_div">
-<B><FONT SIZE="+1">Introduction</FONT></B><BR><BR>
+<B><span style="font-size:larger">Introduction</span></B><BR><BR>
 Please select an option from the pull-down menu above.
 </div>
 

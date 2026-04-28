@@ -7,13 +7,13 @@ Here you can enter the
 to be printed on the report graphs.
 <br>
 <br>
-<TABLE BORDER="0">
+<TABLE >
 <TR>
 <TD>
     <TABLE CELLPADDING="5">
         <TR>
         <TD ALIGN="CENTER">
-        <FONT SIZE="-1">Label for first independent data (X)</FONT>
+        <small>Label for first independent data (X)</small>
         <HR>
         {{ mainForm.dataNameX }}
         </TD>
@@ -27,10 +27,10 @@ to be printed on the report graphs.
             <TR>
             <TD ALIGN="CENTER">
 {% if dimensionality == '2' %}
-            <FONT SIZE="-1">Label for dependent data (Y)</FONT>
+            <small>Label for dependent data (Y)</small>
             <HR>
 {% else %}
-            <FONT SIZE="-1">Label for second independent data (Y)</FONT>
+            <small>Label for second independent data (Y)</small>
             <HR>
 {% endif %}
             {{ mainForm.dataNameY }}
@@ -46,7 +46,7 @@ to be printed on the report graphs.
 <TABLE CELLPADDING="5">
     <TR>
     <TD ALIGN="CENTER">
-    <FONT SIZE="-1">Label for dependent data (Z)</FONT>
+    <small>Label for dependent data (Z)</small>
     <HR>
     {{ mainForm.dataNameZ }}
     </TD>

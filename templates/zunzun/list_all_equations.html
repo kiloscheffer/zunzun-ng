@@ -15,9 +15,9 @@
 {% for equationClassProperties in sortedEquationClassPropertiesList %}
 
     {% if equationClassProperties.firstItemInSubmoduleFlag %}
-        <center>
+        <div style="text-align:center">
         <b>{{ dimensionality }}D {{ equationClassProperties.submoduleName }}</b>
-        </center>
+        </div>
         <br>
         <table align='center'>
     {% endif %}
@@ -34,17 +34,17 @@
     </tr>
     {% if equationClassProperties.lastItemInSubmoduleFlag %}
         <tr><td align='right'> &nbsp; </td><td> &nbsp; </td><td align='left'> &nbsp; </td></tr>
-        <tr><td colspan=3><hr width='75%'></td></tr>
-        <tr><td colspan=3><hr width='60%'></td></tr>
-        <tr><td colspan=3><hr width='45%'></td></tr>
-        <tr><td colspan=3><hr width='30%'></td></tr>
+        <tr><td colspan=3><hr style="width:75%"></td></tr>
+        <tr><td colspan=3><hr style="width:60%"></td></tr>
+        <tr><td colspan=3><hr style="width:45%"></td></tr>
+        <tr><td colspan=3><hr style="width:30%"></td></tr>
         <tr><td align='right'> &nbsp; </td><td> &nbsp; </td><td align='left'> &nbsp; </td></tr>
         </table>
         <br><br>
     {% else %}
         {% if equationClassProperties.lastItemInExtendedNameFlag %}
             <tr><td align='right'> &nbsp; </td><td> &nbsp; </td><td align='left'> &nbsp; </td></tr>
-            <tr><td colspan=3><hr width='75%'></td></tr>
+            <tr><td colspan=3><hr style="width:75%"></td></tr>
             <tr><td align='right'> &nbsp; </td><td> &nbsp; </td><td align='left'> &nbsp; </td></tr>
         {% endif %}
     {% endif %}
