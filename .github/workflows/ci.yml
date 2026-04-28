@@ -21,9 +21,6 @@ on:
     - cron: "0 6 * * 1"
   workflow_dispatch:
 
-env:
-  UV_LINK_MODE: copy
-
 # Action version pinning rationale:
 #   - actions/checkout@v6.0.2: v6+ natively targets Node.js 24 (per the
 #     v6.0.0 release notes). Pinned to a full version rather than @v6

@@ -12,6 +12,12 @@ migration.
 **Goal:** `uv.lock` reflects the latest versions that still pass our test
 suite, with every floor and ceiling in `pyproject.toml` still honored.
 
+**Environment note:** all `uv` commands below assume `.venv/` is excluded
+from any cloud-sync client (Dropbox, OneDrive, iCloud). Without that
+exclusion, prefix every `uv` command with `UV_LINK_MODE=copy` to avoid
+hardlink corruption. See `CLAUDE.md`'s "Development quirks" section for
+context.
+
 ---
 
 ## Pre-flight checks
@@ -28,8 +34,8 @@ suite, with every floor and ceiling in `pyproject.toml` still honored.
    GitHub Actions tab on github.com/kiloscheffer/zunzun-ng or run locally:
 
     ```bash
-    UV_LINK_MODE=copy uv run pytest tests/ -v          # expect 78/78
-    UV_LINK_MODE=copy uv run python scripts/smoke_test.py  # expect SMOKE OK
+    uv run pytest tests/ -v          # expect 78/78
+    uv run python scripts/smoke_test.py  # expect SMOKE OK
     ```
 
    If anything is red BEFORE the upgrade, fix that first — don't compound
@@ -51,7 +57,7 @@ suite, with every floor and ceiling in `pyproject.toml` still honored.
    `uv.lock`:
 
     ```bash
-    UV_LINK_MODE=copy uv lock --upgrade
+    uv lock --upgrade
     ```
 
 3. Inspect what moved:
@@ -70,9 +76,9 @@ suite, with every floor and ceiling in `pyproject.toml` still honored.
 4. Run the test suite against the new versions:
 
     ```bash
-    UV_LINK_MODE=copy uv sync                              # install the bumps
-    UV_LINK_MODE=copy uv run pytest tests/ -v              # expect 78/78
-    UV_LINK_MODE=copy uv run python scripts/smoke_test.py  # expect SMOKE OK
+    uv sync                              # install the bumps
+    uv run pytest tests/ -v              # expect 78/78
+    uv run python scripts/smoke_test.py  # expect SMOKE OK
     ```
 
    Notes on expectations:
@@ -151,7 +157,7 @@ The upgrade introduced a regression that's not worth fixing now:
 3. Re-run lock to pick up the new constraint:
 
     ```bash
-    UV_LINK_MODE=copy uv lock
+    uv lock
     ```
 
 4. Document the exclusion in a comment with the issue link, commit hash,
