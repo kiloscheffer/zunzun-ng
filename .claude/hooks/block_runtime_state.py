@@ -27,6 +27,11 @@ def main():
         or "/temp/" in norm
         or norm.endswith("/temp")
     )
+    # Allow the .gitkeep placeholder that holds the temp/ dir in git on
+    # fresh clones. It's intentionally committed, not runtime state, so
+    # the broad "/temp/" block over-reaches.
+    if norm.endswith("/temp/.gitkeep"):
+        blocked = False
     if blocked:
         sys.stderr.write(
             "Refusing Edit/Write on {0}: runtime state (live session DB or "
