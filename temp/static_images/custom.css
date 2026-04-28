@@ -10,6 +10,35 @@
  * assets (jQuery, logos, favicon).
  */
 
+/* Use light mode only */
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: light;
+    --bg: #fff;
+    --accent-bg: #f5f7ff;
+    --text: #212121;
+    --text-light: #585858;
+    --accent: #0d47a1;
+    --accent-hover: #1266e2;
+    --accent-text: var(--bg);
+    --code: #d81b60;
+    --preformatted: #444;
+    --marked: #ffdd33;
+    --disabled: #efefef;
+  }
+}
+
+/* Reset color scheme */
+@media (prefers-color-scheme: dark) {
+    :root {
+        color-scheme: revert;
+    }
+
+    img,
+    video {
+        opacity: revert;
+    }
+}
 
 /* Lists in the existing menus relied on bullets being suppressed. */
 ul
@@ -26,13 +55,20 @@ ul
  * row backgrounds, padding) to every <table>, which is wrong for layout
  * use. Reset that styling globally; if a real data table is ever
  * introduced, it can opt into simple.css's styling via a class.
+ *
+ * `margin: 0 auto` re-centers tables horizontally. Many templates
+ * still have `<table align="center">`, which the browser would honor
+ * by setting margin-left/right to auto — but our reset would otherwise
+ * override that. `0 auto` makes all tables center by default, which
+ * matches the original site's layout where every layout table was
+ * centered.
  */
 table
 {
     border-collapse: collapse;
     border: none;
     background: none;
-    margin: 0;
+    margin: 0 auto;
 }
 table th, table td
 {
@@ -44,4 +80,20 @@ table tbody tr:nth-child(odd),
 table tbody tr:nth-child(even)
 {
     background: none;
+}
+
+
+/* Neutralize simple.css's <header> banner styling.
+ *
+ * simple.css treats <header> as a page banner: accent-color background,
+ * bottom border, prominent padding. The original site had no styled
+ * header bar — just a centered title row with flanking logos. Wrapping
+ * that markup in <header> (pass 2, for semantic structure) opted us
+ * into simple.css's banner look. Reset to plain.
+ */
+body > header
+{
+    background: none;
+    border-bottom: none;
+    padding: 0;
 }
