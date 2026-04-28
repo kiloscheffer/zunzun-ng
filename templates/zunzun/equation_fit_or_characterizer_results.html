@@ -23,27 +23,27 @@
 {# MENU --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- #}
 
 {# menu item titles ------------------------------------------------------- #}
-<table align="CENTER"><tr>
+<table align="center"><tr>
 {% if equationInstance %}
-    <td align="CENTER">Coefficients And Text Reports</td>
+    <td align="center">Coefficients And Text Reports</td>
     <td>&nbsp;</td>
 {% else %}
-    <td align="CENTER">Text Reports</td>
+    <td align="center">Text Reports</td>
     <td>&nbsp;</td>
 {% endif %}
-    <td align="CENTER">Histograms</td>
+    <td align="center">Histograms</td>
     <td>&nbsp;</td>
 {% if equationInstance %}
-    <td align="CENTER">Statistical Scatterplots</td>
+    <td align="center">Statistical Scatterplots</td>
     <td>&nbsp;</td>
 {% endif %}
 {% if dimensionality != '1' %}
-    <td align="CENTER">Data Graphs</td>
+    <td align="center">Data Graphs</td>
     <td>&nbsp;</td>
 {% endif %}
 </tr>
 <tr>
-    <td align="CENTER">        <select id="s1" size=1>
+    <td align="center">        <select id="s1" size=1>
         <option>
         <option value='introDiv' selected>Introduction and PDF Link
 {% if equationInstance %}
@@ -63,7 +63,7 @@
 	    </select>
     </td>
     <td>&nbsp;</td>
-    <td align="CENTER">        <select id="s2" size=1>
+    <td align="center">        <select id="s2" size=1>
         <option>
         <option value='introDiv' selected>Introduction and PDF Link
 		{% for graphReport in graphReports %}
@@ -80,7 +80,7 @@
     </td>
 {% if equationInstance %}
     <td>&nbsp;</td>
-    <td align="CENTER">        <select id="s3" size=1>
+    <td align="center">        <select id="s3" size=1>
         <option>
         <option value='introDiv' selected>Introduction and PDF Link
 		{% for graphReport in graphReports %}
@@ -98,7 +98,7 @@
 {% endif %}
 {% if dimensionality != '1' %}
     <td>&nbsp;</td>
-    <td align="CENTER">{% if equationInstance %}
+    <td align="center">{% if equationInstance %}
         <select id="s4" size=1>
 {% else %}
         <select id="s3" size=1>

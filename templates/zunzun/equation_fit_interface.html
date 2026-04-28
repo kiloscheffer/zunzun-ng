@@ -64,7 +64,7 @@
 
 {% block body_contents %}
 
-<form action="/FitEquation__F__/{{ dimensionality }}/{{ quotedEquationFamilyName }}/{{ quotedEquationName  }}/" method="POST" target="_blank">
+<form action="/FitEquation__F__/{{ dimensionality }}/{{ quotedEquationFamilyName }}/{{ quotedEquationName  }}/" method="post" target="_blank">
 
 {# MENU --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- #}
 {# MENU --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- #}
@@ -72,15 +72,15 @@
 {# MENU --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- #}
 
 {# menu item titles ------------------------------------------------------- #}
-<table align="CENTER"><tr>
-    <td align="CENTER">Pulldown Menu</td>
+<table align="center"><tr>
+    <td align="center">Pulldown Menu</td>
     <td>&nbsp;</td>
     <td>&nbsp;</td>
     <td>&nbsp;</td>
     <td>&nbsp;</td>
 </tr>
 <tr>
-    <td align="CENTER">        <select id="s1" size=1>
+    <td align="center">        <select id="s1" size=1>
         <option>
         <option value='introDiv' selected>Introduction
         <option value='dataEntry'>Text Data Editor
@@ -153,9 +153,9 @@
         <input type="button" onClick="javascript:readPolyFlags();document.forms[0].submit();" value="Submit">
 {% else %}
     {% if equationInstance.userDefinedFunctionFlag %}
-            <input type="SUBMIT" value="Submit (may take several minutes)">
+            <input type="submit" value="Submit (may take several minutes)">
     {% else %}
-            <input type="SUBMIT" value="Submit">
+            <input type="submit" value="Submit">
     {% endif %}
 {% endif %}
     </td>

@@ -1,15 +1,15 @@
-"""One-shot helper: lowercase HTML tag names + attribute names.
+"""One-shot helper: lowercase HTML tag names + attribute names + values.
 
 Targets:
-  - Opening tags like `<TABLE>` / `<TABLE align="CENTER">` -> `<table>` / `<table align="CENTER">`
+  - Opening tags like `<TABLE>` / `<TABLE align="CENTER">` -> `<table>` / `<table align="center">`
   - Closing tags like `</TABLE>` -> `</table>`
   - Attribute names like `ALIGN=`, `ID=`, `BORDER=` -> `align=`, `id=`, `border=`
   - Boolean attributes like `SELECTED` -> `selected`
-
-Attribute *values* are intentionally left as-is — `align="CENTER"` becomes
-`align="CENTER"` (lowercased name, original value). HTML5 attribute
-values are case-insensitive in most cases, but altering them touches
-content rather than markup, which is out of scope for this pass.
+  - Presentation-keyword *values* like `align="CENTER"` -> `align="center"`,
+    using a whitelist of safe-to-lowercase values (CENTER, LEFT, RIGHT,
+    JUSTIFY, TOP, BOTTOM, MIDDLE, SUBMIT, BUTTON, RESET, POST, GET).
+    Identifier values like `id="FUNCTION"` are NOT lowercased because
+    JavaScript references them case-sensitively.
 
 Run with: uv run python scripts/_lowercase_html_tags.py
 
@@ -41,6 +41,28 @@ _BOOLEAN_ATTR_RE = re.compile(
     rf"(\s)({'|'.join(_BOOLEAN_ATTRS)})(\s|/?>)"
 )
 
+# Whitelisted presentation-keyword values that are safe to lowercase
+# (HTML5 treats these as case-insensitive). Identifiers and URLs are
+# NOT in this list — those need to stay as-is to preserve JavaScript
+# / CSS selector resolution.
+_VALUE_WHITELIST = (
+    "CENTER", "LEFT", "RIGHT", "JUSTIFY",
+    "TOP", "BOTTOM", "MIDDLE",
+    "SUBMIT", "BUTTON", "RESET",
+    "POST", "GET",
+)
+# Match double-quoted, single-quoted, or unquoted (terminated by space
+# or `>`) values. Three regexes for clarity.
+_VALUE_DQUOTED_RE = re.compile(
+    rf'=("(?:{"|".join(_VALUE_WHITELIST)})")'
+)
+_VALUE_SQUOTED_RE = re.compile(
+    rf"=('(?:{'|'.join(_VALUE_WHITELIST)})')"
+)
+_VALUE_UNQUOTED_RE = re.compile(
+    rf"=({'|'.join(_VALUE_WHITELIST)})([>\s/])"
+)
+
 
 def lowercase_tags(content: str) -> str:
     content = _OPEN_TAG_RE.sub(
@@ -54,6 +76,15 @@ def lowercase_tags(content: str) -> str:
     )
     content = _BOOLEAN_ATTR_RE.sub(
         lambda m: f"{m.group(1)}{m.group(2).lower()}{m.group(3)}", content
+    )
+    content = _VALUE_DQUOTED_RE.sub(
+        lambda m: f"={m.group(1).lower()}", content
+    )
+    content = _VALUE_SQUOTED_RE.sub(
+        lambda m: f"={m.group(1).lower()}", content
+    )
+    content = _VALUE_UNQUOTED_RE.sub(
+        lambda m: f"={m.group(1).lower()}{m.group(2)}", content
     )
     return content
 
