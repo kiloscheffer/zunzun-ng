@@ -40,23 +40,46 @@ dependencies = [
     # being one example); major bumps are higher blast radius and worth
     # an explicit revalidation gate.
     "matplotlib>=3.2,<4",
+    # reportlab is used via the high-level platypus API (Canvas, Image,
+    # Paragraph, Table, Spacer, SimpleDocTemplate, Frame) in
+    # StatusMonitoredLongRunningProcessPage.py. Those APIs have been
+    # stable across the 4.x line. No floor declared because the codebase
+    # has no version-specific behavior coupling; uv.lock pins the exact
+    # tested version.
     "reportlab",
     # Pillow powers matplotlib.animation.PillowWriter, which is used
     # directly by ScatterAnimation / SurfaceAnimation for 3D animated
     # GIF output. Pillow is also a transitive matplotlib dep; declaring
-    # it explicitly documents the direct dependency.
+    # it explicitly documents the direct dependency. No floor declared
+    # because matplotlib's own pillow constraint guards against versions
+    # matplotlib doesn't support; uv.lock pins the exact tested version.
     "pillow",
+    # psutil's APIs we use (Process(pid).memory_info, cpu_count,
+    # virtual_memory, the renicing helpers in platform_compat.py) have
+    # been stable since psutil 5.x. No floor declared because the
+    # codebase has no version-specific behavior coupling; uv.lock pins
+    # the exact tested version.
     "psutil",
+    # beautifulsoup4's BeautifulSoup constructor + .find() API has been
+    # stable since bs4 4.0 (~2012). No floor declared because the
+    # codebase has no version-specific behavior coupling; uv.lock pins
+    # the exact tested version.
     "beautifulsoup4",
     # lxml is the parser BeautifulSoup is invoked with in CreateReportPDF
     # (BeautifulSoup(html, "lxml")). bs4 itself does not install lxml; we
     # declare it explicitly so PDF generation works on a fresh `uv sync`.
+    # No floor declared because the codebase calls zero lxml APIs
+    # directly (bs4 is the entire surface); uv.lock pins the exact
+    # tested version.
     "lxml",
     "waitress>=3.0",
 ]
 
 [dependency-groups]
 dev = [
+    # mypy is a dev-only static type checker; no runtime impact. No
+    # floor declared because the codebase has no specific syntax or
+    # feature requirement; uv.lock pins the exact tested version.
     "mypy",
     "pytest>=7.0",
     "pytest-django>=4.5",
