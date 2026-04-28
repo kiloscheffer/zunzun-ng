@@ -25,26 +25,25 @@
 {# menu item titles ------------------------------------------------------- #}
 <TABLE ALIGN="CENTER"><TR>
 {% if equationInstance %}
-    <TD ALIGN="CENTER"><BASEFONT SIZE="3">Coefficients And Text Reports</TD>
+    <TD ALIGN="CENTER">Coefficients And Text Reports</TD>
     <TD>&nbsp;</TD>
 {% else %}
-    <TD ALIGN="CENTER"><BASEFONT SIZE="3">Text Reports</TD>
+    <TD ALIGN="CENTER">Text Reports</TD>
     <TD>&nbsp;</TD>
 {% endif %}
-    <TD ALIGN="CENTER"><BASEFONT SIZE="3">Histograms</TD>
+    <TD ALIGN="CENTER">Histograms</TD>
     <TD>&nbsp;</TD>
 {% if equationInstance %}
-    <TD ALIGN="CENTER"><BASEFONT SIZE="3">Statistical Scatterplots</TD>
+    <TD ALIGN="CENTER">Statistical Scatterplots</TD>
     <TD>&nbsp;</TD>
 {% endif %}
 {% if dimensionality != '1' %}
-    <TD ALIGN="CENTER"><BASEFONT SIZE="3">Data Graphs</TD>
+    <TD ALIGN="CENTER">Data Graphs</TD>
     <TD>&nbsp;</TD>
 {% endif %}
 </TR>
 <TR>
-    <TD ALIGN="CENTER"><BASEFONT SIZE="3">
-        <select ID="s1" size=1>
+    <TD ALIGN="CENTER">        <select ID="s1" size=1>
         <option>
         <option value='introDiv' SELECTED>Introduction and PDF Link
 {% if equationInstance %}
@@ -64,8 +63,7 @@
 	    </select>
     </TD>
     <TD>&nbsp;</TD>
-    <TD ALIGN="CENTER"><BASEFONT SIZE="3">
-        <select ID="s2" size=1>
+    <TD ALIGN="CENTER">        <select ID="s2" size=1>
         <option>
         <option value='introDiv' SELECTED>Introduction and PDF Link
 		{% for graphReport in graphReports %}
@@ -82,8 +80,7 @@
     </TD>
 {% if equationInstance %}
     <TD>&nbsp;</TD>
-    <TD ALIGN="CENTER"><BASEFONT SIZE="3">
-        <select ID="s3" size=1>
+    <TD ALIGN="CENTER">        <select ID="s3" size=1>
         <option>
         <option value='introDiv' SELECTED>Introduction and PDF Link
 		{% for graphReport in graphReports %}
@@ -101,8 +98,7 @@
 {% endif %}
 {% if dimensionality != '1' %}
     <TD>&nbsp;</TD>
-    <TD ALIGN="CENTER"><BASEFONT SIZE="3">
-{% if equationInstance %}
+    <TD ALIGN="CENTER">{% if equationInstance %}
         <select ID="s4" size=1>
 {% else %}
         <select ID="s3" size=1>
@@ -133,11 +129,11 @@
 
 {# introduction div ------------------------------------------------------- #}
 <div ID="introDiv" align='center' name="hideable_div">
-<B><FONT SIZE="+1">Introduction and PDF Link</FONT></B><BR><BR>
+<B><span style="font-size:larger">Introduction and PDF Link</span></B><BR><BR>
 Please select an item from the pull-down menu above.
 <br><br>
 You can download almost all of these reports as <a href='/temp/{{ pdfFileName }}'>a single PDF file</a>.<br>
-<font size=-1><b>Hint:</b> if the graphs are too small, you can go back and increase the graph size.</font>
+<small><b>Hint:</b> if the graphs are too small, you can go back and increase the graph size.</small>
 </div>
 
 
@@ -145,9 +141,9 @@ You can download almost all of these reports as <a href='/temp/{{ pdfFileName }}
 {# evaluate at a point div ------------------------------------------------------- #}
 <div ID="evaluateDiv" align='center' name="hideable_div" style="display:none;">
 {% if equationInstance.splineFlag %}
-<B><FONT SIZE="+1">Evaluate This Spline At A Point</FONT></B><BR><BR>
+<B><span style="font-size:larger">Evaluate This Spline At A Point</span></B><BR><BR>
 {% else %}
-<B><FONT SIZE="+1">Evaluate This Equation At A Point</FONT></B><BR><BR>
+<B><span style="font-size:larger">Evaluate This Equation At A Point</span></B><BR><BR>
 {% endif %}
 <FORM name='evaluatePointForm'>
 {% if dimensionality == '2' %}
@@ -175,7 +171,7 @@ You can download almost all of these reports as <a href='/temp/{{ pdfFileName }}
 
 {# scripture div ------------------------------------------------------- #}
 <div ID="scriptureDiv" align='center' name="hideable_div" style="display:none;">
-<B><FONT SIZE="+1">{{ scripture.0 }}</FONT></B><BR><BR>
+<B><span style="font-size:larger">{{ scripture.0 }}</span></B><BR><BR>
 <table width='50%'>
     <tr>
         <td>{{ scripture.1 }}</td>
@@ -188,7 +184,7 @@ You can download almost all of these reports as <a href='/temp/{{ pdfFileName }}
 
 {% for textReport in textReports %}
 	<div ID="{{ textReport.uniqueAnchorName }}" align='center' name="hideable_div" style="display:none;">
-	<B><FONT SIZE="+1">{{ textReport.name }}</FONT></B><BR><BR>
+	<B><span style="font-size:larger">{{ textReport.name }}</span></B><BR><BR>
 <table><tr><td>
 <PRE>
     {% for stringListItem in textReport.stringList %}{{ stringListItem }}
@@ -201,7 +197,7 @@ You can download almost all of these reports as <a href='/temp/{{ pdfFileName }}
 
 {% for graphReport in graphReports %}
 	<div ID="{{ graphReport.uniqueAnchorName }}" align='center' name="hideable_div" style="display:none;">
-	<B><FONT SIZE="+1">{{ graphReport.name }}</FONT></B><BR>
+	<B><span style="font-size:larger">{{ graphReport.name }}</span></B><BR>
 		{% if graphReport.animationFlag == 1 %}
 		<br>
 			<A HREF="{{ graphReport.websiteFileLocation }}" TARGET="_blank">Click Here</A> to download GIF file ({{ graphReport.fileSize }})<BR><BR>

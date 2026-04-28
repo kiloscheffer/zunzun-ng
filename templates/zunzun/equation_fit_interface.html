@@ -73,15 +73,14 @@
 
 {# menu item titles ------------------------------------------------------- #}
 <TABLE ALIGN="CENTER"><TR>
-    <TD ALIGN="CENTER"><BASEFONT SIZE="3">Pulldown Menu</TD>
+    <TD ALIGN="CENTER">Pulldown Menu</TD>
     <TD>&nbsp;</TD>
     <TD>&nbsp;</TD>
     <TD>&nbsp;</TD>
     <TD>&nbsp;</TD>
 </TR>
 <TR>
-    <TD ALIGN="CENTER"><BASEFONT SIZE="3">
-        <select ID="s1" size=1>
+    <TD ALIGN="CENTER">        <select ID="s1" size=1>
         <option>
         <option value='introDiv' SELECTED>Introduction
         <option value='dataEntry'>Text Data Editor
@@ -150,8 +149,7 @@
         </select>
     </TD>
     <TD>&nbsp;</TD>
-    <TD><BASEFONT SIZE="3">
-{% if equationInstance.userSelectablePolyfunctionalFlag or equationInstance.userCustomizablePolynomialFlag or equationInstance.userSelectableRationalFlag %}
+    <TD>{% if equationInstance.userSelectablePolyfunctionalFlag or equationInstance.userCustomizablePolynomialFlag or equationInstance.userSelectableRationalFlag %}
         <INPUT TYPE="button" onClick="javascript:readPolyFlags();document.forms[0].submit();" VALUE="Submit">
 {% else %}
     {% if equationInstance.userDefinedFunctionFlag %}
@@ -162,7 +160,7 @@
 {% endif %}
     </TD>
     <TD>&nbsp;</TD>
-    <TD><BASEFONT SIZE="3"><A HREF="/">Home</A></TD>
+    <TD><A HREF="/">Home</A></TD>
 </TR>
 </TABLE>
 <br>
@@ -175,7 +173,7 @@
 
 {# introduction div ------------------------------------------------------- #}
 <div ID="introDiv" align='center' name="hideable_div">
-<B><FONT SIZE="+1">Introduction</FONT></B><BR><BR>
+<B><span style="font-size:larger">Introduction</span></B><BR><BR>
 Please select an option from the pull-down menu above.
 </div>
 
