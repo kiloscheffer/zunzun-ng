@@ -43,9 +43,9 @@ Starts a throwaway Waitress, POSTs a 2D polynomial-quadratic fit, polls for comp
 
 ## Development quirks
 
-- **Always prefix `uv` commands with `UV_LINK_MODE=copy`.** The repo lives in a Dropbox-synced directory; uv's default hardlink installs corrupt under Dropbox sync. Applies to `uv sync`, `uv run`, `uv lock` — all of them.
+- **`.venv/` must be excluded from cloud-sync clients (Dropbox, OneDrive, iCloud).** uv's default hardlink mode on Windows shares inodes between `.venv/` and the global uv cache (`%LOCALAPPDATA%\uv\cache\`). A sync client watching `.venv/` doubles the storage and breaks the hardlink relationship on cross-machine sync, silently corrupting Python imports (manifests as OS error 396 or hard-to-trace `ImportError`s). With the exclusion in place, no special handling is needed (verified 2026-04-28). If `.venv/` exclusion isn't configured, prefix `uv` commands with `UV_LINK_MODE=copy` as a workaround — at the cost of ~300-500 MB of duplicated packages per venv.
 - **Cold-cache smoke flakiness.** The first smoke run after `rm -rf .venv && uv sync` (especially after a pyeq3 reinstall) can time out on 3D scenarios because spawn workers compile `.pyc` files on first import. Re-running on the warm venv passes. See the 4-worker-cap entry in `BACKLOG.md` for context.
-- **uv file-lock errors** (`failed to remove directory ... process cannot access`) usually mean Windows Defender or another uv invocation is touching the venv. Resolution: `rm -rf .venv && UV_LINK_MODE=copy uv sync` rebuilds cleanly. Don't run pytest + smoke in parallel right after a `uv lock` that changed any source URL.
+- **`rm -rf .venv` may fail with "Device or resource busy"** on Windows when transient background processes (Dropbox indexers, Windows Search, etc.) hold handles open momentarily. PowerShell's `Remove-Item .venv -Recurse -Force` uses native Win32 calls and handles these gracefully where bash's `rm -rf` (via MSYS POSIX-emulation) does not. After deletion, `uv sync` rebuilds cleanly. Avoid running pytest + smoke in parallel right after a `uv lock` that changed any source URL — they'll race for cache locks.
 
 ## Dependencies
 

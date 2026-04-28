@@ -478,7 +478,7 @@ entirely; silent substitution would be dishonest.
 4. Update the smoke test's assertion strings if any match on
    `ZunZunSite3` header text — grep `scripts/smoke_test.py` for
    `"ZunZun"` after the template edits.
-5. Verify with `UV_LINK_MODE=copy uv run python scripts/smoke_test.py`
+5. Verify with `uv run python scripts/smoke_test.py`
    — the 12 scenarios include home-page, characterize, function
    finder, and evaluate-at-a-point, all of which render the
    affected templates.
