@@ -8,9 +8,9 @@
 {% block body_contents %}
 
 {% if statisticalDistributions %}
-    <form action="/StatisticalDistributions/{{ dimensionality }}/" method="POST" target="_blank">
+    <form action="/StatisticalDistributions/{{ dimensionality }}/" method="post" target="_blank">
 {% else %}
-    <form action="/CharacterizeData/{{ dimensionality }}/" method="POST" target="_blank">
+    <form action="/CharacterizeData/{{ dimensionality }}/" method="post" target="_blank">
 {% endif %}
 
 {# MENU --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- #}
@@ -19,15 +19,15 @@
 {# MENU --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- #}
 
 {# menu item titles ------------------------------------------------------- #}
-<table align="CENTER"><tr>
-    <td align="CENTER">Pulldown Menu</td>
+<table align="center"><tr>
+    <td align="center">Pulldown Menu</td>
     <td>&nbsp;</td>
     <td>&nbsp;</td>
     <td>&nbsp;</td>
     <td>&nbsp;</td>
 </tr>
 <tr>
-    <td align="CENTER">             <select id="s1" size=1>
+    <td align="center">             <select id="s1" size=1>
         <option>
         <option value='introDiv' selected>Introduction
         <option value='dataEntry'>Text Data Editor
@@ -56,9 +56,9 @@
     </td>
     <td>&nbsp;</td>
     <td>{% if statisticalDistributions %}
-        <input type="SUBMIT" value="Submit (may take a few minutes)">
+        <input type="submit" value="Submit (may take a few minutes)">
 {% else %}
-        <input type="SUBMIT" value="Submit">
+        <input type="submit" value="Submit">
 {% endif %}
     </td>
     <td>&nbsp;</td>

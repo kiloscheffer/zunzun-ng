@@ -22,22 +22,22 @@ Online Curve Fitting and Surface Fitting with Python Source Code
 
 {# menu item titles ------------------------------------------------------- #}
 {# menu item titles ------------------------------------------------------- #}
-<table align="CENTER">
+<table align="center">
 <tr>
-<td align="CENTER"><b>2D Functions</b></td>
+<td align="center"><b>2D Functions</b></td>
 <td>&nbsp;</td>
-<td align="CENTER"><b>3D Functions</b></td>
+<td align="center"><b>3D Functions</b></td>
 <td>&nbsp;</td>
-<td align="CENTER"><b>Characterizers</b></td>
+<td align="center"><b>Characterizers</b></td>
 <td>&nbsp;</td>
-<td align="CENTER"><b>Site Related</b></td>
+<td align="center"><b>Site Related</b></td>
 </tr>
 <tr>
 
 {# equation menus ------------------------------------------------------- #}
 {# equation menus ------------------------------------------------------- #}
 {% for dim_to_map in dim_to_map_list %}
-    <td align="CENTER">    <select id="s{{ forloop.counter }}" size=1>
+    <td align="center">    <select id="s{{ forloop.counter }}" size=1>
     <option>
     <option value='introDiv' selected>Introduction
     <option value='spline{{ dim_to_map.0 }}DDiv'>Spline Interpolation
@@ -52,7 +52,7 @@ Online Curve Fitting and Surface Fitting with Python Source Code
 
 {# characterize data menu ------------------------------------------------------- #}
 {# characterize data menu ------------------------------------------------------- #}
-<td align="CENTER"><select id="s3" size=1>
+<td align="center"><select id="s3" size=1>
 <option>
 <option value='introDiv' selected>Introduction
 <option value='characterizeDataDiv'>Characterizers
@@ -63,7 +63,7 @@ Online Curve Fitting and Surface Fitting with Python Source Code
 
 {# about, etc menu ------------------------------------------------------- #}
 {# about, etc menu ------------------------------------------------------- #}
-<td align="CENTER"><select id="s4" size=1>
+<td align="center"><select id="s4" size=1>
 <option>
 <option value='introDiv' selected>Introduction
 <option value='aboutDiv'>About
@@ -97,41 +97,20 @@ To begin, select an equation family from the drop-down menus above or try<br>
 the "Function Finders" to help determine the best curve fit for your data.<br>
 <br><br><hr style="width:50%; margin:0 auto"><br>
 
-<table align="CENTER">
+<table align="center">
   <tr>
-    <td align="CENTER"><a href="https://www.debian.org"><img src="/temp/static_images/DebianLogo.png" alt="Powered by Debian Linux"></a></td>
+    <td align="center"><a href="https://www.debian.org"><img src="/temp/static_images/DebianLogo.png" alt="Powered by Debian Linux"></a></td>
     <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
-    <td align="CENTER"><a href="http://www.python.org/"><img src="/temp/static_images/tbtfpython.png" alt="Written in Python"></a></td>
+    <td align="center"><a href="http://www.python.org/"><img src="/temp/static_images/tbtfpython.png" alt="Written in Python"></a></td>
     <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
-    <td align="CENTER"><a href="http://www.djangoproject.com/"><img src="/temp/static_images/django.png" alt="Using the Django Web Framework"></a></td>
+    <td align="center"><a href="http://www.djangoproject.com/"><img src="/temp/static_images/django.png" alt="Using the Django Web Framework"></a></td>
   </tr>
   <tr>
-    <td align="CENTER">Powered by<br><a href="https://www.debian.org">Debian Linux</a></td>
+    <td align="center">Powered by<br><a href="https://www.debian.org">Debian Linux</a></td>
     <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
-    <td align="CENTER">Written in<br><a href="http://www.python.org/">Python</a></td>
+    <td align="center">Written in<br><a href="http://www.python.org/">Python</a></td>
     <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
-    <td align="CENTER">Using the<br><a href="http://www.djangoproject.com/">Django Web Framework</a></td>
-  </tr>
-  <tr>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-  </tr>
-  <tr>
-    <td align="CENTER"><a href="http://wingware.com/"><img src="/temp/static_images/wingware_logo.png" alt="Wingware"></a></td>
-    <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
-    <td align="CENTER"><a href="https://github.com/matplotlib/matplotlib"><img src="/temp/static_images/matplotlib.png" alt="Plotted by Matplotlib"></a></td>
-    <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
-    <td align="CENTER"><a href="http://www.reportlab.com/software/opensource/"><img src="/temp/static_images/ReportLabLogo.png" alt="PDF Generation by ReportLab"></a></td>
-  </tr>
-  <tr>
-    <td align="CENTER">Coded with<br><a href="http://wingware.com/">Wingware</a></td>
-    <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
-    <td align="CENTER">Plotted by<br><a href="https://github.com/matplotlib/matplotlib">Matplotlib</a></td>
-    <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
-    <td align="CENTER">PDF Generation by<br><a href="http://www.reportlab.com/opensource/">Report Lab</a></td>
+    <td align="center">Using the<br><a href="http://www.djangoproject.com/">Django Web Framework</a></td>
   </tr>
   <tr>
     <td>&nbsp;</td>
@@ -141,18 +120,39 @@ the "Function Finders" to help determine the best curve fit for your data.<br>
     <td>&nbsp;</td>
   </tr>
   <tr>
-    <td align="CENTER"><a href="https://www.xfce.org/"><img src="/temp/static_images/xfce_logo.png" alt="geany"></a></td>
+    <td align="center"><a href="http://wingware.com/"><img src="/temp/static_images/wingware_logo.png" alt="Wingware"></a></td>
     <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
-    <td align="CENTER"><a href="https://groups.google.com/g/findcurves"><img src="/temp/static_images/groups_logo.gif" alt="FindCurves Google Group"></a></td>
+    <td align="center"><a href="https://github.com/matplotlib/matplotlib"><img src="/temp/static_images/matplotlib.png" alt="Plotted by Matplotlib"></a></td>
     <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
-    <td align="CENTER"><a href="https://www.geany.org/"><img src="/temp/static_images/geany_logo.png" alt="geany"></a></td>
+    <td align="center"><a href="http://www.reportlab.com/software/opensource/"><img src="/temp/static_images/ReportLabLogo.png" alt="PDF Generation by ReportLab"></a></td>
   </tr>
   <tr>
-    <td align="CENTER">Developed on<br><a href="https://www.xfce.org/">XFCE</a></td>
+    <td align="center">Coded with<br><a href="http://wingware.com/">Wingware</a></td>
     <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
-    <td align="CENTER">FindCurves<a href="https://groups.google.com/g/findcurves"> Google<br>discussion group</a></td>
+    <td align="center">Plotted by<br><a href="https://github.com/matplotlib/matplotlib">Matplotlib</a></td>
     <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
-    <td align="CENTER">Maintained with<br><a href="https://www.geany.org/">geany</a></td>
+    <td align="center">PDF Generation by<br><a href="http://www.reportlab.com/opensource/">Report Lab</a></td>
+  </tr>
+  <tr>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td align="center"><a href="https://www.xfce.org/"><img src="/temp/static_images/xfce_logo.png" alt="geany"></a></td>
+    <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+    <td align="center"><a href="https://groups.google.com/g/findcurves"><img src="/temp/static_images/groups_logo.gif" alt="FindCurves Google Group"></a></td>
+    <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+    <td align="center"><a href="https://www.geany.org/"><img src="/temp/static_images/geany_logo.png" alt="geany"></a></td>
+  </tr>
+  <tr>
+    <td align="center">Developed on<br><a href="https://www.xfce.org/">XFCE</a></td>
+    <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+    <td align="center">FindCurves<a href="https://groups.google.com/g/findcurves"> Google<br>discussion group</a></td>
+    <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+    <td align="center">Maintained with<br><a href="https://www.geany.org/">geany</a></td>
   </tr>
 </table>
 </div>
@@ -163,11 +163,11 @@ the "Function Finders" to help determine the best curve fit for your data.<br>
 <div id="characterizeDataDiv" align='center' name="hideable_div" style="display:none;">
 <b>Characterize Data </b><br><br>
 <table>
-<tr><td align="CENTER"><a href="CharacterizeData/1/">Characterize 1D (X) Data</a></td></tr>
-<tr><td align="CENTER"><a href="CharacterizeData/2/">Characterize 2D (XY) Data</a></td></tr>
-<tr><td align="CENTER"><a href="CharacterizeData/3/">Characterize 3D (XYZ) Data</a></td></tr>
+<tr><td align="center"><a href="CharacterizeData/1/">Characterize 1D (X) Data</a></td></tr>
+<tr><td align="center"><a href="CharacterizeData/2/">Characterize 2D (XY) Data</a></td></tr>
+<tr><td align="center"><a href="CharacterizeData/3/">Characterize 3D (XYZ) Data</a></td></tr>
 <tr><td> &nbsp;</td></tr>
-<tr><td align="CENTER"><a href="StatisticalDistributions/1/">Fit Data To Statistical Distributions</a></td></tr>
+<tr><td align="center"><a href="StatisticalDistributions/1/">Fit Data To Statistical Distributions</a></td></tr>
 </table>
 </div>
 
