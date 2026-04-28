@@ -753,11 +753,9 @@ change visible to users.
 
 ## Modernize HTML/CSS in templates (in progress)
 
-**Status:** pass 1 landed in commit `0011366` / merge `39676c6` (2026-04-28).
-Pass 2 (HTML5 DOCTYPE + semantic wrappers + non-conforming attribute
-removal) is the in-flight work as of the same date. Remaining: layout
-table → grid/flexbox conversion (the bigger structural pass) is still
-deferred to a future dedicated effort.
+**Status:** four passes landed on 2026-04-28. Remaining work is mostly
+layout-decision work (align attribute removal, layout-table conversion)
+that's deferred to a future dedicated effort.
 
 **Pass 1 (done — commit `0011366`):**
 
@@ -769,7 +767,7 @@ deferred to a future dedicated effort.
 - Replaced `<HR WIDTH="X%">` with `<hr style="width:X%">`.
 - 27 templates touched, -8 net lines.
 
-**Pass 2 (in this commit):**
+**Pass 2 (done — commit `fe8f6af`):**
 
 - Upgraded HTML 4.01 DOCTYPE → `<!DOCTYPE html>` in the 3 templates
   that declared one.
@@ -779,6 +777,22 @@ deferred to a future dedicated effort.
   gets main padding).
 - Removed non-conforming attributes: `cellpadding`, `cellspacing`,
   `valign`, `nowrap` (35 sites across templates).
+
+**Pass 3 (done — commit `b5666a2`):**
+
+- Lowercased all HTML tag names (`<TABLE>` → `<table>`, etc.) across
+  38 templates and 4 JavaScript files that contain HTML string
+  literals. ~1500 substitutions, perfect zero-net diff (pure case
+  change). Helper script preserved at
+  `scripts/_lowercase_html_tags.py`.
+
+**Pass 4 (done — commit `fc26ec0`):**
+
+- Lowercased all HTML attribute names (`ALIGN=` → `align=`, etc.)
+  across 35 templates. Boolean attribute `SELECTED` (11 instances)
+  also lowercased. Attribute *values* deliberately preserved
+  (`align="CENTER"` becomes `align="CENTER"` — name lowercased,
+  value as-is). ~339 substitutions.
 
 **Remaining work (future passes):**
 
@@ -803,10 +817,14 @@ the elements and several attribute classes; what remains:
 - **Inline `style="display:none"` and `align='center'` on `<div>`s:**
   used by the show/hide JavaScript on the home page. Replacement
   requires touching the JS too, not just templates.
-- **Uppercase HTML tag names (`<TABLE>`, `<TR>`, `<TD>`, etc.):**
-  cosmetic; HTML5 is case-insensitive. A search-and-replace pass
-  would lowercase everything for stylistic consistency. Big diff,
-  no functional change.
+- **Lowercase attribute *values* like `align="CENTER"` → `align="center"`:**
+  cosmetic; HTML5 attribute values are case-insensitive for keyword
+  values. Different from attribute *names* (handled in pass 4) —
+  altering values touches "content" rather than markup. The
+  helper script `scripts/_lowercase_html_tags.py` could be extended
+  with a presentation-keyword whitelist (CENTER, LEFT, RIGHT,
+  MIDDLE, TOP, BOTTOM, JUSTIFY) and rerun. Skip values that look
+  like identifiers (`id="introDiv"` should stay) or content URLs.
 
 Pre-pass-1, all the original deprecated patterns were present
 (see commit `0011366` for the full list with substitution rules).
