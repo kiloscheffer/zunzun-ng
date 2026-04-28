@@ -675,7 +675,7 @@ class AbsoluteErrorHistogram(GraphReport):
         self.name = "Histogram of Absolute Error"
         self.uniqueAnchorName = "AbsErrHist"
         self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        self.websiteFileLocation = "%s%s%s" % (settings.STATIC_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
+        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
         
     def CreateReportOutput(self):        
         MatplotlibGraphs_2D.HistogramPlot(self.dataObject, self.physicalFileLocation, "Absolute Error", self.dataObject.equation.modelAbsoluteError)
@@ -697,7 +697,7 @@ class RelativeErrorHistogram(GraphReport):
         self.name = "Histogram of Relative Error"
         self.uniqueAnchorName = "RelErrHist"
         self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        self.websiteFileLocation = "%s%s%s" % (settings.STATIC_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
+        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
         
     def CreateReportOutput(self):
         MatplotlibGraphs_2D.HistogramPlot(self.dataObject, self.physicalFileLocation, "Relative Error", self.dataObject.equation.modelRelativeError)
@@ -719,7 +719,7 @@ class PercentErrorHistogram(GraphReport):
         self.name = "Histogram of Percent Error"
         self.uniqueAnchorName = "PerErrHist"
         self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        self.websiteFileLocation = "%s%s%s" % (settings.STATIC_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
+        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
         
     def CreateReportOutput(self):
         MatplotlibGraphs_2D.HistogramPlot(self.dataObject, self.physicalFileLocation, "Percent Error", self.dataObject.equation.modelPercentError)
@@ -737,7 +737,7 @@ class Data1Histogram(GraphReport):
         self.name = "Histogram of " + self.dataObject.IndependentDataName1
         self.uniqueAnchorName = "XDataHist"
         self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        self.websiteFileLocation = "%s%s%s" % (settings.STATIC_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
+        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
         
     def CreateCharacterizerOutput(self):
         MatplotlibGraphs_2D.HistogramPlot(self.dataObject, self.physicalFileLocation, self.dataObject.IndependentDataName1, self.dataObject.IndependentDataArray[0])
@@ -757,7 +757,7 @@ class Data2Histogram(GraphReport):
         self.name = "Histogram of " + self.dataObject.IndependentDataName2
         self.uniqueAnchorName = "YDataHist"
         self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        self.websiteFileLocation = "%s%s%s" % (settings.STATIC_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
+        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
         
     def CreateCharacterizerOutput(self):
         MatplotlibGraphs_2D.HistogramPlot(self.dataObject, self.physicalFileLocation, self.dataObject.IndependentDataName2, self.dataObject.IndependentDataArray[1])
@@ -780,7 +780,7 @@ class DependentDataHistogram(GraphReport):
             self.uniqueAnchorName = "ZDataHist"
         self.name = "Histogram of " + self.dataObject.DependentDataName
         self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        self.websiteFileLocation = "%s%s%s" % (settings.STATIC_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
+        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
         
     def CreateCharacterizerOutput(self):
         MatplotlibGraphs_2D.HistogramPlot(self.dataObject, self.physicalFileLocation, self.dataObject.DependentDataName, self.dataObject.DependentDataArray)
@@ -797,7 +797,7 @@ class AbsoluteErrorVsDependentData_ScatterPlot(GraphReport):
         self.name = "Absolute Error vs. " + self.dataObject.DependentDataName
         self.uniqueAnchorName = "AbsErrVsDepData"
         self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        self.websiteFileLocation = "%s%s%s" % (settings.STATIC_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
+        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
         if self.dataObject.dimensionality == 2:
             self.ScientificNotationXAxis = self.dataObject.ScientificNotationY
             self.logLinXAxis = self.dataObject.logLinY
@@ -824,7 +824,7 @@ class AbsoluteErrorVsIndependentData1_ScatterPlot(GraphReport):
         self.name = "Absolute Error vs. " + self.dataObject.IndependentDataName1
         self.uniqueAnchorName = "AbsErrVsIndepData1"
         self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        self.websiteFileLocation = "%s%s%s" % (settings.STATIC_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
+        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
 
     def CreateReportOutput(self):
         MatplotlibGraphs_2D.ScatterPlot(self.dataObject, self.physicalFileLocation,
@@ -847,7 +847,7 @@ class AbsoluteErrorVsIndependentData2_ScatterPlot(GraphReport):
         self.name = "Absolute Error vs. " + self.dataObject.IndependentDataName2
         self.uniqueAnchorName = "AbsErrVsIndepData2"
         self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        self.websiteFileLocation = "%s%s%s" % (settings.STATIC_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
+        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
 
     def CreateReportOutput(self):
         MatplotlibGraphs_2D.ScatterPlot(self.dataObject, self.physicalFileLocation,
@@ -871,7 +871,7 @@ class RelativeErrorVsDependentData_ScatterPlot(GraphReport):
         self.name = "Relative Error vs. " + self.dataObject.DependentDataName
         self.uniqueAnchorName = "RelErrVsDepData"
         self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        self.websiteFileLocation = "%s%s%s" % (settings.STATIC_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
+        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
         if self.dataObject.dimensionality == 2:
             self.ScientificNotationXAxis = self.dataObject.ScientificNotationY
             self.logLinXAxis = self.dataObject.logLinY
@@ -901,7 +901,7 @@ class PercentErrorVsDependentData_ScatterPlot(GraphReport):
         self.name = "Percent Error vs. " + self.dataObject.DependentDataName
         self.uniqueAnchorName = "PerErrVsDepData"
         self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        self.websiteFileLocation = "%s%s%s" % (settings.STATIC_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
+        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
         if self.dataObject.dimensionality == 2:
             self.ScientificNotationXAxis = self.dataObject.ScientificNotationY
             self.logLinXAxis = self.dataObject.logLinY
@@ -931,7 +931,7 @@ class RelativeErrorVsIndependentData1_ScatterPlot(GraphReport):
         self.name = "Relative Error vs. " + self.dataObject.IndependentDataName1
         self.uniqueAnchorName = "RelErrVsIndepData1"
         self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        self.websiteFileLocation = "%s%s%s" % (settings.STATIC_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
+        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
 
     def CreateReportOutput(self):
         MatplotlibGraphs_2D.ScatterPlot(self.dataObject, self.physicalFileLocation,
@@ -955,7 +955,7 @@ class PercentErrorVsIndependentData1_ScatterPlot(GraphReport):
         self.name = "Percent Error vs. " + self.dataObject.IndependentDataName1
         self.uniqueAnchorName = "PerErrVsIndepData1"
         self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        self.websiteFileLocation = "%s%s%s" % (settings.STATIC_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
+        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
 
     def CreateReportOutput(self):
         MatplotlibGraphs_2D.ScatterPlot(self.dataObject, self.physicalFileLocation,
@@ -981,7 +981,7 @@ class RelativeErrorVsIndependentData2_ScatterPlot(GraphReport):
         self.name = "Relative Error vs. " + self.dataObject.IndependentDataName2
         self.uniqueAnchorName = "RelErrVsIndepData2"
         self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        self.websiteFileLocation = "%s%s%s" % (settings.STATIC_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
+        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
 
     def CreateReportOutput(self):
         MatplotlibGraphs_2D.ScatterPlot(self.dataObject, self.physicalFileLocation,
@@ -1007,7 +1007,7 @@ class PercentErrorVsIndependentData2_ScatterPlot(GraphReport):
         self.name = "Percent Error vs. " + self.dataObject.IndependentDataName2
         self.uniqueAnchorName = "PerErrVsIndepData2"
         self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        self.websiteFileLocation = "%s%s%s" % (settings.STATIC_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
+        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
 
     def CreateReportOutput(self):
         MatplotlibGraphs_2D.ScatterPlot(self.dataObject, self.physicalFileLocation,
@@ -1032,7 +1032,7 @@ class DependentDataVsIndependentData1_ScatterPlot(GraphReport):
         self.name = self.dataObject.DependentDataName + " vs. " + self.dataObject.IndependentDataName1
         self.uniqueAnchorName = "DepDataVsIndepData1"
         self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        self.websiteFileLocation = "%s%s%s" % (settings.STATIC_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
+        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
         if self.dataObject.dimensionality == 2:
             self.YorZ = 'Y'
             self.ScientificNotationXAxis = self.dataObject.ScientificNotationY
@@ -1067,7 +1067,7 @@ class DependentDataVsIndependentData1_ModelPlot(GraphReport):
             self.name = ''
         self.uniqueAnchorName = "DepDataVsIndepData1_modelplot"
         self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        self.websiteFileLocation = "%s%s%s" % (settings.STATIC_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
+        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
         if self.dataObject.dimensionality == 2:
             self.YorZ = 'Y'
             self.ScientificNotationXAxis = self.dataObject.ScientificNotationY
@@ -1102,7 +1102,7 @@ class DependentDataVsIndependentData1_ConfidenceIntervals(GraphReport):
             self.name = ''
         self.uniqueAnchorName = "DepDataVsIndepData1_ci"
         self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        self.websiteFileLocation = "%s%s%s" % (settings.STATIC_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
+        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
         if self.dataObject.dimensionality == 2:
             self.YorZ = 'Y'
             self.ScientificNotationXAxis = self.dataObject.ScientificNotationY
@@ -1135,7 +1135,7 @@ class DependentDataVsIndependentData2_ScatterPlot(GraphReport):
         self.name = self.dataObject.DependentDataName + " vs. " + self.dataObject.IndependentDataName2
         self.uniqueAnchorName = "DepDataVsIndepData2"
         self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        self.websiteFileLocation = "%s%s%s" % (settings.STATIC_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
+        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
 
     def CreateCharacterizerOutput(self):
         MatplotlibGraphs_2D.ScatterPlot(self.dataObject, self.physicalFileLocation,
@@ -1159,7 +1159,7 @@ class IndependentData1VsDependentData_ScatterPlot(GraphReport):
         self.name = self.dataObject.IndependentDataName1 + " vs. " + self.dataObject.DependentDataName
         self.uniqueAnchorName = "IndepData1VsDepData"
         self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        self.websiteFileLocation = "%s%s%s" % (settings.STATIC_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
+        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
         if self.dataObject.dimensionality == 2:
             self.YorZ = "Y"
             self.ScientificNotationXAxis = self.dataObject.ScientificNotationY
@@ -1191,7 +1191,7 @@ class IndependentData1VsIndependentData2_ScatterPlot(GraphReport):
         self.name = self.dataObject.IndependentDataName1 + " vs. "  + self.dataObject.IndependentDataName2
         self.uniqueAnchorName = "IndepData1VsIndepData2"
         self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        self.websiteFileLocation = "%s%s%s" % (settings.STATIC_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
+        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
 
     def CreateCharacterizerOutput(self):
         MatplotlibGraphs_2D.ScatterPlot(self.dataObject, self.physicalFileLocation,
@@ -1215,7 +1215,7 @@ class IndependentData2VsDependentData_ScatterPlot(GraphReport):
         self.name = self.dataObject.IndependentDataName2 + " vs. "  + self.dataObject.DependentDataName
         self.uniqueAnchorName = "IndepData2VsDepData"
         self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        self.websiteFileLocation = "%s%s%s" % (settings.STATIC_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
+        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
 
     def CreateCharacterizerOutput(self):
         MatplotlibGraphs_2D.ScatterPlot(self.dataObject, self.physicalFileLocation,
@@ -1239,7 +1239,7 @@ class IndependentData2VsIndependentData1_ScatterPlot(GraphReport):
         self.name = self.dataObject.IndependentDataName2 + " vs. "  + self.dataObject.IndependentDataName1
         self.uniqueAnchorName = "IndepData2VsIndepData1"
         self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        self.websiteFileLocation = "%s%s%s" % (settings.STATIC_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
+        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
 
     def CreateCharacterizerOutput(self):
         MatplotlibGraphs_2D.ScatterPlot(self.dataObject, self.physicalFileLocation,
@@ -1263,7 +1263,7 @@ class AbsErrScatterPlot3D(GraphReport):
         self.uniqueAnchorName = "AbsErrScatterPlot3D"
         self.dataObject.ScientificNotationZ = 'AUTO'
         self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        self.websiteFileLocation = "%s%s%s" % (settings.STATIC_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
+        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
         
     def CreateCharacterizerOutput(self):
         self.dataObject.DependentDataName = "Absolute Error"
@@ -1294,7 +1294,7 @@ class RelErrScatterPlot3D(GraphReport):
         self.uniqueAnchorName = "RelErrScatterPlot3D"
         self.dataObject.ScientificNotationZ = 'AUTO'
         self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        self.websiteFileLocation = "%s%s%s" % (settings.STATIC_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
+        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
         
     def CreateCharacterizerOutput(self):
         self.dataObject.DependentDataName = "Relative Error"
@@ -1323,7 +1323,7 @@ class PerErrScatterPlot3D(GraphReport):
         self.uniqueAnchorName = "PerErrScatterPlot3D"
         self.dataObject.ScientificNotationZ = 'AUTO'
         self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        self.websiteFileLocation = "%s%s%s" % (settings.STATIC_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
+        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
         
     def CreateCharacterizerOutput(self):
         self.dataObject.DependentDataName = "Percent Error"
@@ -1349,7 +1349,7 @@ class ScatterPlot3D(GraphReport):
         self.name = "Scatter Plot"
         self.uniqueAnchorName = "ScatterPlot3D"
         self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        self.websiteFileLocation = "%s%s%s" % (settings.STATIC_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
+        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
         
     def CreateCharacterizerOutput(self):
         from . import MatplotlibGraphs_3D
@@ -1370,7 +1370,7 @@ class SurfacePlot(GraphReport):
         self.name = "Surface Plot"
         self.uniqueAnchorName = "SurfacePlot"
         self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        self.websiteFileLocation = "%s%s%s" % (settings.STATIC_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
+        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
         
     def CreateReportOutput(self):
         from . import MatplotlibGraphs_3D
@@ -1391,7 +1391,7 @@ class ContourPlot(GraphReport):
         self.name = "Contour Plot"
         self.uniqueAnchorName = "ContourPlot"
         self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        self.websiteFileLocation = "%s%s%s" % (settings.STATIC_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
+        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
         
     def CreateReportOutput(self):
         MatplotlibGraphs_2D.ContourPlot(self.dataObject, self.physicalFileLocation)
@@ -1451,7 +1451,7 @@ class StatisticalDistributionHistogram(GraphReport):
         self.uniqueAnchorName = "XStatDistHist_" + str(self.distributionIndex)
 
         self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        self.websiteFileLocation = "%s%s%s" % (settings.STATIC_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
+        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
  
         
     def CreateCharacterizerOutput(self):
@@ -1489,7 +1489,7 @@ class ScatterAnimation(GraphReport):
         self.name = "GIF Scatter Animation"
         self.uniqueAnchorName = "ScatterAnimation"
         self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + ".gif"
-        self.websiteFileLocation = "%s%s%s" % (settings.STATIC_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + ".gif"
+        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + ".gif"
             
 
     def CreateCharacterizerOutput(self):
@@ -1542,7 +1542,7 @@ class SurfaceAnimation(GraphReport):
         self.name = "GIF Surface Animation"
         self.uniqueAnchorName = "SurfaceAnimation"
         self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".gif"
-        self.websiteFileLocation = "%s%s%s" % (settings.STATIC_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".gif"
+        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".gif"
 
 
     def CreateReportOutput(self):

@@ -85,10 +85,18 @@ server {
     listen 80;
     server_name zunzun-ng.example.com;
 
-    # Serve static files directly (bypasses Waitress for performance)
-    location /temp/static_images/ {
-        alias /var/www/zunzun-ng/temp/static_images/;
+    # Serve committed static assets directly (bypasses Waitress for performance)
+    location /static/ {
+        alias /var/www/zunzun-ng/static/;
         expires 7d;
+    }
+
+    # Serve runtime-generated files (PDFs, plots, animations) directly too.
+    # These are written by spawned fit children and don't need Waitress'
+    # request handling.
+    location /temp/ {
+        alias /var/www/zunzun-ng/temp/;
+        expires 1h;
     }
 
     # Pass everything else to Waitress

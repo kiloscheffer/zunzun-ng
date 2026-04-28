@@ -86,11 +86,20 @@ INSTALLED_APPS = (
     'zunzun',
 )
 
-STATIC_URL = '/temp/'
+# Static files (committed assets that ship with the codebase: CSS, JS,
+# logos, favicon). Served at /static/ in dev by django.contrib.staticfiles
+# during runserver, and by the reverse proxy (nginx/IIS) in production.
+STATIC_URL = '/static/'
+STATIC_FILES_DIR = os.path.join(ROOT_PATH, 'static')
+STATICFILES_DIRS = (STATIC_FILES_DIR,)
 
+# Media / runtime-generated files (PDFs, graphs, animations written by
+# spawned fit children). Served at /temp/ for backward compatibility with
+# generated output URLs that may be embedded in PDFs already in the wild.
+# In dev, urls.py has to add explicit serving for MEDIA_URL since the
+# staticfiles app doesn't auto-serve media. In production, nginx/IIS
+# handles it directly.
+MEDIA_URL = '/temp/'
 TEMP_FILES_DIR = os.path.join(ROOT_PATH, 'temp')
+MEDIA_ROOT = TEMP_FILES_DIR
 MAX_TEMP_DIR_SIZE_IN_MBYTES = 500 # default 500 megabytes maximum
-
-STATICFILES_DIRS = (
-    TEMP_FILES_DIR,
-)

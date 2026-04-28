@@ -262,8 +262,8 @@ def StatusView(request):
     
     # reload every three seconds
     s = '''<html><head><meta HTTP-EQUIV=REFRESH CONTENT="3; URL='/StatusAndResults/'">
-    <link rel="icon" href="/temp/static_images/favicon.ico" type="image/x-icon">
-    <link rel="shortcut icon" href="/temp/static_images/favicon.ico" type="image/x-icon">
+    <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
+    <link rel="shortcut icon" href="/static/favicon.ico" type="image/x-icon">
     </head><body>'''
     s += currentStatus
     s += '<br><br><br><br>'
