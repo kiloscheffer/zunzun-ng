@@ -10,6 +10,34 @@ ul
 {
     list-style-type: none;
 }
+
+/* Override simple.css table styling.
+ *
+ * This codebase uses `<table>` purely for layout (page header, dropdown
+ * menus, form-cell positioning) — there are no actual data tables.
+ * simple.css applies prominent data-table styling (borders, alternating
+ * row backgrounds, padding) to every `<table>`, which is wrong for
+ * layout use. Reset that styling globally; if a real data table is
+ * ever introduced, it can opt into simple.css's styling via a class.
+ */
+table
+{
+    border-collapse: collapse;
+    border: none;
+    background: none;
+    margin: 0;
+}
+table th, table td
+{
+    border: none;
+    background: none;
+    padding: 0.15rem 0.25rem;
+}
+table tbody tr:nth-child(odd),
+table tbody tr:nth-child(even)
+{
+    background: none;
+}
 </style>
 <title>
 {% block title %}
