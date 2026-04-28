@@ -185,7 +185,8 @@ You must provide any weights you wish to use.
             self.unboundForm.fields['weightedFittingChoice'].initial = temp
     
         # equation instance is now in hand, make items necessary for user interface
-        self.dictionaryToReturn['header_text'] = 'Fitting Interface For ' + self.equation.GetDisplayName() + ' ' + str(self.dimensionality) + 'D<br>' + self.equation.GetDisplayHTML()
+        self.dictionaryToReturn['header_text'] = 'ZunZunNG'
+        self.dictionaryToReturn['subtitle_text'] = 'Fitting Interface For ' + self.equation.GetDisplayName() + ' ' + str(self.dimensionality) + 'D<br>' + self.equation.GetDisplayHTML()
         self.dictionaryToReturn['title_string'] = 'ZunZunNG - ' + self.equation.GetDisplayName() + ' Fitting Interface'
 
         self.unboundForm.weightedFittingPossibleFlag = not self.spline
