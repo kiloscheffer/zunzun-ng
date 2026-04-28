@@ -23,29 +23,29 @@
 {# MENU --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- #}
 
 {# menu item titles ------------------------------------------------------- #}
-<table ALIGN="CENTER"><tr>
+<table align="CENTER"><tr>
 {% if equationInstance %}
-    <td ALIGN="CENTER">Coefficients And Text Reports</td>
+    <td align="CENTER">Coefficients And Text Reports</td>
     <td>&nbsp;</td>
 {% else %}
-    <td ALIGN="CENTER">Text Reports</td>
+    <td align="CENTER">Text Reports</td>
     <td>&nbsp;</td>
 {% endif %}
-    <td ALIGN="CENTER">Histograms</td>
+    <td align="CENTER">Histograms</td>
     <td>&nbsp;</td>
 {% if equationInstance %}
-    <td ALIGN="CENTER">Statistical Scatterplots</td>
+    <td align="CENTER">Statistical Scatterplots</td>
     <td>&nbsp;</td>
 {% endif %}
 {% if dimensionality != '1' %}
-    <td ALIGN="CENTER">Data Graphs</td>
+    <td align="CENTER">Data Graphs</td>
     <td>&nbsp;</td>
 {% endif %}
 </tr>
 <tr>
-    <td ALIGN="CENTER">        <select ID="s1" size=1>
+    <td align="CENTER">        <select id="s1" size=1>
         <option>
-        <option value='introDiv' SELECTED>Introduction and PDF Link
+        <option value='introDiv' selected>Introduction and PDF Link
 {% if equationInstance %}
     {% if equationInstance.splineFlag %}
 		<option value='evaluateDiv'>Evaluate This Spline At A Point
@@ -63,9 +63,9 @@
 	    </select>
     </td>
     <td>&nbsp;</td>
-    <td ALIGN="CENTER">        <select ID="s2" size=1>
+    <td align="CENTER">        <select id="s2" size=1>
         <option>
-        <option value='introDiv' SELECTED>Introduction and PDF Link
+        <option value='introDiv' selected>Introduction and PDF Link
 		{% for graphReport in graphReports %}
 			{% if graphReport.StatisticsGraph == 1 %}
                 {% if graphReport.HistogramFlag == 1 %}
@@ -80,9 +80,9 @@
     </td>
 {% if equationInstance %}
     <td>&nbsp;</td>
-    <td ALIGN="CENTER">        <select ID="s3" size=1>
+    <td align="CENTER">        <select id="s3" size=1>
         <option>
-        <option value='introDiv' SELECTED>Introduction and PDF Link
+        <option value='introDiv' selected>Introduction and PDF Link
 		{% for graphReport in graphReports %}
 			{% if graphReport.StatisticsGraph == 1 %}
                 {% if graphReport.HistogramFlag == 0 %}
@@ -98,13 +98,13 @@
 {% endif %}
 {% if dimensionality != '1' %}
     <td>&nbsp;</td>
-    <td ALIGN="CENTER">{% if equationInstance %}
-        <select ID="s4" size=1>
+    <td align="CENTER">{% if equationInstance %}
+        <select id="s4" size=1>
 {% else %}
-        <select ID="s3" size=1>
+        <select id="s3" size=1>
 {% endif %}
         <option>
-        <option value='introDiv' SELECTED>Introduction and PDF Link
+        <option value='introDiv' selected>Introduction and PDF Link
 		{% for graphReport in graphReports %}
 			{% if graphReport.StatisticsGraph == 0 %}
         		<option value='{{ graphReport.uniqueAnchorName }}'>{{ graphReport.name }}
@@ -128,7 +128,7 @@
 
 
 {# introduction div ------------------------------------------------------- #}
-<div ID="introDiv" align='center' name="hideable_div">
+<div id="introDiv" align='center' name="hideable_div">
 <b><span style="font-size:larger">Introduction and PDF Link</span></b><br><br>
 Please select an item from the pull-down menu above.
 <br><br>
@@ -139,7 +139,7 @@ You can download almost all of these reports as <a href='/temp/{{ pdfFileName }}
 
 {% if equationInstance %}
 {# evaluate at a point div ------------------------------------------------------- #}
-<div ID="evaluateDiv" align='center' name="hideable_div" style="display:none;">
+<div id="evaluateDiv" align='center' name="hideable_div" style="display:none;">
 {% if equationInstance.splineFlag %}
 <b><span style="font-size:larger">Evaluate This Spline At A Point</span></b><br><br>
 {% else %}
@@ -170,7 +170,7 @@ You can download almost all of these reports as <a href='/temp/{{ pdfFileName }}
 {% include "zunzun/divs/dedication.html" %}
 
 {# scripture div ------------------------------------------------------- #}
-<div ID="scriptureDiv" align='center' name="hideable_div" style="display:none;">
+<div id="scriptureDiv" align='center' name="hideable_div" style="display:none;">
 <b><span style="font-size:larger">{{ scripture.0 }}</span></b><br><br>
 <table width='50%'>
     <tr>
@@ -183,7 +183,7 @@ You can download almost all of these reports as <a href='/temp/{{ pdfFileName }}
 
 
 {% for textReport in textReports %}
-	<div ID="{{ textReport.uniqueAnchorName }}" align='center' name="hideable_div" style="display:none;">
+	<div id="{{ textReport.uniqueAnchorName }}" align='center' name="hideable_div" style="display:none;">
 	<b><span style="font-size:larger">{{ textReport.name }}</span></b><br><br>
 <table><tr><td>
 <pre>
@@ -196,15 +196,15 @@ You can download almost all of these reports as <a href='/temp/{{ pdfFileName }}
 
 
 {% for graphReport in graphReports %}
-	<div ID="{{ graphReport.uniqueAnchorName }}" align='center' name="hideable_div" style="display:none;">
+	<div id="{{ graphReport.uniqueAnchorName }}" align='center' name="hideable_div" style="display:none;">
 	<b><span style="font-size:larger">{{ graphReport.name }}</span></b><br>
 		{% if graphReport.animationFlag == 1 %}
 		<br>
-			<a HREF="{{ graphReport.websiteFileLocation }}" TARGET="_blank">Click Here</a> to download GIF file ({{ graphReport.fileSize }})<br><br>
+			<a href="{{ graphReport.websiteFileLocation }}" target="_blank">Click Here</a> to download GIF file ({{ graphReport.fileSize }})<br><br>
 			<b>NOTE:</b> The animation may appear jerky and uneven until the<br>
 			download is complete and your browser displays the animation smoothly.
 		{% else %}
-	<img SRC="{{ graphReport.websiteFileLocation }}" ALIGN="Absmiddle" ALT="{{ graphReport.name }}" onAbort="Load();"><br>
+	<img src="{{ graphReport.websiteFileLocation }}" align="Absmiddle" alt="{{ graphReport.name }}" onAbort="Load();"><br>
         <br>
 		Download this image as 
 			<a href="{{ graphReport.websiteFileLocation|slice:':-3' }}png" target='_blank'>PNG</a>

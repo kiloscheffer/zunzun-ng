@@ -1,4 +1,4 @@
-<div ID="polyfunctionalSelection"  align='center' name="hideable_div" style="display:none;">
+<div id="polyfunctionalSelection"  align='center' name="hideable_div" style="display:none;">
 {% if dimensionality == '2' %}
     <b>Select Functions</b>
     <br>
@@ -6,21 +6,21 @@
     Here you can combine functions to create an equation.
     <br>
     <br>
-    <p ALIGN=CENTER>Equation:<p><div ID='FUNCTION' ALIGN=CENTER>{{ equationHTML }}</div><br>Functions of X<br>
-     <table BORDER=0>
+    <p align=CENTER>Equation:<p><div id='FUNCTION' align=CENTER>{{ equationHTML }}</div><br>Functions of X<br>
+     <table border=0>
       <tr>
         {% for color, index, html in Polyfun2DColorList %}
             {% if html == '' %}
-	           	<td style='background-color:{{ color }}' CLASS=pick ID='CPX{{ index }}' onClick='cT(this.id,1)'>&nbsp;offset&nbsp;</td>
+	           	<td style='background-color:{{ color }}' class=pick id='CPX{{ index }}' onClick='cT(this.id,1)'>&nbsp;offset&nbsp;</td>
             {% else %}
-               	<td style='background-color:{{ color }}' CLASS=pick ID='CPX{{ index }}' onClick='cT(this.id,1)'>&nbsp;{{ html }}&nbsp;</td>
+               	<td style='background-color:{{ color }}' class=pick id='CPX{{ index }}' onClick='cT(this.id,1)'>&nbsp;{{ html }}&nbsp;</td>
             {% endif %}
         {% endfor %}
       </tr>
      </table>
 
     {% for color, index, html in Polyfun2DColorList %}
-    	<input TYPE="hidden" name="polyFunctional_X{{ index }}" value="False" id="id_polyFunctional_X{{ index }}">
+    	<input type="hidden" name="polyFunctional_X{{ index }}" value="False" id="id_polyFunctional_X{{ index }}">
     {% endfor %}
 
 {% else %}
@@ -28,33 +28,33 @@
     <br><br>
     Here you can combine functions to create an equation.
     <br><br>
-    <p ALIGN=CENTER>Equation:<p><div ID='FUNCTION' ALIGN=CENTER>{{ equationHTML }}</div><br><table BORDER=0 ALIGN=CENTER>
-    <tr><td> &nbsp; </td><td ALIGN=CENTER>Functions of Y</td>
-    <tr><td align=center>F<br>u<br>n<br>c<br>t<br>i<br>o<br>n<br>s<br>&nbsp;<br>o<br>f<br>&nbsp;<br>X</td><td ALIGN=CENTER>
+    <p align=CENTER>Equation:<p><div id='FUNCTION' align=CENTER>{{ equationHTML }}</div><br><table border=0 align=CENTER>
+    <tr><td> &nbsp; </td><td align=CENTER>Functions of Y</td>
+    <tr><td align=center>F<br>u<br>n<br>c<br>t<br>i<br>o<br>n<br>s<br>&nbsp;<br>o<br>f<br>&nbsp;<br>X</td><td align=CENTER>
 
-     <table BORDER=0>
+     <table border=0>
         {% for color, indexX, indexY, htmlX, htmlY in Polyfun3DColorList %}
             {% if indexY == 0 %}
                 <tr>
             {% endif %}
             {% if htmlX == '' %}{#           Both X and Y have empty HTML , yield offset          #}
                 {% if htmlY == '' %}
-                    <td style='background-color:{{ color }}' CLASS=pick ID='CPX{{ indexX }}Y{{ indexY }}' onClick='cT(this.id,1)'>&nbsp;offset&nbsp;</td>
+                    <td style='background-color:{{ color }}' class=pick id='CPX{{ indexX }}Y{{ indexY }}' onClick='cT(this.id,1)'>&nbsp;offset&nbsp;</td>
                 {% endif %}
             {% endif %}
             {% if htmlX != '' %}{#           Neither X and Y have empty HTML , yield XY          #}
                 {% if htmlY != '' %}
-                    <td style='background-color:{{ color }}' CLASS=pick ID='CPX{{ indexX }}Y{{ indexY }}' onClick='cT(this.id,1)'>&nbsp;{{ htmlX }}{{ htmlY }}&nbsp;</td>
+                    <td style='background-color:{{ color }}' class=pick id='CPX{{ indexX }}Y{{ indexY }}' onClick='cT(this.id,1)'>&nbsp;{{ htmlX }}{{ htmlY }}&nbsp;</td>
                 {% endif %}
             {% endif %}
             {% if htmlX != '' %}{#           Only Y has empty HTML , yield X          #}
                 {% if htmlY == '' %}
-                    <td style='background-color:{{ color }}' CLASS=pick ID='CPX{{ indexX }}Y{{ indexY }}' onClick='cT(this.id,1)'>&nbsp;{{ htmlX }}&nbsp;</td>
+                    <td style='background-color:{{ color }}' class=pick id='CPX{{ indexX }}Y{{ indexY }}' onClick='cT(this.id,1)'>&nbsp;{{ htmlX }}&nbsp;</td>
                 {% endif %}
             {% endif %}
             {% if htmlX == '' %}{#           Only X has empty HTML , yield Y          #}
                 {% if htmlY != '' %}
-                    <td style='background-color:{{ color }}' CLASS=pick ID='CPX{{ indexX }}Y{{ indexY }}' onClick='cT(this.id,1)'>&nbsp;{{ htmlY }}&nbsp;</td>
+                    <td style='background-color:{{ color }}' class=pick id='CPX{{ indexX }}Y{{ indexY }}' onClick='cT(this.id,1)'>&nbsp;{{ htmlY }}&nbsp;</td>
                 {% endif %}
             {% endif %}
             {% if indexY == maxPolyfunctionalListIndex %}
@@ -65,7 +65,7 @@
     </table>
 
     {% for color, indexX, indexY, htmlX, htmlY in Polyfun3DColorList %}
-        <input TYPE="hidden" name="polyFunctional_X{{ indexX }}Y{{ indexY }}" value="False" id="id_polyFunctional_X{{ indexX }}Y{{ indexY }}">
+        <input type="hidden" name="polyFunctional_X{{ indexX }}Y{{ indexY }}" value="False" id="id_polyFunctional_X{{ indexX }}Y{{ indexY }}">
     {% endfor %}
 
 {% endif %}
