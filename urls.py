@@ -3,6 +3,7 @@ import os
 from django.conf import settings
 from django.conf.urls.static import static
 from django.urls import re_path
+from django.views.static import serve as static_serve
 import zunzun.views
 
 urlpatterns = [
@@ -23,11 +24,21 @@ urlpatterns = [
 # nginx/IIS serves /temp/ directly per docs/deployment/. STATIC_URL is
 # auto-served by django.contrib.staticfiles during runserver.
 #
-# /commonproblems/ serves the vendored CommonProblems static site
+# /CommonProblems/ serves the vendored CommonProblems static site
 # (curve-fitting "common problems" reference content, originally at
-# bitbucket.org/zunzuncode/commonproblems and licensed under
+# bitbucket.org/zunzuncode/CommonProblems and licensed under
 # BSD-2-clause; preserved here as a permanent fork). Production
 # deployments serve this directly via nginx/IIS per docs/deployment/.
+# The bare-trailing-slash URL serves index.html explicitly because
+# Django's static() helper doesn't auto-resolve directory→index.
 if settings.DEBUG:
+    # On-disk directory is lowercase (`commonproblems/`); URL is
+    # case-sensitive `/CommonProblems/` per the Django routing default
+    # and to match the upstream bitbucket repo's CapitalCase URL.
+    _CP_DIR = os.path.join(settings.ROOT_PATH, 'commonproblems')
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-    urlpatterns += static('/commonproblems/', document_root=os.path.join(settings.ROOT_PATH, 'commonproblems'))
+    urlpatterns += [
+        re_path(r'^CommonProblems/$', static_serve,
+                {'document_root': _CP_DIR, 'path': 'index.html'}),
+    ]
+    urlpatterns += static('/CommonProblems/', document_root=_CP_DIR)
