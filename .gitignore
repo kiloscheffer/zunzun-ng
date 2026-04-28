@@ -13,10 +13,12 @@ __pycache__/
 .venv/
 
 # Django / pyeq3 scratch output from forked fit processes.
-# temp/static_images/ holds committed logos, favicon, jQuery bundle, etc.
-# Everything else written to temp/ is disposable (PDFs, graphs, animations, logs).
+# Everything written to temp/ is disposable (PDFs, graphs, animations,
+# logs). The .gitkeep keeps the directory in git for fresh clones; the
+# committed static assets live at static/ (project root) since the
+# 2026-04-28 static-files restructure.
 /temp/*
-!/temp/static_images/
+!/temp/.gitkeep
 
 # FunkLoad test artifacts (written next to the tests per Simple.conf)
 funkload_tests/*.log

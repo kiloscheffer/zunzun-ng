@@ -263,7 +263,7 @@ You must provide any weights you wish to use.
             myTableStyle = [('ALIGN', (1,1), (-1,-1), 'CENTER'),
                             ('VALIGN', (1,1), (-1,-1), 'MIDDLE')]
 
-            largeLogoImage = reportlab.platypus.Image(os.path.join(settings.TEMP_FILES_DIR, 'static_images/logo.png'), 25 * scale * 3, 25 * scale * 3)
+            largeLogoImage = reportlab.platypus.Image(os.path.join(settings.STATIC_FILES_DIR, 'logo.png'), 25 * scale * 3, 25 * scale * 3)
 
             tableRow = [largeLogoImage,
                         'ZunZunNG',
@@ -420,8 +420,8 @@ You must provide any weights you wish to use.
         dataObject.logLinZ = 'LIN'
 
         settings.TEMP_FILES_DIR = settings.TEMP_FILES_DIR
-        dataObject.WebsiteHTMLLocation = settings.STATIC_URL
-        dataObject.WebsiteImageLocation = settings.STATIC_URL
+        dataObject.WebsiteHTMLLocation = settings.MEDIA_URL
+        dataObject.WebsiteImageLocation = settings.MEDIA_URL
 
         dataObject.dimensionality = self.dimensionality
 

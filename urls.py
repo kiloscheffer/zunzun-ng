@@ -1,3 +1,5 @@
+from django.conf import settings
+from django.conf.urls.static import static
 from django.urls import re_path
 import zunzun.views
 
@@ -14,3 +16,9 @@ urlpatterns = [
     re_path(r"^AllEquations/([23])/(.+)/$", zunzun.views.AllEquationsView),
     re_path(r"^Feedback/$", zunzun.views.FeedbackView),
 ]
+
+# Serve generated runtime files at MEDIA_URL in dev. In production,
+# nginx/IIS serves /temp/ directly per docs/deployment/. STATIC_URL is
+# auto-served by django.contrib.staticfiles during runserver.
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

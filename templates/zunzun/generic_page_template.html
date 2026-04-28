@@ -6,13 +6,13 @@
 <head>
     <link rel="stylesheet" href="https://unpkg.com/modern-normalize/modern-normalize.css">
     <link rel="stylesheet" href="https://unpkg.com/simpledotcss/simple.css">
-    <link rel="stylesheet" href="/temp/static_images/custom.css">
+    <link rel="stylesheet" href="/static/custom.css">
     <title>
         {% block title %}
         {{ title_string }}
         {% endblock %}
     </title>
-    <script src="/temp/static_images/jquery-3.2.1.slim.min.js" type="text/javascript"></script>
+    <script src="/static/jquery-3.2.1.slim.min.js" type="text/javascript"></script>
     <script>
         $(document).ready(function () {
             $('*[name="hideable_div"]').css('display', 'none');
@@ -94,23 +94,9 @@
     <main>
         {% block body_contents %}{% endblock %}
     </main>
-    <footer style="display:block;" id='page_footer'>
-        <br>
-        <br>
-        <br>
-        <hr style="width:20%">
-        <hr style="width:35%">
-        <hr style="width:50%">
-        <br>
-        <br>
-        <br>
-        <br>
-        <br>
-        <div style="text-align:center">
+    <footer>
             Curve fitting and surface fitting web application source code<br>
             <a href=https://github.com/kiloscheffer/zunzun-ng>Django (this site)</a>
-            &nbsp;
-            <a href=https://bitbucket.org/zunzuncode/zunzunsite>Django (Python 2)</a>
             &nbsp;
             <a href=https://bitbucket.org/zunzuncode/FlaskFit>Flask</a>
             &nbsp;
@@ -134,20 +120,11 @@
                 Fitter</a><br>
             <br>
             Core fitting library source code<br>
-            <a href=https://bitbucket.org/zunzuncode/pyeq2>pyeq2 (Python 2)</a>
-            &nbsp;
-            <a href=https://bitbucket.org/zunzuncode/pyeq3>pyeq3</a><br>
+            <a href=https://github.com/equations-project/pyeq3>pyeq3</a><br>
             <br>
             <br>
-            <a href='/temp/static_images/AdditionalInfo.html' target="_blank">Link to additional information and
+            <a href='/static/AdditionalInfo.html' target="_blank">Link to additional information and
                 history</a>
-            <br><br>
-        </div>
-        <hr style="width:50%">
-        <hr style="width:35%">
-        <hr style="width:20%">
-        <br>
-        <br>
     </footer>
 </body>
 

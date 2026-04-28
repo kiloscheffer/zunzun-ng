@@ -147,9 +147,14 @@ StatusMonitoredLongRunningProcessPage   # base: session I/O, PDF canvas, paralle
 
 `PerformAllWork()` on the base class drives the lifecycle: `GenerateListOfWorkItems` → `PerformWorkInParallel` → `ReportsAndGraphs` → PDF → write redirect to session. Subclasses override the first two.
 
-### `temp/` is both scratch and static
+### `static/` (committed assets) vs `temp/` (runtime outputs)
 
-`STATIC_URL = '/temp/'` and `STATICFILES_DIRS = (TEMP_FILES_DIR,)` — generated PDFs, graphs, and animations are served as static files from the same directory they are written to by child processes. `static_images/` (logo, favicon) lives there too. Do **not** add a separate static-files pipeline; the home-page cleanup logic assumes everything in `temp/` is disposable output.
+Two separate directories serve two separate URL prefixes:
+
+- **`static/`** at the project root holds committed assets that ship with the codebase: jQuery, favicon, logos, `custom.css`. Tracked in git, served at `STATIC_URL = '/static/'` via `django.contrib.staticfiles` (auto-served by `runserver` in DEBUG, by nginx/IIS in production).
+- **`temp/`** at the project root holds runtime-generated outputs: PDFs, error plots, surface animations written by spawned fit children. Gitignored except for a `.gitkeep` placeholder, served at `MEDIA_URL = '/temp/'` (dev: explicit `urlpatterns += static(MEDIA_URL, ...)` block in `urls.py`; production: nginx/IIS direct file serving). Auto-trimmed by `HomePageView`'s housekeeping when total size exceeds `MAX_TEMP_DIR_SIZE_IN_MBYTES` (default 500).
+
+For Python-side filesystem paths to static assets (e.g., the PDF watermark logo), use `settings.STATIC_FILES_DIR` (= `BASE_DIR/static`). For paths to runtime outputs, `settings.TEMP_FILES_DIR` (= `BASE_DIR/temp` and also `MEDIA_ROOT`). The split landed in the 2026-04-28 static-files restructure; before that, both lived under `temp/static_images/` and `temp/` with `STATIC_URL = '/temp/'`.
 
 ### `pid_trace.py` is dormant by design
 

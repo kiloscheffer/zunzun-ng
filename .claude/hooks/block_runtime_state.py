@@ -1,13 +1,10 @@
 #!/usr/bin/env python3
 # PreToolUse hook: refuse Edit/Write against live runtime state.
-# session_db/db.sqlite3 holds live session cookies; temp/ is scratch output
-# (also served as STATIC_URL) and is auto-trimmed when it exceeds 500 MB.
-# Hand-editing either corrupts a running server.
-#
-# Exception: temp/static_images/ contains committed static assets (logos,
-# jQuery bundle, favicon, custom.css). Those are tracked in git, persistent,
-# and the housekeeping logic in zunzun/views.py only inspects top-level
-# temp/ files (not subdirectories), so static_images/ is safe to edit.
+# session_db/db.sqlite3 holds live session cookies; temp/ is scratch
+# output (PDFs, graphs, animations from spawn-fit children), auto-trimmed
+# when it exceeds 500 MB. Hand-editing either corrupts a running server.
+# Committed static assets live at static/ (project root, separate from
+# temp/) since the static-files restructure on 2026-04-28.
 
 import json
 import sys
@@ -24,11 +21,6 @@ def main():
         sys.exit(0)
 
     norm = file_path.replace("\\", "/")
-
-    # Allow committed static assets in temp/static_images/.
-    if "/temp/static_images/" in norm:
-        sys.exit(0)
-
     blocked = (
         norm.endswith("session_db/db.sqlite3")
         or "/session_db/" in norm

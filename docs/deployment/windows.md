@@ -98,12 +98,16 @@ IIS Manager → (server node) → **Application Request Routing Cache** → (rig
 
 1. Sites → Add Website:
    - **Site name:** `zunzun-ng`
-   - **Physical path:** `C:\sites\zunzun-ng\temp` (IIS will serve static files directly from here)
+   - **Physical path:** `C:\sites\zunzun-ng` (IIS root; static-asset and temp subdirs served via virtual directories below)
    - **Binding:** port 80 (or 443 with a TLS certificate)
 
-2. Select the site → **URL Rewrite** → Add Rules → Reverse Proxy → enter `localhost:8000` as the inbound rule's backend.
+2. Add two virtual directories under the site for direct file serving:
+   - `/static` → physical path `C:\sites\zunzun-ng\static` (committed assets: logo, jQuery bundle, favicons, custom.css)
+   - `/temp` → physical path `C:\sites\zunzun-ng\temp` (runtime-generated PDFs, plots, animations)
 
-3. IIS will now serve `/temp/static_images/*` (logo, jQuery bundle, favicons) directly as static files and forward everything else to Waitress on port 8000.
+3. Select the site → **URL Rewrite** → Add Rules → Reverse Proxy → enter `localhost:8000` as the inbound rule's backend.
+
+4. IIS will now serve `/static/*` and `/temp/*` directly as static files (bypassing Waitress for performance) and forward everything else to Waitress on port 8000.
 
 ### TLS
 
