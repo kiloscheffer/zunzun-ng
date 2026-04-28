@@ -101,9 +101,10 @@ IIS Manager → (server node) → **Application Request Routing Cache** → (rig
    - **Physical path:** `C:\sites\zunzun-ng` (IIS root; static-asset and temp subdirs served via virtual directories below)
    - **Binding:** port 80 (or 443 with a TLS certificate)
 
-2. Add two virtual directories under the site for direct file serving:
+2. Add three virtual directories under the site for direct file serving:
    - `/static` → physical path `C:\sites\zunzun-ng\static` (committed assets: logo, jQuery bundle, favicons, custom.css)
    - `/temp` → physical path `C:\sites\zunzun-ng\temp` (runtime-generated PDFs, plots, animations)
+   - `/commonproblems` → physical path `C:\sites\zunzun-ng\commonproblems` (vendored "Common Problems" static reference site)
 
 3. Select the site → **URL Rewrite** → Add Rules → Reverse Proxy → enter `localhost:8000` as the inbound rule's backend.
 

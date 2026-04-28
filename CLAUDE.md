@@ -147,6 +147,12 @@ StatusMonitoredLongRunningProcessPage   # base: session I/O, PDF canvas, paralle
 
 `PerformAllWork()` on the base class drives the lifecycle: `GenerateListOfWorkItems` → `PerformWorkInParallel` → `ReportsAndGraphs` → PDF → write redirect to session. Subclasses override the first two.
 
+### `commonproblems/` (vendored static content)
+
+`commonproblems/` at the project root holds a vendored copy of `bitbucket.org/zunzuncode/commonproblems` (James R. Phillips's "Common Problems" reference site — animated confidence-interval visualizations of curve-fitting failure modes). 53 files: 9 HTML pages, 22 PNG stills, 16 animated GIFs, 2 generation scripts, plus `LICENSE` (BSD-2-clause) and `DEDICATION.txt`. Upstream is dormant since 2020-01; vendoring follows the same pattern as the `pyeq3-ng` companion fork — preserve a snapshot under our umbrella with attribution intact.
+
+Served at `/commonproblems/` via the `urls.py` static() helper in DEBUG mode and via nginx/IIS in production (see `docs/deployment/`). The internal links are all relative (`<a href="Outlier_A.html">` not `/commonproblems/Outlier_A.html`), so the content works wherever it's mounted.
+
 ### `static/` (committed assets) vs `temp/` (runtime outputs)
 
 Two separate directories serve two separate URL prefixes:
