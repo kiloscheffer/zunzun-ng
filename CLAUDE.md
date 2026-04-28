@@ -41,6 +41,12 @@ uv run python scripts/smoke_test.py
 
 Starts a throwaway Waitress, POSTs a 2D polynomial-quadratic fit, polls for completion, asserts structural markers in the result. Useful after a fresh clone or dep bump. Takes ~1–2 min on Linux, ~3–5 min on Windows.
 
+## Development quirks
+
+- **Always prefix `uv` commands with `UV_LINK_MODE=copy`.** The repo lives in a Dropbox-synced directory; uv's default hardlink installs corrupt under Dropbox sync. Applies to `uv sync`, `uv run`, `uv lock` — all of them.
+- **Cold-cache smoke flakiness.** The first smoke run after `rm -rf .venv && uv sync` (especially after a pyeq3 reinstall) can time out on 3D scenarios because spawn workers compile `.pyc` files on first import. Re-running on the warm venv passes. See the 4-worker-cap entry in `BACKLOG.md` for context.
+- **uv file-lock errors** (`failed to remove directory ... process cannot access`) usually mean Windows Defender or another uv invocation is touching the venv. Resolution: `rm -rf .venv && UV_LINK_MODE=copy uv sync` rebuilds cleanly. Don't run pytest + smoke in parallel right after a `uv lock` that changed any source URL.
+
 ## Dependencies
 
 Python deps are declared in `pyproject.toml` and pinned in the committed `uv.lock`. Runtime group: Django (pinned `>=6.0,<6.1`), django-ratelimit, pyeq3, scipy, matplotlib, numpy, reportlab, psutil, beautifulsoup4, lxml, waitress. Dev group: mypy, pytest, pytest-django, requests.
@@ -63,7 +69,7 @@ Two layers:
 uv run pytest tests/ -v
 ```
 
-40 tests cover `zunzun/platform_compat.py` (load-avg shim, parallel-process count, subprocess wrapper, binary availability), `ChildPayload` round-trip, and pickle-safety of every concrete `LRP` subclass's payload. Runs in ~2 seconds; no server required.
+78 tests cover `zunzun/platform_compat.py` (load-avg shim, parallel-process count, subprocess wrapper, binary availability), `ChildPayload` round-trip, pickle-safety of every concrete `LRP` subclass's payload, URL routing, view-render integration, and session round-trip. Runs in ~20 seconds; no server required.
 
 **End-to-end smoke** in `scripts/smoke_test.py` runs the full stack:
 
@@ -148,6 +154,12 @@ StatusMonitoredLongRunningProcessPage   # base: session I/O, PDF canvas, paralle
 ### `pid_trace.py` is dormant by design
 
 Both functions in `zunzun/LongRunningProcess/pid_trace.py` `return` at the top. The calls scattered through `StatusMonitoredLongRunningProcessPage.py` are debugging hooks that are no-ops in production. To enable per-fork trace files, remove the early `return`s; don't remove the call sites.
+
+## Conventions
+
+- **Feature branches with `--no-ff` merges.** Every non-trivial change goes through a feature branch and merges to master with `--no-ff`, preserving topology in `git log --first-parent`. Recent merge commits on master are templates for the commit-message structure (rationale, scope, verification, references to specs/plans).
+- **Historical specs and plans freeze their names.** Files under `docs/superpowers/specs/` and `docs/superpowers/plans/` keep their original names through any rename; only the *live surface* (active code, current docs, live identifiers) gets updated. RESOLVED entries in `BACKLOG.md` similarly preserve names that were current at resolution time — those documents describe work done under those names.
+- **Bulk `replace_all` is unsafe when a substring spans live identifiers AND historical filename references.** Use targeted Edit calls instead. Real example: `pyeq3ng → pyeq3-ng` over-substituted into a comment referencing the historical filename `pyeq3ng-odr-port-design.md` (commit `b1936c5`'s sloppy moment, fixed in `2ebff08`).
 
 ## Settings that must be filled before deploy
 
