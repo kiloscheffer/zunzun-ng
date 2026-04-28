@@ -1,8 +1,14 @@
-# TODO — known deferred issues
+# BACKLOG — known deferred issues and improvements
 
-Tracked items that are real defects or loose ends, but are scoped out of the
-current branch. Each entry documents the symptom, the hypothesis, what we
-*didn't* do, and where to pick up from.
+Tracked items that are real defects, loose ends, or quality improvements
+worth doing eventually but scoped out of the current branch. Each entry
+documents the symptom, the hypothesis, what we *didn't* do, and where to
+pick up from. Closed items are preserved with strikethrough headings for
+historical reference.
+
+Renamed from `TODO.md` on 2026-04-28 — the file's scope had grown beyond
+"things broken right now" to also cover quality refactors and cosmetic
+modernization, which `BACKLOG` captures more honestly.
 
 ## ~~3D fit spawn-Pool deadlock on Windows smoke~~ RESOLVED 2026-04-19
 
@@ -577,3 +583,228 @@ Windows 11 is a good baseline) before merging.
 optimization, not a correctness fix. It deserves its own branch
 with its own spec and before/after benchmark measurements
 captured in the design doc.
+
+## Factor out session.save() retry helper
+
+**Symptom / exposure.** Every `session.save()` call inside the LRP child
+process is wrapped in a 100-retry @ 10Hz loop because spawn-children
+contend on the SQLite session DB. The canonical pattern is in
+`StatusMonitoredLongRunningProcessPage.SaveDictionaryOfItemsToSessionStore`,
+copy-pasted to other save sites. Easy to forget when adding a new save
+site, and the only enforcement is the `fork-pattern-reviewer` agent's
+grep for the literal retry loop.
+
+**Why it's worth fixing.** DRY violation that creates an ongoing footgun.
+Centralizing the retry into a single helper:
+
+- Single source of truth for retry semantics (count, delay, exception
+  scope).
+- New save sites are obviously correct — `save_with_retry(s)` is hard
+  to typo.
+- The reviewer agent's check simplifies to "every session save is a
+  `save_with_retry` call" instead of "every session save is followed
+  by a 100-retry loop matching this exact shape."
+
+**Where to pick up.**
+
+1. Add `save_with_retry(session, *, max_retries=100, delay=0.1)` to
+   `StatusMonitoredLongRunningProcessPage.py` (or a new
+   `zunzun/session_helpers.py` if the helper count grows).
+2. Replace each in-line retry loop with a single call. Find them with
+   `grep -n 'session.save\|s.save\|.save()' zunzun/`.
+3. Update `.claude/agents/fork-pattern-reviewer.md` to look for
+   `save_with_retry` instead of the raw retry pattern.
+4. Add a unit test covering the retry-on-failure path (mock a session
+   that raises N times then succeeds).
+
+**Not in scope of any current branch.** Pure refactor; no behavior
+change. Worth a small focused commit when convenient.
+
+## Auto-coerce numpy values via custom JSONEncoder
+
+**Symptom / exposure.** Django's default `JSONSerializer` (the session
+backend's serializer since the JSON-native session migration) doesn't
+know how to serialize numpy types — neither `numpy.float64` scalars nor
+`numpy.ndarray` arrays. The codebase works around this with
+`_json_native(...)` calls at every `SaveSpecificDataToSessionStore`
+site in the LRP subclass tree, manually casting values before the
+write so JSON serialization succeeds.
+
+**Why it's worth fixing.** Same shape as the retry-loop issue: a
+copy-pasted workaround that's easy to forget on new save sites.
+The `_json_native` helper itself is fine; the problem is having to
+remember to call it. A custom `JSONEncoder` that handles numpy
+coercion automatically removes the requirement to remember.
+
+**Where to pick up.**
+
+1. Define a `JSONEncoder` subclass (alongside `_json_native`, or
+   replacing it) that overrides `default()` to coerce numpy scalars
+   and arrays to plain Python primitives. The existing
+   `_json_native` logic is the body — just lifted into the encoder.
+2. Either subclass Django's `JSONSerializer` to inject the encoder,
+   or set `SESSION_SERIALIZER` to a custom serializer in
+   `settings.py`.
+3. Remove `_json_native` calls from save sites once the encoder
+   handles coercion at serialization time.
+4. Add a unit test that round-trips a session containing numpy
+   values (scalar + 1D array + nested dict) through the new
+   serializer.
+
+**Not in scope of any current branch.** Pure refactor; no behavior
+change. Cross-cutting touch (every save site changes), so worth
+doing in one focused commit rather than incrementally.
+
+## Replace pid_trace.py with proper logging
+
+**Symptom / exposure.** `zunzun/LongRunningProcess/pid_trace.py`
+contains two functions that `return` at the top — explicit no-ops
+in production. Calls to them are scattered through
+`StatusMonitoredLongRunningProcessPage.py` as debugging hooks. To
+enable per-process trace files, the maintainer is expected to
+remove the early `return`s in source. CLAUDE.md documents this as
+"dormant by design."
+
+**Why it's worth fixing.** Source-edit-to-enable-debug is a smell
+that predates Python's modern logging conventions. With proper
+logging:
+
+- A future maintainer enables per-process traces by setting a
+  logger level via env var or a `LOGGING` dict in `settings.py` —
+  no source edits, no commit churn.
+- Output integrates with Django's logging configuration, so it
+  goes wherever other Django logs go (file, stderr, journald).
+- Free metadata: timestamps, process IDs, log levels.
+- The `pid_trace.py` file itself can be deleted, removing one
+  small but persistent piece of "what's this for?" cognitive
+  load on new contributors.
+
+**Where to pick up.**
+
+1. Replace each `pid_trace.<function>(...)` call with
+   `logging.getLogger("zunzun.lrp").debug(...)` (or a similar
+   per-LRP logger name).
+2. Add a `LOGGING` config block to `settings.py` with the
+   per-LRP logger declared at WARNING by default; document how
+   to bump to DEBUG for trace mode.
+3. Delete `zunzun/LongRunningProcess/pid_trace.py` and any
+   `from . import pid_trace` lines.
+4. Update `CLAUDE.md`'s "`pid_trace.py` is dormant by design"
+   subsection — replace it with a "Per-LRP logger" subsection
+   pointing at the `LOGGING` config.
+
+**Not in scope of any current branch.** Cleanup; no production
+behavior change in the dormant state.
+
+## Convert CommonToAllViews to Django middleware
+
+**Symptom / exposure.** Every view function in `zunzun/views.py`
+manually calls `CommonToAllViews(request)` at the top. The
+function performs three pieces of housekeeping:
+
+- Zombie-child reap (`platform_compat.reap_completed_children()`).
+- Rate-limit sleep (5 seconds if `request.limited` is set by
+  django-ratelimit).
+- Load-average check / log via `platform_compat.get_loadavg()`.
+
+If a new view forgets to call `CommonToAllViews`, none of this runs
+for that route. The only enforcement is "remember" plus the
+`fork-pattern-reviewer` agent grepping for `CommonToAllViews(`
+near the top of every view.
+
+**Why it's worth fixing.** Django middleware is the canonical
+mechanism for "do something on every request." Converting:
+
+- Auto-applies to every view, including future ones.
+- Removes the manual-call requirement entirely.
+- Removes one of the `fork-pattern-reviewer` agent's checks
+  (the middleware presence becomes the gate).
+- Better Django idiom — easier for new contributors to navigate.
+
+**Where to pick up.**
+
+1. Create `zunzun/middleware.py` with a class:
+
+   ```python
+   class CommonToAllViewsMiddleware:
+       def __init__(self, get_response):
+           self.get_response = get_response
+       def __call__(self, request):
+           # zombie reap
+           # rate-limit sleep
+           # load-average check
+           return self.get_response(request)
+   ```
+
+2. Add the class to `MIDDLEWARE` in `settings.py`, after
+   `RatelimitMiddleware` so `request.limited` is already set
+   when the middleware runs.
+3. Remove the manual `CommonToAllViews(request)` call from every
+   view in `zunzun/views.py`.
+4. Either delete the `CommonToAllViews` function once nothing
+   calls it, or keep it as the middleware's implementation
+   detail.
+5. Update `.claude/agents/fork-pattern-reviewer.md` — replace the
+   "every entry-point view must call `CommonToAllViews`" check
+   with "the middleware class is registered in `settings.MIDDLEWARE`."
+
+**Not in scope of any current branch.** Pure refactor; no behavior
+change visible to users.
+
+## Modernize HTML/CSS in templates
+
+**Symptom / exposure.** `templates/zunzun/*.html` uses deprecated
+HTML 4.01 elements throughout:
+
+- `<TABLE ALIGN="CENTER">` and table-based layouts everywhere.
+- `<TD ALIGN="CENTER">`, `<BASEFONT SIZE="3">`, `<FONT SIZE="+1">`.
+- Inline `align`, `border`, `nowrap`, `cellpadding`, `cellspacing`
+  attributes.
+- `<center>` element.
+- No external CSS file — styles are inline or attribute-based.
+
+All of these have been deprecated since HTML 4.01 (1999) and are
+not part of HTML5. Modern browsers still parse and display them
+(HTML's backwards-compatibility story is generous), but the
+visual result is locked in 1990s aesthetics and the markup fails
+any contemporary HTML linter.
+
+**Why it's worth fixing.**
+
+- Aesthetic — the maintainer plans a layout modernization.
+- Linter cleanliness — current state generates 100+ deprecation
+  warnings in any HTML5 validator.
+- Mobile / responsive — table-based layouts don't reflow on
+  small screens; CSS grid/flexbox does.
+- Future browser compatibility — at some point a major browser
+  may drop deprecated elements entirely. Unlikely soon, but the
+  longer it's deferred the more code accumulates that depends on
+  the old shape.
+
+**Where to pick up.**
+
+1. Pick one template as a pattern-establishing pilot.
+   `templates/zunzun/divs/about.html` is the smallest target
+   (currently ~20 lines) and was deliberately styled to match
+   the rest of the site, so updating it sets the convention.
+2. Convert table-based layouts to CSS grid or flexbox.
+3. Replace `<FONT>` and `<BASEFONT>` with semantic HTML
+   (`<h2>`, `<strong>`, etc.) plus a CSS class for sizing.
+4. Move inline `align` / `border` / `cellpadding` / `nowrap`
+   attributes to a stylesheet.
+5. Replace `<center>` with CSS centering (text or flexbox).
+6. Add a single `temp/static_images/zunzun.css` (matching the
+   existing static-image-serving convention) for the shared
+   rules. Reference it from `generic_page_template.html` so all
+   pages pick it up.
+7. Run output through an HTML linter (`htmlhint`,
+   `vnu.jar`, etc.) and iterate until clean.
+8. Visually QA each affected page in a browser before/after.
+9. Once the pattern is established, work through the remaining
+   templates incrementally — each one is a small focused commit.
+
+**Not in scope of any current branch.** Cosmetic; no behavior
+change. Smoke test's substring-marker assertions on
+`ZunZunNG`, `Polynomial`, `Thank you`, etc. don't match on
+layout HTML, so they're robust to the modernization. The
+maintainer plans this as a future dedicated effort.

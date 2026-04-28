@@ -8,7 +8,7 @@ ZunZunNG is a Django site that performs 2D/3D nonlinear curve & surface fitting 
 
 It is a permanent fork of `bitbucket.org/zunzuncode/zunzunsite3` (James R. Phillips's Python 3 port of zunzun.com — see `LICENSE.txt` for the `Copyright (C) 2016 James R. Phillips` notice, retained under BSD-2-clause terms), modernized for Python 3.14 / Django 6.0, ported off `scipy.odr` via the `pyeq3-ng` fork, and made cross-platform (Linux, macOS, Windows) by replacing the original `os.fork()` architecture with `multiprocessing.Process(spawn)`. Hosted at `github.com/kiloscheffer/zunzun-ng`. The original bitbucket repo has been dormant since 2020.
 
-**Identity-rename scope note.** The top-level project identity is ZunZunNG, but the user-facing HTML templates (page titles, headers, about page) and PDF / graph watermark strings still display "ZunZunSite3". That cleanup is scoped as its own follow-up branch (see `TODO.md`) — this README, `pyproject.toml`, and `CLAUDE.md` are renamed; internal display strings are not. The Django app folder is still `zunzun/` (renaming it would churn ~every file path and add zero value).
+**Identity-rename scope note.** The top-level project identity is ZunZunNG. The user-facing HTML templates (page titles, headers, about page) and PDF / graph watermark strings were updated to display ZunZunNG in commit `9d3ba63` (resolved entry in `BACKLOG.md`); James R. Phillips's original prose is preserved verbatim in `templates/zunzun/divs/about.html` per BSD-2-clause attribution. The Django app folder is still `zunzun/` (renaming it would churn ~every file path and add zero value).
 
 ## Running the site
 
