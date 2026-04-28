@@ -22,11 +22,24 @@ dependencies = [
     # numpy 2.x strict comparison semantics: numpy.array([]) != [] raises
     # rather than returning False. FittingBaseClass.estimatedCoefficients
     # relies on this (see commit history for the numpy-empty-array fix).
-    "numpy>=2.0",
-    "scipy",
+    # Ceiling <3 guards against the next major; numpy has historically
+    # broken APIs at major versions (the 1.x -> 2.x transition broke the
+    # entire scientific-Python ecosystem for several months).
+    "numpy>=2.0,<3",
+    # Ceiling <2 guards against the next major. scipy has broken APIs at
+    # minor versions in the past (the scipy.odr removal in 1.19 prompted
+    # the pyeq3-ng fork on 2026-04-20), so a major bump warrants an
+    # explicit revalidation pass. No floor declared because the codebase
+    # calls only stable APIs (curve_fit, optimize.differential_evolution,
+    # interpolate.BSpline) that haven't moved within the 1.x line.
+    "scipy<2",
     # matplotlib 3.2 removed the `normed=` kwarg in favor of `density=`.
     # MatplotlibGraphs_2D.py calls density=; older matplotlib TypeErrors.
-    "matplotlib>=3.2",
+    # Ceiling <4 guards against the next major. matplotlib has a track
+    # record of breaking minor-version changes (the normed/density swap
+    # being one example); major bumps are higher blast radius and worth
+    # an explicit revalidation gate.
+    "matplotlib>=3.2,<4",
     "reportlab",
     # Pillow powers matplotlib.animation.PillowWriter, which is used
     # directly by ScatterAnimation / SurfaceAnimation for 3D animated
