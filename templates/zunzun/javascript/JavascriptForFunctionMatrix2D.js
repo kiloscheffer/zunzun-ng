@@ -31,7 +31,7 @@
             d.layers[id].borderStyle = os;
         }
 
-        tstr = "<B>y = </B>";
+        tstr = "<b>y = </b>";
         str = "";
         count = 0;
         for (i=0; i<len; i++)
@@ -47,13 +47,13 @@
 				{
 					if (d.layers[i].id.toString() == "CPX0")
 					{
-						str += '<B>' + d.layers[i].innerHTML + '</B>';
+						str += '<b>' + d.layers[i].innerHTML + '</b>';
 					}
 					else
 					{
 						if (count > 0)
 							tstr += "&nbsp+ ";
-						tstr += '<B>' + c[count] + '(&nbsp;</B>' + d.layers[i].innerHTML + '<B>&nbsp;)</B>';
+						tstr += '<b>' + c[count] + '(&nbsp;</b>' + d.layers[i].innerHTML + '<b>&nbsp;)</b>';
 						count += 1;
 					}
 				}
@@ -61,16 +61,16 @@
 				{
 					if (count > 0)
 						tstr += "&nbsp+ ";
-					tstr += '<B>' + c[count] + '</B>' + d.layers[i].innerHTML;
+					tstr += '<b>' + c[count] + '</b>' + d.layers[i].innerHTML;
 					count += 1;
 				}
             }
         }
-        if (tstr == "<B>y = </B>")
+        if (tstr == "<b>y = </b>")
              tstr += str;
         else
             if (str != "")
-                tstr += "&nbsp;<B>+</B> " + str;
+                tstr += "&nbsp;<b>+</b> " + str;
         d.layers['FUNCTION'].innerHTML = tstr;
     }
 
@@ -102,7 +102,7 @@
             d.all[id].style.borderStyle = os;
         }
 
-        tstr = "<B>y = </B>";
+        tstr = "<b>y = </b>";
         str = "";
         count = 0;
         for (i=0; i<len; i++)
@@ -118,13 +118,13 @@
 				{
 					if (d.all[i].id.toString() == "CPX0")
 					{
-						str += '<B>' + d.all[i].innerHTML + '</B>';
+						str += '<b>' + d.all[i].innerHTML + '</b>';
 					}
 					else
 					{
 						if (count > 0)
 							tstr += "&nbsp+ ";
-						tstr += '<B>' + c[count] + '(&nbsp;</B>' + d.all[i].innerHTML + '<B>&nbsp;)</B>';
+						tstr += '<b>' + c[count] + '(&nbsp;</b>' + d.all[i].innerHTML + '<b>&nbsp;)</b>';
 						count += 1;
 					}
 				}
@@ -132,16 +132,16 @@
 				{
 					if (count > 0)
 						tstr += "&nbsp+ ";
-					tstr += '<B>' + c[count] + '</B>' + d.all[i].innerHTML;
+					tstr += '<b>' + c[count] + '</b>' + d.all[i].innerHTML;
 					count += 1;
 				}
             }
         }
-        if (tstr == "<B>y = </B>")
+        if (tstr == "<b>y = </b>")
              tstr += str;
         else
             if (str != "")
-                tstr += "&nbsp;<B>+</B> " + str;
+                tstr += "&nbsp;<b>+</b> " + str;
         d.all['FUNCTION'].innerHTML = tstr;
     }
  }

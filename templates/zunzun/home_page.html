@@ -22,22 +22,22 @@ Online Curve Fitting and Surface Fitting with Python Source Code
 
 {# menu item titles ------------------------------------------------------- #}
 {# menu item titles ------------------------------------------------------- #}
-<TABLE ALIGN="CENTER">
-<TR>
-<TD ALIGN="CENTER"><B>2D Functions</B></TD>
-<TD>&nbsp;</TD>
-<TD ALIGN="CENTER"><B>3D Functions</B></TD>
-<TD>&nbsp;</TD>
-<TD ALIGN="CENTER"><B>Characterizers</B></TD>
-<TD>&nbsp;</TD>
-<TD ALIGN="CENTER"><B>Site Related</B></TD>
-</TR>
-<TR>
+<table ALIGN="CENTER">
+<tr>
+<td ALIGN="CENTER"><b>2D Functions</b></td>
+<td>&nbsp;</td>
+<td ALIGN="CENTER"><b>3D Functions</b></td>
+<td>&nbsp;</td>
+<td ALIGN="CENTER"><b>Characterizers</b></td>
+<td>&nbsp;</td>
+<td ALIGN="CENTER"><b>Site Related</b></td>
+</tr>
+<tr>
 
 {# equation menus ------------------------------------------------------- #}
 {# equation menus ------------------------------------------------------- #}
 {% for dim_to_map in dim_to_map_list %}
-    <TD ALIGN="CENTER">    <select ID="s{{ forloop.counter }}" size=1>
+    <td ALIGN="CENTER">    <select ID="s{{ forloop.counter }}" size=1>
     <option>
     <option value='introDiv' SELECTED>Introduction
     <option value='spline{{ dim_to_map.0 }}DDiv'>Spline Interpolation
@@ -46,24 +46,24 @@ Online Curve Fitting and Surface Fitting with Python Source Code
     {% for equationClassPropertyList in dim_to_map.1 %}{% if equationClassPropertyList.firstItemInSubmoduleFlag %}<option value="A{{ dim_to_map.0 }}DA{{ equationClassPropertyList.submoduleName }}">{{ equationClassPropertyList.submoduleName }}{% endif %}{% endfor %}
     <option value='allEquations{{ dim_to_map.0 }}DDiv' SELECTED>List All Equations
     </select>
-    </TD>
-    <TD>&nbsp;</TD>
+    </td>
+    <td>&nbsp;</td>
 {% endfor %}
 
 {# characterize data menu ------------------------------------------------------- #}
 {# characterize data menu ------------------------------------------------------- #}
-<TD ALIGN="CENTER"><select ID="s3" size=1>
+<td ALIGN="CENTER"><select ID="s3" size=1>
 <option>
 <option value='introDiv' SELECTED>Introduction
 <option value='characterizeDataDiv'>Characterizers
 </select>
-</TD>
+</td>
 
-<TD>&nbsp;</TD>
+<td>&nbsp;</td>
 
 {# about, etc menu ------------------------------------------------------- #}
 {# about, etc menu ------------------------------------------------------- #}
-<TD ALIGN="CENTER"><select ID="s4" size=1>
+<td ALIGN="CENTER"><select ID="s4" size=1>
 <option>
 <option value='introDiv' SELECTED>Introduction
 <option value='aboutDiv'>About
@@ -71,10 +71,10 @@ Online Curve Fitting and Surface Fitting with Python Source Code
 <option value='historicalNoteDiv'>Historical Note
 <option value='serverloadDiv'>Server Load
 </select>
-</TD>
+</td>
 
-</TR>
-</TABLE>
+</tr>
+</table>
 <br>
 
 {# DIVS --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- #}
@@ -85,82 +85,82 @@ Online Curve Fitting and Surface Fitting with Python Source Code
 {# introduction div ------------------------------------------------------- #}
 {# introduction div ------------------------------------------------------- #}
 <div ID="introDiv" align='center' name="hideable_div">
-<B><span style="font-size:larger">Welcome to ZunZunNG</span></B><BR><BR>
+<b><span style="font-size:larger">Welcome to ZunZunNG</span></b><br><br>
 Here you can curve fit and surface fit your 2D and 3D data online with<br>
 a rich set of error histograms, error plots, curve plots, surface plots,<br>
 contour plots, auto-generated source code, and PDF file output.<br>
-<BR>
+<br>
 If you're looking for high quality curve fitting and surface fitting, this is<br>
 the site for you! Source code is available at the <a href="https://github.com/kiloscheffer/zunzun-ng">GitHub Code Repository</a>.<br>
-<BR>
-To begin, select an equation family from the drop-down menus above or try<BR>
-the "Function Finders" to help determine the best curve fit for your data.<BR>
-<BR><BR><hr style="width:50%; margin:0 auto"><BR>
+<br>
+To begin, select an equation family from the drop-down menus above or try<br>
+the "Function Finders" to help determine the best curve fit for your data.<br>
+<br><br><hr style="width:50%; margin:0 auto"><br>
 
-<TABLE ALIGN="CENTER">
-  <TR>
-    <TD ALIGN="CENTER"><A HREF="https://www.debian.org"><IMG SRC="/temp/static_images/DebianLogo.png" ALT="Powered by Debian Linux"></A></TD>
-    <TD>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</TD>
-    <TD ALIGN="CENTER"><A HREF="http://www.python.org/"><IMG SRC="/temp/static_images/tbtfpython.png" ALT="Written in Python"></A></TD>
-    <TD>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</TD>
-    <TD ALIGN="CENTER"><A HREF="http://www.djangoproject.com/"><IMG SRC="/temp/static_images/django.png" ALT="Using the Django Web Framework"></A></TD>
-  </TR>
-  <TR>
-    <TD ALIGN="CENTER">Powered by<br><A HREF="https://www.debian.org">Debian Linux</A></TD>
-    <TD>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</TD>
-    <TD ALIGN="CENTER">Written in<br><A HREF="http://www.python.org/">Python</A></TD>
-    <TD>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</TD>
-    <TD ALIGN="CENTER">Using the<br><A HREF="http://www.djangoproject.com/">Django Web Framework</A></TD>
-  </TR>
-  <TR>
-    <TD>&nbsp;</TD>
-    <TD>&nbsp;</TD>
-    <TD>&nbsp;</TD>
-    <TD>&nbsp;</TD>
-    <TD>&nbsp;</TD>
-  </TR>
-  <TR>
-    <TD ALIGN="CENTER"><a href="http://wingware.com/"><img src="/temp/static_images/wingware_logo.png" alt="Wingware"></A></TD>
-    <TD>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</TD>
-    <TD ALIGN="CENTER"><A HREF="https://github.com/matplotlib/matplotlib"><IMG SRC="/temp/static_images/matplotlib.png" ALT="Plotted by Matplotlib"></A></TD>
-    <TD>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</TD>
-    <TD ALIGN="CENTER"><a href="http://www.reportlab.com/software/opensource/"><img src="/temp/static_images/ReportLabLogo.png" alt="PDF Generation by ReportLab"></A></TD>
-  </TR>
-  <TR>
-    <TD ALIGN="CENTER">Coded with<br><A HREF="http://wingware.com/">Wingware</A></TD>
-    <TD>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</TD>
-    <TD ALIGN="CENTER">Plotted by<br><A HREF="https://github.com/matplotlib/matplotlib">Matplotlib</A></TD>
-    <TD>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</TD>
-    <TD ALIGN="CENTER">PDF Generation by<br><A HREF="http://www.reportlab.com/opensource/">Report Lab</A></TD>
-  </TR>
-  <TR>
-    <TD>&nbsp;</TD>
-    <TD>&nbsp;</TD>
-    <TD>&nbsp;</TD>
-    <TD>&nbsp;</TD>
-    <TD>&nbsp;</TD>
-  </TR>
-  <TR>
-    <TD ALIGN="CENTER"><a href="https://www.xfce.org/"><img src="/temp/static_images/xfce_logo.png" alt="geany"></A></TD>
-    <TD>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</TD>
-    <TD ALIGN="CENTER"><a href="https://groups.google.com/g/findcurves"><img src="/temp/static_images/groups_logo.gif" alt="FindCurves Google Group"></A></TD>
-    <TD>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</TD>
-    <TD ALIGN="CENTER"><a href="https://www.geany.org/"><img src="/temp/static_images/geany_logo.png" alt="geany"></A></TD>
-  </TR>
-  <TR>
-    <TD ALIGN="CENTER">Developed on<br><A HREF="https://www.xfce.org/">XFCE</A></TD>
-    <TD>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</TD>
-    <TD ALIGN="CENTER">FindCurves<A HREF="https://groups.google.com/g/findcurves"> Google<br>discussion group</A></TD>
-    <TD>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</TD>
-    <TD ALIGN="CENTER">Maintained with<br><A HREF="https://www.geany.org/">geany</A></TD>
-  </TR>
-</TABLE>
+<table ALIGN="CENTER">
+  <tr>
+    <td ALIGN="CENTER"><a HREF="https://www.debian.org"><img SRC="/temp/static_images/DebianLogo.png" ALT="Powered by Debian Linux"></a></td>
+    <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+    <td ALIGN="CENTER"><a HREF="http://www.python.org/"><img SRC="/temp/static_images/tbtfpython.png" ALT="Written in Python"></a></td>
+    <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+    <td ALIGN="CENTER"><a HREF="http://www.djangoproject.com/"><img SRC="/temp/static_images/django.png" ALT="Using the Django Web Framework"></a></td>
+  </tr>
+  <tr>
+    <td ALIGN="CENTER">Powered by<br><a HREF="https://www.debian.org">Debian Linux</a></td>
+    <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+    <td ALIGN="CENTER">Written in<br><a HREF="http://www.python.org/">Python</a></td>
+    <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+    <td ALIGN="CENTER">Using the<br><a HREF="http://www.djangoproject.com/">Django Web Framework</a></td>
+  </tr>
+  <tr>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td ALIGN="CENTER"><a href="http://wingware.com/"><img src="/temp/static_images/wingware_logo.png" alt="Wingware"></a></td>
+    <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+    <td ALIGN="CENTER"><a HREF="https://github.com/matplotlib/matplotlib"><img SRC="/temp/static_images/matplotlib.png" ALT="Plotted by Matplotlib"></a></td>
+    <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+    <td ALIGN="CENTER"><a href="http://www.reportlab.com/software/opensource/"><img src="/temp/static_images/ReportLabLogo.png" alt="PDF Generation by ReportLab"></a></td>
+  </tr>
+  <tr>
+    <td ALIGN="CENTER">Coded with<br><a HREF="http://wingware.com/">Wingware</a></td>
+    <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+    <td ALIGN="CENTER">Plotted by<br><a HREF="https://github.com/matplotlib/matplotlib">Matplotlib</a></td>
+    <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+    <td ALIGN="CENTER">PDF Generation by<br><a HREF="http://www.reportlab.com/opensource/">Report Lab</a></td>
+  </tr>
+  <tr>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <td ALIGN="CENTER"><a href="https://www.xfce.org/"><img src="/temp/static_images/xfce_logo.png" alt="geany"></a></td>
+    <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+    <td ALIGN="CENTER"><a href="https://groups.google.com/g/findcurves"><img src="/temp/static_images/groups_logo.gif" alt="FindCurves Google Group"></a></td>
+    <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+    <td ALIGN="CENTER"><a href="https://www.geany.org/"><img src="/temp/static_images/geany_logo.png" alt="geany"></a></td>
+  </tr>
+  <tr>
+    <td ALIGN="CENTER">Developed on<br><a HREF="https://www.xfce.org/">XFCE</a></td>
+    <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+    <td ALIGN="CENTER">FindCurves<a HREF="https://groups.google.com/g/findcurves"> Google<br>discussion group</a></td>
+    <td>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+    <td ALIGN="CENTER">Maintained with<br><a HREF="https://www.geany.org/">geany</a></td>
+  </tr>
+</table>
 </div>
 
 
 {# data characterizers div ------------------------------------------------------- #}
 {# data characterizers div ------------------------------------------------------- #}
-<DIV ID="characterizeDataDiv" align='center' name="hideable_div" style="display:none;">
+<div ID="characterizeDataDiv" align='center' name="hideable_div" style="display:none;">
 <b>Characterize Data </b><br><br>
 <table>
 <tr><td ALIGN="CENTER"><a HREF="CharacterizeData/1/">Characterize 1D (X) Data</a></td></tr>
@@ -169,16 +169,16 @@ the "Function Finders" to help determine the best curve fit for your data.<BR>
 <tr><td> &nbsp;</td></tr>
 <tr><td ALIGN="CENTER"><a HREF="StatisticalDistributions/1/">Fit Data To Statistical Distributions</a></td></tr>
 </table>
-</DIV>
+</div>
 
 
 {# function finders div ------------------------------------------------------- #}
 {# function finders div ------------------------------------------------------- #}
 {% for dim_to_map in dim_to_map_list %}
-    <DIV ID="functionFinder{{ dim_to_map.0 }}DDiv"  align='center' name="hideable_div" style="display:none;">
+    <div ID="functionFinder{{ dim_to_map.0 }}DDiv"  align='center' name="hideable_div" style="display:none;">
     <b>{{ dim_to_map.0 }}D Function Finder </b><br><br>
     <a HREF="FunctionFinder__F__/{{ dim_to_map.0 }}/">{{ dim_to_map.0 }}D Function Finder</a>
-    </DIV>
+    </div>
 {% endfor %}
 
 

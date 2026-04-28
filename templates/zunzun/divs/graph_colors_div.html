@@ -1,34 +1,34 @@
-<DIV ID="graphColors" align='center' name="hideable_div" style="display:none;">
-<B>Graph colors</B>
-<BR>
-<BR>
+<div ID="graphColors" align='center' name="hideable_div" style="display:none;">
+<b>Graph colors</b>
+<br>
+<br>
 Here you can select various color options for the output graphs.
 <br>
 <br>
-<TABLE BORDER="1" ALIGN="CENTER"><tr><td>
+<table BORDER="1" ALIGN="CENTER"><tr><td>
  <table>
-  <TR>
+  <tr>
     {{ mainForm.graphBackgroundColor }}
-	<TD align='left'>Graph background color</TD>
-  </TR>
-  <TR>
+	<td align='left'>Graph background color</td>
+  </tr>
+  <tr>
     {{ mainForm.graphTextColor }}
-	<TD align='left'>Graph text color</TD>
-  </TR>
-  <TR>
+	<td align='left'>Graph text color</td>
+  </tr>
+  <tr>
     {{ mainForm.graphLineColor }}
-	<TD align='left'>Graph line color</TD>
+	<td align='left'>Graph line color</td>
 {% if dimensionality == '3' %}
-  </TR>
-  <TR>
+  </tr>
+  <tr>
     {{ mainForm.graphFrameColor }}
-	<TD align='left'>Graph frame color</TD>
-  </TR>
-  <TR>
+	<td align='left'>Graph frame color</td>
+  </tr>
+  <tr>
     {{ mainForm.graphMeshColor }}
-	<TD align='left'>3D mesh color</TD>
+	<td align='left'>3D mesh color</td>
 {% endif %}
-  </TR>
+  </tr>
  </table>
-</td></tr></TABLE>
-</DIV>
+</td></tr></table>
+</div>

@@ -1,29 +1,29 @@
-<DIV ID="graphScale" align='center' name="hideable_div" style="display:none;">
-<B>Graph scaling and lin/log control</B><BR><BR>
-Here you can choose the scaling of the data{% if dimensionality != '3' %} plots.{% else %}<BR>plots and the 3D scatterplots.{% endif %}
+<div ID="graphScale" align='center' name="hideable_div" style="display:none;">
+<b>Graph scaling and lin/log control</b><br><br>
+Here you can choose the scaling of the data{% if dimensionality != '3' %} plots.{% else %}<br>plots and the 3D scatterplots.{% endif %}
 <br>
 Log plots require data values greater than zero.
 <br>
 <br>
-<TABLE >
-    <TR>
-        <TD ALIGN=CENTER>X Scale (2D Only)</TD>
+<table >
+    <tr>
+        <td ALIGN=CENTER>X Scale (2D Only)</td>
 {% if dimensionality != '1' %}
-        <TD> &nbsp; </TD>
-        <TD ALIGN=CENTER>Y Scale (2D Only)</TD>
+        <td> &nbsp; </td>
+        <td ALIGN=CENTER>Y Scale (2D Only)</td>
 {% if dimensionality == '3' %}
-        <TD> &nbsp; </TD>
-        <TD ALIGN=CENTER>Z Scale (2D Only)</TD>
+        <td> &nbsp; </td>
+        <td ALIGN=CENTER>Z Scale (2D Only)</td>
 {% endif %}
 {% endif %}
-    </TR>
-    <TR>
-        <TD>
-            <TABLE BORDER="1">
-            <TR>
-            <TD>
-                <TABLE >
-                <TR><TD ALIGN=LEFT>
+    </tr>
+    <tr>
+        <td>
+            <table BORDER="1">
+            <tr>
+            <td>
+                <table >
+                <tr><td ALIGN=LEFT>
                    {{ mainForm.graphScaleRadioButtonX }}
                 </td></tr>
                 <tr><td align='right'>
@@ -33,20 +33,20 @@ Log plots require data values greater than zero.
                 <tr><td> &nbsp; </td></tr>
                 <tr><td align='left'>
                    {{ mainForm.logLinX }}
-                </TD></TR>
-                </TABLE>
-            </TD>
-            </TR>
-            </TABLE>
-        </TD>
+                </td></tr>
+                </table>
+            </td>
+            </tr>
+            </table>
+        </td>
 {% if dimensionality != '1' %}
-        <TD> &nbsp; </TD>
-        <TD>
-            <TABLE BORDER="1">
-            <TR>
-            <TD>
-                <TABLE >
-                <TR><TD ALIGN=LEFT>
+        <td> &nbsp; </td>
+        <td>
+            <table BORDER="1">
+            <tr>
+            <td>
+                <table >
+                <tr><td ALIGN=LEFT>
                     {{ mainForm.graphScaleRadioButtonY }}
                 </td></tr>
                 <tr><td align='right'>
@@ -56,20 +56,20 @@ Log plots require data values greater than zero.
                 <tr><td> &nbsp; </td></tr>
                 <tr><td align='left'>
                    {{ mainForm.logLinY }}
-                </TD></TR>
-                </TABLE>
-            </TD>
-            </TR>
-            </TABLE>
-        </TD>
+                </td></tr>
+                </table>
+            </td>
+            </tr>
+            </table>
+        </td>
 {% if dimensionality == '3' %}
-        <TD> &nbsp; </TD>
-        <TD>
-            <TABLE BORDER="1">
-            <TR>
-            <TD>
-                <TABLE >
-                <TR><TD ALIGN=LEFT>
+        <td> &nbsp; </td>
+        <td>
+            <table BORDER="1">
+            <tr>
+            <td>
+                <table >
+                <tr><td ALIGN=LEFT>
                    {{ mainForm.graphScaleRadioButtonZ }}
                 </td></tr>
                 <tr><td align='right'>
@@ -79,14 +79,14 @@ Log plots require data values greater than zero.
                 <tr><td> &nbsp; </td></tr>
                 <tr><td align='left'>
                    {{ mainForm.logLinZ }}
-                </TD></TR>
-                </TABLE>
-            </TD>
-            </TR>
-            </TABLE>
-        </TD>
+                </td></tr>
+                </table>
+            </td>
+            </tr>
+            </table>
+        </td>
 {% endif %}
 {% endif %}
-    </TR>
-</TABLE>
-</DIV>
+    </tr>
+</table>
+</div>

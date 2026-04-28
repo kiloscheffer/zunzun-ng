@@ -23,27 +23,27 @@
 {# MENU --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- #}
 
 {# menu item titles ------------------------------------------------------- #}
-<TABLE ALIGN="CENTER"><TR>
+<table ALIGN="CENTER"><tr>
 {% if equationInstance %}
-    <TD ALIGN="CENTER">Coefficients And Text Reports</TD>
-    <TD>&nbsp;</TD>
+    <td ALIGN="CENTER">Coefficients And Text Reports</td>
+    <td>&nbsp;</td>
 {% else %}
-    <TD ALIGN="CENTER">Text Reports</TD>
-    <TD>&nbsp;</TD>
+    <td ALIGN="CENTER">Text Reports</td>
+    <td>&nbsp;</td>
 {% endif %}
-    <TD ALIGN="CENTER">Histograms</TD>
-    <TD>&nbsp;</TD>
+    <td ALIGN="CENTER">Histograms</td>
+    <td>&nbsp;</td>
 {% if equationInstance %}
-    <TD ALIGN="CENTER">Statistical Scatterplots</TD>
-    <TD>&nbsp;</TD>
+    <td ALIGN="CENTER">Statistical Scatterplots</td>
+    <td>&nbsp;</td>
 {% endif %}
 {% if dimensionality != '1' %}
-    <TD ALIGN="CENTER">Data Graphs</TD>
-    <TD>&nbsp;</TD>
+    <td ALIGN="CENTER">Data Graphs</td>
+    <td>&nbsp;</td>
 {% endif %}
-</TR>
-<TR>
-    <TD ALIGN="CENTER">        <select ID="s1" size=1>
+</tr>
+<tr>
+    <td ALIGN="CENTER">        <select ID="s1" size=1>
         <option>
         <option value='introDiv' SELECTED>Introduction and PDF Link
 {% if equationInstance %}
@@ -61,9 +61,9 @@
 		<option value='scriptureDiv'>{{ scripture.0 }}
     	<option>
 	    </select>
-    </TD>
-    <TD>&nbsp;</TD>
-    <TD ALIGN="CENTER">        <select ID="s2" size=1>
+    </td>
+    <td>&nbsp;</td>
+    <td ALIGN="CENTER">        <select ID="s2" size=1>
         <option>
         <option value='introDiv' SELECTED>Introduction and PDF Link
 		{% for graphReport in graphReports %}
@@ -77,10 +77,10 @@
 		<option value='scriptureDiv'>{{ scripture.0 }}
 		<option>
         </select>
-    </TD>
+    </td>
 {% if equationInstance %}
-    <TD>&nbsp;</TD>
-    <TD ALIGN="CENTER">        <select ID="s3" size=1>
+    <td>&nbsp;</td>
+    <td ALIGN="CENTER">        <select ID="s3" size=1>
         <option>
         <option value='introDiv' SELECTED>Introduction and PDF Link
 		{% for graphReport in graphReports %}
@@ -94,11 +94,11 @@
 		<option value='scriptureDiv'>{{ scripture.0 }}
 		<option>
         </select>
-    </TD>
+    </td>
 {% endif %}
 {% if dimensionality != '1' %}
-    <TD>&nbsp;</TD>
-    <TD ALIGN="CENTER">{% if equationInstance %}
+    <td>&nbsp;</td>
+    <td ALIGN="CENTER">{% if equationInstance %}
         <select ID="s4" size=1>
 {% else %}
         <select ID="s3" size=1>
@@ -114,10 +114,10 @@
 		<option value='scriptureDiv'>{{ scripture.0 }}
 		<option>
         </select>
-    </TD>
+    </td>
 {% endif %}
-</TR>
-</TABLE>
+</tr>
+</table>
 <br>
 
 
@@ -129,7 +129,7 @@
 
 {# introduction div ------------------------------------------------------- #}
 <div ID="introDiv" align='center' name="hideable_div">
-<B><span style="font-size:larger">Introduction and PDF Link</span></B><BR><BR>
+<b><span style="font-size:larger">Introduction and PDF Link</span></b><br><br>
 Please select an item from the pull-down menu above.
 <br><br>
 You can download almost all of these reports as <a href='/temp/{{ pdfFileName }}'>a single PDF file</a>.<br>
@@ -141,11 +141,11 @@ You can download almost all of these reports as <a href='/temp/{{ pdfFileName }}
 {# evaluate at a point div ------------------------------------------------------- #}
 <div ID="evaluateDiv" align='center' name="hideable_div" style="display:none;">
 {% if equationInstance.splineFlag %}
-<B><span style="font-size:larger">Evaluate This Spline At A Point</span></B><BR><BR>
+<b><span style="font-size:larger">Evaluate This Spline At A Point</span></b><br><br>
 {% else %}
-<B><span style="font-size:larger">Evaluate This Equation At A Point</span></B><BR><BR>
+<b><span style="font-size:larger">Evaluate This Equation At A Point</span></b><br><br>
 {% endif %}
-<FORM name='evaluatePointForm'>
+<form name='evaluatePointForm'>
 {% if dimensionality == '2' %}
 {{ EvaluateAtAPointForm.x }}
 <br>
@@ -156,7 +156,7 @@ You can download almost all of these reports as <a href='/temp/{{ pdfFileName }}
 <tr><td align='center'>{{ IndependentDataName1 }} </td><td> &nbsp; &nbsp; &nbsp; </td><td align='center'>{{ IndependentDataName2 }}</td></tr>
 </table>
 {% endif %}
-<BR><BR>
+<br><br>
 <input value="Evaluate" type="button" onclick='JavaScript:xmlhttpPost("/EvaluateAtAPoint/")'>
 </form>
 <br><br>
@@ -171,7 +171,7 @@ You can download almost all of these reports as <a href='/temp/{{ pdfFileName }}
 
 {# scripture div ------------------------------------------------------- #}
 <div ID="scriptureDiv" align='center' name="hideable_div" style="display:none;">
-<B><span style="font-size:larger">{{ scripture.0 }}</span></B><BR><BR>
+<b><span style="font-size:larger">{{ scripture.0 }}</span></b><br><br>
 <table width='50%'>
     <tr>
         <td>{{ scripture.1 }}</td>
@@ -184,12 +184,12 @@ You can download almost all of these reports as <a href='/temp/{{ pdfFileName }}
 
 {% for textReport in textReports %}
 	<div ID="{{ textReport.uniqueAnchorName }}" align='center' name="hideable_div" style="display:none;">
-	<B><span style="font-size:larger">{{ textReport.name }}</span></B><BR><BR>
+	<b><span style="font-size:larger">{{ textReport.name }}</span></b><br><br>
 <table><tr><td>
-<PRE>
+<pre>
     {% for stringListItem in textReport.stringList %}{{ stringListItem }}
     {% endfor %}
-</PRE>
+</pre>
 </td></tr></table>
 	</div>
 {% endfor %}
@@ -197,14 +197,14 @@ You can download almost all of these reports as <a href='/temp/{{ pdfFileName }}
 
 {% for graphReport in graphReports %}
 	<div ID="{{ graphReport.uniqueAnchorName }}" align='center' name="hideable_div" style="display:none;">
-	<B><span style="font-size:larger">{{ graphReport.name }}</span></B><BR>
+	<b><span style="font-size:larger">{{ graphReport.name }}</span></b><br>
 		{% if graphReport.animationFlag == 1 %}
 		<br>
-			<A HREF="{{ graphReport.websiteFileLocation }}" TARGET="_blank">Click Here</A> to download GIF file ({{ graphReport.fileSize }})<BR><BR>
+			<a HREF="{{ graphReport.websiteFileLocation }}" TARGET="_blank">Click Here</a> to download GIF file ({{ graphReport.fileSize }})<br><br>
 			<b>NOTE:</b> The animation may appear jerky and uneven until the<br>
 			download is complete and your browser displays the animation smoothly.
 		{% else %}
-	<IMG SRC="{{ graphReport.websiteFileLocation }}" ALIGN="Absmiddle" ALT="{{ graphReport.name }}" onAbort="Load();"><BR>
+	<img SRC="{{ graphReport.websiteFileLocation }}" ALIGN="Absmiddle" ALT="{{ graphReport.name }}" onAbort="Load();"><br>
         <br>
 		Download this image as 
 			<a href="{{ graphReport.websiteFileLocation|slice:':-3' }}png" target='_blank'>PNG</a>
@@ -214,7 +214,7 @@ You can download almost all of these reports as <a href='/temp/{{ pdfFileName }}
 	{% endif %}
 	
 	{% if graphReport.stringList %}
-		<br><table><tr><td><PRE>{% for stringListItem in graphReport.stringList %}{{ stringListItem }}{% endfor %}</PRE></td></tr></table>
+		<br><table><tr><td><pre>{% for stringListItem in graphReport.stringList %}{{ stringListItem }}{% endfor %}</pre></td></tr></table>
 	{% endif %}
 	</div>
 {% endfor %}

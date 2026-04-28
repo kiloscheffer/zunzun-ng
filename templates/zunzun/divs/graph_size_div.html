@@ -1,32 +1,32 @@
-<DIV ID="graphSize" align='center' name="hideable_div" style="display:none;">
-<B>{% if dimensionality == '3' %}Animation and {% endif %}Graph size</B>
-<BR><BR>
-Here you can choose the size of the graphs. Smaller size files load quickly,<BR>with less resolution while large files show more resolution but load more slowly.
+<div ID="graphSize" align='center' name="hideable_div" style="display:none;">
+<b>{% if dimensionality == '3' %}Animation and {% endif %}Graph size</b>
+<br><br>
+Here you can choose the size of the graphs. Smaller size files load quickly,<br>with less resolution while large files show more resolution but load more slowly.
 <br>
 <br>
-<TABLE BORDER="1">
-<TR>
-<TD>
-    <TABLE ><tr><td align='left'>
+<table BORDER="1">
+<tr>
+<td>
+    <table ><tr><td align='left'>
 {{ mainForm.graphSize }}
-    </td></tr></TABLE>
-</TD>
-</TR>
-<TR><TD><B>Graph Size</B></TD></TR>
-</TABLE>
+    </td></tr></table>
+</td>
+</tr>
+<tr><td><b>Graph Size</b></td></tr>
+</table>
 {% if dimensionality == '3' %}
-<BR>
-<BR>
-<TABLE BORDER="1">
-<TR>
-<TD>
-    <TABLE ><tr><td align='left'>
+<br>
+<br>
+<table BORDER="1">
+<tr>
+<td>
+    <table ><tr><td align='left'>
 {{ mainForm.animationSize }}
     
-    </td></tr></TABLE>
-</TD>
-</TR>
-<TR><TD><B>Animation Size</B></TD></TR>
-</TABLE>
+    </td></tr></table>
+</td>
+</tr>
+<tr><td><b>Animation Size</b></td></tr>
+</table>
 {% endif %}
-</DIV>
+</div>

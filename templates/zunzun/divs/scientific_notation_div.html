@@ -1,45 +1,45 @@
-<DIV ID="scientificNotation" align='center' name="hideable_div" style="display:none;">
-<B>Scientific Notation</B>
-<BR>
-<BR>
-Here you can control scientific notation on the data plots{% if dimensionality != '3' %}.{% else %}<BR>
+<div ID="scientificNotation" align='center' name="hideable_div" style="display:none;">
+<b>Scientific Notation</b>
+<br>
+<br>
+Here you can control scientific notation on the data plots{% if dimensionality != '3' %}.{% else %}<br>
 and the contour plots.{% endif %}
 <br>
 <br>
-<TABLE >
-    <TR>
-        <TD ALIGN=CENTER>X Control</TD>
+<table >
+    <tr>
+        <td ALIGN=CENTER>X Control</td>
 {% if dimensionality != '1' %}
-        <TD> &nbsp; </TD>
-        <TD ALIGN=CENTER>Y Control</TD>
+        <td> &nbsp; </td>
+        <td ALIGN=CENTER>Y Control</td>
 {% if dimensionality == '3' %}
-        <TD> &nbsp; </TD>
-        <TD ALIGN=CENTER>Z Control</TD>
+        <td> &nbsp; </td>
+        <td ALIGN=CENTER>Z Control</td>
 {% endif %}
 {% endif %}
-    </TR>
-    <TR>
-    <TD>
-        <TABLE BORDER="1"><TR><TD align='left'>
+    </tr>
+    <tr>
+    <td>
+        <table BORDER="1"><tr><td align='left'>
         {{ mainForm.scientificNotationX }}
-        </TD></TR></TABLE>
-    </TD>
+        </td></tr></table>
+    </td>
 {% if dimensionality != '1' %}
-    <TD> &nbsp; </TD>
-    <TD>
-        <TABLE BORDER="1"><TR><TD align='left'>
+    <td> &nbsp; </td>
+    <td>
+        <table BORDER="1"><tr><td align='left'>
         {{ mainForm.scientificNotationY }}
-        </TD></TR></TABLE>
-    </TD>
+        </td></tr></table>
+    </td>
 {% if dimensionality == '3' %}
-    <TD> &nbsp; </TD>
-    <TD>
-        <TABLE BORDER="1"><TR><TD align='left'>
+    <td> &nbsp; </td>
+    <td>
+        <table BORDER="1"><tr><td align='left'>
         {{ mainForm.scientificNotationZ }}
-        </TD></TR></TABLE>
-    </TD>
+        </td></tr></table>
+    </td>
 {% endif %}
 {% endif %}
-    </TR>
-</TABLE>
-</DIV>
+    </tr>
+</table>
+</div>

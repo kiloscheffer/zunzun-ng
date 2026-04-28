@@ -28,7 +28,7 @@
             d.layers[id].borderStyle = os;
         }
 
-        tstr = "<B>y = &nbsp; (</B>";
+        tstr = "<b>y = &nbsp; (</b>";
         str = "";
         count = 0;
         totalCount = 0;
@@ -44,14 +44,14 @@
                 if (count > 0)
                     tstr += "&nbsp+ ";
                 if (d.layers[i].id.toString().substring(5,6) == "0")
-                    tstr += '<B>' + c[totalCount] + '</B>';
+                    tstr += '<b>' + c[totalCount] + '</b>';
                 else
-                    tstr += '<B>' + c[totalCount] + '(&nbsp;</B>' + d.all[i].innerHTML + '<B>&nbsp;)</B>';
+                    tstr += '<b>' + c[totalCount] + '(&nbsp;</b>' + d.all[i].innerHTML + '<b>&nbsp;)</b>';
                 count += 1;
                 totalCount += 1;
             }
         }
-        tstr += "<B>) &nbsp; / &nbsp; (1.0 + </B>";
+        tstr += "<b>) &nbsp; / &nbsp; (1.0 + </b>";
         count = 0;
         for (i=0; i<len; i++) // Denominator
         {
@@ -65,14 +65,14 @@
                 if (count > 0)
                     tstr += "&nbsp+ ";
                 if (d.layers[i].id.toString().substring(5,6) == "0")
-                    tstr += '<B>' + c[totalCount] + '</B>';
+                    tstr += '<b>' + c[totalCount] + '</b>';
                 else
-                    tstr += '<B>' + c[totalCount] + '(&nbsp;</B>' + d.all[i].innerHTML + '<B>&nbsp;)</B>';
+                    tstr += '<b>' + c[totalCount] + '(&nbsp;</b>' + d.all[i].innerHTML + '<b>&nbsp;)</b>';
                 count += 1;
                 totalCount += 1;
             }
         }
-        tstr += "<B>)</B>";
+        tstr += "<b>)</b>";
         
         for (i=0; i<len; i++) // Offset
         {
@@ -83,7 +83,7 @@
 
             if (d.layers[i].style.backgroundColor.replace(/\s/g, '') == w)
             {
-                tstr += ' &nbsp; + &nbsp; <B>' + c[totalCount] + '</B>';
+                tstr += ' &nbsp; + &nbsp; <b>' + c[totalCount] + '</b>';
             }
         }
         
@@ -118,7 +118,7 @@
             d.all[id].style.borderStyle = os;
         }
 
-        tstr = "<B>y = &nbsp; (</B>";
+        tstr = "<b>y = &nbsp; (</b>";
         str = "";
         count = 0;
         totalCount = 0;
@@ -134,14 +134,14 @@
                 if (count > 0)
                     tstr += "&nbsp+ ";
                 if (d.all[i].id.toString().substring(5,6) == "0")
-                    tstr += '<B>' + c[totalCount] + '</B>';
+                    tstr += '<b>' + c[totalCount] + '</b>';
                 else
-                    tstr += '<B>' + c[totalCount] + '(&nbsp;</B>' + d.all[i].innerHTML + '<B>&nbsp;)</B>';
+                    tstr += '<b>' + c[totalCount] + '(&nbsp;</b>' + d.all[i].innerHTML + '<b>&nbsp;)</b>';
                 count += 1;
                 totalCount += 1;
             }
         }
-        tstr += "<B>) &nbsp; / &nbsp; (1.0 + </B>";
+        tstr += "<b>) &nbsp; / &nbsp; (1.0 + </b>";
         count = 0;
         for (i=0; i<len; i++) // Denominator
         {
@@ -155,14 +155,14 @@
                 if (count > 0)
                     tstr += "&nbsp+ ";
                 if (d.all[i].id.toString().substring(5,6) == "0")
-                    tstr += '<B>' + c[totalCount] + '</B>';
+                    tstr += '<b>' + c[totalCount] + '</b>';
                 else
-                    tstr += '<B>' + c[totalCount] + '(&nbsp;</B>' + d.all[i].innerHTML + '<B>&nbsp;)</B>';
+                    tstr += '<b>' + c[totalCount] + '(&nbsp;</b>' + d.all[i].innerHTML + '<b>&nbsp;)</b>';
                 count += 1;
                 totalCount += 1;
             }
         }
-        tstr += "<B>)</B>";
+        tstr += "<b>)</b>";
         
         for (i=0; i<len; i++) // Offset
         {
@@ -173,7 +173,7 @@
 
             if (d.all[i].style.backgroundColor.replace(/\s/g, '') == w)
             {
-                tstr += ' &nbsp; + &nbsp; <B>' + c[totalCount] + '</B>';
+                tstr += ' &nbsp; + &nbsp; <b>' + c[totalCount] + '</b>';
             }
         }
 
