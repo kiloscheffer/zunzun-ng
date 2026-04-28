@@ -14,17 +14,17 @@
 <br>
 <b>Error In Form</b><br><br>
 
-<TABLE ALIGN="CENTER">
+<table ALIGN="CENTER">
 
 {% for field in mainForm %}
 {% if field.errors %}
-<TR><TD ALIGN='right'>{{field.label}} :</TD><TD ALIGN='left'>{{field.errors}}</TD></TR>
+<tr><td ALIGN='right'>{{field.label}} :</td><td ALIGN='left'>{{field.errors}}</td></tr>
 {% endif %}
 {% endfor %}
 
 {% if mainForm.non_field_errors %}
 {% for error in mainForm.non_field_errors %}
-<TR><TD ALIGN='right'>Form error :</TD><TD ALIGN='left'>{{error}}</TD></TR>
+<tr><td ALIGN='right'>Form error :</td><td ALIGN='left'>{{error}}</td></tr>
 {% endfor %}
 {% endif %}
 </table>
