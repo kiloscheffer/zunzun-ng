@@ -23,6 +23,13 @@ on:
 
 env:
   UV_LINK_MODE: copy
+  # Opt JavaScript-based actions (actions/checkout, astral-sh/setup-uv)
+  # into Node.js 24 ahead of GitHub's forced migration on 2026-06-02.
+  # Node.js 20 is removed entirely on 2026-09-16. Opting in now surfaces
+  # any incompatibility while there's still time to react. Remove this
+  # env var (and update action pins if needed) once the migration is
+  # complete and v4/v6 of these actions natively run on Node 24.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
   pytest:
