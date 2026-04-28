@@ -7,7 +7,7 @@
     <BR>
     <BR>
     <P ALIGN=CENTER>Equation:<P><DIV ID='FUNCTION' ALIGN=CENTER>{{ equationHTML }}</DIV><BR>Functions of X<BR>
-     <TABLE BORDER=0 CELLSPACING='2'>
+     <TABLE BORDER=0>
       <TR>
         {% for color, index, html in Polyfun2DColorList %}
             {% if html == '' %}
@@ -32,7 +32,7 @@
     <TR><TD> &nbsp; </TD><TD ALIGN=CENTER>Functions of Y</TD>
     <TR><TD align=center>F<BR>u<BR>n<BR>c<BR>t<BR>i<BR>o<BR>n<BR>s<BR>&nbsp;<BR>o<BR>f<BR>&nbsp;<BR>X</TD><TD ALIGN=CENTER>
 
-     <TABLE BORDER=0 CELLSPACING='2'>
+     <TABLE BORDER=0>
         {% for color, indexX, indexY, htmlX, htmlY in Polyfun3DColorList %}
             {% if indexY == 0 %}
                 <TR>
