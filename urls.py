@@ -1,3 +1,5 @@
+import os
+
 from django.conf import settings
 from django.conf.urls.static import static
 from django.urls import re_path
@@ -20,5 +22,12 @@ urlpatterns = [
 # Serve generated runtime files at MEDIA_URL in dev. In production,
 # nginx/IIS serves /temp/ directly per docs/deployment/. STATIC_URL is
 # auto-served by django.contrib.staticfiles during runserver.
+#
+# /commonproblems/ serves the vendored CommonProblems static site
+# (curve-fitting "common problems" reference content, originally at
+# bitbucket.org/zunzuncode/commonproblems and licensed under
+# BSD-2-clause; preserved here as a permanent fork). Production
+# deployments serve this directly via nginx/IIS per docs/deployment/.
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    urlpatterns += static('/commonproblems/', document_root=os.path.join(settings.ROOT_PATH, 'commonproblems'))

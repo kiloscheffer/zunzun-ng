@@ -99,6 +99,12 @@ server {
         expires 1h;
     }
 
+    # Serve vendored "Common Problems" static content directly.
+    location /commonproblems/ {
+        alias /var/www/zunzun-ng/commonproblems/;
+        expires 7d;
+    }
+
     # Pass everything else to Waitress
     location / {
         proxy_pass http://127.0.0.1:8000;
