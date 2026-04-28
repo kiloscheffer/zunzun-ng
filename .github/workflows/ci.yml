@@ -1,0 +1,79 @@
+# CI: pytest matrix on Linux/macOS/Windows + smoke test on Linux.
+#
+# Runs on every push to master, every PR, and every Monday at 06:00 UTC
+# (weekly heartbeat to catch infrastructure drift — wheel disappearance,
+# runner image changes, transitive dep silent bumps — that wouldn't be
+# triggered by maintainer pushes alone).
+#
+# All jobs install from `uv.lock` exactly via `uv sync --frozen`. The
+# locked state is the source of truth: CI proves it still installs and
+# runs on every supported platform. Drift detection (whether newer
+# versions exist within our bounds) is a separate manual procedure
+# documented at docs/operations/quarterly-upgrade.md.
+
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+env:
+  UV_LINK_MODE: copy
+
+jobs:
+  pytest:
+    name: pytest on ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install Python 3.14
+        run: uv python install 3.14
+
+      - name: Install dependencies (frozen lockfile)
+        run: uv sync --frozen
+
+      - name: Apply Django migrations
+        run: uv run python manage.py migrate
+
+      - name: Run pytest
+        run: uv run pytest tests/ -v
+
+  smoke:
+    name: smoke (linux)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install Python 3.14
+        run: uv python install 3.14
+
+      - name: Install dependencies (frozen lockfile)
+        run: uv sync --frozen
+
+      - name: Apply Django migrations
+        run: uv run python manage.py migrate
+
+      - name: Run end-to-end smoke test
+        run: uv run python scripts/smoke_test.py
+        timeout-minutes: 15

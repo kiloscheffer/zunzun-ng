@@ -75,6 +75,8 @@ Starts Waitress, POSTs a 2D polynomial-quadratic fit against sample data, polls 
 
 **FunkLoad (legacy)** in `funkload_tests/` is not runnable under the current uv-managed environment — its `setup.py` uses `ez_setup`, removed from modern setuptools. Its assertion strings are also stale under modern numpy/scipy/pyeq3. The folder is preserved as historical reference; do not invest in re-running it. Port individual assertions to pytest or to the smoke script if needed.
 
+**CI.** `.github/workflows/ci.yml` runs pytest on Linux/macOS/Windows and smoke on Linux for every push, every PR, and weekly (Monday 06:00 UTC). Uses `uv sync --frozen` so CI verifies the locked state still installs and runs on each platform — drift detection through a passive heartbeat. See `docs/operations/quarterly-upgrade.md` for the recurring dependency-upgrade procedure that *moves* the lock (CI never does, it only verifies).
+
 ## Architecture
 
 ### Unusual project layout
