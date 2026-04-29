@@ -1,15 +1,21 @@
 # macOS deployment
 
-**Verification status:** Author had no Mac hardware available during the April 2026 cross-platform migration. The Waitress command and the overall stack are the same as Linux; the launchd plist below is written by structural extension from the Linux systemd unit. **Verify on a real macOS box before relying on this recipe.**
+**Verification status:** Author had no Mac hardware available during
+the April 2026 cross-platform migration. The Waitress and Caddy
+commands below are written by structural extension from the Linux
+recipe. **Verify on a real macOS box before relying on this recipe.**
 
 ## System dependencies
 
 ```bash
-brew install python@3.14 nginx
+# Homebrew package manager (if not already installed)
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
-# uv installer:
-curl -LsSf https://astral.sh/uv/install.sh | sh
-# or: brew install uv
+# uv (Python package manager)
+brew install uv
+
+# Caddy
+brew install caddy
 ```
 
 ## Site installation
@@ -23,14 +29,30 @@ uv sync --no-dev
 uv run python manage.py migrate
 ```
 
-## launchd plist
+## Caddyfile
 
-Write `~/Library/LaunchAgents/com.zunzun-ng.waitress.plist` (user-level) or `/Library/LaunchDaemons/com.zunzun-ng.waitress.plist` (system-level):
+Copy [`Caddyfile.example`](Caddyfile.example) to
+`/usr/local/etc/Caddyfile` (Homebrew's default location) and adjust
+the hostname + paths to match `/usr/local/var/zunzun-ng/`:
+
+```bash
+sudo cp /usr/local/var/zunzun-ng/docs/deployment/Caddyfile.example /usr/local/etc/Caddyfile
+sudo nano /usr/local/etc/Caddyfile  # change hostname; replace /var/www/zunzun-ng with /usr/local/var/zunzun-ng
+brew services start caddy
+brew services list  # verify caddy is running
+```
+
+Caddy obtains and renews Let's Encrypt certs automatically as long as
+the hostname resolves to the machine and ports 80 + 443 are open.
+
+## launchd plist for Waitress
+
+Write `~/Library/LaunchAgents/com.zunzun-ng.waitress.plist` (user-level)
+or `/Library/LaunchDaemons/com.zunzun-ng.waitress.plist` (system-level):
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
-  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
     <key>Label</key>
@@ -61,44 +83,43 @@ Write `~/Library/LaunchAgents/com.zunzun-ng.waitress.plist` (user-level) or `/Li
 </plist>
 ```
 
-Load:
+Load and start:
 
 ```bash
 launchctl load ~/Library/LaunchAgents/com.zunzun-ng.waitress.plist
 launchctl start com.zunzun-ng.waitress
+launchctl list | grep zunzun-ng
 ```
-
-Verify the site responds:
-
-```bash
-curl http://127.0.0.1:8000/
-```
-
-## nginx config
-
-Same as [Linux](linux.md#nginx-config). Homebrew's nginx keeps its configuration at `/usr/local/etc/nginx/`:
-
-- Server blocks in `/usr/local/etc/nginx/servers/` (or included from `nginx.conf`)
-- `sudo brew services start nginx` to run as a system service
-
-For TLS, Let's Encrypt via `brew install certbot` works the same as on Linux.
 
 ## Operational notes
 
-- **Fit runtime parity:** macOS uses spawn by default on Python 3.8+ (same as Windows). Per-worker memory is similar to Windows (~750 MB), so `get_parallel_process_count` caps at 4 workers. Fits will be 2–3× slower than Linux fork on the same hardware.
-- **Restart the service:**
+- **Logs:**
+  - Caddy: `brew services log caddy` or `~/Library/Logs/Homebrew/caddy/caddy.log`.
+  - Waitress: `/usr/local/var/zunzun-ng/waitress.log` and `waitress.err`.
+  - Child-process tracebacks: `temp/{pid}.log`.
+- **Restart Waitress after deploys:**
+
   ```bash
   launchctl stop com.zunzun-ng.waitress
   launchctl start com.zunzun-ng.waitress
   ```
-- **Logs:** `/usr/local/var/zunzun-ng/waitress.log` and `waitress.err`.
-- **No Defender equivalent required.** macOS's XProtect doesn't scan `.venv/` aggressively the way Windows Defender does.
 
-## Verification required
+- **Verify Caddy is running:** `brew services list` shows status.
 
-Before relying on this recipe in production, a macOS maintainer should:
+## Verification
 
-1. Run `scripts/smoke_test.py` against a freshly-installed macOS box and confirm `SMOKE OK`.
-2. Confirm the launchd plist actually starts Waitress at boot (`launchctl list | grep zunzun-ng`).
-3. Confirm nginx reverse-proxy serves static files and forwards to Waitress.
-4. Report findings back into this doc by removing the "verification status" banner at the top.
+After both services are running, visit `https://<your-hostname>/` in a
+browser. Caddy provisions certs on first request, which can take a
+few seconds. Check Caddy logs for any cert-acquisition errors:
+
+```bash
+brew services log caddy
+```
+
+## What this recipe does NOT cover
+
+- Per-user vs system-wide installation choice — see Apple's launchd
+  documentation for the trade-offs (LaunchAgents run on user login;
+  LaunchDaemons run at boot before any user logs in).
+- Confirming that the launchd plist actually starts Waitress at
+  boot (`launchctl list | grep zunzun-ng`).

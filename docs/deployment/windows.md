@@ -1,6 +1,8 @@
 # Windows deployment
 
-Tested on Windows 11 Pro with IIS 10 during the April 2026 cross-platform migration. The `scripts/smoke_test.py` end-to-end test passes on this stack.
+Tested on Windows 11 Pro during the April 2026 cross-platform
+migration. The `scripts/smoke_test.py` end-to-end test passes on this
+stack.
 
 ## Architecture
 
@@ -8,8 +10,8 @@ Tested on Windows 11 Pro with IIS 10 during the April 2026 cross-platform migrat
 Internet
    │
    ▼
-  IIS (port 80/443, TLS termination, static files)
-   │  [URL Rewrite + ARR reverse-proxy rule]
+  Caddy (port 80/443, TLS termination, static files, reverse proxy)
+   │
    ▼
   Waitress on 127.0.0.1:8000 (NSSM-managed Windows Service)
    │
@@ -29,9 +31,23 @@ winget install --id=astral-sh.uv
 uv python install 3.14
 ```
 
-## Phase 2 — Site layout
+### Caddy
 
-Choose a path outside `C:\inetpub` (IIS doesn't need to host the code — it proxies to Waitress):
+```powershell
+winget install --id=CaddyServer.Caddy
+```
+
+Verify: `caddy version`. If `winget` doesn't have it, download the
+Windows binary from
+[caddyserver.com/download](https://caddyserver.com/download) and put
+`caddy.exe` somewhere on PATH (e.g. `C:\Tools\caddy\`).
+
+### NSSM (the Non-Sucking Service Manager)
+
+Download from [nssm.cc](https://nssm.cc/) and place `nssm.exe` in a
+known location (e.g. `C:\Tools\nssm\`).
+
+## Phase 2 — Site layout
 
 ```powershell
 mkdir C:\sites\zunzun-ng
@@ -41,20 +57,65 @@ uv sync --no-dev
 uv run python manage.py migrate
 ```
 
-Grant the IIS Application Pool identity (commonly `IIS APPPOOL\zunzun-ng`) or the NSSM service account read-on-code and write-on-temp/session_db:
+## Phase 3 — Caddyfile
+
+Copy [`Caddyfile.example`](Caddyfile.example) to
+`C:\Caddy\Caddyfile` (or wherever you choose to keep it) and edit:
 
 ```powershell
-icacls C:\sites\zunzun-ng\temp /grant "IIS APPPOOL\zunzun-ng:(OI)(CI)M"
-icacls C:\sites\zunzun-ng\session_db /grant "IIS APPPOOL\zunzun-ng:(OI)(CI)M"
+mkdir C:\Caddy
+copy C:\sites\zunzun-ng\docs\deployment\Caddyfile.example C:\Caddy\Caddyfile
+notepad C:\Caddy\Caddyfile
 ```
 
-Adjust the identity string to match your configuration. For NSSM-managed Waitress (Phase 3), the service's `LocalService` or a dedicated service account needs the same ACLs.
+In the Caddyfile, change the hostname and replace the example paths
+with the Windows paths (Caddy accepts forward slashes on Windows):
 
-## Phase 3 — Waitress as a Windows Service via NSSM
+```caddyfile
+zunzun-ng.example.com {
+    handle_path /static/* {
+        root * C:/sites/zunzun-ng/static
+        file_server
+    }
+    handle_path /temp/* {
+        root * C:/sites/zunzun-ng/temp
+        file_server
+    }
+    handle_path /CommonProblems/* {
+        root * C:/sites/zunzun-ng/commonproblems
+        file_server
+    }
+    @bare_cp path /CommonProblems
+    redir @bare_cp /CommonProblems/ permanent
+    reverse_proxy 127.0.0.1:8000
+}
+```
 
-Download NSSM from https://nssm.cc/ and place `nssm.exe` in a known location (e.g. `C:\Tools\nssm\`).
+Validate:
 
-Install the service (elevated PowerShell):
+```powershell
+caddy validate --config C:\Caddy\Caddyfile
+```
+
+## Phase 4 — Caddy as a Windows Service via NSSM
+
+```powershell
+C:\Tools\nssm\nssm.exe install caddy `
+    "C:\Program Files\Caddy\caddy.exe" `
+    "run" "--config" "C:\Caddy\Caddyfile"
+nssm set caddy AppStdout C:\Caddy\caddy.log
+nssm set caddy AppStderr C:\Caddy\caddy.err
+nssm set caddy Start SERVICE_AUTO_START
+nssm start caddy
+```
+
+Adjust the `caddy.exe` path if you installed via winget — typically
+`C:\Users\<you>\scoop\apps\caddy\current\caddy.exe` or similar.
+
+Caddy obtains and renews Let's Encrypt certs automatically as long as
+the hostname resolves to the machine and ports 80 + 443 are reachable.
+
+## Phase 5 — Waitress as a Windows Service via NSSM
 
 ```powershell
 C:\Tools\nssm\nssm.exe install zunzun-ng `
@@ -67,7 +128,7 @@ nssm set zunzun-ng Start SERVICE_AUTO_START
 nssm start zunzun-ng
 ```
 
-Verify Waitress responds directly (before IIS):
+Verify Waitress responds directly (before checking through Caddy):
 
 ```powershell
 curl.exe http://127.0.0.1:8000/
@@ -75,75 +136,36 @@ curl.exe http://127.0.0.1:8000/
 
 Should return the homepage HTML (~30 KB).
 
-## Phase 4 — IIS reverse proxy
-
-### Install required IIS components
-
-Elevated PowerShell:
-
-```powershell
-Install-WindowsFeature -Name Web-Server, Web-Mgmt-Console
-```
-
-Then download and install (GUI):
-
-- **URL Rewrite 2.1** — https://www.iis.net/downloads/microsoft/url-rewrite
-- **Application Request Routing 3.0 (ARR)** — https://www.iis.net/downloads/microsoft/application-request-routing
-
-### Enable proxy in ARR
-
-IIS Manager → (server node) → **Application Request Routing Cache** → (right panel) **Server Proxy Settings** → check **Enable proxy** → Apply.
-
-### Create IIS site
-
-1. Sites → Add Website:
-   - **Site name:** `zunzun-ng`
-   - **Physical path:** `C:\sites\zunzun-ng` (IIS root; static-asset and temp subdirs served via virtual directories below)
-   - **Binding:** port 80 (or 443 with a TLS certificate)
-
-2. Add three virtual directories under the site for direct file serving:
-   - `/static` → physical path `C:\sites\zunzun-ng\static` (committed assets: logo, jQuery bundle, favicons, custom.css)
-   - `/temp` → physical path `C:\sites\zunzun-ng\temp` (runtime-generated PDFs, plots, animations)
-   - `/CommonProblems` → physical path `C:\sites\zunzun-ng\commonproblems` (vendored "Common Problems" static reference site; on-disk directory is lowercase but the IIS virtual directory and URL alias use CapitalCase to match upstream's bitbucket URL. Ensure IIS's "Default Document" includes `index.html` so the bare URL serves the index)
-
-3. Select the site → **URL Rewrite** → Add Rules → Reverse Proxy → enter `localhost:8000` as the inbound rule's backend.
-
-4. IIS will now serve `/static/*` and `/temp/*` directly as static files (bypassing Waitress for performance) and forward everything else to Waitress on port 8000.
-
-### TLS
-
-For a production cert, use `win-acme` (https://www.win-acme.com/) to issue a Let's Encrypt certificate and bind it to the IIS site on port 443.
-
-## Phase 5 — Operational notes
+## Phase 6 — Operational notes
 
 ### Logs
 
-- **Waitress stdout/stderr:** `C:\sites\zunzun-ng\waitress.log` and `waitress.err` (captured by NSSM).
-- **Child-process tracebacks:** `C:\sites\zunzun-ng\temp\{pid}.log` — one file per failed fit child. Rotate with a scheduled task.
-- **IIS access logs:** `C:\inetpub\logs\LogFiles\` (standard W3C format).
+- **Caddy:** `C:\Caddy\caddy.log` and `caddy.err` (captured by NSSM).
+- **Waitress stdout/stderr:** `C:\sites\zunzun-ng\waitress.log` and
+  `waitress.err` (captured by NSSM).
+- **Child-process tracebacks:** `C:\sites\zunzun-ng\temp\{pid}.log`
+  — one file per failed fit child. Rotate with a scheduled task.
 
 ### Service management
 
 ```powershell
-nssm restart zunzun-ng   # after deploying new code
-nssm status zunzun-ng    # check if it's running
-Services.msc               # GUI alternative
+nssm restart zunzun-ng    # after deploying new code
+nssm restart caddy        # after editing the Caddyfile
+nssm status zunzun-ng     # check if running
+Services.msc              # GUI alternative
 ```
-
-### Child process count
-
-During a fit, Task Manager → Details shows:
-- 1 `waitress-serve.exe` (the service)
-- 1 `python.exe` (the spawned `_run_fit_child`)
-- Up to 4 additional `python.exe` (pyeq3 Pool workers; capped at 4 on Windows by `get_parallel_process_count`)
-
-If you see more than 6 Python processes during a single fit, something is wrong — check for leaked children from crashed requests.
 
 ### Pagefile sizing — important
 
-Each spawned Pool worker commits ~750 MB of virtual memory (re-imports numpy + scipy + pyeq3 + OpenBLAS thread workspace from scratch). A single fit uses up to 5 such processes. Multi-user concurrent fits can push total committed memory well past physical RAM.
+Each spawned Pool worker commits ~750 MB of virtual memory (re-imports
+numpy + scipy + pyeq3 + OpenBLAS thread workspace from scratch). A
+single fit uses up to 5 such processes. Multi-user concurrent fits can
+push total committed memory well past physical RAM.
 
-**Set the pagefile to 2–3× physical RAM** via System Properties → Advanced → Performance → Virtual memory. Default system-managed pagefile is too conservative for this workload; under-sized pagefile produces:
+**Set the pagefile to 2–3× physical RAM** via System Properties →
+Advanced → Performance → Virtual memory. Default system-managed
+pagefile is too conservative for this workload; under-sized pagefile
+produces:
 
 ```
 ImportError: DLL load failed while importing _flapack:
@@ -152,21 +174,29 @@ ImportError: DLL load failed while importing _flapack:
 
 ### Windows Defender exclusion (strongly recommended)
 
-Windows Defender real-time scanning of `.venv/` during fit imports causes significant latency (can add 10–20 s to each fit). Add the project directory as a scan exclusion:
+Windows Defender real-time scanning of `.venv/` during fit imports
+causes significant latency (can add 10–20 s to each fit). Add the
+project directory as a scan exclusion:
 
-Settings → Windows Security → Virus & threat protection → Manage settings → Exclusions → Add `C:\sites\zunzun-ng\.venv\`.
+Settings → Windows Security → Virus & threat protection → Manage
+settings → Exclusions → Add `C:\sites\zunzun-ng\.venv\`.
 
 ### Expected fit runtime
 
-A 2D polynomial-quadratic fit on the sample data completes in ~60–120 seconds on a typical developer box. Compare to Linux fork: ~10–30 seconds on the same hardware. The 2–3× overhead is the cost of spawn-based per-worker imports; this is intrinsic to Windows and not a bug.
+A 2D polynomial-quadratic fit on the sample data completes in
+~60–120 seconds on a typical developer box. Compare to Linux fork:
+~10–30 seconds on the same hardware. The 2–3× overhead is the cost
+of spawn-based per-worker imports; intrinsic to Windows, not a bug.
 
 ## Deployment verification
 
-After the service is running, exercise it end-to-end:
+After both services are running, exercise the site end-to-end:
 
 ```powershell
 cd C:\sites\zunzun-ng
 uv run python scripts/smoke_test.py
 ```
 
-Expected output: `SMOKE OK: fit completed and numeric asserts passed`. This starts a throwaway Waitress on a free port, POSTs a fit, polls for completion, and verifies structural markers in the result HTML — so it's safe to run alongside the production service.
+Expected: `SMOKE OK: all scenarios passed`. The smoke test starts a
+throwaway Waitress on a free port and POSTs fits — safe to run
+alongside the production service.
