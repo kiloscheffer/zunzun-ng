@@ -1,0 +1,53 @@
+# ZunZunNG Caddyfile — shared template across all deployment platforms
+# (Linux, macOS, Windows). Copy to /etc/caddy/Caddyfile (Linux/macOS) or
+# C:\caddy\Caddyfile (Windows) and adjust the hostname + paths.
+#
+# Caddy serves the three static URL prefixes (/static/, /temp/,
+# /CommonProblems/) directly from disk and reverse-proxies everything
+# else to Waitress on 127.0.0.1:8000. Caddy's automatic HTTPS handles
+# TLS certs via Let's Encrypt — no certbot / win-acme needed, as long
+# as the hostname resolves publicly and ports 80 + 443 are reachable.
+#
+# For local-only / no-HTTPS deployments, replace the hostname line with
+# `:80` (Caddy then serves plain HTTP without trying to fetch a cert).
+
+
+# CHANGE THIS to your actual hostname (or `:80` for plain HTTP).
+zunzun-ng.example.com {
+
+    # CHANGE THESE to your actual paths. The defaults match the Linux
+    # convention from docs/deployment/linux.md (/var/www/zunzun-ng/).
+    # On macOS use /usr/local/var/zunzun-ng/, on Windows use
+    # C:\sites\zunzun-ng\ (Caddy accepts forward slashes on Windows too).
+
+    # Committed static assets (CSS, JS, logos, favicon, AdditionalInfo).
+    handle_path /static/* {
+        root * /var/www/zunzun-ng/static
+        file_server
+    }
+
+    # Runtime-generated outputs (PDFs, plots, animations from spawn fits).
+    handle_path /temp/* {
+        root * /var/www/zunzun-ng/temp
+        file_server
+    }
+
+    # Vendored CommonProblems static site. The URL is CapitalCase
+    # (/CommonProblems/) but the on-disk dir is lowercase
+    # (commonproblems/). Caddy's file_server auto-serves index.html
+    # when a directory is requested, so /CommonProblems/ → index.html
+    # works without further config.
+    handle_path /CommonProblems/* {
+        root * /var/www/zunzun-ng/commonproblems
+        file_server
+    }
+
+    # Bare /CommonProblems (no trailing slash) — redirect to the
+    # canonical trailing-slash URL so relative links resolve correctly.
+    @bare_cp path /CommonProblems
+    redir @bare_cp /CommonProblems/ permanent
+
+    # Everything else → Waitress (the WSGI app server). Caddy passes
+    # the request unmodified, including the original Host header.
+    reverse_proxy 127.0.0.1:8000
+}
