@@ -1,14 +1,5 @@
 {% extends "zunzun/generic_page_template.html" %}
 
-{% block title %}
-    {{ title_string }}
-{% endblock %}
-
-{% block icon_links %}
-    <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
-    <link rel="shortcut icon" href="/static/favicon.ico" type="image/x-icon">
-{% endblock %}
-
 {% block additional_javascript %}
 {% if equationInstance %}
     {% include "zunzun/javascript/JavascriptForEvaluateAtAPoint.js" %}
@@ -17,12 +8,6 @@
 
 {% block body_contents %}
 
-{# MENU --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- #}
-{# MENU --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- #}
-{# MENU --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- #}
-{# MENU --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- #}
-
-{# menu item titles ------------------------------------------------------- #}
 <table align="center"><tr>
 {% if equationInstance %}
     <td align="center">Coefficients And Text Reports</td>
@@ -57,9 +42,6 @@
 	{% for textReport in textReports %}
 	<option value='{{ textReport.uniqueAnchorName }}'>{{ textReport.name }}
 	{% endfor %}
-    	<option>
-		<option value='scriptureDiv'>{{ scripture.0 }}
-    	<option>
 	    </select>
     </td>
     <td>&nbsp;</td>
@@ -73,9 +55,6 @@
                 {% endif %}
             {% endif %}
 		{% endfor %}
-		<option>
-		<option value='scriptureDiv'>{{ scripture.0 }}
-		<option>
         </select>
     </td>
 {% if equationInstance %}
@@ -90,9 +69,6 @@
                 {% endif %}
             {% endif %}
 		{% endfor %}
-		<option>
-		<option value='scriptureDiv'>{{ scripture.0 }}
-		<option>
         </select>
     </td>
 {% endif %}
@@ -110,9 +86,6 @@
         		<option value='{{ graphReport.uniqueAnchorName }}'>{{ graphReport.name }}
 			{% endif %}
 		{% endfor %}
-		<option>
-		<option value='scriptureDiv'>{{ scripture.0 }}
-		<option>
         </select>
     </td>
 {% endif %}
@@ -121,13 +94,6 @@
 <br>
 
 
-{# DIVS --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- #}
-{# DIVS --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- #}
-{# DIVS --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- #}
-{# DIVS --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- #}
-
-
-{# introduction div ------------------------------------------------------- #}
 <div id="introDiv" align='center' name="hideable_div">
 <b><span style="font-size:larger">Introduction and PDF Link</span></b><br><br>
 Please select an item from the pull-down menu above.
@@ -138,7 +104,6 @@ You can download almost all of these reports as <a href='/temp/{{ pdfFileName }}
 
 
 {% if equationInstance %}
-{# evaluate at a point div ------------------------------------------------------- #}
 <div id="evaluateDiv" align='center' name="hideable_div" style="display:none;">
 {% if equationInstance.splineFlag %}
 <b><span style="font-size:larger">Evaluate This Spline At A Point</span></b><br><br>
@@ -168,18 +133,6 @@ You can download almost all of these reports as <a href='/temp/{{ pdfFileName }}
 {% include "zunzun/divs/feedback_entry.html" %}
 {% include "zunzun/divs/server_load.html" %}
 {% include "zunzun/divs/dedication.html" %}
-
-{# scripture div ------------------------------------------------------- #}
-<div id="scriptureDiv" align='center' name="hideable_div" style="display:none;">
-<b><span style="font-size:larger">{{ scripture.0 }}</span></b><br><br>
-<table width='50%'>
-    <tr>
-        <td>{{ scripture.1 }}</td>
-    </tr>
-</table>
-<br><br><br>
-<a href='http://quod.lib.umich.edu/k/kjv/browse.html'>Read</a> or <a href='http://www.kjvbible.net/'>search</a> the King James Version of the Holy Bible online.
-</div>
 
 
 {% for textReport in textReports %}
@@ -219,4 +172,4 @@ You can download almost all of these reports as <a href='/temp/{{ pdfFileName }}
 	</div>
 {% endfor %}
 
-{% endblock body_contents %}
+{% endblock %}

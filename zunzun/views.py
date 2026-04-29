@@ -547,7 +547,7 @@ def HomePageView(request):
     items_to_render['dim_to_spline_list'] = [['2',  pyeq3.Models_2D.Spline.Spline()], ['3',  pyeq3.Models_3D.Spline.Spline()]]
     items_to_render['dim_to_map_list'] = [['2', GetEquationInfoDictionary(2, 'Standard')], ['3', GetEquationInfoDictionary(3, 'Standard')]]
     items_to_render['header_text'] = 'ZunZunNG'
-    items_to_render['subtitle_text'] = 'Online Curve Fitting and Surface Fitting Web Site'
+    items_to_render['subtitle_text'] = 'Online Curve Fitting and Surface Fitting'
     items_to_render['feedbackForm'] = forms.FeedbackForm()
     items_to_render['loadavg'] = platform_compat.get_loadavg()
 

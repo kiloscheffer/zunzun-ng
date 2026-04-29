@@ -287,15 +287,6 @@ You must provide any weights you wish to use.
 
             pageElements.append(reportlab.platypus.PageBreak())
 
-            verseInfo = self.GetVerseInfo()
-            pageElements.append(reportlab.platypus.Paragraph(verseInfo[0], styles['CenteredBodyText']))
-            pageElements.append(reportlab.platypus.XPreformatted('<br/><br/>', styles['CenteredBodyText']))
-            pageElements.append(reportlab.platypus.Paragraph(verseInfo[1], styles['CenteredBodyText']))
-            pageElements.append(reportlab.platypus.XPreformatted('<br/><br/>', styles['CenteredBodyText']))
-            pageElements.append(reportlab.platypus.Paragraph('Read or search the King James Bible online at<br/>http://quod.lib.umich.edu/k/kjv/', styles['CenteredBodyText']))
-
-            pageElements.append(reportlab.platypus.PageBreak())
-
             # make a page for each report output, with report name as page header
             # graphs may not exist if they raised an exception at creation time, trap and handle this condition
             for report in self.textReports:
@@ -744,17 +735,6 @@ You must provide any weights you wish to use.
         pid_trace.delete_pid_trace_file()
 
 
-    def GetVerseInfo(self):
-        dir_path = os.path.dirname(os.path.realpath(__file__))
-        f = open(os.path.join(dir_path, 'Verses.txt'), 'r')
-        verses = f.readlines()
-        f.close()
-        index = ((int(time.time()) % len(verses)) // 2) * 2
-        reference = verses[index]
-        verse = verses[index + 1]
-        return [reference, verse]
-
-
     def SpecificCodeForGeneratingListOfOutputReports(self):
         pid_trace.pid_trace()
 
@@ -817,14 +797,11 @@ You must provide any weights you wish to use.
 
         itemsToRender = {}
 
-        import time
-        itemsToRender['scripture'] = self.GetVerseInfo()
-
         itemsToRender['dimensionality'] = str(self.dimensionality)
 
         itemsToRender['header_text'] = 'ZunZunNG'
         itemsToRender['subtitle_text'] = self.webFormName
-        itemsToRender['title_string'] = 'ZunZunNG ' + self.webFormName.replace('<br>', ' ')
+        itemsToRender['title_string'] = 'ZunZunNG - ' + self.webFormName.replace('<br>', ' ')
 
         itemsToRender['textReports'] = self.textReports
 

@@ -1,27 +1,16 @@
 {% extends "zunzun/generic_page_template.html" %}
 {% block title %}
-Online Curve Fitting and Surface Fitting with Python Source Code
+    ZunZunNG - Online Curve Fitting and Surface Fitting
 {% endblock %}
 
 {% block additional_jquery_ready_code %}
     $('#javaScriptDetectedDiv').css('display', 'block');
 {% endblock %}
 
-{% block icon_links %}
-    <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
-    <link rel="shortcut icon" href="/static/favicon.ico" type="image/x-icon">
-{% endblock %}
-
 {% block body_contents %}
-
-<noscript>
-  <div style="text-align:center"><br><br>This web site requires JavaScript to function properly.<br><br>Please enable JavaScript and reload the web page.</div>
-</noscript>
 
 <div id="javaScriptDetectedDiv" style="display:none;">
 
-{# menu item titles ------------------------------------------------------- #}
-{# menu item titles ------------------------------------------------------- #}
 <table align="center">
 <tr>
 <td align="center"><b>2D Functions</b></td>
@@ -34,8 +23,6 @@ Online Curve Fitting and Surface Fitting with Python Source Code
 </tr>
 <tr>
 
-{# equation menus ------------------------------------------------------- #}
-{# equation menus ------------------------------------------------------- #}
 {% for dim_to_map in dim_to_map_list %}
     <td align="center">    <select id="s{{ forloop.counter }}" size=1>
     <option>
@@ -50,8 +37,6 @@ Online Curve Fitting and Surface Fitting with Python Source Code
     <td>&nbsp;</td>
 {% endfor %}
 
-{# characterize data menu ------------------------------------------------------- #}
-{# characterize data menu ------------------------------------------------------- #}
 <td align="center"><select id="s3" size=1>
 <option>
 <option value='introDiv' selected>Introduction
@@ -61,8 +46,6 @@ Online Curve Fitting and Surface Fitting with Python Source Code
 
 <td>&nbsp;</td>
 
-{# about, etc menu ------------------------------------------------------- #}
-{# about, etc menu ------------------------------------------------------- #}
 <td align="center"><select id="s4" size=1>
 <option>
 <option value='introDiv' selected>Introduction
@@ -77,39 +60,11 @@ Online Curve Fitting and Surface Fitting with Python Source Code
 </table>
 <br>
 
-{# DIVS --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- #}
-{# DIVS --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- #}
-{# DIVS --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- #}
-{# DIVS --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- #}
+<h2>Welcome to ZunZunNG</h2>
+<p>Here you can curve fit and surface fit your 2D and 3D data online with a rich set of error histograms, error plots, curve plots, surface plots, contour plots, auto-generated source code, and PDF file output.</p>
+<p>If you're looking for high quality curve fitting and surface fitting, this is the site for you! Source code is available at the <a href="https://github.com/kiloscheffer/zunzun-ng">GitHub Code Repository</a>.</p>
+<p>To begin, select an equation family from the drop-down menus above or try the "Function Finders" to help determine the best curve fit for your data.</p>
 
-{# introduction div ------------------------------------------------------- #}
-{# introduction div ------------------------------------------------------- #}
-<div id="introDiv" align='center' name="hideable_div">
-<b><span style="font-size:larger">Welcome to ZunZunNG</span></b><br><br>
-Here you can curve fit and surface fit your 2D and 3D data online with<br>
-a rich set of error histograms, error plots, curve plots, surface plots,<br>
-contour plots, auto-generated source code, and PDF file output.<br>
-<br>
-If you're looking for high quality curve fitting and surface fitting, this is<br>
-the site for you! Source code is available at the <a href="https://github.com/kiloscheffer/zunzun-ng">GitHub Code Repository</a>.<br>
-<br>
-To begin, select an equation family from the drop-down menus above or try<br>
-the "Function Finders" to help determine the best curve fit for your data.<br>
-<br><br><hr style="width:50%; margin:0 auto"><br>
-
-<table align="center">
-  <tr>
-    <td align="center"><a href="https://groups.google.com/g/findcurves"><img src="/static/groups_logo.gif" alt="FindCurves Google Group"></a></td>
-  </tr>
-  <tr>
-    <td align="center">FindCurves<a href="https://groups.google.com/g/findcurves"> Google<br>discussion group</a></td>
-  </tr>
-</table>
-</div>
-
-
-{# data characterizers div ------------------------------------------------------- #}
-{# data characterizers div ------------------------------------------------------- #}
 <div id="characterizeDataDiv" align='center' name="hideable_div" style="display:none;">
 <b>Characterize Data </b><br><br>
 <table>
@@ -121,9 +76,6 @@ the "Function Finders" to help determine the best curve fit for your data.<br>
 </table>
 </div>
 
-
-{# function finders div ------------------------------------------------------- #}
-{# function finders div ------------------------------------------------------- #}
 {% for dim_to_map in dim_to_map_list %}
     <div id="functionFinder{{ dim_to_map.0 }}DDiv"  align='center' name="hideable_div" style="display:none;">
     <b>{{ dim_to_map.0 }}D Function Finder </b><br><br>
@@ -131,17 +83,11 @@ the "Function Finders" to help determine the best curve fit for your data.<br>
     </div>
 {% endfor %}
 
-
-{# 'site related' div ------------------------------------------------------- #}
-{# 'site related' div ------------------------------------------------------- #}
 {% include "zunzun/divs/about.html" %}
 {% include "zunzun/divs/historical_note.html" %}
 {% include "zunzun/divs/server_load.html" %}
 {% include "zunzun/divs/dedication.html" %}
 
-
-{# spline divs ----------------------------------------------------------------- #}
-{# spline divs ----------------------------------------------------------------- #}
 {% for dim_to_spline in dim_to_spline_list %}
 <div ID ="spline{{ dim_to_spline.0 }}DDiv" align='center' name="hideable_div" style="display:none;">
 <b>{{ dim_to_spline.0 }}D Spline Interpolation</b>
@@ -157,9 +103,6 @@ the "Function Finders" to help determine the best curve fit for your data.<br>
 </div>
 {% endfor %}
 
-
-{# UDF divs ----------------------------------------------------------------- #}
-{# UDF divs ----------------------------------------------------------------- #}
 {% for dim_to_map in dim_to_map_list %}
 <div ID ="userDefinedFunction{{ dim_to_map.0 }}DDiv" align='center' name="hideable_div" style="display:none;">
 <b>{{ dim_to_map.0 }}D User Defined Function</b>
@@ -179,14 +122,8 @@ the "Function Finders" to help determine the best curve fit for your data.<br>
 </div>
 {% endfor %}
 
-
-{# equation classes divs ------------------------------------------------------- #}
-{# equation classes divs ------------------------------------------------------- #}
 {% for dim_to_map in dim_to_map_list %}{% for equationClassProperties in dim_to_map.1 %}{% if equationClassProperties.firstItemInSubmoduleFlag %}<div ID ="A{{ dim_to_map.0 }}DA{{ equationClassProperties.submoduleName }}" align='center' name="hideable_div" style="display:none;"><b>{{ dim_to_map.0 }}D {{ equationClassProperties.submoduleName }}</b><br><br><table>{% endif %}<tr><td align='right'><a href='Equation/{{ dim_to_map.0 }}/{{ equationClassProperties.submoduleName }}/{{ equationClassProperties.url_quote_name }}/'>{{ equationClassProperties.name }} {{ dim_to_map.0 }}D</a></td><td> &nbsp; </td><td align='left'>{% if equationClassProperties.multiLineHtmlFlag %}<br>{% endif %}{{ equationClassProperties.HTML }}{% if equationClassProperties.webCitationLink %} &nbsp; <a href='{{ equationClassProperties.webCitationLink }}' target='_blank'>[web citation]</a>{% endif %}{% if equationClassProperties.multiLineHtmlFlag %}<br>{% endif %}</td></tr>{% if equationClassProperties.lastItemInSubmoduleFlag %}</table></div>{% else %}{% if equationClassProperties.lastItemInExtendedNameFlag %}<tr><td align='right'> &nbsp; </td><td> &nbsp; </td><td align='left'> &nbsp; </td></tr><tr><td colspan=3><hr style="width:50%"></td></tr><tr><td align='right'> &nbsp; </td><td> &nbsp; </td><td align='left'> &nbsp; </td></tr>{% endif %}{% endif %}{% endfor %}{% endfor %}
 
-
-{# lists of all equations divs ------------------------------------------------------- #}
-{# lists of all equations divs ------------------------------------------------------- #}
 {% for dim_to_map in dim_to_map_list %}
 <div ID ="allEquations{{ dim_to_map.0 }}DDiv" align='center' name="hideable_div" style="display:none;">
 <b>All {{ dim_to_map.0 }}D Equations</b><br><br>
@@ -202,4 +139,4 @@ the "Function Finders" to help determine the best curve fit for your data.<br>
 {% endfor %}
 </div>
 
-{% endblock body_contents %}
+{% endblock %}
