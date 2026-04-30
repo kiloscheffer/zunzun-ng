@@ -119,6 +119,8 @@ header h1 a:visited {
   display: flex;
   justify-content: center;
   gap: 1.5rem;
+  max-width: min(45rem, 90%);
+  margin: 0 auto;
 }
 
 .dropdown-nav > div {
