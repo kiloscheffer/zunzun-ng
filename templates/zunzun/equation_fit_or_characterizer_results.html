@@ -94,7 +94,7 @@
 <br>
 
 
-<div id="introDiv" name="hideable_div">
+<div id="introDiv" class="hideable">
 <h2>Introduction and PDF Link</h2><br><br>
 Please select an item from the pull-down menu above.
 <br><br>
@@ -104,7 +104,7 @@ You can download almost all of these reports as <a href='/temp/{{ pdfFileName }}
 
 
 {% if equationInstance %}
-<div id="evaluateDiv" name="hideable_div" style="display:none;">
+<div id="evaluateDiv" class="hideable hidden">
 {% if equationInstance.splineFlag %}
 <h2>Evaluate This Spline At A Point</h2><br><br>
 {% else %}
@@ -136,7 +136,7 @@ You can download almost all of these reports as <a href='/temp/{{ pdfFileName }}
 
 
 {% for textReport in textReports %}
-	<div id="{{ textReport.uniqueAnchorName }}" name="hideable_div" style="display:none;">
+	<div id="{{ textReport.uniqueAnchorName }}" class="hideable hidden">
 	<h2>{{ textReport.name }}</h2><br><br>
 <table><tr><td>
 <pre>
@@ -149,7 +149,7 @@ You can download almost all of these reports as <a href='/temp/{{ pdfFileName }}
 
 
 {% for graphReport in graphReports %}
-	<div id="{{ graphReport.uniqueAnchorName }}" name="hideable_div" style="display:none;">
+	<div id="{{ graphReport.uniqueAnchorName }}" class="hideable hidden">
 	<h2>{{ graphReport.name }}</h2><br>
 		{% if graphReport.animationFlag == 1 %}
 		<br>

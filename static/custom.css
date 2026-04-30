@@ -72,3 +72,12 @@
 .dropdown-nav label {
     font-weight: bold;
 }
+
+/* ------------------------------------------------------------------------ */
+/*   SHOW/HIDE SYSTEM (added during HTML modernization pass 10)             */
+/*   .hideable is a marker class for the show/hide nav system; jQuery in    */
+/*   generic_page_template.html toggles the .hidden class on these elements */
+/*   based on dropdown selection.                                           */
+/* ------------------------------------------------------------------------ */
+
+.hidden { display: none; }

@@ -25,8 +25,8 @@
 
   <script>
     $(document).ready(function () {
-      $('*[name="hideable_div"]').css('display', 'none');
-      $('#introDiv').css('display', 'block');
+      $('.hideable').addClass('hidden');
+      $('#introDiv').removeClass('hidden');
       $('#s1').prop('selectedIndex', 1);
       $('#s1').change(f1);
       $('#s2').prop('selectedIndex', 1);
@@ -39,8 +39,8 @@
     });
 
     function f1() {
-      $('*[name="hideable_div"]').css('display', 'none');
-      $('#' + $('#s1 option:selected').val()).css('display', 'block');
+      $('.hideable').addClass('hidden');
+      $('#' + $('#s1 option:selected').val()).removeClass('hidden');
 
       if ($('#s1').prop('selectedIndex') == 1) {
         $('#s2').prop('selectedIndex', 1);
@@ -57,8 +57,8 @@
     };
 
     function f2() {
-      $('*[name="hideable_div"]').css('display', 'none');
-      $('#' + $('#s2 option:selected').val()).css('display', 'block');
+      $('.hideable').addClass('hidden');
+      $('#' + $('#s2 option:selected').val()).removeClass('hidden');
 
       if ($('#s2').prop('selectedIndex') == 1) {
         $('#s1').prop('selectedIndex', 1);
@@ -75,8 +75,8 @@
     };
 
     function f3() {
-      $('*[name="hideable_div"]').css('display', 'none');
-      $('#' + $('#s3 option:selected').val()).css('display', 'block');
+      $('.hideable').addClass('hidden');
+      $('#' + $('#s3 option:selected').val()).removeClass('hidden');
 
       if ($('#s3').prop('selectedIndex') == 1) {
         $('#s1').prop('selectedIndex', 1);
@@ -93,8 +93,8 @@
     };
 
     function f4() {
-      $('*[name="hideable_div"]').css('display', 'none');
-      $('#' + $('#s4 option:selected').val()).css('display', 'block');
+      $('.hideable').addClass('hidden');
+      $('#' + $('#s4 option:selected').val()).removeClass('hidden');
 
       if ($('#s4').prop('selectedIndex') == 1) {
         $('#s1').prop('selectedIndex', 1);
