@@ -2,20 +2,20 @@
 /*   USE LIGHT MODE ONLY                                                    */
 /* ------------------------------------------------------------------------ */
 @media (prefers-color-scheme: dark) {
-    :root {
-        color-scheme: light;
-        --bg: #fff;
-        --accent-bg: #f5f7ff;
-        --text: #212121;
-        --text-light: #585858;
-        --accent: #0d47a1;
-        --accent-hover: #1266e2;
-        --accent-text: var(--bg);
-        --code: #d81b60;
-        --preformatted: #444;
-        --marked: #ffdd33;
-        --disabled: #efefef;
-    }
+  :root {
+    color-scheme: light;
+    --bg: #fff;
+    --accent-bg: #f5f7ff;
+    --text: #212121;
+    --text-light: #585858;
+    --accent: #0d47a1;
+    --accent-hover: #1266e2;
+    --accent-text: var(--bg);
+    --code: #d81b60;
+    --preformatted: #444;
+    --marked: #ffdd33;
+    --disabled: #efefef;
+  }
 }
 
 /* ------------------------------------------------------------------------ */
@@ -23,38 +23,92 @@
 /* ------------------------------------------------------------------------ */
 
 @media (prefers-color-scheme: dark) {
-    :root {
-        color-scheme: revert;
-    }
+  :root {
+    color-scheme: revert;
+  }
 
-    img,
-    video {
-        opacity: revert;
-    }
+  img,
+  video {
+    opacity: revert;
+  }
+}
+
+/* ------------------------------------------------------------------------ */
+/*   GENERAL                                                                */
+/* ------------------------------------------------------------------------ */
+body {
+  grid-template-rows: auto 1fr auto;
+  min-height: 100vh;
+}
+
+a {
+  text-decoration: none;
+}
+
+/* ------------------------------------------------------------------------ */
+/*   FORMAT HEADERS                                                         */
+/* ------------------------------------------------------------------------ */
+
+h1 {
+  font-size: 2.5rem;
+}
+
+h2 {
+  font-size: 2.1rem;
+}
+
+h3 {
+  font-size: 1.75rem;
+}
+
+h6 {
+  font-size: 1em;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  margin: 0;
+  text-transform: uppercase;
 }
 
 /* ------------------------------------------------------------------------ */
 /*   LAYOUT UTILITIES                                                       */
 /* ------------------------------------------------------------------------ */
 
-.text-center { text-align: center; }
-.text-left   { text-align: left; }
-.text-right  { text-align: right; }
+.text-center {
+  text-align: center;
+}
+.text-left {
+  text-align: left;
+}
+.text-right {
+  text-align: right;
+}
 
-.gap-sm { margin-bottom: 0.5rem; }
-.gap-md { margin-bottom: 1rem; }
-.gap-lg { margin-bottom: 2rem; }
+.gap-sm {
+  margin-bottom: 0.5rem;
+}
+.gap-md {
+  margin-bottom: 1rem;
+}
+.gap-lg {
+  margin-bottom: 2rem;
+}
 
-.bordered { border: 1px solid #ccc; }
+.bordered {
+  border: 1px solid #ccc;
+}
 
-.hr-half { width: 50%; }
-.hr-three-quarter { width: 75%; }
+.hr-half {
+  width: 50%;
+}
+.hr-three-quarter {
+  width: 75%;
+}
 
 /* Header brand link: clickable but visually unchanged. */
 header h1 a:link,
 header h1 a:visited {
-    color: inherit;
-    text-decoration: none;
+  color: inherit;
+  text-decoration: none;
 }
 
 /* ------------------------------------------------------------------------ */
@@ -62,13 +116,67 @@ header h1 a:visited {
 /* ------------------------------------------------------------------------ */
 
 .dropdown-nav {
-    display: flex;
-    justify-content: center;
-    gap: 1.5rem;
+  display: flex;
+  justify-content: center;
+  gap: 1.5rem;
+}
+
+.dropdown-nav > div {
+  flex: 1;
+}
+
+.dropdown-nav select {
+  width: 100%;
 }
 
 .dropdown-nav label {
-    font-weight: bold;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  margin: 0;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+/* ------------------------------------------------------------------------ */
+/*   FOOTER                                                                 */
+/* ------------------------------------------------------------------------ */
+body > footer {
+  background-color: var(--accent-bg);
+  color: var(--text);
+  grid-column: 1 / -1;
+  padding: 2rem 1rem 0 1rem;
+  margin-bottom: 0;
+}
+
+body > footer .flex-container {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 1rem;
+  width: 100%;
+}
+
+body > footer .centered {
+  flex: 1 1 0;
+  flex-grow: 1;
+  text-align: center;
+  width: fit-content;
+}
+
+body > footer .content-container {
+  display: inline-block;
+  flex-wrap: nowrap;
+  text-align: left;
+  text-wrap: none;
+  white-space: nowrap;
+}
+
+.business-card {
+  background-color: var(--bg);
+}
+
+footer > div:last-child {
+  margin-top: 1rem;
 }
 
 /* ------------------------------------------------------------------------ */
@@ -78,4 +186,6 @@ header h1 a:visited {
 /*   based on dropdown selection.                                           */
 /* ------------------------------------------------------------------------ */
 
-.hidden { display: none; }
+.hidden {
+  display: none;
+}
