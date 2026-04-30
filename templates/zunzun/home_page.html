@@ -71,13 +71,14 @@
     </dl>
   </div>{% endfor %} {% for dim_to_map in dim_to_map_list %}{% for equationClassProperties in dim_to_map.1 %}{% if equationClassProperties.firstItemInSubmoduleFlag %}
   <div id="A{{ dim_to_map.0 }}DA{{ equationClassProperties.submoduleName }}" class="hideable hidden">
-    <h2>{{ dim_to_map.0 }}D {{ equationClassProperties.submoduleName }}</h2>
-    <dl class="equation-list">{% endif %}
-      <dt><a href="Equation/{{ dim_to_map.0 }}/{{ equationClassProperties.submoduleName }}/{{ equationClassProperties.url_quote_name }}/">{{ equationClassProperties.name }} {{ dim_to_map.0 }}D</a></dt>
-      <dd>{{ equationClassProperties.HTML }}{% if equationClassProperties.webCitationLink %} &nbsp; <a href="{{ equationClassProperties.webCitationLink }}" target="_blank" rel="noopener noreferrer">[web citation]</a>{% endif %}</dd>{% if equationClassProperties.lastItemInSubmoduleFlag %}
-    </dl>
-  </div>{% else %}{% if equationClassProperties.lastItemInExtendedNameFlag %}
-  <hr />{% endif %}{% endif %}{% endfor %}{% endfor %} {% for dim_to_map in dim_to_map_list %}
+    <h2>{{ dim_to_map.0 }}D {{ equationClassProperties.submoduleName }}</h2>{% endif %}{% if equationClassProperties.firstItemInExtendedNameFlag %}
+    <section class="equation-group">
+      <dl class="equation-list">{% endif %}
+        <dt><a href="Equation/{{ dim_to_map.0 }}/{{ equationClassProperties.submoduleName }}/{{ equationClassProperties.url_quote_name }}/">{{ equationClassProperties.name }} {{ dim_to_map.0 }}D</a></dt>
+        <dd>{{ equationClassProperties.HTML }}{% if equationClassProperties.webCitationLink %} &nbsp; <a href="{{ equationClassProperties.webCitationLink }}" target="_blank" rel="noopener noreferrer">[web citation]</a>{% endif %}</dd>{% if equationClassProperties.lastItemInExtendedNameFlag %}
+      </dl>
+    </section>{% endif %}{% if equationClassProperties.lastItemInSubmoduleFlag %}
+  </div>{% endif %}{% endfor %}{% endfor %} {% for dim_to_map in dim_to_map_list %}
   <div id="allEquations{{ dim_to_map.0 }}DDiv" class="hideable hidden">
     <h2>All {{ dim_to_map.0 }}D Equations</h2>
     <dl class="equation-list">
