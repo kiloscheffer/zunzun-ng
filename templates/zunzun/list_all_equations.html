@@ -5,45 +5,12 @@
 {% endblock %}
 
 {% block body_contents %}
-
-<br>
-{% for equationClassProperties in sortedEquationClassPropertiesList %}
-
-    {% if equationClassProperties.firstItemInSubmoduleFlag %}
-        <div class="text-center">
-        <h2>{{ dimensionality }}D {{ equationClassProperties.submoduleName }}</h2>
-        </div>
-        <br>
-        <table>
-    {% endif %}
-    
-    <tr>
-    <td>&nbsp;&nbsp;&nbsp;&nbsp;<a href='/Equation/{{ dimensionality }}/{{ equationClassProperties.submoduleName  }}/{{ equationClassProperties.url_quote_name }}/'>{{ equationClassProperties.name }} {{ dimensionality }}D</a></td>
-    <td> &nbsp; </td>
-        <td>
-            {% if equationClassProperties.multiLineHtmlFlag %}<br>{% endif %}
-            {{ equationClassProperties.HTML }}
-            {% if equationClassProperties.webCitationLink %} &nbsp; <a href='{{ equationClassProperties.webCitationLink }}' target='_blank' rel='noopener noreferrer'>[web citation]</a>{% endif %}
-            {% if equationClassProperties.multiLineHtmlFlag %}<br>{% endif %}
-        </td>
-    </tr>
-    {% if equationClassProperties.lastItemInSubmoduleFlag %}
-        <tr><td> &nbsp; </td><td> &nbsp; </td><td> &nbsp; </td></tr>
-        <tr><td colspan=3><hr style="width:75%"></td></tr>
-        <tr><td colspan=3><hr style="width:60%"></td></tr>
-        <tr><td colspan=3><hr style="width:45%"></td></tr>
-        <tr><td colspan=3><hr style="width:30%"></td></tr>
-        <tr><td> &nbsp; </td><td> &nbsp; </td><td> &nbsp; </td></tr>
-        </table>
-        <div class="gap-lg"></div>
-    {% else %}
-        {% if equationClassProperties.lastItemInExtendedNameFlag %}
-            <tr><td> &nbsp; </td><td> &nbsp; </td><td> &nbsp; </td></tr>
-            <tr><td colspan=3><hr style="width:75%"></td></tr>
-            <tr><td> &nbsp; </td><td> &nbsp; </td><td> &nbsp; </td></tr>
-        {% endif %}
-    {% endif %}
-
-{% endfor %}
-
+{% for equationClassProperties in sortedEquationClassPropertiesList %}{% if equationClassProperties.firstItemInSubmoduleFlag %}
+<h2>{{ dimensionality }}D {{ equationClassProperties.submoduleName }}</h2>{% endif %}{% if equationClassProperties.firstItemInExtendedNameFlag %}
+<section class="equation-group">
+  <dl class="equation-list">{% endif %}
+    <dt><a href="/Equation/{{ dimensionality }}/{{ equationClassProperties.submoduleName }}/{{ equationClassProperties.url_quote_name }}/">{{ equationClassProperties.name }} {{ dimensionality }}D</a></dt>
+    <dd>{{ equationClassProperties.HTML }}{% if equationClassProperties.webCitationLink %}<sup><a href="{{ equationClassProperties.webCitationLink }}" target="_blank" rel="noopener noreferrer">[web citation]</a></sup>{% endif %}</dd>{% if equationClassProperties.lastItemInExtendedNameFlag %}
+  </dl>
+</section>{% endif %}{% endfor %}
 {% endblock %}
