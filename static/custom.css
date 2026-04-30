@@ -50,6 +50,12 @@
 .hr-half { width: 50%; }
 .hr-three-quarter { width: 75%; }
 
+/* Header brand link: clickable but visually unchanged. */
+header h1 a {
+    color: inherit;
+    text-decoration: none;
+}
+
 /* ------------------------------------------------------------------------ */
 /*   DROPDOWN NAV                                                           */
 /* ------------------------------------------------------------------------ */
