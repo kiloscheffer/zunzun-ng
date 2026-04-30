@@ -1,14 +1,10 @@
 <div id="polynomialSelection" class="hideable hidden">
 <h2>Polynomial selection</h2>
 {% if dimensionality == '2' %}
-    Select the highest order term for the polynomial equation.
-    <br>
-    <br>
+    <p>Select the highest order term for the polynomial equation.</p>
     {{ mainForm.polynomialOrderX2D }}
 {% else %}
-    Select the highest order terms for the polynomial equation.
-    <br>
-    <br>
+    <p>Select the highest order terms for the polynomial equation.</p>
     <table>
     <tr><td>
     {{ mainForm.polynomialOrderX3D }} Highest term for first independent data (X)

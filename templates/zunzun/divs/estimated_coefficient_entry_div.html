@@ -1,15 +1,10 @@
 <div id="estimatedCoefficientEntry" class="hideable hidden">
 <h2>Estimated Initial Coefficients</h2>
-Here you can enter values for initial parameter estimates.<br>
-<br>
-Few users will need this section, as the site estimates initial<br>
-parameters using the Differential Evolution genetic algorithm<br>
-for both non-linear equations and non-Gaussian fitting targets.
-<br>
-<br>
-{{ equationInstance.GetDisplayHTML }}
-<br>
-<br>
+<p>Here you can enter values for initial parameter estimates.</p>
+<p>Few users will need this section, as the site estimates initial
+parameters using the Differential Evolution genetic algorithm
+for both non-linear equations and non-Gaussian fitting targets.</p>
+<p>{{ equationInstance.GetDisplayHTML }}</p>
 <table >
 {% for item in estimatedCoefficientTemplateRequirement %}
 <tr><td><div name='nameOfEstimatedCoefficient'>{{ item.0 }} &nbsp; &nbsp;</div></td><td>{{ item.1 }}</td></tr>
