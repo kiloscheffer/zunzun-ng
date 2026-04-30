@@ -48,31 +48,12 @@
 
   <div id="characterizeDataDiv" class="hideable hidden">
     <h2>Characterize Data </h2>
-    <table>
-      <tr>
-        <td>
-          <a href="CharacterizeData/1/">Characterize 1D (X) Data</a>
-        </td>
-      </tr>
-      <tr>
-        <td>
-          <a href="CharacterizeData/2/">Characterize 2D (XY) Data</a>
-        </td>
-      </tr>
-      <tr>
-        <td>
-          <a href="CharacterizeData/3/">Characterize 3D (XYZ) Data</a>
-        </td>
-      </tr>
-      <tr>
-        <td>&nbsp;</td>
-      </tr>
-      <tr>
-        <td>
-          <a href="StatisticalDistributions/1/">Fit Data To Statistical Distributions</a>
-        </td>
-      </tr>
-    </table>
+    <ul class="link-list">
+      <li><a href="CharacterizeData/1/">Characterize 1D (X) Data</a></li>
+      <li><a href="CharacterizeData/2/">Characterize 2D (XY) Data</a></li>
+      <li><a href="CharacterizeData/3/">Characterize 3D (XYZ) Data</a></li>
+      <li class="link-list-gap"><a href="StatisticalDistributions/1/">Fit Data To Statistical Distributions</a></li>
+    </ul>
   </div>{% for dim_to_map in dim_to_map_list %}
   <div id="functionFinder{{ dim_to_map.0 }}DDiv" class="hideable hidden">
     <h2>{{ dim_to_map.0 }}D Function Finder </h2>
@@ -80,83 +61,33 @@
   </div>{% endfor %} {% include "zunzun/divs/about.html" %} {% include "zunzun/divs/historical_note.html" %} {% include "zunzun/divs/server_load.html" %} {% include "zunzun/divs/dedication.html" %} {% for dim_to_spline in dim_to_spline_list %}
   <div id="spline{{ dim_to_spline.0 }}DDiv" class="hideable hidden">
     <h2>{{ dim_to_spline.0 }}D Spline Interpolation</h2>
-    <table>
-      <tr>
-        <td>
-          <a href="Equation/{{ dim_to_spline.0 }}/Spline/Spline/">{{ dim_to_spline.1.GetDisplayName }} {{ dim_to_spline.0 }}D</a>
-        </td>
-        <td>&nbsp;</td>
-        <td>{{ dim_to_spline.1.GetDisplayHTML }}</td>
-      </tr>
-      <tr>
-        <td>&nbsp;</td>
-        <td>&nbsp;</td>
-        <td>&nbsp;</td>
-      </tr>
-    </table>
+    <dl class="equation-list">
+      <dt><a href="Equation/{{ dim_to_spline.0 }}/Spline/Spline/">{{ dim_to_spline.1.GetDisplayName }} {{ dim_to_spline.0 }}D</a></dt>
+      <dd>{{ dim_to_spline.1.GetDisplayHTML }}</dd>
+    </dl>
   </div>{% endfor %} {% for dim_to_map in dim_to_map_list %}
   <div id="userDefinedFunction{{ dim_to_map.0 }}DDiv" class="hideable hidden">
     <h2>{{ dim_to_map.0 }}D User Defined Function</h2>
-    <table>
-      <tr>
-        <td>
-          <a href="Equation/{{ dim_to_map.0 }}/UserDefinedFunction/UserDefinedFunction/">User Defined Function {{ dim_to_map.0 }}D</a>
-        </td>
-        <td>&nbsp;</td>{% if dim_to_map.0 == '2' %}
-        <td>y = user defined function</td>{% else %}
-        <td>z = user defined function</td>{% endif %}
-      </tr>
-      <tr>
-        <td>&nbsp;</td>
-        <td>&nbsp;</td>
-        <td>&nbsp;</td>
-      </tr>
-    </table>
+    <dl class="equation-list">
+      <dt><a href="Equation/{{ dim_to_map.0 }}/UserDefinedFunction/UserDefinedFunction/">User Defined Function {{ dim_to_map.0 }}D</a></dt>
+      <dd>{% if dim_to_map.0 == '2' %}y = user defined function{% else %}z = user defined function{% endif %}</dd>
+    </dl>
   </div>{% endfor %} {% for dim_to_map in dim_to_map_list %}{% for equationClassProperties in dim_to_map.1 %}{% if equationClassProperties.firstItemInSubmoduleFlag %}
   <div id="A{{ dim_to_map.0 }}DA{{ equationClassProperties.submoduleName }}" class="hideable hidden">
     <h2>{{ dim_to_map.0 }}D {{ equationClassProperties.submoduleName }}</h2>
-    <table>{% endif %}
-      <tr>
-        <td>
-          <a href="Equation/{{ dim_to_map.0 }}/{{ equationClassProperties.submoduleName }}/{{ equationClassProperties.url_quote_name }}/">{{ equationClassProperties.name }} {{ dim_to_map.0 }}D</a>
-        </td>
-        <td>&nbsp;</td>
-        <td>{% if equationClassProperties.multiLineHtmlFlag %}<br />{% endif %}{{ equationClassProperties.HTML }}{% if equationClassProperties.webCitationLink %} &nbsp; <a href="{{ equationClassProperties.webCitationLink }}" target="_blank" rel="noopener noreferrer">[web citation]</a>{% endif %}{% if equationClassProperties.multiLineHtmlFlag %}<br />{% endif %}</td>
-      </tr>{% if equationClassProperties.lastItemInSubmoduleFlag %}
-    </table>
+    <dl class="equation-list">{% endif %}
+      <dt><a href="Equation/{{ dim_to_map.0 }}/{{ equationClassProperties.submoduleName }}/{{ equationClassProperties.url_quote_name }}/">{{ equationClassProperties.name }} {{ dim_to_map.0 }}D</a></dt>
+      <dd>{{ equationClassProperties.HTML }}{% if equationClassProperties.webCitationLink %} &nbsp; <a href="{{ equationClassProperties.webCitationLink }}" target="_blank" rel="noopener noreferrer">[web citation]</a>{% endif %}</dd>{% if equationClassProperties.lastItemInSubmoduleFlag %}
+    </dl>
   </div>{% else %}{% if equationClassProperties.lastItemInExtendedNameFlag %}
-  <tr>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-  </tr>
-  <tr>
-    <td colspan="3">
-      <hr style="width: 50%" />
-    </td>
-  </tr>
-  <tr>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-  </tr>{% endif %}{% endif %}{% endfor %}{% endfor %} {% for dim_to_map in dim_to_map_list %}
+      <hr>{% endif %}{% endif %}{% endfor %}{% endfor %} {% for dim_to_map in dim_to_map_list %}
   <div id="allEquations{{ dim_to_map.0 }}DDiv" class="hideable hidden">
     <h2>All {{ dim_to_map.0 }}D Equations</h2>
-    <table>
-      <tr>
-        <td>
-          <a href="AllEquations/{{ dim_to_map.0 }}/Standard/">List Of All {{ dim_to_map.0 }}D Equations</a>
-        </td>
-        <td>-</td>
-        <td>Standard Versions Only</td>
-      </tr>
-      <tr>
-        <td>
-          <a href="AllEquations/{{ dim_to_map.0 }}/All/">List Of All {{ dim_to_map.0 }}D Equations</a>
-        </td>
-        <td>-</td>
-        <td>Including Extended Versions</td>
-      </tr>
-    </table>
+    <dl class="equation-list">
+      <dt><a href="AllEquations/{{ dim_to_map.0 }}/Standard/">List Of All {{ dim_to_map.0 }}D Equations</a></dt>
+      <dd>Standard Versions Only</dd>
+      <dt><a href="AllEquations/{{ dim_to_map.0 }}/All/">List Of All {{ dim_to_map.0 }}D Equations</a></dt>
+      <dd>Including Extended Versions</dd>
+    </dl>
   </div>{% endfor %}
 </div>{% endblock %}
