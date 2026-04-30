@@ -32,3 +32,20 @@
         opacity: revert;
     }
 }
+
+/* ------------------------------------------------------------------------ */
+/*   LAYOUT UTILITIES (added during HTML modernization pass 8)              */
+/* ------------------------------------------------------------------------ */
+
+.text-center { text-align: center; }
+.text-left   { text-align: left; }
+.text-right  { text-align: right; }
+
+.gap-sm { margin-bottom: 0.5rem; }
+.gap-md { margin-bottom: 1rem; }
+.gap-lg { margin-bottom: 2rem; }
+
+.bordered { border: 1px solid #ccc; }
+
+.hr-half { width: 50%; }
+.hr-three-quarter { width: 75%; }

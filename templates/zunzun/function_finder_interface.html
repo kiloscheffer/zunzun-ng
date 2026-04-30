@@ -8,15 +8,15 @@
 
 <form action="/FunctionFinder__F__/{{ dimensionality }}/" method='post'>
 
-<table align="center"><tr>
-    <td align="center">Pulldown Menu</td>
+<table><tr>
+    <td>Pulldown Menu</td>
     <td>&nbsp;</td>
     <td>&nbsp;</td>
     <td>&nbsp;</td>
     <td>&nbsp;</td>
 </tr>
 <tr>
-    <td align="center">        <select id="s1" size=1>
+    <td>        <select id="s1">
         <option>
         <option value='introDiv' selected>Introduction
         <option value='dataEntry'>Text Data Editor
@@ -40,8 +40,8 @@
 <br>
 
 
-<div id="introDiv" align='center' name="hideable_div">
-<b><span style="font-size:larger">Introduction</span></b><br><br>
+<div id="introDiv" name="hideable_div">
+<b><span>Introduction</span></b><br><br>
 Please select an option from the pull-down menu above.<br>
 <br>
 <b>Advice:</b> Most users should turn off the Polyfunctional family<br>
@@ -57,24 +57,24 @@ to start, then increase the Smoothness Control value as needed.
 {% include "zunzun/divs/extended_equation_types_control_div.html" %}
 
 {% if dimensionality == '2' %}
-<div id="linLog" align='center' name="hideable_div">
+<div id="linLog" name="hideable_div">
 <b>Lin/log control</b><br><br>
 Log plots require data values greater than zero.
 <br>
 <br>
 <table >
     <tr>
-        <td align=center>Select X Lin/Log Scaling</td>
+        <td>Select X Lin/Log Scaling</td>
         <td> &nbsp; </td>
-        <td align=center>Select Y Lin/Log Scaling</td>
+        <td>Select Y Lin/Log Scaling</td>
     </tr>
     <tr>
         <td>
-            <table border="1">
+            <table>
             <tr>
             <td>
                 <table >
-                <tr><td align='left'>
+                <tr><td>
                    {{ mainForm.logLinX }}
                 </td></tr>
                 </table>
@@ -84,11 +84,11 @@ Log plots require data values greater than zero.
         </td>
         <td> &nbsp; </td>
         <td>
-            <table border="1">
+            <table>
             <tr>
             <td>
                 <table >
-                <tr><td align='left'>
+                <tr><td>
                    {{ mainForm.logLinY }}
                 </td></tr>
                 </table>

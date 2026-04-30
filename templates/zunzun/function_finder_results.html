@@ -6,7 +6,7 @@
 
 {% block body_contents %}
 
-<div align='center'>
+<div>
 
 <br>
 
@@ -26,18 +26,18 @@
 
 <br><br>
 
-<table border='1'>
+<table>
 <tr>
-    <td align='center'>Model Plots</td>
+    <td>Model Plots</td>
 {% if dimensionality == '3' %}
-    <td align='center'>Contour Plots</td>
+    <td>Contour Plots</td>
 {% endif %}
 {% if RelativeErrorPlotsFlag %}
-    <td align='center'>Relative Error Plots</td>
+    <td>Relative Error Plots</td>
 {% else %}
-    <td align='center'>Error Plots</td>
+    <td>Error Plots</td>
 {% endif %}
-    <td align='center'>Statistics and Links</td>
+    <td>Statistics and Links</td>
 </tr>
 {% for equationData in equationDataForDjangoTemplate %}
 	<tr>
@@ -46,7 +46,7 @@
 		<td style='border-top: none; border-right: none; border-left: none;'><img src='{{ graphLocation }}'></td>
 	{% endfor %}
 
-	<td style='border-top: none; border-right: none; border-left: none;' align='center'>
+	<td style='border-top: none; border-right: none; border-left: none;'>
 	<br>
 	<b>Rank {{ equationData.rank }}</b>
 	<br>
@@ -61,7 +61,7 @@
 	{{ equationData.displayHTML }}
 	<br>
 	<br>
-	<a href='/Equation/{{ dimensionality }}/{{ equationData.URLQuotedModuleName }}/{{ equationData.URLQuotedDisplayName }}/?RANK={{ equationData.rank }}&unused={{ uniqueTime }}' target='_blank'>Go to this equation</a>
+	<a href='/Equation/{{ dimensionality }}/{{ equationData.URLQuotedModuleName }}/{{ equationData.URLQuotedDisplayName }}/?RANK={{ equationData.rank }}&unused={{ uniqueTime }}' target='_blank' rel='noopener noreferrer'>Go to this equation</a>
 	<br>
 	<br>
 	</td>

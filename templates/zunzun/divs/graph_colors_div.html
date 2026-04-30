@@ -1,32 +1,32 @@
-<div id="graphColors" align='center' name="hideable_div" style="display:none;">
+<div id="graphColors" name="hideable_div" style="display:none;">
 <b>Graph colors</b>
 <br>
 <br>
 Here you can select various color options for the output graphs.
 <br>
 <br>
-<table border="1" align="center"><tr><td>
+<table><tr><td>
  <table>
   <tr>
     {{ mainForm.graphBackgroundColor }}
-	<td align='left'>Graph background color</td>
+	<td>Graph background color</td>
   </tr>
   <tr>
     {{ mainForm.graphTextColor }}
-	<td align='left'>Graph text color</td>
+	<td>Graph text color</td>
   </tr>
   <tr>
     {{ mainForm.graphLineColor }}
-	<td align='left'>Graph line color</td>
+	<td>Graph line color</td>
 {% if dimensionality == '3' %}
   </tr>
   <tr>
     {{ mainForm.graphFrameColor }}
-	<td align='left'>Graph frame color</td>
+	<td>Graph frame color</td>
   </tr>
   <tr>
     {{ mainForm.graphMeshColor }}
-	<td align='left'>3D mesh color</td>
+	<td>3D mesh color</td>
 {% endif %}
   </tr>
  </table>

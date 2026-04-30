@@ -1,4 +1,4 @@
-<div id="scientificNotation" align='center' name="hideable_div" style="display:none;">
+<div id="scientificNotation" name="hideable_div" style="display:none;">
 <b>Scientific Notation</b>
 <br>
 <br>
@@ -8,33 +8,33 @@ and the contour plots.{% endif %}
 <br>
 <table >
     <tr>
-        <td align=center>X Control</td>
+        <td>X Control</td>
 {% if dimensionality != '1' %}
         <td> &nbsp; </td>
-        <td align=center>Y Control</td>
+        <td>Y Control</td>
 {% if dimensionality == '3' %}
         <td> &nbsp; </td>
-        <td align=center>Z Control</td>
+        <td>Z Control</td>
 {% endif %}
 {% endif %}
     </tr>
     <tr>
     <td>
-        <table border="1"><tr><td align='left'>
+        <table><tr><td>
         {{ mainForm.scientificNotationX }}
         </td></tr></table>
     </td>
 {% if dimensionality != '1' %}
     <td> &nbsp; </td>
     <td>
-        <table border="1"><tr><td align='left'>
+        <table><tr><td>
         {{ mainForm.scientificNotationY }}
         </td></tr></table>
     </td>
 {% if dimensionality == '3' %}
     <td> &nbsp; </td>
     <td>
-        <table border="1"><tr><td align='left'>
+        <table><tr><td>
         {{ mainForm.scientificNotationZ }}
         </td></tr></table>
     </td>

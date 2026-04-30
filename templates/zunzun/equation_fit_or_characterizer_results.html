@@ -8,27 +8,27 @@
 
 {% block body_contents %}
 
-<table align="center"><tr>
+<table><tr>
 {% if equationInstance %}
-    <td align="center">Coefficients And Text Reports</td>
+    <td>Coefficients And Text Reports</td>
     <td>&nbsp;</td>
 {% else %}
-    <td align="center">Text Reports</td>
+    <td>Text Reports</td>
     <td>&nbsp;</td>
 {% endif %}
-    <td align="center">Histograms</td>
+    <td>Histograms</td>
     <td>&nbsp;</td>
 {% if equationInstance %}
-    <td align="center">Statistical Scatterplots</td>
+    <td>Statistical Scatterplots</td>
     <td>&nbsp;</td>
 {% endif %}
 {% if dimensionality != '1' %}
-    <td align="center">Data Graphs</td>
+    <td>Data Graphs</td>
     <td>&nbsp;</td>
 {% endif %}
 </tr>
 <tr>
-    <td align="center">        <select id="s1" size=1>
+    <td>        <select id="s1">
         <option>
         <option value='introDiv' selected>Introduction and PDF Link
 {% if equationInstance %}
@@ -45,7 +45,7 @@
 	    </select>
     </td>
     <td>&nbsp;</td>
-    <td align="center">        <select id="s2" size=1>
+    <td>        <select id="s2">
         <option>
         <option value='introDiv' selected>Introduction and PDF Link
 		{% for graphReport in graphReports %}
@@ -59,7 +59,7 @@
     </td>
 {% if equationInstance %}
     <td>&nbsp;</td>
-    <td align="center">        <select id="s3" size=1>
+    <td>        <select id="s3">
         <option>
         <option value='introDiv' selected>Introduction and PDF Link
 		{% for graphReport in graphReports %}
@@ -74,10 +74,10 @@
 {% endif %}
 {% if dimensionality != '1' %}
     <td>&nbsp;</td>
-    <td align="center">{% if equationInstance %}
-        <select id="s4" size=1>
+    <td>{% if equationInstance %}
+        <select id="s4">
 {% else %}
-        <select id="s3" size=1>
+        <select id="s3">
 {% endif %}
         <option>
         <option value='introDiv' selected>Introduction and PDF Link
@@ -94,8 +94,8 @@
 <br>
 
 
-<div id="introDiv" align='center' name="hideable_div">
-<b><span style="font-size:larger">Introduction and PDF Link</span></b><br><br>
+<div id="introDiv" name="hideable_div">
+<b><span>Introduction and PDF Link</span></b><br><br>
 Please select an item from the pull-down menu above.
 <br><br>
 You can download almost all of these reports as <a href='/temp/{{ pdfFileName }}'>a single PDF file</a>.<br>
@@ -104,11 +104,11 @@ You can download almost all of these reports as <a href='/temp/{{ pdfFileName }}
 
 
 {% if equationInstance %}
-<div id="evaluateDiv" align='center' name="hideable_div" style="display:none;">
+<div id="evaluateDiv" name="hideable_div" style="display:none;">
 {% if equationInstance.splineFlag %}
-<b><span style="font-size:larger">Evaluate This Spline At A Point</span></b><br><br>
+<b><span>Evaluate This Spline At A Point</span></b><br><br>
 {% else %}
-<b><span style="font-size:larger">Evaluate This Equation At A Point</span></b><br><br>
+<b><span>Evaluate This Equation At A Point</span></b><br><br>
 {% endif %}
 <form name='evaluatePointForm'>
 {% if dimensionality == '2' %}
@@ -117,8 +117,8 @@ You can download almost all of these reports as <a href='/temp/{{ pdfFileName }}
 {{ IndependentDataName1 }}
 {% else %}
 <table>
-<tr><td align='center'>{{ EvaluateAtAPointForm.x }} </td><td> &nbsp; &nbsp; &nbsp; </td><td align='center'>{{ EvaluateAtAPointForm.y }}</td></tr>
-<tr><td align='center'>{{ IndependentDataName1 }} </td><td> &nbsp; &nbsp; &nbsp; </td><td align='center'>{{ IndependentDataName2 }}</td></tr>
+<tr><td>{{ EvaluateAtAPointForm.x }} </td><td> &nbsp; &nbsp; &nbsp; </td><td>{{ EvaluateAtAPointForm.y }}</td></tr>
+<tr><td>{{ IndependentDataName1 }} </td><td> &nbsp; &nbsp; &nbsp; </td><td>{{ IndependentDataName2 }}</td></tr>
 </table>
 {% endif %}
 <br><br>
@@ -136,8 +136,8 @@ You can download almost all of these reports as <a href='/temp/{{ pdfFileName }}
 
 
 {% for textReport in textReports %}
-	<div id="{{ textReport.uniqueAnchorName }}" align='center' name="hideable_div" style="display:none;">
-	<b><span style="font-size:larger">{{ textReport.name }}</span></b><br><br>
+	<div id="{{ textReport.uniqueAnchorName }}" name="hideable_div" style="display:none;">
+	<b><span>{{ textReport.name }}</span></b><br><br>
 <table><tr><td>
 <pre>
     {% for stringListItem in textReport.stringList %}{{ stringListItem }}
@@ -149,20 +149,20 @@ You can download almost all of these reports as <a href='/temp/{{ pdfFileName }}
 
 
 {% for graphReport in graphReports %}
-	<div id="{{ graphReport.uniqueAnchorName }}" align='center' name="hideable_div" style="display:none;">
-	<b><span style="font-size:larger">{{ graphReport.name }}</span></b><br>
+	<div id="{{ graphReport.uniqueAnchorName }}" name="hideable_div" style="display:none;">
+	<b><span>{{ graphReport.name }}</span></b><br>
 		{% if graphReport.animationFlag == 1 %}
 		<br>
-			<a href="{{ graphReport.websiteFileLocation }}" target="_blank">Click Here</a> to download GIF file ({{ graphReport.fileSize }})<br><br>
+			<a href="{{ graphReport.websiteFileLocation }}" target="_blank" rel="noopener noreferrer">Click Here</a> to download GIF file ({{ graphReport.fileSize }})<br><br>
 			<b>NOTE:</b> The animation may appear jerky and uneven until the<br>
 			download is complete and your browser displays the animation smoothly.
 		{% else %}
-	<img src="{{ graphReport.websiteFileLocation }}" align="Absmiddle" alt="{{ graphReport.name }}" onAbort="Load();"><br>
+	<img src="{{ graphReport.websiteFileLocation }}" alt="{{ graphReport.name }}"><br>
         <br>
 		Download this image as 
-			<a href="{{ graphReport.websiteFileLocation|slice:':-3' }}png" target='_blank'>PNG</a>
+			<a href="{{ graphReport.websiteFileLocation|slice:':-3' }}png" target='_blank' rel='noopener noreferrer'>PNG</a>
 			,
-			<a href="{{ graphReport.websiteFileLocation|slice:':-3' }}svg" target='_blank'>SVG</a>
+			<a href="{{ graphReport.websiteFileLocation|slice:':-3' }}svg" target='_blank' rel='noopener noreferrer'>SVG</a>
 	
 	{% endif %}
 	
