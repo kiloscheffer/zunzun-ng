@@ -8,40 +8,34 @@
 
 <form action="/FunctionFinder__F__/{{ dimensionality }}/" method='post'>
 
-<table><tr>
-    <td>Pulldown Menu</td>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-</tr>
-<tr>
-    <td>        <select id="s1">
-        <option>
-        <option value='introDiv' selected>Introduction
-        <option value='dataEntry'>Text Data Editor
-        <option value='fittingTarget'>Fitting Target
-        <option value='dataLabels'>Data Labels For Graphs
+<nav class="dropdown-nav">
+    <div>
+        <label for="s1">Pulldown Menu</label>
+        <select id="s1">
+            <option></option>
+            <option value="introDiv" selected>Introduction</option>
+            <option value="dataEntry">Text Data Editor</option>
+            <option value="fittingTarget">Fitting Target</option>
+            <option value="dataLabels">Data Labels For Graphs</option>
 {% if dimensionality == '2' %}
-        <option value='linLog'>Lin/Log Control
+            <option value="linLog">Lin/Log Control</option>
 {% endif %}
-        <option value='smoothnessControl'>Smoothness Control
-        <option value='equationFamilyInclusion'>Equation Family Inclusion
-        <option value='extendedEquationTypes'>Extended Equation Types
+            <option value="smoothnessControl">Smoothness Control</option>
+            <option value="equationFamilyInclusion">Equation Family Inclusion</option>
+            <option value="extendedEquationTypes">Extended Equation Types</option>
         </select>
-    </td>
-    <td>&nbsp;</td>
-    <td>        <input type="submit" value="Submit">
-    </td>
-    <td>&nbsp;</td>
-    <td><a href="https://github.com/kiloscheffer/zunzun-ng" target="_parent">Home</a></td>
-</tr>
-</table>
-<br>
+    </div>
+    <div>
+        <input type="submit" value="Submit">
+    </div>
+    <div>
+        <a href="https://github.com/kiloscheffer/zunzun-ng" target="_parent">Home</a>
+    </div>
+</nav>
 
 
 <div id="introDiv" name="hideable_div">
-<b><span>Introduction</span></b><br><br>
+<h2>Introduction</h2><br><br>
 Please select an option from the pull-down menu above.<br>
 <br>
 <b>Advice:</b> Most users should turn off the Polyfunctional family<br>
@@ -58,7 +52,7 @@ to start, then increase the Smoothness Control value as needed.
 
 {% if dimensionality == '2' %}
 <div id="linLog" name="hideable_div">
-<b>Lin/log control</b><br><br>
+<h2>Lin/log control</h2>
 Log plots require data values greater than zero.
 <br>
 <br>

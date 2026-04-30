@@ -95,7 +95,7 @@
 
 
 <div id="introDiv" name="hideable_div">
-<b><span>Introduction and PDF Link</span></b><br><br>
+<h2>Introduction and PDF Link</h2><br><br>
 Please select an item from the pull-down menu above.
 <br><br>
 You can download almost all of these reports as <a href='/temp/{{ pdfFileName }}'>a single PDF file</a>.<br>
@@ -106,9 +106,9 @@ You can download almost all of these reports as <a href='/temp/{{ pdfFileName }}
 {% if equationInstance %}
 <div id="evaluateDiv" name="hideable_div" style="display:none;">
 {% if equationInstance.splineFlag %}
-<b><span>Evaluate This Spline At A Point</span></b><br><br>
+<h2>Evaluate This Spline At A Point</h2><br><br>
 {% else %}
-<b><span>Evaluate This Equation At A Point</span></b><br><br>
+<h2>Evaluate This Equation At A Point</h2><br><br>
 {% endif %}
 <form name='evaluatePointForm'>
 {% if dimensionality == '2' %}
@@ -122,7 +122,7 @@ You can download almost all of these reports as <a href='/temp/{{ pdfFileName }}
 </table>
 {% endif %}
 <br><br>
-<input value="Evaluate" type="button" onclick='JavaScript:xmlhttpPost("/EvaluateAtAPoint/")'>
+<button type="button" onclick='JavaScript:xmlhttpPost("/EvaluateAtAPoint/")'>Evaluate</button>
 </form>
 <br><br>
 <div id="evaluateResultDiv"></div>
@@ -137,7 +137,7 @@ You can download almost all of these reports as <a href='/temp/{{ pdfFileName }}
 
 {% for textReport in textReports %}
 	<div id="{{ textReport.uniqueAnchorName }}" name="hideable_div" style="display:none;">
-	<b><span>{{ textReport.name }}</span></b><br><br>
+	<h2>{{ textReport.name }}</h2><br><br>
 <table><tr><td>
 <pre>
     {% for stringListItem in textReport.stringList %}{{ stringListItem }}
@@ -150,7 +150,7 @@ You can download almost all of these reports as <a href='/temp/{{ pdfFileName }}
 
 {% for graphReport in graphReports %}
 	<div id="{{ graphReport.uniqueAnchorName }}" name="hideable_div" style="display:none;">
-	<b><span>{{ graphReport.name }}</span></b><br>
+	<h2>{{ graphReport.name }}</h2><br>
 		{% if graphReport.animationFlag == 1 %}
 		<br>
 			<a href="{{ graphReport.websiteFileLocation }}" target="_blank" rel="noopener noreferrer">Click Here</a> to download GIF file ({{ graphReport.fileSize }})<br><br>

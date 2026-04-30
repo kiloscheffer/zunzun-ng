@@ -139,7 +139,7 @@
     </td>
     <td>&nbsp;</td>
     <td>{% if equationInstance.userSelectablePolyfunctionalFlag or equationInstance.userCustomizablePolynomialFlag or equationInstance.userSelectableRationalFlag %}
-        <input type="button" onClick="javascript:readPolyFlags();document.forms[0].submit();" value="Submit">
+        <button type="button" onClick="javascript:readPolyFlags();document.forms[0].submit();">Submit</button>
 {% else %}
     {% if equationInstance.userDefinedFunctionFlag %}
             <input type="submit" value="Submit (may take several minutes)">
@@ -156,7 +156,7 @@
 
 
 <div id="introDiv" name="hideable_div">
-<b><span>Introduction</span></b><br><br>
+<h2>Introduction</h2><br><br>
 Please select an option from the pull-down menu above.
 </div>
 
