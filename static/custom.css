@@ -108,14 +108,16 @@ dl.equation-list {
     grid-template-columns: 1fr 1fr;
     gap: 0.5rem 1.5rem;
     align-items: baseline;
-    margin: 1rem 0;
+    margin: 0;
     width: 100%;
 }
 dl.equation-list dd {
     margin: 0;
 }
-dl.equation-list hr {
-    grid-column: 1 / -1;
-    width: 50%;
-    margin: 0.5rem auto;
+
+section.equation-group {
+    margin: 1rem 0;
+}
+section.equation-group + section.equation-group {
+    margin-top: 2rem;
 }
