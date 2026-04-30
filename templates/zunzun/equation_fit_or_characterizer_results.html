@@ -95,20 +95,19 @@
 
 
 <div id="introDiv" class="hideable">
-<h2>Introduction and PDF Link</h2><br><br>
-Please select an item from the pull-down menu above.
-<br><br>
-You can download almost all of these reports as <a href='/temp/{{ pdfFileName }}'>a single PDF file</a>.<br>
-<small><b>Hint:</b> if the graphs are too small, you can go back and increase the graph size.</small>
+<h2>Introduction and PDF Link</h2>
+<p>Please select an item from the pull-down menu above.</p>
+<p>You can download almost all of these reports as <a href='/temp/{{ pdfFileName }}'>a single PDF file</a>.<br>
+<small><b>Hint:</b> if the graphs are too small, you can go back and increase the graph size.</small></p>
 </div>
 
 
 {% if equationInstance %}
 <div id="evaluateDiv" class="hideable hidden">
 {% if equationInstance.splineFlag %}
-<h2>Evaluate This Spline At A Point</h2><br><br>
+<h2>Evaluate This Spline At A Point</h2>
 {% else %}
-<h2>Evaluate This Equation At A Point</h2><br><br>
+<h2>Evaluate This Equation At A Point</h2>
 {% endif %}
 <form name='evaluatePointForm'>
 {% if dimensionality == '2' %}
@@ -121,11 +120,9 @@ You can download almost all of these reports as <a href='/temp/{{ pdfFileName }}
 <tr><td>{{ IndependentDataName1 }} </td><td> &nbsp; &nbsp; &nbsp; </td><td>{{ IndependentDataName2 }}</td></tr>
 </table>
 {% endif %}
-<br><br>
-<button type="button" onclick='JavaScript:xmlhttpPost("/EvaluateAtAPoint/")'>Evaluate</button>
+<p><button type="button" onclick='JavaScript:xmlhttpPost("/EvaluateAtAPoint/")'>Evaluate</button></p>
 </form>
-<br><br>
-<div id="evaluateResultDiv"></div>
+<div id="evaluateResultDiv" class="gap-md"></div>
 </div>
 {% endif %}
 
@@ -137,7 +134,7 @@ You can download almost all of these reports as <a href='/temp/{{ pdfFileName }}
 
 {% for textReport in textReports %}
 	<div id="{{ textReport.uniqueAnchorName }}" class="hideable hidden">
-	<h2>{{ textReport.name }}</h2><br><br>
+	<h2>{{ textReport.name }}</h2>
 <table><tr><td>
 <pre>
     {% for stringListItem in textReport.stringList %}{{ stringListItem }}
@@ -150,12 +147,11 @@ You can download almost all of these reports as <a href='/temp/{{ pdfFileName }}
 
 {% for graphReport in graphReports %}
 	<div id="{{ graphReport.uniqueAnchorName }}" class="hideable hidden">
-	<h2>{{ graphReport.name }}</h2><br>
+	<h2>{{ graphReport.name }}</h2>
 		{% if graphReport.animationFlag == 1 %}
-		<br>
-			<a href="{{ graphReport.websiteFileLocation }}" target="_blank" rel="noopener noreferrer">Click Here</a> to download GIF file ({{ graphReport.fileSize }})<br><br>
-			<b>NOTE:</b> The animation may appear jerky and uneven until the<br>
-			download is complete and your browser displays the animation smoothly.
+			<p><a href="{{ graphReport.websiteFileLocation }}" target="_blank" rel="noopener noreferrer">Click Here</a> to download GIF file ({{ graphReport.fileSize }})</p>
+			<p><b>NOTE:</b> The animation may appear jerky and uneven until the
+			download is complete and your browser displays the animation smoothly.</p>
 		{% else %}
 	<img src="{{ graphReport.websiteFileLocation }}" alt="{{ graphReport.name }}"><br>
         <br>

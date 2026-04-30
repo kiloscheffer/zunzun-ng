@@ -80,7 +80,6 @@
   </div>{% endfor %} {% include "zunzun/divs/about.html" %} {% include "zunzun/divs/historical_note.html" %} {% include "zunzun/divs/server_load.html" %} {% include "zunzun/divs/dedication.html" %} {% for dim_to_spline in dim_to_spline_list %}
   <div id="spline{{ dim_to_spline.0 }}DDiv" class="hideable hidden">
     <h2>{{ dim_to_spline.0 }}D Spline Interpolation</h2>
-    <br /><br />
     <table>
       <tr>
         <td>
@@ -98,7 +97,6 @@
   </div>{% endfor %} {% for dim_to_map in dim_to_map_list %}
   <div id="userDefinedFunction{{ dim_to_map.0 }}DDiv" class="hideable hidden">
     <h2>{{ dim_to_map.0 }}D User Defined Function</h2>
-    <br /><br />
     <table>
       <tr>
         <td>

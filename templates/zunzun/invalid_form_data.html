@@ -6,17 +6,14 @@
 
 {% block body_contents %}
 <div>
-<br>
 <h2>Error In Form</h2>
 
 <table>
-
 {% for field in mainForm %}
 {% if field.errors %}
 <tr><td>{{field.label}} :</td><td>{{field.errors}}</td></tr>
 {% endif %}
 {% endfor %}
-
 {% if mainForm.non_field_errors %}
 {% for error in mainForm.non_field_errors %}
 <tr><td>Form error :</td><td>{{error}}</td></tr>
@@ -24,8 +21,7 @@
 {% endif %}
 </table>
 
-<br><br>
-Please close this page, correct any errors, and try again.
+<p>Please close this page, correct any errors, and try again.</p>
 
 </div>
 {% endblock %}

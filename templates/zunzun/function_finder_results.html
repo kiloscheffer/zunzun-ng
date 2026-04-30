@@ -8,23 +8,15 @@
 
 <div>
 
-<br>
-
+<p>
 {% if previousSelectorRank %}
 <a href='/FunctionFinderResults/{{ dimensionality }}/?RANK={{ previousSelectorRank }}&unused={{ uniqueTime }}'>Previous Set Of Equations</a>
 {% endif %}
-
-{% if previousSelectorRank %}
-	{% if nextSelectorRank %}
-		&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-	{% endif %}
-{% endif %}
-
+{% if previousSelectorRank %}{% if nextSelectorRank %}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{% endif %}{% endif %}
 {% if nextSelectorRank %}
 <a href='/FunctionFinderResults/{{ dimensionality }}/?RANK={{ nextSelectorRank }}&unused={{ uniqueTime }}'>Next Set Of Equations</a>
 {% endif %}
-
-<br><br>
+</p>
 
 <table>
 <tr>
@@ -47,23 +39,16 @@
 	{% endfor %}
 
 	<td style='border-top: none; border-right: none; border-left: none;'>
-	<br>
 	<h2>Rank {{ equationData.rank }}</h2>
-	<br>
-	<br>
+	<p>
 	{{ equationData.fittingTarget }}: {{ equationData.fittingTargetValue }}
 	{{ equationData.rmseString }}
 	{{ equationData.rsquaredString }}
 	<br>Equation Family: {{ equationData.moduleName }}
 	<br><b>{{ equationData.displayName }}</b>
-	<br>
-	<br>
-	{{ equationData.displayHTML }}
-	<br>
-	<br>
-	<a href='/Equation/{{ dimensionality }}/{{ equationData.URLQuotedModuleName }}/{{ equationData.URLQuotedDisplayName }}/?RANK={{ equationData.rank }}&unused={{ uniqueTime }}' target='_blank' rel='noopener noreferrer'>Go to this equation</a>
-	<br>
-	<br>
+	</p>
+	<p>{{ equationData.displayHTML }}</p>
+	<p><a href='/Equation/{{ dimensionality }}/{{ equationData.URLQuotedModuleName }}/{{ equationData.URLQuotedDisplayName }}/?RANK={{ equationData.rank }}&unused={{ uniqueTime }}' target='_blank' rel='noopener noreferrer'>Go to this equation</a></p>
 	</td>
 	
 	</tr>
@@ -71,23 +56,15 @@
 
 </table>
 
-<br>
-
+<p class="gap-lg">
 {% if previousSelectorRank %}
 <a href='/FunctionFinderResults/{{ dimensionality }}/?RANK={{ previousSelectorRank }}&unused={{ uniqueTime }}'>Previous Set Of Equations</a>
 {% endif %}
-
-{% if previousSelectorRank %}
-	{% if nextSelectorRank %}
-		&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-	{% endif %}
-{% endif %}
-
+{% if previousSelectorRank %}{% if nextSelectorRank %}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{% endif %}{% endif %}
 {% if nextSelectorRank %}
 <a href='/FunctionFinderResults/{{ dimensionality }}/?RANK={{ nextSelectorRank }}&unused={{ uniqueTime }}'>Next Set Of Equations</a>
 {% endif %}
-
-<br><br><br>
+</p>
 
 </div>
 
