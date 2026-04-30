@@ -751,11 +751,15 @@ mechanism for "do something on every request." Converting:
 **Not in scope of any current branch.** Pure refactor; no behavior
 change visible to users.
 
-## Modernize HTML/CSS in templates (in progress)
+## Modernize HTML/CSS in templates (substantially complete)
 
-**Status:** four passes landed on 2026-04-28. Remaining work is mostly
-layout-decision work (align attribute removal, layout-table conversion)
-that's deferred to a future dedicated effort.
+**Status:** ten passes landed between 2026-04-28 and 2026-04-30. The
+site now renders in HTML5 with semantic landmarks (`<header>` /
+`<main>` / `<footer>` / `<nav>` / `<h2>` / `<h3>`), no deprecated
+elements, no inline presentation attributes, no inline display styles,
+and a class-based show/hide system. Remaining work is ergonomic /
+accessibility polish — none of it blocks correctness or modern-browser
+compatibility.
 
 **Pass 1 (done — commit `0011366`):**
 
@@ -794,77 +798,325 @@ that's deferred to a future dedicated effort.
   (`align="CENTER"` becomes `align="CENTER"` — name lowercased,
   value as-is). ~339 substitutions.
 
-**Remaining work (future passes):**
+**Pass 5 (done — commit `ae7e94a`):**
 
-**Symptom / exposure (original, partially addressed).**
-`templates/zunzun/*.html` originally used deprecated HTML 4.01
-elements and attributes throughout. Pass 1 + pass 2 have addressed
-the elements and several attribute classes; what remains:
+- Lowercased presentation-keyword *values* via whitelist (CENTER,
+  LEFT, RIGHT, JUSTIFY, TOP, BOTTOM, MIDDLE; SUBMIT, BUTTON, RESET;
+  POST, GET). ~119 substitutions across 26 templates. Identifier
+  values like `id='FUNCTION'` (read by the matrix-selector JS via
+  `d.layers['FUNCTION']` / `d.all['FUNCTION']`) and `id="introDiv"`
+  deliberately preserved in their original case.
 
-- **Layout tables:** `<table>` used for visual positioning rather
-  than tabular data. Most of the home page's menu, the function
-  finder interface form layout, etc. are layout tables. simple.css
-  styles them as data tables (borders, alternating rows, padding),
-  which is visually wrong for layout use.
-- **`align="center"` on tables, divs, and cells:** non-conforming
-  in HTML5 but functionally important — removing them shifts
-  layout left. Replacement requires either a `.layout-table`
-  class that resets simple.css's table styling, or full conversion
-  to grid/flexbox.
-- **`<TABLE BORDER="1">` for visible-bordered data-entry tables:**
-  non-conforming but functional. simple.css's table styling
-  partially overrides; needs review per-table.
-- **Inline `style="display:none"` and `align='center'` on `<div>`s:**
-  used by the show/hide JavaScript on the home page. Replacement
-  requires touching the JS too, not just templates.
-- **Lowercase attribute *values* like `align="CENTER"` → `align="center"`:**
-  cosmetic; HTML5 attribute values are case-insensitive for keyword
-  values. Different from attribute *names* (handled in pass 4) —
-  altering values touches "content" rather than markup. The
-  helper script `scripts/_lowercase_html_tags.py` could be extended
-  with a presentation-keyword whitelist (CENTER, LEFT, RIGHT,
-  MIDDLE, TOP, BOTTOM, JUSTIFY) and rerun. Skip values that look
-  like identifiers (`id="introDiv"` should stay) or content URLs.
+**Pass 6 (done — commit `527ec7b`):**
 
-Pre-pass-1, all the original deprecated patterns were present
-(see commit `0011366` for the full list with substitution rules).
+- Added a CSS reset to neutralize simple.css's data-table styling
+  globally for layout tables: `border-collapse: collapse`,
+  `border: none` on table + cells, reduced cell padding (0.15rem
+  vertical / 0.25rem horizontal), suppressed
+  `tbody tr:nth-child(odd|even)` background alternation. Initially
+  added to an inline `<style>` block in `generic_page_template.html`;
+  later relocated to `static/custom.css` during the extract-custom-css
+  pass (commit `602e84b`).
+
+**Pass 7 (REVERTED — commit `fa874d4`):**
+
+- Attempted CSS fixes for two regressions surfaced by pass 6's
+  table reset (margin: 0 wiped browser default `<table align=center>`
+  centering; simple.css `<header>` banner styling appeared after
+  pass 2 wrapped header content in `<header>`). The fix landed but
+  introduced its own visual issue and was reverted via `fa874d4`.
+  The header-bar concern was subsequently fixed by the
+  `header-subtitle-split` branch (commit `878dfb2`, merged
+  `caa4f38`) which split brand `<h1>` from page-specific subtitle
+  `<p>`, plus the `9bdf5c5` "Template cleanup, scripture removal,
+  and header/footer polish" pass.
+
+**Pass 8 (done — commit `e34c8f6`):**
+
+- Bulk attribute cleanup. Removed all `align=` (221 sites across
+  36 files), `border=` (35 sites, 18 files), `size=1` on `<select>`
+  (8 sites), `style="font-size:larger"` on `<span>` (14 sites),
+  `style="text-align:..."` (4 sites), `align="Absmiddle"` on `<img>`
+  (1 site), dead `onAbort="Load();"` (1 site).
+- Security: added `rel="noopener noreferrer"` to all 8
+  `<a target="_blank">` anchors. Quoted 2 unquoted `href=` URLs.
+- Added layout utility classes (`text-center`, `text-left`,
+  `text-right`, `gap-sm`, `gap-md`, `gap-lg`, `bordered`,
+  `hr-half`, `hr-three-quarter`) to `static/custom.css`.
+- 38 files changed; +409 / -350 net.
+
+**Pass 9 (done — commit `9eb16eb`):**
+
+- Semantic restructuring. Converted 14 `<b><span>` pseudo-headings
+  and 20 standalone `<b>X</b><br><br>` patterns to `<h2>` (sed-
+  driven). 8 sub-section labels demoted to `<h3>` (case-by-case:
+  Matrix of Functions × 3, Graph Size + Animation Size in
+  graph_size_div, Example UDFs / Help / Constants in
+  user_defined_function_entry_div). 2 wrapper-div `<b>`s converted
+  to `<h2>`. 4 `<input type="button">` → `<button type="button">`.
+- 3 top-of-page navigation tables (`home_page.html`,
+  `function_finder_interface.html`,
+  `characterize_data_or_statistical_distributions_interface.html`)
+  converted to `<nav class="dropdown-nav">` with `<label for="sN">`
+  for each select, replacing the pseudo-`<th>` column-header
+  pattern with proper form labels.
+- Added `.dropdown-nav` flexbox CSS rules.
+- 4 inline `<b>` retained as intentional inline emphasis (Hint,
+  NOTE, Advice, equation displayName).
+- Final state: 49 `<h2>` + 8 `<h3>` semantic headings (was 0).
+- 37 files changed; +164 / -173 net.
+
+**Pass 10 (done — commit `42cdff2`, plus follow-up fix `94ac48c`):**
+
+- Show/hide system migrated from `name="hideable_div"` + inline
+  `style="display:none"` (with jQuery `.css('display', ...)`) to
+  `class="hideable hidden"` (with jQuery `.addClass`/`.removeClass`).
+- 47 hideable divs across 28 files migrated. 5 jQuery edit sites
+  in `generic_page_template.html` (`$(document).ready` + `f1`/`f2`/
+  `f3`/`f4`).
+- Added `.hidden { display: none }` to `static/custom.css`.
+  `.hideable` is a marker class with no styles; it's the selector
+  jQuery uses to find the show/hide elements.
+- One transformational commit (not the originally-planned two-step
+  additive-then-cleanup) because CSS specificity blocks the
+  additive approach: inline `style="display:none"` (specificity
+  1000) beats `.hidden { display: none }` (specificity 10), so
+  removing the class via JS wouldn't actually show the div if the
+  inline style remained. Single-pass transformation collapsed both
+  steps.
+- Follow-up fix `94ac48c`: `templates/zunzun/divs/historical_note.html`
+  had a leftover `style="display:block;"` (pre-existing oddity) that
+  the old jQuery `.css('display', 'none')` system masked but the
+  class-based one couldn't override. Cleaned up to
+  `class="hideable hidden"` matching the rest of the divs.
+- 34 files changed; +64 / -55 net.
+
+---
+
+**Remaining work (deferred from passes 8-10):**
+
+The following patterns remain in the templates as of commit `d61b2c7`,
+with reasons each was deferred from passes 8-10. None of them block
+correctness or modern-browser compatibility — they're ergonomic /
+accessibility polish.
+
+1. **`<br><br>+` runs (~41 sites across ~20 files):** mid-paragraph
+   visual spacing. Most pre-pass-9 BR runs were after `<b>X</b>`
+   pseudo-headings and got cleaned up incidentally when those became
+   `<h2>` (which has natural margin-bottom). The remainder are
+   between paragraphs of prose (about page, historical note,
+   function finder advice, UDF help, etc.). Cleaning each requires
+   deciding: wrap surrounding text in `<p>` so paragraphs get
+   margin-bottom automatically, or replace the BR run with a CSS
+   spacing utility on a wrapper. `grep -rE '<br><br>'
+   templates/ --include='*.html'` lists them.
+
+2. **`<hr style="width:N%">` (6 sites):** decorative tapered
+   horizontal rules for visual section breaks in
+   `list_all_equations.html` and `home_page.html`. Parametric inline
+   CSS rather than a deprecated pattern. Could be moved to specific
+   CSS classes (`.hr-30`, `.hr-45`, `.hr-60` to complement the
+   existing `.hr-half` and `.hr-three-quarter`) or kept as-is.
+   Cosmetic preference, no correctness issue.
+
+3. **Inline `style="background-color:{{ color }}"` on coefficient-
+   picker `<td>`s (19 sites in `polyfunctional_selection_div.html`,
+   `polynomial_customization_div.html`,
+   `polyrational_selection_div.html`):** **JS-coupled.** The
+   matrix-selector JS files in `templates/zunzun/javascript/` read
+   `td.style.backgroundColor` to determine selected state; moving
+   to CSS classes requires a paired JS rewrite. Deferred with the
+   JS modernization (see "Modernize legacy DOM access in
+   matrix-selector JavaScript" entry below).
+
+4. **Layout tables in `divs/*.html` form-field partials (~25
+   templates):** most are paired
+   `<tr><td>label</td><td>{{ form.field }}</td></tr>` patterns that
+   could become `<dl>` (definition lists) or flexbox rows. Audit
+   each — some are genuinely tabular (coefficient lists, equation
+   listings) and should stay tables but get `<thead>`/`<tbody>` for
+   accessibility. Pass 9 only converted the obvious nav tables; the
+   form-field tables are case-by-case work.
+
+5. **`equation_fit_or_characterizer_results.html` top nav table:**
+   4-column variable-width nav with conditional
+   `{% if equationInstance %}` and `{% if dimensionality != '1' %}`
+   column rendering. Restructuring to `<nav class="dropdown-nav">`
+   is feasible but the conditional-column logic makes it
+   substantially more involved than the 3 nav tables converted in
+   pass 9. Deferred for a focused follow-up.
+
+6. **`function_finder_results.html` data table:** genuinely tabular
+   data (rows of equation results: Model Plots / Contour Plots /
+   Error Plots / Statistics). Should *stay* a `<table>`. Current
+   markup doesn't have `<thead>` / `<tbody>` separation; adding
+   them would improve accessibility (screen readers announce header
+   rows correctly) and let CSS target the header row distinctly.
+
+7. **`<label>` on every form `<input>`:** for accessibility (screen-
+   reader compatibility, click-on-label-focuses-input). Most form
+   inputs in `divs/*.html` are rendered via Django's
+   `{{ form.field }}` without a paired `label_tag`. Fix requires
+   changing each rendering site to
+   `{{ form.field.label_tag }}{{ form.field }}` and deciding how
+   labels integrate with the existing layout-table structure (which
+   itself is partly pending — see #4 above). Worth doing alongside
+   the layout-table work in #4.
+
+**Not in scope of any current branch.** All deferred items are
+ergonomic improvements rather than bug fixes; pick them up
+individually as small focused commits when convenient.
+
+## Modernize legacy DOM access in matrix-selector JavaScript
+
+**Symptom / exposure.** Four JS files in
+`templates/zunzun/javascript/`:
+
+- `JavascriptForFunctionMatrix2D.js` (147 lines)
+- `JavascriptForFunctionMatrix3D.js` (165 lines)
+- `JavascriptForRationalMatrix2D.js` (267 lines)
+- `JavascriptForRationalMatrix3D.js` (165 lines)
+
+drive the polyfunctional and rational matrix coefficient pickers
+(the clickable `<td id="CPX{N}">` cells in
+`polyfunctional_selection_div.html`,
+`polynomial_customization_div.html`,
+`polyrational_selection_div.html`). They use legacy DOM access
+patterns from the Netscape 4 / IE 4 era:
+
+- `document.layers[i]` — Netscape 4 only; that browser was last
+  released 2002 and has been functionally extinct since ~2007.
+- `document.all[i]` — IE 4-5 only; IE 5+ also supports
+  `getElementById`, IE 6+ ships standard DOM, IE itself was retired
+  by Microsoft in 2022.
+- `eval("document.forms[0].elements." + dynamicName + ".value = ...")`
+  for runtime form-field access by computed name. Modern equivalent:
+  `document.forms[0].elements[dynamicName]`.
+
+The functions branch on browser detection
+(`if (ns4) { ... } if (ie4) { ... }`) and pick the right path; on
+modern browsers both branches return false and the fallthrough path
+runs. Roughly half the code in each file is dead-browser branches.
+
+In addition, 19 inline `style="background-color:{{ color }}"`
+attributes on the matrix-cell `<td>`s — the JS reads
+`.style.backgroundColor` to determine selected state, comparing
+against literal strings like `'rgb(255,255,255)'` (white = unselected)
+and `'rgb(211,211,211)'` (lightgray = selected).
 
 **Why it's worth fixing.**
 
-- Aesthetic — the maintainer plans a layout modernization.
-- Linter cleanliness — current state generates 100+ deprecation
-  warnings in any HTML5 validator.
-- Mobile / responsive — table-based layouts don't reflow on
-  small screens; CSS grid/flexbox does.
-- Future browser compatibility — at some point a major browser
-  may drop deprecated elements entirely. Unlikely soon, but the
-  longer it's deferred the more code accumulates that depends on
-  the old shape.
+- Drops ~50% of the code in those 4 JS files (the NS4/IE4 branches
+  are dead code).
+- Eliminates `eval()` (security smell, performance smell — Content
+  Security Policy hostility).
+- Decouples `<td>` styling from JS state. Moving inline
+  background-color to CSS classes lets the existing simple.css /
+  custom.css stylesheet drive appearance.
+- Unblocks remaining-work item #3 in the HTML modernization section
+  above ("Inline style="background-color" on coefficient-picker
+  `<td>`s").
 
 **Where to pick up.**
 
-1. Pick one template as a pattern-establishing pilot.
-   `templates/zunzun/divs/about.html` is the smallest target
-   (currently ~20 lines) and was deliberately styled to match
-   the rest of the site, so updating it sets the convention.
-2. Convert table-based layouts to CSS grid or flexbox.
-3. Replace `<FONT>` and `<BASEFONT>` with semantic HTML
-   (`<h2>`, `<strong>`, etc.) plus a CSS class for sizing.
-4. Move inline `align` / `border` / `cellpadding` / `nowrap`
-   attributes to a stylesheet.
-5. Replace `<center>` with CSS centering (text or flexbox).
-6. Add a single `temp/static_images/zunzun.css` (matching the
-   existing static-image-serving convention) for the shared
-   rules. Reference it from `generic_page_template.html` so all
-   pages pick it up.
-7. Run output through an HTML linter (`htmlhint`,
-   `vnu.jar`, etc.) and iterate until clean.
-8. Visually QA each affected page in a browser before/after.
-9. Once the pattern is established, work through the remaining
-   templates incrementally — each one is a small focused commit.
+1. Replace `document.layers[id]` and `document.all[id]` with
+   `document.getElementById(id)`. Delete the `if (ns4)` and
+   `if (ie4)` branches.
+2. Replace
+   `eval("document.forms[0].elements." + name + ".value = ...")`
+   with `document.forms[0].elements[name].value = ...` (no eval).
+3. Replace `td.style.backgroundColor.replace(/\s/g, '') == 'rgb(...)'`
+   "is selected" reads with `td.classList.contains('selected')`.
+4. Replace `td.style.backgroundColor = 'rgb(211,211,211)'` writes
+   with `td.classList.add('selected')`; replace
+   `td.style.backgroundColor = 'rgb(255,255,255)'` with
+   `td.classList.remove('selected')`.
+5. Add a `.coefficient-picker .selected { background-color: #d3d3d3 }`
+   (or similar) rule to `static/custom.css`. The unselected default
+   is the surrounding cell background — no class needed.
+6. Update `polyfunctional_selection_div.html`,
+   `polynomial_customization_div.html`,
+   `polyrational_selection_div.html` to remove the inline
+   `style="background-color:..."` from the `<td>`s. Default state
+   is "not selected"; JS adds `.selected` class when clicked.
+7. Update `pass 5`'s preserved `id='FUNCTION'` exclusion note (in
+   the modernization section above) — once the JS no longer reads
+   `d.layers['FUNCTION']` / `d.all['FUNCTION']`, the case-preservation
+   constraint goes away and `id='FUNCTION'` could be lowercased to
+   match site convention. Optional.
 
-**Not in scope of any current branch.** Cosmetic; no behavior
-change. Smoke test's substring-marker assertions on
-`ZunZunNG`, `Polynomial`, `Thank you`, etc. don't match on
-layout HTML, so they're robust to the modernization. The
-maintainer plans this as a future dedicated effort.
+**Verification.**
+
+- pytest unaffected (no Python coupling).
+- Smoke unaffected (smoke doesn't exercise the matrix-picker UI;
+  it POSTs the polyfunctional/polynomial/polyrational forms with
+  pre-set hidden field values, bypassing the click interaction).
+- Manual test required: load
+  `/Equation/2/Polynomial/User Customizable Polynomial/`
+  (or any polyfunctional / rational equation), click coefficient
+  cells, verify visual selection toggle. Submit; verify the hidden
+  form fields (`polyFunctional_X*`, `polyRational_X_N*`,
+  `polyRational_X_D*`, `polyRational_OFFSET`) carry the selected
+  pattern through to the fit.
+
+**Not in scope of any current branch.** Cleanup; no production
+behavior change. Worth a small focused commit; ~50% line reduction
+across 4 JS files plus the paired `<td>` template cleanup.
+
+## Verify Caddy deployment recipes on macOS and Linux
+
+**Symptom / exposure.** As of 2026-04-30, `docs/deployment/macos.md`
+and `docs/deployment/linux.md` describe Caddy + Waitress deployment
+recipes (replacing the prior nginx-on-Linux/macOS + IIS-on-Windows
+recipes per commit `dc49398` "Merge caddy-deployment"). Verification
+status:
+
+- **Linux** — written by structural extension from Caddy's
+  documentation plus the prior nginx-based knowledge. Not
+  exercised in production. No verification banner currently in the
+  file.
+- **macOS** — flagged in the file itself ("Verification status:
+  Author had no Mac hardware available during the April 2026
+  cross-platform migration. Verify on a real macOS box before
+  relying on this recipe."). The Waitress launchd plist + Caddy
+  commands are written by structural extension from the Linux
+  recipe.
+- **Windows** — tested on Windows 11 Pro during the April 2026
+  cross-platform migration. `scripts/smoke_test.py` end-to-end test
+  passes on this stack.
+
+**Why it's worth verifying.** Production deployment fidelity. Anyone
+following the macOS or Linux recipes for the first time might hit:
+
+- Wrong Caddy install command (homebrew vs apt vs binary download).
+- Wrong service-supervision behavior (systemd vs launchd vs NSSM).
+- Wrong filesystem paths (`/usr/local/var/zunzun-ng/` on macOS,
+  `/var/www/zunzun-ng/` on Linux, both untested).
+- Wrong file permissions (`chown www-data` on Linux).
+- Caddy auto-HTTPS quirks specific to the platform (firewall config,
+  hostname resolution, port 80/443 reachability, Let's Encrypt rate
+  limits during testing).
+
+**Where to pick up.**
+
+1. **Linux verification:** spin up an Ubuntu 22.04 / 24.04 VM (or a
+   clean container with systemd). Follow `docs/deployment/linux.md`
+   step by step. Note any commands that fail or produce different
+   output than expected. Update the recipe with corrections.
+   Add a verification banner to the top of the file once it works
+   end-to-end.
+2. **macOS verification:** find a macOS box (developer machine, CI
+   runner, etc.). Follow `docs/deployment/macos.md`. Verify
+   `brew install caddy`, the launchd plist loads, and the smoke
+   test passes against a Caddy-fronted Waitress. Update the
+   verification banner from "unverified" to a tested-on-X note.
+3. **Optional: add a CI matrix job** that runs Caddy + smoke on
+   each platform. CI currently runs pytest+smoke on Linux, macOS,
+   Windows but doesn't exercise the deployment recipes (Caddy
+   isn't installed in the CI environment).
+
+**Not in scope of any current branch.** Documentation-quality
+issue; the site is functional and deployable on Windows. Linux
+deployments are likely fine in practice (the recipe is mostly
+boilerplate plus Caddy's well-documented setup). macOS is a
+genuine unknown until exercised.
