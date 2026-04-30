@@ -34,7 +34,7 @@
 }
 
 /* ------------------------------------------------------------------------ */
-/*   LAYOUT UTILITIES (added during HTML modernization pass 8)              */
+/*   LAYOUT UTILITIES                                                       */
 /* ------------------------------------------------------------------------ */
 
 .text-center { text-align: center; }
@@ -51,22 +51,13 @@
 .hr-three-quarter { width: 75%; }
 
 /* ------------------------------------------------------------------------ */
-/*   DROPDOWN NAV (added during HTML modernization pass 9)                  */
+/*   DROPDOWN NAV                                                           */
 /* ------------------------------------------------------------------------ */
 
 .dropdown-nav {
     display: flex;
     justify-content: center;
     gap: 1.5rem;
-    flex-wrap: wrap;
-    margin-bottom: 1.5rem;
-}
-
-.dropdown-nav > div {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.25rem;
 }
 
 .dropdown-nav label {
@@ -74,50 +65,10 @@
 }
 
 /* ------------------------------------------------------------------------ */
-/*   SHOW/HIDE SYSTEM (added during HTML modernization pass 10)             */
+/*   SHOW/HIDE SYSTEM                                                       */
 /*   .hideable is a marker class for the show/hide nav system; jQuery in    */
 /*   generic_page_template.html toggles the .hidden class on these elements */
 /*   based on dropdown selection.                                           */
 /* ------------------------------------------------------------------------ */
 
 .hidden { display: none; }
-
-/* ------------------------------------------------------------------------ */
-/*   LINK LISTS / EQUATION LISTS (added during HTML modernization pass 13)  */
-/*   .link-list is a vertical stack of clickable links (replaces single-    */
-/*   column layout tables of <a>). .equation-list is a 2-column grid of     */
-/*   label/description pairs (replaces label/description layout tables).    */
-/* ------------------------------------------------------------------------ */
-
-ul.link-list {
-    list-style: none;
-    padding: 0;
-    margin: 1rem auto;
-    width: max-content;
-    text-align: center;
-}
-ul.link-list li {
-    margin-bottom: 0.5rem;
-}
-ul.link-list li.link-list-gap {
-    margin-top: 1.5rem;
-}
-
-dl.equation-list {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.5rem 1.5rem;
-    align-items: baseline;
-    margin: 0;
-    width: 100%;
-}
-dl.equation-list dd {
-    margin: 0;
-}
-
-section.equation-group {
-    margin: 1rem 0;
-}
-section.equation-group + section.equation-group {
-    margin-top: 2rem;
-}
