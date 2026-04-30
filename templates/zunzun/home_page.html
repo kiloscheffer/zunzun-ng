@@ -1,7 +1,5 @@
-{% extends "zunzun/generic_page_template.html" %} {% block title %} ZunZunNG - Online Curve Fitting and Surface Fitting {% endblock %} {% block additional_jquery_ready_code %} $('#javaScriptDetectedDiv').removeClass('hidden'); {% endblock %} {% block body_contents %}
-<div id="javaScriptDetectedDiv" class="hidden">
-  <nav class="dropdown-nav">
-    {% for dim_to_map in dim_to_map_list %}
+{% extends "zunzun/generic_page_template.html" %} {% block title %} ZunZunNG - Online Curve Fitting and Surface Fitting {% endblock %} {% block additional_jquery_ready_code %} $('#javaScriptDetectedDiv').removeClass('hidden'); {% endblock %} {% block body_contents %}<div id="javaScriptDetectedDiv" class="hidden">
+  <nav class="dropdown-nav">{% for dim_to_map in dim_to_map_list %}
     <div>
       <label for="s{{ forloop.counter }}">{{ dim_to_map.0 }}D Functions</label>
       <select id="s{{ forloop.counter }}">
@@ -13,8 +11,7 @@
         <option value="A{{ dim_to_map.0 }}DA{{ equationClassPropertyList.submoduleName }}">{{ equationClassPropertyList.submoduleName }}{% endif %}{% endfor %}</option>
         <option value="allEquations{{ dim_to_map.0 }}DDiv" selected>List All Equations</option>
       </select>
-    </div>
-    {% endfor %}
+    </div>{% endfor %}
     <div>
       <label for="s3">Characterizers</label>
       <select id="s3">
@@ -47,7 +44,7 @@
   </div>
 
   <div id="characterizeDataDiv" class="hideable hidden">
-    <h2>Characterize Data </h2>
+    <h2>Characterize Data</h2>
     <ul class="link-list">
       <li><a href="CharacterizeData/1/">Characterize 1D (X) Data</a></li>
       <li><a href="CharacterizeData/2/">Characterize 2D (XY) Data</a></li>
@@ -56,7 +53,7 @@
     </ul>
   </div>{% for dim_to_map in dim_to_map_list %}
   <div id="functionFinder{{ dim_to_map.0 }}DDiv" class="hideable hidden">
-    <h2>{{ dim_to_map.0 }}D Function Finder </h2>
+    <h2>{{ dim_to_map.0 }}D Function Finder</h2>
     <a href="FunctionFinder__F__/{{ dim_to_map.0 }}/">{{ dim_to_map.0 }}D Function Finder</a>
   </div>{% endfor %} {% include "zunzun/divs/about.html" %} {% include "zunzun/divs/historical_note.html" %} {% include "zunzun/divs/server_load.html" %} {% include "zunzun/divs/dedication.html" %} {% for dim_to_spline in dim_to_spline_list %}
   <div id="spline{{ dim_to_spline.0 }}DDiv" class="hideable hidden">
@@ -80,7 +77,7 @@
       <dd>{{ equationClassProperties.HTML }}{% if equationClassProperties.webCitationLink %} &nbsp; <a href="{{ equationClassProperties.webCitationLink }}" target="_blank" rel="noopener noreferrer">[web citation]</a>{% endif %}</dd>{% if equationClassProperties.lastItemInSubmoduleFlag %}
     </dl>
   </div>{% else %}{% if equationClassProperties.lastItemInExtendedNameFlag %}
-      <hr>{% endif %}{% endif %}{% endfor %}{% endfor %} {% for dim_to_map in dim_to_map_list %}
+  <hr />{% endif %}{% endif %}{% endfor %}{% endfor %} {% for dim_to_map in dim_to_map_list %}
   <div id="allEquations{{ dim_to_map.0 }}DDiv" class="hideable hidden">
     <h2>All {{ dim_to_map.0 }}D Equations</h2>
     <dl class="equation-list">
