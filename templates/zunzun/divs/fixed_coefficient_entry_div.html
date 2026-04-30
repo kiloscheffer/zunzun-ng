@@ -1,4 +1,4 @@
-<div id="fixedCoefficientEntry" align='center' name="hideable_div" style="display:none;">
+<div id="fixedCoefficientEntry" name="hideable_div" style="display:none;">
 <b>Hold Coefficients Constant</b><br><br>
 Here you can enter values to hold coefficients constant during fitting.<br>
 Leave the entry field blank to let the coefficient fit normally.<br>
@@ -12,7 +12,7 @@ Note that coefficient bounds are overridden by holding a coefficient constant.
 <br>
 <table >
 {% for item in fixedCoefficientTemplateRequirement %}
-<tr><td align=right><div name='nameOfFixedCoefficient'>{{ item.0 }} &nbsp; &nbsp;</div></td><td align=left>{{ item.1 }}</td></tr>
+<tr><td><div name='nameOfFixedCoefficient'>{{ item.0 }} &nbsp; &nbsp;</div></td><td>{{ item.1 }}</td></tr>
 {% endfor %}
 </table>
 </div>

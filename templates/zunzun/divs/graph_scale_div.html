@@ -1,4 +1,4 @@
-<div id="graphScale" align='center' name="hideable_div" style="display:none;">
+<div id="graphScale" name="hideable_div" style="display:none;">
 <b>Graph scaling and lin/log control</b><br><br>
 Here you can choose the scaling of the data{% if dimensionality != '3' %} plots.{% else %}<br>plots and the 3D scatterplots.{% endif %}
 <br>
@@ -7,31 +7,31 @@ Log plots require data values greater than zero.
 <br>
 <table >
     <tr>
-        <td align=center>X Scale (2D Only)</td>
+        <td>X Scale (2D Only)</td>
 {% if dimensionality != '1' %}
         <td> &nbsp; </td>
-        <td align=center>Y Scale (2D Only)</td>
+        <td>Y Scale (2D Only)</td>
 {% if dimensionality == '3' %}
         <td> &nbsp; </td>
-        <td align=center>Z Scale (2D Only)</td>
+        <td>Z Scale (2D Only)</td>
 {% endif %}
 {% endif %}
     </tr>
     <tr>
         <td>
-            <table border="1">
+            <table>
             <tr>
             <td>
                 <table >
-                <tr><td align=left>
+                <tr><td>
                    {{ mainForm.graphScaleRadioButtonX }}
                 </td></tr>
-                <tr><td align='right'>
+                <tr><td>
                    Max X: {{ mainForm.graphScaleManuallyEnteredMaxX }}<br>
                    Min X: {{ mainForm.graphScaleManuallyEnteredMinX }}<br>                
                 </td></tr>
                 <tr><td> &nbsp; </td></tr>
-                <tr><td align='left'>
+                <tr><td>
                    {{ mainForm.logLinX }}
                 </td></tr>
                 </table>
@@ -42,19 +42,19 @@ Log plots require data values greater than zero.
 {% if dimensionality != '1' %}
         <td> &nbsp; </td>
         <td>
-            <table border="1">
+            <table>
             <tr>
             <td>
                 <table >
-                <tr><td align=left>
+                <tr><td>
                     {{ mainForm.graphScaleRadioButtonY }}
                 </td></tr>
-                <tr><td align='right'>
+                <tr><td>
                     Max Y: {{ mainForm.graphScaleManuallyEnteredMaxY }}<br>
                     Min Y: {{ mainForm.graphScaleManuallyEnteredMinY }}<br>
                 </td></tr>
                 <tr><td> &nbsp; </td></tr>
-                <tr><td align='left'>
+                <tr><td>
                    {{ mainForm.logLinY }}
                 </td></tr>
                 </table>
@@ -65,19 +65,19 @@ Log plots require data values greater than zero.
 {% if dimensionality == '3' %}
         <td> &nbsp; </td>
         <td>
-            <table border="1">
+            <table>
             <tr>
             <td>
                 <table >
-                <tr><td align=left>
+                <tr><td>
                    {{ mainForm.graphScaleRadioButtonZ }}
                 </td></tr>
-                <tr><td align='right'>
+                <tr><td>
                    Max Z: {{ mainForm.graphScaleManuallyEnteredMaxZ }}<br>
                    Min Z: {{ mainForm.graphScaleManuallyEnteredMinZ }}<br>                
                 </td></tr>
                 <tr><td> &nbsp; </td></tr>
-                <tr><td align='left'>
+                <tr><td>
                    {{ mainForm.logLinZ }}
                 </td></tr>
                 </table>

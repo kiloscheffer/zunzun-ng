@@ -1,4 +1,4 @@
-<div id="polyrationalSelection"  align='center' name="hideable_div" style="display:none;">
+<div id="polyrationalSelection"  name="hideable_div" style="display:none;">
 {% if dimensionality == '2' %}
     <b>Select Functions</b>
     <br>
@@ -6,10 +6,10 @@
     Here you can combine numerator and denominator functions to create a rational equation.
     <br>
     <br>
-    <p align=center>Equation:<p><div id='FUNCTION' align=center>{{ equationHTML }}</div>
+    <p>Equation:<p><div id='FUNCTION'>{{ equationHTML }}</div>
     
     <br>Numerator Functions of X<br>
-     <table border=0>
+     <table>
       <tr>
         {% for color, index, html in Polyrat2DNumeratorColorList %}
             {% if html == '' %}
@@ -22,7 +22,7 @@
      </table>
      
     <br>Denominator Functions of X<br>
-     <table border=0>
+     <table>
       <tr>
         {% for color, index, html in Polyrat2DDenominatorColorList %}
             {% if html == '' %}
@@ -35,7 +35,7 @@
      </table>
 
     <br>Offset Term<br>
-     <table border=0>
+     <table>
       <tr>
        	<td style='background-color:{{ colorOffset }}' class=pick id='CPX_OFFSET' onClick='cT(this.id)'>&nbsp;Offset Term&nbsp;</td>
       </tr>
@@ -54,11 +54,11 @@
     <br><br>
     Here you can create a function matrix to create an equation.
     <br><br>
-    <p align=center>Equation:<p><div id='FUNCTION' align=center>{{ equationHTML }}</div><br><table border=0 align=center>
-    <tr><td> &nbsp; </td><td align=center>Functions of Y</td>
-    <tr><td align=center>F<br>u<br>n<br>c<br>t<br>i<br>o<br>n<br>s<br>&nbsp;<br>o<br>f<br>&nbsp;<br>X</td><td align=center>
+    <p>Equation:<p><div id='FUNCTION'>{{ equationHTML }}</div><br><table>
+    <tr><td> &nbsp; </td><td>Functions of Y</td>
+    <tr><td>F<br>u<br>n<br>c<br>t<br>i<br>o<br>n<br>s<br>&nbsp;<br>o<br>f<br>&nbsp;<br>X</td><td>
 
-     <table border=0>
+     <table>
         {% for color, indexX, indexY, htmlX, htmlY in Polyfun3DColorList %}
             {% if indexY == 0 %}
                 <tr>

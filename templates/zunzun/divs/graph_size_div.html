@@ -1,13 +1,13 @@
-<div id="graphSize" align='center' name="hideable_div" style="display:none;">
+<div id="graphSize" name="hideable_div" style="display:none;">
 <b>{% if dimensionality == '3' %}Animation and {% endif %}Graph size</b>
 <br><br>
 Here you can choose the size of the graphs. Smaller size files load quickly,<br>with less resolution while large files show more resolution but load more slowly.
 <br>
 <br>
-<table border="1">
+<table>
 <tr>
 <td>
-    <table ><tr><td align='left'>
+    <table ><tr><td>
 {{ mainForm.graphSize }}
     </td></tr></table>
 </td>
@@ -17,10 +17,10 @@ Here you can choose the size of the graphs. Smaller size files load quickly,<br>
 {% if dimensionality == '3' %}
 <br>
 <br>
-<table border="1">
+<table>
 <tr>
 <td>
-    <table ><tr><td align='left'>
+    <table ><tr><td>
 {{ mainForm.animationSize }}
     
     </td></tr></table>
