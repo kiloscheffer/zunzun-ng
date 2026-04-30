@@ -1,15 +1,9 @@
 <div id="udfEntry" class="hideable hidden">
 <h2>Text Function Editor</h2>
-Cut-and-paste text or edit your function here
-<br>
-<br>
-{{ mainForm.udfEditor }}
-<br>
-<br>
-<br>
+<p>Cut-and-paste text or edit your function here</p>
+<p>{{ mainForm.udfEditor }}</p>
 
 <h3>Example User Defined Functions</h3>
-<br>
 <table>
 {% if dimensionality == '2' %}
 <tr><td><pre> C * exp(2.2/X) + 51.0 + pi ** e - sinc(1.1) / [B + A]  # coefficients are A, B and C </pre></td></tr>
@@ -30,9 +24,7 @@ Cut-and-paste text or edit your function here
 {% endif %}
 </table>
 
-<br>
 <h3>Links To Help For Pre-Defined Internal Functions</h3>
-<br>
 <table>
 {% for key, listValue in udfFunctionsDict.items %}
     <tr>
@@ -45,12 +37,9 @@ Cut-and-paste text or edit your function here
 {% endfor %}
 </table>
 
-<br>
 <h3>Pre-Defined Constants</h3>
-<br>
 <table>
 <tr><td>pi</td><td>3.1415926535897931</td></tr>
 <tr><td>e</td><td>2.7182818284590451</td></tr>
 </table>
-<br>
 </div>
