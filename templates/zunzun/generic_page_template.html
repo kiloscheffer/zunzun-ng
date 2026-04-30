@@ -1,140 +1,145 @@
-{% autoescape off %}
-<!DOCTYPE html>
+{% autoescape off %}<!doctype html>
 <html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>{% block title %} {{ title_string }} {% endblock %}</title>
 
-<head>
-  <meta charset="UTF-8">
-  <title>
-    {% block title %}
-    {{ title_string }}
-    {% endblock %}
-  </title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0" />
+    <meta name="generator" content="Notepad'); DROP TABLE Generators;--" />
 
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0">
-  <meta name="generator" content="Notepad'); DROP TABLE Generators;--">
+    <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/static/favicon-96x96.png" type="image/png" sizes="96x96" />
+    <link rel="icon" href="/static/favicon.ico" type="image/x-icon" />
 
-  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
-  <link rel="icon" href="/static/favicon-96x96.png" type="image/png" sizes="96x96">
-  <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
+    <link rel="stylesheet" href="/static/modern-normalize.min.css" />
+    <link rel="stylesheet" href="/static/simple.min.css" />
+    <link rel="stylesheet" href="/static/custom.css" />
 
-  <link rel="stylesheet" href="/static/modern-normalize.min.css">
-  <link rel="stylesheet" href="/static/simple.min.css">
-  <link rel="stylesheet" href="/static/custom.css">
+    <script src="/static/jquery-4.0.0.slim.min.js" type="text/javascript"></script>
 
-  <script src="/static/jquery-4.0.0.slim.min.js" type="text/javascript"></script>
-
-  <script>
-    $(document).ready(function () {
-      $('.hideable').addClass('hidden');
-      $('#introDiv').removeClass('hidden');
-      $('#s1').prop('selectedIndex', 1);
-      $('#s1').change(f1);
-      $('#s2').prop('selectedIndex', 1);
-      $('#s2').change(f2);
-      $('#s3').prop('selectedIndex', 1);
-      $('#s3').change(f3);
-      $('#s4').prop('selectedIndex', 1);
-      $('#s4').change(f4);
-      {% block additional_jquery_ready_code %} {% endblock %}
-    });
-
-    function f1() {
-      $('.hideable').addClass('hidden');
-      $('#' + $('#s1 option:selected').val()).removeClass('hidden');
-
-      if ($('#s1').prop('selectedIndex') == 1) {
-        $('#s2').prop('selectedIndex', 1);
-        $('#s3').prop('selectedIndex', 1);
-        $('#s4').prop('selectedIndex', 1);
-      }
-      else {
-        $('#s2').prop('selectedIndex', 0);
-        $('#s3').prop('selectedIndex', 0);
-        $('#s4').prop('selectedIndex', 0);
-      }
-
-      $('#s1').blur();
-    };
-
-    function f2() {
-      $('.hideable').addClass('hidden');
-      $('#' + $('#s2 option:selected').val()).removeClass('hidden');
-
-      if ($('#s2').prop('selectedIndex') == 1) {
+    <script>
+      $(document).ready(function () {
+        $('.hideable').addClass('hidden');
+        $('#introDiv').removeClass('hidden');
         $('#s1').prop('selectedIndex', 1);
-        $('#s3').prop('selectedIndex', 1);
-        $('#s4').prop('selectedIndex', 1);
-      }
-      else {
-        $('#s1').prop('selectedIndex', 0);
-        $('#s3').prop('selectedIndex', 0);
-        $('#s4').prop('selectedIndex', 0);
-      }
-
-      $('#s2').blur();
-    };
-
-    function f3() {
-      $('.hideable').addClass('hidden');
-      $('#' + $('#s3 option:selected').val()).removeClass('hidden');
-
-      if ($('#s3').prop('selectedIndex') == 1) {
-        $('#s1').prop('selectedIndex', 1);
+        $('#s1').change(f1);
         $('#s2').prop('selectedIndex', 1);
-        $('#s4').prop('selectedIndex', 1);
-      }
-      else {
-        $('#s1').prop('selectedIndex', 0);
-        $('#s2').prop('selectedIndex', 0);
-        $('#s4').prop('selectedIndex', 0);
-      }
-
-      $('#s3').blur();
-    };
-
-    function f4() {
-      $('.hideable').addClass('hidden');
-      $('#' + $('#s4 option:selected').val()).removeClass('hidden');
-
-      if ($('#s4').prop('selectedIndex') == 1) {
-        $('#s1').prop('selectedIndex', 1);
-        $('#s2').prop('selectedIndex', 1);
+        $('#s2').change(f2);
         $('#s3').prop('selectedIndex', 1);
-      }
-      else {
-        $('#s1').prop('selectedIndex', 0);
-        $('#s2').prop('selectedIndex', 0);
-        $('#s3').prop('selectedIndex', 0);
-      }
+        $('#s3').change(f3);
+        $('#s4').prop('selectedIndex', 1);
+        $('#s4').change(f4);{% block additional_jquery_ready_code %} {% endblock %}
+      });
 
-      $('#s4').blur();
-    };
-    {% block additional_javascript %} {% endblock %}
-  </script>
-  {% block css_definitions %}{% endblock %}
-</head>
+      function f1() {
+        $('.hideable').addClass('hidden');
+        $('#' + $('#s1 option:selected').val()).removeClass('hidden');
 
-<body>
-  <header>
-    <h1><a href="/">{{ header_text }}</a></h1>
-    {% if subtitle_text %}<p>{{ subtitle_text }}</p>{% endif %}
-  </header>
+        if ($('#s1').prop('selectedIndex') == 1) {
+          $('#s2').prop('selectedIndex', 1);
+          $('#s3').prop('selectedIndex', 1);
+          $('#s4').prop('selectedIndex', 1);
+        }
+        else {
+          $('#s2').prop('selectedIndex', 0);
+          $('#s3').prop('selectedIndex', 0);
+          $('#s4').prop('selectedIndex', 0);
+        }
 
-  <main>
-    {% block body_contents %}{% endblock %}
-  </main>
+        $('#s1').blur();
+      };
 
-  <footer>
-    <p>
-    Google discussion group<br>
-    <a href="https://groups.google.com/g/findcurves">FindCurves</a><br>
-    Source code for this site<br>
-    <a href="https://github.com/kiloscheffer/zunzun-ng">zunzun-ng</a><br>
-    Core fitting library source code<br>
-    <a href="https://github.com/equations-project/pyeq3">pyeq3</a>
-    </p>
-    <p><a href='/static/AdditionalInfo.html' target="_blank" rel="noopener noreferrer">Link to additional information and history</a></p>
-  </footer>
-</body>
+      function f2() {
+        $('.hideable').addClass('hidden');
+        $('#' + $('#s2 option:selected').val()).removeClass('hidden');
 
+        if ($('#s2').prop('selectedIndex') == 1) {
+          $('#s1').prop('selectedIndex', 1);
+          $('#s3').prop('selectedIndex', 1);
+          $('#s4').prop('selectedIndex', 1);
+        }
+        else {
+          $('#s1').prop('selectedIndex', 0);
+          $('#s3').prop('selectedIndex', 0);
+          $('#s4').prop('selectedIndex', 0);
+        }
+
+        $('#s2').blur();
+      };
+
+      function f3() {
+        $('.hideable').addClass('hidden');
+        $('#' + $('#s3 option:selected').val()).removeClass('hidden');
+
+        if ($('#s3').prop('selectedIndex') == 1) {
+          $('#s1').prop('selectedIndex', 1);
+          $('#s2').prop('selectedIndex', 1);
+          $('#s4').prop('selectedIndex', 1);
+        }
+        else {
+          $('#s1').prop('selectedIndex', 0);
+          $('#s2').prop('selectedIndex', 0);
+          $('#s4').prop('selectedIndex', 0);
+        }
+
+        $('#s3').blur();
+      };
+
+      function f4() {
+        $('.hideable').addClass('hidden');
+        $('#' + $('#s4 option:selected').val()).removeClass('hidden');
+
+        if ($('#s4').prop('selectedIndex') == 1) {
+          $('#s1').prop('selectedIndex', 1);
+          $('#s2').prop('selectedIndex', 1);
+          $('#s3').prop('selectedIndex', 1);
+        }
+        else {
+          $('#s1').prop('selectedIndex', 0);
+          $('#s2').prop('selectedIndex', 0);
+          $('#s3').prop('selectedIndex', 0);
+        }
+
+        $('#s4').blur();
+      };{% block additional_javascript %} {% endblock %}
+    </script>{% block css_definitions %}{% endblock %}
+  </head>
+
+  <body>
+    <header>
+      <h1><a href="/">{{ header_text }}</a></h1>{% if subtitle_text %}
+      <p>{{ subtitle_text }}</p>{% endif %}{% block top_nav %}{% endblock %}
+    </header>
+
+    <main>{% block body_contents %}{% endblock %}</main>
+
+    <footer>
+      <div class="flex-container">
+        <div class="centered">
+          <div class="content-container">
+            <h6 class="footer-heading">Google discussion group</h6>
+            <a href="https://groups.google.com/g/findcurves">FindCurves</a>
+          </div>
+        </div>
+
+        <div class="centered">
+          <div class="content-container">
+            <h6 class="footer-heading">Source code for this site</h6>
+            <a href="https://github.com/kiloscheffer/zunzun-ng">zunzun-ng</a>
+          </div>
+        </div>
+
+        <div class="centered">
+          <div class="content-container">
+            <h6 class="footer-heading">Core fitting library source code</h6>
+            <a href="https://github.com/equations-project/pyeq3">pyeq3</a>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <p><a href="/static/AdditionalInfo.html" target="_blank" rel="noopener noreferrer">Additional information and history</a></p>
+      </div>
+    </footer>
+  </body>
 </html>{% endautoescape %}

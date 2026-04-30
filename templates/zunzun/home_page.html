@@ -1,4 +1,5 @@
-{% extends "zunzun/generic_page_template.html" %}{% block title %} ZunZunNG - Online Curve Fitting and Surface Fitting {% endblock %}{% block additional_jquery_ready_code %} $('#javaScriptDetectedDiv').removeClass('hidden'); {% endblock %}{% block body_contents %}<div id="javaScriptDetectedDiv" class="hidden">
+{% extends "zunzun/generic_page_template.html" %}{% block title %} ZunZunNG - Online Curve Fitting and Surface Fitting {% endblock %}{% block additional_jquery_ready_code %} $('#javaScriptDetectedDiv').removeClass('hidden'); {% endblock %}
+{% block top_nav %}
   <nav class="dropdown-nav">{% for dim_to_map in dim_to_map_list %}
     <div>
       <label for="s{{ forloop.counter }}">{{ dim_to_map.0 }}D Functions</label>
@@ -34,6 +35,8 @@
       </select>
     </div>
   </nav>
+{% endblock %}
+{% block body_contents %}<div id="javaScriptDetectedDiv" class="hidden">
 
   <div id="introDiv" class="hideable">
     <h2>Welcome to ZunZunNG</h2>
