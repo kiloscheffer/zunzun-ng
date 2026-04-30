@@ -105,15 +105,11 @@ ul.link-list li.link-list-gap {
 
 dl.equation-list {
     display: grid;
-    grid-template-columns: max-content 1fr;
+    grid-template-columns: 1fr 1fr;
     gap: 0.5rem 1.5rem;
     align-items: baseline;
-    margin: 1rem auto;
-    width: max-content;
-    max-width: 100%;
-}
-dl.equation-list dt {
-    text-align: right;
+    margin: 1rem 0;
+    width: 100%;
 }
 dl.equation-list dd {
     margin: 0;
