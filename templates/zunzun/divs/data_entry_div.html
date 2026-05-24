@@ -1,23 +1,10 @@
 <div id="dataEntry" class="hideable hidden">
 <h2>Text data editor</h2>
 <p>Cut-and-paste text or edit data here</p>
-<table>
-<tr>
-    <td>
-    {{ mainForm.commaConversion }}
-    </td>
-</tr>
-</table>
+<p>{{ mainForm.commaConversion }}</p>
 
 {% if mainForm.weightedFittingPossibleFlag %}
-<br>
-<table>
-<tr>
-    <td>
-    {{ mainForm.weightedFittingChoice }}
-    </td>
-</tr>
-</table>
+<p>{{ mainForm.weightedFittingChoice }}</p>
 {% endif %}
 
 <p>{{ mainForm.textDataEditor }}</p>
