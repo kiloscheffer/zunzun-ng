@@ -111,6 +111,18 @@ header h1 a:visited {
   text-decoration: none;
 }
 
+/* Header logos flanking the brand text, sized to the title's font-size. */
+header h1 a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+}
+
+header h1 .brand-logo {
+  height: 1em;
+  width: auto;
+}
+
 /* ------------------------------------------------------------------------ */
 /*   DROPDOWN NAV                                                           */
 /* ------------------------------------------------------------------------ */

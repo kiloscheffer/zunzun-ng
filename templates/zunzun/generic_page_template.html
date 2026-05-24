@@ -107,7 +107,7 @@
 
   <body>
     <header>
-      <h1><a href="/">{{ header_text }}</a></h1>{% if subtitle_text %}
+      <h1><a href="/"><img src="/static/small_logo.png" alt="" class="brand-logo" /><span>{{ header_text }}</span><img src="/static/small_logo.png" alt="" class="brand-logo" /></a></h1>{% if subtitle_text %}
       <p>{{ subtitle_text }}</p>{% endif %}{% block top_nav %}{% endblock %}
     </header>
 
