@@ -131,12 +131,34 @@ header h1 a:visited {
   width: 100%;
 }
 
-.dropdown-nav label {
+.dropdown-nav label,
+.page-toolbar label {
   font-weight: 500;
   letter-spacing: 0.1em;
   margin: 0;
   text-align: left;
   text-transform: uppercase;
+}
+
+/* ------------------------------------------------------------------------ */
+/*   PAGE TOOLBAR                                                           */
+/*   For interface pages with one dropdown + form actions. Distinct from    */
+/*   .dropdown-nav (which lays out the home page's 4 peer dropdowns as      */
+/*   equal columns). Elements size to their natural width; the last child   */
+/*   (Home link) is right-aligned via margin-left: auto.                    */
+/* ------------------------------------------------------------------------ */
+
+.page-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 1rem 1.5rem;
+  max-width: min(45rem, 90%);
+  margin: 0 auto;
+}
+
+.page-toolbar > div:last-child {
+  margin-left: auto;
 }
 
 /* ------------------------------------------------------------------------ */
