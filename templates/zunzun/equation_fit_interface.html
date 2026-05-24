@@ -61,15 +61,10 @@
 
 <form action="/FitEquation__F__/{{ dimensionality }}/{{ quotedEquationFamilyName }}/{{ quotedEquationName  }}/" method="post" target="_blank">
 
-<table><tr>
-    <td>Pulldown Menu</td>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-    <td>&nbsp;</td>
-</tr>
-<tr>
-    <td>        <select id="s1">
+<nav class="dropdown-nav">
+    <div>
+        <label for="s1">Pulldown Menu</label>
+        <select id="s1">
         <option>
         <option value='introDiv' selected>Introduction
         <option value='dataEntry'>Text Data Editor
@@ -136,23 +131,22 @@
     {% endif %}
 {% endif %}
         </select>
-    </td>
-    <td>&nbsp;</td>
-    <td>{% if equationInstance.userSelectablePolyfunctionalFlag or equationInstance.userCustomizablePolynomialFlag or equationInstance.userSelectableRationalFlag %}
+    </div>
+    <div>
+{% if equationInstance.userSelectablePolyfunctionalFlag or equationInstance.userCustomizablePolynomialFlag or equationInstance.userSelectableRationalFlag %}
         <button type="button" onClick="javascript:readPolyFlags();document.forms[0].submit();">Submit</button>
 {% else %}
     {% if equationInstance.userDefinedFunctionFlag %}
-            <input type="submit" value="Submit (may take several minutes)">
+        <input type="submit" value="Submit (may take several minutes)">
     {% else %}
-            <input type="submit" value="Submit">
+        <input type="submit" value="Submit">
     {% endif %}
 {% endif %}
-    </td>
-    <td>&nbsp;</td>
-    <td><a href="/">Home</a></td>
-</tr>
-</table>
-<br>
+    </div>
+    <div>
+        <a href="/">Home</a>
+    </div>
+</nav>
 
 
 <div id="introDiv" class="hideable">
