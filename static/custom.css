@@ -216,6 +216,26 @@ footer > div:last-child {
 }
 
 /* ------------------------------------------------------------------------ */
+/*   SERVER LOAD                                                            */
+/*   Two-column name → value layout; values align in their own column.      */
+/* ------------------------------------------------------------------------ */
+
+.server-load {
+  display: grid;
+  grid-template-columns: max-content max-content;
+  gap: 0 1rem;
+}
+
+.server-load dt,
+.server-load dd {
+  margin: 0;
+}
+
+.server-load dd {
+  text-align: right;
+}
+
+/* ------------------------------------------------------------------------ */
 /*   SHOW/HIDE SYSTEM                                                       */
 /*   .hideable is a marker class for the show/hide nav system; jQuery in    */
 /*   generic_page_template.html toggles the .hidden class on these elements */
