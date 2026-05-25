@@ -4,9 +4,11 @@
 Leave the entry field blank to let the coefficient fit normally.</p>
 <p>Note that coefficient bounds are overridden by holding a coefficient constant.</p>
 <p>{{ equationInstance.GetDisplayHTML }}</p>
-<table >
+<table class="form-table">
+<tbody>
 {% for item in fixedCoefficientTemplateRequirement %}
-<tr><td><div name='nameOfFixedCoefficient'>{{ item.0 }} &nbsp; &nbsp;</div></td><td>{{ item.1 }}</td></tr>
+<tr><td><div name='nameOfFixedCoefficient'>{{ item.0 }}</div></td><td>{{ item.1 }}</td></tr>
 {% endfor %}
+</tbody>
 </table>
 </div>
