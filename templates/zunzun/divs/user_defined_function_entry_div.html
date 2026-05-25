@@ -26,7 +26,7 @@
 <dl>
 {% for key, listValue in udfFunctionsDict.items %}
     <dt>{{ key }}:</dt>
-    <dd>{% for value in listValue %}<a href='http://docs.scipy.org/doc/numpy/reference/generated/numpy.{{ value }}.html' target='_blank' rel='noopener noreferrer'>{{ value }}</a> {% endfor %}</dd>
+    <dd>{% for value in listValue %}<a href='http://docs.scipy.org/doc/numpy/reference/generated/numpy.{{ value }}.html' target='_blank' rel='noopener noreferrer'>{{ value }}</a>{% if not forloop.last %} &middot; {% endif %}{% endfor %}</dd>
 {% endfor %}
 </dl>
 
