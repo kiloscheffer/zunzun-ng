@@ -2,29 +2,26 @@ import inspect
 import pyeq3
 
 
-udfTopText = '''
-# Enter the text of your function here. Comments begin
-# with a "#". Lines with no text are ignored.
+udfTopText = '''# Enter the text of your function here. Comments begin with a "#". Lines
+# with no text are ignored.
+
 '''
 
 udfBottomText = '''
-# Note that most spreadsheets use log base 10 for
-# a LOG() function, here log() is the natural log.
-# The site uses power() or **, not the caret '^'.
-# The site uses fabs() not abs() for absolute value.
-# The web site will automatically decode the
-# parameter names (coefficient names) that you use.
+
+# Note that most spreadsheets use log base 10 for a LOG() function, here
+# log() is the natural log. The site uses power() or **, not the caret '^'.
+# The site uses fabs() not abs() for absolute value. The web site will
+# automatically decode the parameter names (coefficient names) that you use.
 # See the examples below for ideas on function entry.
+
 '''
 
 initialUserDefinedFunctionText2D = udfTopText + '# Use an upper case "X" to represent your data.' + udfBottomText
 
 initialUserDefinedFunctionText3D = udfTopText + '# Use upper case "X" and "Y" to represent your data.' + udfBottomText
 
-initialDataEntryText = '''
-This data is provided as an example, cut and paste
-as needed to model your data. All lines of text
-that do not begin with a number are ignored.
+initialDataEntryText = '''This data is provided as an example, cut and paste as needed to model your data. All lines of text that do not begin with a number are ignored.
 
 '''
 

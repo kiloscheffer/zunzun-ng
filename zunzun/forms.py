@@ -18,7 +18,7 @@ class EvaluateAtAPointForm_3D(EvaluateAtAPointForm_2D) :
 
 
 class FeedbackForm(django.forms.Form):
-    feedbackText = django.forms.CharField(widget=django.forms.widgets.Textarea(attrs={'cols':'70', 'rows':'9', 'WRAP':'OFF'}) )
+    feedbackText = django.forms.CharField(widget=django.forms.widgets.Textarea(attrs={'rows':'9', 'WRAP':'OFF'}) )
     emailAddress = django.forms.CharField(max_length=75, required=False)
 
     
@@ -46,8 +46,8 @@ class FeedbackForm(django.forms.Form):
 
 class UsesDataForm_BaseClass(django.forms.Form) :
     weightedFittingChoice = django.forms.ChoiceField( widget=django.forms.widgets.RadioSelect(), choices=formConstants.weightedFittingChoices, initial='OFF', required=False)
-    udfEditor = django.forms.CharField( widget=django.forms.widgets.Textarea(attrs={'cols':'60', 'rows':'14'}), required=False)
-    textDataEditor = django.forms.CharField( widget=django.forms.widgets.Textarea(attrs={'cols':'55', 'rows':'15'}), initial=formConstants.initialDataEntryText )
+    udfEditor = django.forms.CharField( widget=django.forms.widgets.Textarea(attrs={'rows':'13'}), required=False)
+    textDataEditor = django.forms.CharField( widget=django.forms.widgets.Textarea(attrs={'rows':'15'}), initial=formConstants.initialDataEntryText )
     commaConversion = django.forms.ChoiceField( widget=django.forms.widgets.RadioSelect(), choices=formConstants.commaConversionChoices, initial='S' )
     for i in range(25):
         exec('upperCoefficientBound' + str(i) + " = django.forms.FloatField(widget=django.forms.widgets.TextInput(attrs={'size':'10'}), required=False)")

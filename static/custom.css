@@ -1,4 +1,19 @@
 /* ------------------------------------------------------------------------ */
+/*   FONTS                                                                  */
+/* ------------------------------------------------------------------------ */
+@font-face {
+    font-display: swap;
+    font-family: "Cascadia Mono SemiLight";
+    font-style: normal;
+    font-weight: 350;
+    src: url("/static/CascadiaMono-SemiLight.woff2") format("woff2");
+}
+
+:root {
+    --mono-font: "Cascadia Mono SemiLight", Consolas, Menlo, Monaco, "Andale Mono", "Ubuntu Mono", monospace;
+}
+
+/* ------------------------------------------------------------------------ */
 /*   USE LIGHT MODE ONLY                                                    */
 /* ------------------------------------------------------------------------ */
 @media (prefers-color-scheme: dark) {
@@ -43,6 +58,16 @@ body {
 
 a {
   text-decoration: none;
+}
+
+pre {
+  font-size: 0.8em;
+}
+
+textarea {
+  font-family: var(--mono-font);
+  font-size: 0.8em;
+  width: 100%;
 }
 
 /* ------------------------------------------------------------------------ */
