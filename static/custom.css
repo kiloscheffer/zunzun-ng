@@ -352,6 +352,14 @@ footer > div:last-child {
   margin-top: 0;
 }
 
+.results-table figure {
+  margin: 0 0 1rem 0;
+}
+
+.results-table figcaption {
+  font-weight: 500;
+}
+
 /* ------------------------------------------------------------------------ */
 /*   SHOW/HIDE SYSTEM                                                       */
 /*   .hideable is a marker class for the show/hide nav system; jQuery in    */
