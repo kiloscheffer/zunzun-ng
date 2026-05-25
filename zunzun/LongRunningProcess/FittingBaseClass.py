@@ -19,11 +19,12 @@ from . import pid_trace
 
 class FittingBaseClass(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRunningProcessPage):
 
-    extraExampleDataTextForWeightedFitting = '''Weighted fitting requires an additional number to
-be used as a weight when fitting. The site does
-not calculate any weights, which are used as:
+    extraExampleDataTextForWeightedFitting = '''Weighted fitting requires an additional number to be used as a weight when fitting. The site does not calculate any weights, which are used as:
+    
 error = weight * (predicted - actual)
+    
 You must provide any weights you wish to use.
+
 '''
 
     rank = None

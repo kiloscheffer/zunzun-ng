@@ -161,11 +161,12 @@ class StatusMonitoredLongRunningProcessPage(object):
 
         self.equationInstance = 0
 
-        self.extraExampleDataTextForWeightedFitting = '''Weighted fitting requires an additional number to
-be used as a weight when fitting. The site does
-not calculate any weights, which are used as:
-   error = weight * (predicted - actual)
+        self.extraExampleDataTextForWeightedFitting = '''Weighted fitting requires an additional number to be used as a weight when fitting. The site does not calculate any weights, which are used as:
+
+error = weight * (predicted - actual)
+
 You must provide any weights you wish to use.
+
 '''
 
         self.defaultData1D = DefaultData.defaultData1D
