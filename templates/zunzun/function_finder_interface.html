@@ -50,42 +50,18 @@ to start, then increase the Smoothness Control value as needed.
 <div id="linLog" class="hideable">
 <h2>Lin/log control</h2>
 <p>Log plots require data values greater than zero.</p>
-<table >
-    <tr>
-        <td>Select X Lin/Log Scaling</td>
-        <td> &nbsp; </td>
-        <td>Select Y Lin/Log Scaling</td>
-    </tr>
-    <tr>
-        <td>
-            <table>
-            <tr>
-            <td>
-                <table >
-                <tr><td>
-                   {{ mainForm.logLinX }}
-                </td></tr>
-                </table>
-            </td>
-            </tr>
-            </table>
-        </td>
-        <td> &nbsp; </td>
-        <td>
-            <table>
-            <tr>
-            <td>
-                <table >
-                <tr><td>
-                   {{ mainForm.logLinY }}
-                </td></tr>
-                </table>
-            </td>
-            </tr>
-            </table>
-        </td>
-    </tr>
-</table>
+<div class="form-columns">
+    <div>
+        <small>Select X Lin/Log Scaling</small>
+        <hr>
+        {{ mainForm.logLinX }}
+    </div>
+    <div>
+        <small>Select Y Lin/Log Scaling</small>
+        <hr>
+        {{ mainForm.logLinY }}
+    </div>
+</div>
 </div>
 {% endif %}
 
