@@ -8,18 +8,20 @@
 <div>
 <h2>Error In Form</h2>
 
-<table>
+<dl>
 {% for field in mainForm %}
 {% if field.errors %}
-<tr><td>{{field.label}} :</td><td>{{field.errors}}</td></tr>
+    <dt>{{ field.label }}</dt>
+    <dd>{{ field.errors }}</dd>
 {% endif %}
 {% endfor %}
 {% if mainForm.non_field_errors %}
 {% for error in mainForm.non_field_errors %}
-<tr><td>Form error :</td><td>{{error}}</td></tr>
+    <dt>Form error</dt>
+    <dd>{{ error }}</dd>
 {% endfor %}
 {% endif %}
-</table>
+</dl>
 
 <p>Please close this page, correct any errors, and try again.</p>
 
