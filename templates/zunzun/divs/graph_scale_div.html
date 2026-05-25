@@ -2,88 +2,35 @@
 <h2>Graph scaling and lin/log control</h2>
 <p>Here you can choose the scaling of the data{% if dimensionality != '3' %} plots.{% else %} plots and the 3D scatterplots.{% endif %}<br>
 Log plots require data values greater than zero.</p>
-<table >
-    <tr>
-        <td>X Scale (2D Only)</td>
+
+<div class="form-columns">
+    <div>
+        <small>X Scale (2D Only)</small>
+        <hr>
+        {{ mainForm.graphScaleRadioButtonX }}
+        <p>Max X: {{ mainForm.graphScaleManuallyEnteredMaxX }}<br>
+           Min X: {{ mainForm.graphScaleManuallyEnteredMinX }}</p>
+        {{ mainForm.logLinX }}
+    </div>
 {% if dimensionality != '1' %}
-        <td> &nbsp; </td>
-        <td>Y Scale (2D Only)</td>
+    <div>
+        <small>Y Scale (2D Only)</small>
+        <hr>
+        {{ mainForm.graphScaleRadioButtonY }}
+        <p>Max Y: {{ mainForm.graphScaleManuallyEnteredMaxY }}<br>
+           Min Y: {{ mainForm.graphScaleManuallyEnteredMinY }}</p>
+        {{ mainForm.logLinY }}
+    </div>
+{% endif %}
 {% if dimensionality == '3' %}
-        <td> &nbsp; </td>
-        <td>Z Scale (2D Only)</td>
+    <div>
+        <small>Z Scale (2D Only)</small>
+        <hr>
+        {{ mainForm.graphScaleRadioButtonZ }}
+        <p>Max Z: {{ mainForm.graphScaleManuallyEnteredMaxZ }}<br>
+           Min Z: {{ mainForm.graphScaleManuallyEnteredMinZ }}</p>
+        {{ mainForm.logLinZ }}
+    </div>
 {% endif %}
-{% endif %}
-    </tr>
-    <tr>
-        <td>
-            <table>
-            <tr>
-            <td>
-                <table >
-                <tr><td>
-                   {{ mainForm.graphScaleRadioButtonX }}
-                </td></tr>
-                <tr><td>
-                   Max X: {{ mainForm.graphScaleManuallyEnteredMaxX }}<br>
-                   Min X: {{ mainForm.graphScaleManuallyEnteredMinX }}<br>                
-                </td></tr>
-                <tr><td> &nbsp; </td></tr>
-                <tr><td>
-                   {{ mainForm.logLinX }}
-                </td></tr>
-                </table>
-            </td>
-            </tr>
-            </table>
-        </td>
-{% if dimensionality != '1' %}
-        <td> &nbsp; </td>
-        <td>
-            <table>
-            <tr>
-            <td>
-                <table >
-                <tr><td>
-                    {{ mainForm.graphScaleRadioButtonY }}
-                </td></tr>
-                <tr><td>
-                    Max Y: {{ mainForm.graphScaleManuallyEnteredMaxY }}<br>
-                    Min Y: {{ mainForm.graphScaleManuallyEnteredMinY }}<br>
-                </td></tr>
-                <tr><td> &nbsp; </td></tr>
-                <tr><td>
-                   {{ mainForm.logLinY }}
-                </td></tr>
-                </table>
-            </td>
-            </tr>
-            </table>
-        </td>
-{% if dimensionality == '3' %}
-        <td> &nbsp; </td>
-        <td>
-            <table>
-            <tr>
-            <td>
-                <table >
-                <tr><td>
-                   {{ mainForm.graphScaleRadioButtonZ }}
-                </td></tr>
-                <tr><td>
-                   Max Z: {{ mainForm.graphScaleManuallyEnteredMaxZ }}<br>
-                   Min Z: {{ mainForm.graphScaleManuallyEnteredMinZ }}<br>                
-                </td></tr>
-                <tr><td> &nbsp; </td></tr>
-                <tr><td>
-                   {{ mainForm.logLinZ }}
-                </td></tr>
-                </table>
-            </td>
-            </tr>
-            </table>
-        </td>
-{% endif %}
-{% endif %}
-    </tr>
-</table>
+</div>
 </div>
