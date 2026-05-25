@@ -84,10 +84,10 @@ You must provide any weights you wish to use.
         self.CommonCreateAndInitializeDataObject(False)
         self.dataObject.textDataEditor = self.boundForm.cleaned_data["textDataEditor"]
 
-        self.webFormName = self.boundForm.equation.GetDisplayName() + ' ' + str(self.dimensionality) + 'D<br>' + self.boundForm.equation.GetDisplayHTML() # requires the above call to Initalize()
+        self.webFormName = self.boundForm.equation.GetDisplayName() + ' ' + str(self.dimensionality) + 'D<br><span class="math">' + self.boundForm.equation.GetDisplayHTML() + '</span>' # requires the above call to Initalize()
 
         self.pdfTitleHTML = 'Equation Family: ' + self.boundForm.equation.__module__.split('.')[-1] + '<br><br>'
-        self.pdfTitleHTML += self.boundForm.equation.GetDisplayHTML() # requires the above webFormName which needs Initialize()
+        self.pdfTitleHTML += '<span class="math">' + self.boundForm.equation.GetDisplayHTML() + '</span>' # requires the above webFormName which needs Initialize()
         
         self.boundForm.equation.dataCache = self.boundForm.equationBase.dataCache
         
@@ -187,7 +187,7 @@ You must provide any weights you wish to use.
     
         # equation instance is now in hand, make items necessary for user interface
         self.dictionaryToReturn['header_text'] = 'ZunZunNG'
-        self.dictionaryToReturn['subtitle_text'] = 'Fitting Interface For ' + self.equation.GetDisplayName() + ' ' + str(self.dimensionality) + 'D<br>' + self.equation.GetDisplayHTML()
+        self.dictionaryToReturn['subtitle_text'] = 'Fitting Interface For ' + self.equation.GetDisplayName() + ' ' + str(self.dimensionality) + 'D<br><span class="math">' + self.equation.GetDisplayHTML() + '</span>'
         self.dictionaryToReturn['title_string'] = 'ZunZunNG - ' + self.equation.GetDisplayName() + ' Fitting Interface'
 
         self.unboundForm.weightedFittingPossibleFlag = not self.spline
@@ -241,7 +241,7 @@ You must provide any weights you wish to use.
     
     
     def SpecificEquationUnboundInterfaceCode(self, request):
-        self.dictionaryToReturn['equationHTML'] = self.equation.GetDisplayHTML()
+        self.dictionaryToReturn['equationHTML'] = '<span class="math">' + self.equation.GetDisplayHTML() + '</span>'
     
         
     def CreateBoundInterfaceForm(self, request):

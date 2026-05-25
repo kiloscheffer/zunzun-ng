@@ -1,17 +1,26 @@
 <div id="coefficientBoundsEntry" class="hideable hidden">
-<h2>Coefficient Bounds</h2>
-<p>Here you can enter coefficient upper and lower bounds. Leave the
-entry fields blank to let the coefficients fit without bounds.</p>
-<p>Note that holding a coefficient constant overrides these bounds.</p>
-<p>{{ equationInstance.GetDisplayHTML }}</p>
-<table class="form-table">
-<thead>
-<tr><th></th><th>Upper Bound</th><th>Lower Bound</th></tr>
-</thead>
-<tbody>
-{% for item in coefficientBoundsTemplateRequirement %}
-<tr><td><div name='nameOfCoefficientBound'>{{ item.0 }}</div></td><td>{{ item.1 }}</td><td>{{ item.2 }}</td></tr>
-{% endfor %}
-</tbody>
-</table>
+  <h2>Coefficient Bounds</h2>
+  <p>Here you can enter coefficient upper and lower bounds. Leave the entry fields blank to let the coefficients fit without bounds.</p>
+  <p>Note that holding a coefficient constant overrides these bounds.</p>
+  <p class="math">{{ equationInstance.GetDisplayHTML }}</p>
+  <table class="form-table">
+    <thead>
+      <tr>
+        <th></th>
+        <th>Upper Bound</th>
+        <th>Lower Bound</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in coefficientBoundsTemplateRequirement %}
+      <tr>
+        <td>
+          <div name="nameOfCoefficientBound">{{ item.0 }}</div>
+        </td>
+        <td>{{ item.1 }}</td>
+        <td>{{ item.2 }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
 </div>

@@ -65,7 +65,7 @@
     <h2>{{ dim_to_spline.0 }}D Spline Interpolation</h2>
     <dl class="equation-list">
       <dt><a href="Equation/{{ dim_to_spline.0 }}/Spline/Spline/">{{ dim_to_spline.1.GetDisplayName }}{{ dim_to_spline.0 }}D</a></dt>
-      <dd>{{ dim_to_spline.1.GetDisplayHTML }}</dd>
+      <dd class="math">{{ dim_to_spline.1.GetDisplayHTML }}</dd>
     </dl>
   </div>{% endfor %}{% for dim_to_map in dim_to_map_list %}
 
@@ -73,7 +73,7 @@
     <h2>{{ dim_to_map.0 }}D User Defined Function</h2>
     <dl class="equation-list">
       <dt><a href="Equation/{{ dim_to_map.0 }}/UserDefinedFunction/UserDefinedFunction/">User Defined Function {{ dim_to_map.0 }}D</a></dt>
-      <dd>{% if dim_to_map.0 == '2' %}y = user defined function{% else %}z = user defined function{% endif %}</dd>
+      <dd class="math">{% if dim_to_map.0 == '2' %}y = user defined function{% else %}z = user defined function{% endif %}</dd>
     </dl>
   </div>{% endfor %}{% for dim_to_map in dim_to_map_list %}{% for equationClassProperties in dim_to_map.1 %}{% if equationClassProperties.firstItemInSubmoduleFlag %}
 
