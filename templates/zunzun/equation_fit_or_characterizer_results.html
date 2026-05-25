@@ -99,10 +99,18 @@
 <br>
 {{ IndependentDataName1 }}
 {% else %}
-<table>
-<tr><td>{{ EvaluateAtAPointForm.x }} </td><td> &nbsp; &nbsp; &nbsp; </td><td>{{ EvaluateAtAPointForm.y }}</td></tr>
-<tr><td>{{ IndependentDataName1 }} </td><td> &nbsp; &nbsp; &nbsp; </td><td>{{ IndependentDataName2 }}</td></tr>
-</table>
+<div class="form-columns">
+    <div>
+        {{ EvaluateAtAPointForm.x }}
+        <br>
+        {{ IndependentDataName1 }}
+    </div>
+    <div>
+        {{ EvaluateAtAPointForm.y }}
+        <br>
+        {{ IndependentDataName2 }}
+    </div>
+</div>
 {% endif %}
 <p><button type="button" onclick='JavaScript:xmlhttpPost("/EvaluateAtAPoint/")'>Evaluate</button></p>
 </form>
@@ -119,12 +127,8 @@
 {% for textReport in textReports %}
 	<div id="{{ textReport.uniqueAnchorName }}" class="hideable hidden">
 	<h2>{{ textReport.name }}</h2>
-<table><tr><td>
-<pre>
-    {% for stringListItem in textReport.stringList %}{{ stringListItem }}
-    {% endfor %}
-</pre>
-</td></tr></table>
+<pre>{% for stringListItem in textReport.stringList %}{{ stringListItem }}
+{% endfor %}</pre>
 	</div>
 {% endfor %}
 
@@ -147,7 +151,7 @@
 	{% endif %}
 	
 	{% if graphReport.stringList %}
-		<br><table><tr><td><pre>{% for stringListItem in graphReport.stringList %}{{ stringListItem }}{% endfor %}</pre></td></tr></table>
+		<pre>{% for stringListItem in graphReport.stringList %}{{ stringListItem }}{% endfor %}</pre>
 	{% endif %}
 	</div>
 {% endfor %}
