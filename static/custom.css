@@ -2,15 +2,15 @@
 /*   FONTS                                                                  */
 /* ------------------------------------------------------------------------ */
 @font-face {
-    font-display: swap;
-    font-family: "Cascadia Mono SemiLight";
-    font-style: normal;
-    font-weight: 350;
-    src: url("/static/CascadiaMono-SemiLight.woff2") format("woff2");
+  font-display: swap;
+  font-family: "Cascadia Mono SemiLight";
+  font-style: normal;
+  font-weight: 350;
+  src: url("/static/CascadiaMono-SemiLight.woff2") format("woff2");
 }
 
 :root {
-    --mono-font: "Cascadia Mono SemiLight", Consolas, Menlo, Monaco, "Andale Mono", "Ubuntu Mono", monospace;
+  --mono-font: "Cascadia Mono SemiLight", Consolas, Menlo, Monaco, "Andale Mono", "Ubuntu Mono", monospace;
 }
 
 /* ------------------------------------------------------------------------ */
@@ -61,7 +61,7 @@ a {
 }
 
 dt {
-    color: var(--text);
+  color: var(--text);
 }
 
 pre {
@@ -105,9 +105,21 @@ h6 {
 .text-center {
   text-align: center;
 }
+
+/* Inline-block wrapper that shrinks to its content width and keeps its
+   own content left-aligned. Drop inside a .text-center parent to center
+   a left-aligned block (e.g., a multi-line form control group) horizontally
+   while preserving the parent's centered heading/intro text. */
+.controls-block {
+  display: inline-block;
+  max-width: 100%;
+  text-align: left;
+}
+
 .text-left {
   text-align: left;
 }
+
 .text-right {
   text-align: right;
 }
@@ -115,9 +127,11 @@ h6 {
 .gap-sm {
   margin-bottom: 0.5rem;
 }
+
 .gap-md {
   margin-bottom: 1rem;
 }
+
 .gap-lg {
   margin-bottom: 2rem;
 }
@@ -129,6 +143,7 @@ h6 {
 .hr-half {
   width: 50%;
 }
+
 .hr-three-quarter {
   width: 75%;
 }
@@ -214,7 +229,8 @@ header h1 .brand-logo {
 }
 
 .form-columns > div > label {
-  border-bottom: 1px solid var(--text-light);
+  border-bottom: 1px solid var(--border);
+  font-weight: 500;
   display: block;
   margin: 0 0 0.5rem 0;
   padding-bottom: 0.25rem;
@@ -344,7 +360,7 @@ footer > div:last-child {
 .results-table td {
   background-color: transparent;
   border: none;
-  border-bottom: 1px solid var(--text-light);
+  border-bottom: 1px solid var(--border);
   padding: 0.5rem 0.75rem;
   vertical-align: top;
 }

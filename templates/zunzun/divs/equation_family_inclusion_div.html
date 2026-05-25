@@ -1,8 +1,11 @@
 <div id="equationFamilyInclusion" class="hideable hidden">
-<div class="text-center"><h2>Equation Family Inclusion</h2>
-<p>Select families of equations to include in the function finder.<br>
-NOTE: Polyfunctionals are only used in absolute SSQ fitting.</p>
-<p>{{ mainForm.equationFamilyInclusion }}</p>
-<p><button type="button" onClick="javascript:$('*[name=equationFamilyInclusion]').attr('checked', false);">Clear All Selections</button></p>
-</div>
+  <div class="text-center">
+    <h2>Equation Family Inclusion</h2>
+    <p>Select families of equations to include in the function finder.<br>
+      NOTE: Polyfunctionals are only used in absolute SSQ fitting.</p>
+    <div class="controls-block">
+      {{ mainForm.equationFamilyInclusion }}
+      <p><button type="button" onClick="javascript:$('*[name=equationFamilyInclusion]').attr('checked', false);">Clear All Selections</button></p>
+    </div>
+  </div>
 </div>
