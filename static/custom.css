@@ -236,7 +236,7 @@ footer > div:last-child {
 .field-grid {
   display: grid;
   gap: 0.25rem 0.5rem;
-  grid-template-columns: max-content auto;
+  grid-template-columns: max-content max-content;
   margin: 0.5rem 0;
 }
 
@@ -262,6 +262,33 @@ footer > div:last-child {
 
 .server-load dd {
   text-align: right;
+}
+
+/* ------------------------------------------------------------------------ */
+/*   FORM TABLE                                                             */
+/*   Strips simple.css's data-table chrome (borders, zebra striping) for    */
+/*   tables that hold form inputs rather than presentation data. Use on     */
+/*   coefficient-entry tables and similar tabular forms where the row ×     */
+/*   column shape is real data structure but the heavy visual chrome would  */
+/*   overwhelm small inputs and single-letter row labels.                   */
+/* ------------------------------------------------------------------------ */
+
+.form-table,
+.form-table tr,
+.form-table th,
+.form-table td {
+  background-color: transparent;
+  border: none;
+}
+
+.form-table th,
+.form-table td {
+  padding: 0.25rem 0.75rem;
+  text-align: left;
+}
+
+.form-table th {
+  font-weight: 500;
 }
 
 /* ------------------------------------------------------------------------ */

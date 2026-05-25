@@ -5,9 +5,11 @@
 parameters using the Differential Evolution genetic algorithm
 for both non-linear equations and non-Gaussian fitting targets.</p>
 <p>{{ equationInstance.GetDisplayHTML }}</p>
-<table >
+<table class="form-table">
+<tbody>
 {% for item in estimatedCoefficientTemplateRequirement %}
-<tr><td><div name='nameOfEstimatedCoefficient'>{{ item.0 }} &nbsp; &nbsp;</div></td><td>{{ item.1 }}</td></tr>
+<tr><td><div name='nameOfEstimatedCoefficient'>{{ item.0 }}</div></td><td>{{ item.1 }}</td></tr>
 {% endfor %}
+</tbody>
 </table>
 </div>
