@@ -1,21 +1,14 @@
 import sys
 import django.forms
-import django.utils.encoding
-import pyeq3
+import pyeq3 # type: ignore
 from . import formConstants
-import unicodedata
 import numpy
-
 
 class EvaluateAtAPointForm_2D(django.forms.Form) :
     x = django.forms.FloatField(widget=django.forms.widgets.TextInput(attrs={'size':'15', 'onKeyPress':'return submitenter(this,event)'}), required=True)
 
-
-
 class EvaluateAtAPointForm_3D(EvaluateAtAPointForm_2D) :
     y = django.forms.FloatField(widget=django.forms.widgets.TextInput(attrs={'size':'15', 'onKeyPress':'return submitenter(this,event)'}), required=True)
-
-
 
 class FeedbackForm(django.forms.Form):
     feedbackText = django.forms.CharField(widget=django.forms.widgets.Textarea(attrs={'rows':'9', 'WRAP':'OFF'}) )
@@ -39,10 +32,7 @@ class FeedbackForm(django.forms.Form):
         if data.lower().count('a href=') > 0:
             raise django.forms.ValidationError('Found the string "a href=" at least once, this is almost always from link spammer bots - ignoring.')
 
-
         return data
-
-
 
 class UsesDataForm_BaseClass(django.forms.Form) :
     weightedFittingChoice = django.forms.ChoiceField( widget=django.forms.widgets.RadioSelect(), choices=formConstants.weightedFittingChoices, initial='OFF', required=False)
@@ -54,7 +44,6 @@ class UsesDataForm_BaseClass(django.forms.Form) :
         exec('lowerCoefficientBound' + str(i) + " = django.forms.FloatField(widget=django.forms.widgets.TextInput(attrs={'size':'10'}), required=False)")
         exec('fixedCoefficient' + str(i) + " = django.forms.FloatField(widget=django.forms.widgets.TextInput(attrs={'size':'10'}), required=False)")
         exec('estimatedCoefficient' + str(i) + " = django.forms.FloatField(widget=django.forms.widgets.TextInput(attrs={'size':'10'}), required=False)")
-
 
     def LoadAndVerifyCoefficientBounds(self):
         upperCoefficientBoundsList = []
@@ -122,7 +111,6 @@ class UsesDataForm_BaseClass(django.forms.Form) :
         self.cleaned_data['upperCoefficientBoundsList'] = upperCoefficientBoundsList
         self.cleaned_data['lowerCoefficientBoundsList'] = lowerCoefficientBoundsList
 
-
     def LoadAndVerifyFixedCoefficients(self):
         fixedCoefficientList = []
         for i in range(25):
@@ -149,7 +137,6 @@ class UsesDataForm_BaseClass(django.forms.Form) :
             
         self.cleaned_data['fixedCoefficientList'] = fixedCoefficientList
 
-
     def LoadAndVerifyEstimatedCoefficients(self):
         estimatedCoefficientList = []
         for i in range(25):
@@ -175,7 +162,6 @@ class UsesDataForm_BaseClass(django.forms.Form) :
             estimatedCoefficientList = []
             
         self.cleaned_data['estimatedCoefficientList'] = estimatedCoefficientList
-
 
     def LoadAndVerifyTextData(self):
         
@@ -207,13 +193,11 @@ class UsesDataForm_BaseClass(django.forms.Form) :
         temp = temp.replace("{"," ")
         temp = temp.replace("}"," ")
 
-
         #TODO - are these still necessary?
         # replace \r\n with \n
         temp = temp.replace('\r\n','\n')
         # replace remaining \r with \n
         temp = temp.replace('\r','\n')
-
 
         # replace HTML spaces and tabs with spaces
         temp = temp.replace("&nbsp;"," ")
@@ -244,7 +228,6 @@ class UsesDataForm_BaseClass(django.forms.Form) :
             raise django.forms.ValidationError("Your data has 1 data point, the site minimum is 2 data points.")
         if dataLength > 10100:
             raise django.forms.ValidationError("Your data has " + str(dataLength) + " data points, the site is currently limited to 10,000.")
-
 
     def LoadandVerifyGraphScales(self):        
         if int(self.dimensionality) > 1:
@@ -309,7 +292,6 @@ class UsesDataForm_BaseClass(django.forms.Form) :
             self.cleaned_data['minManualScaleZ'] = minManualScaleZ
             self.cleaned_data['maxManualScaleZ'] = maxManualScaleZ
 
-
     def clean(self):
         self.LoadAndVerifyTextData()
         self.LoadandVerifyGraphScales()
@@ -318,22 +300,16 @@ class UsesDataForm_BaseClass(django.forms.Form) :
         self.LoadAndVerifyCoefficientBounds()
         return self.cleaned_data
 
-
-
 class CharacterizeDataForm_BaseClass (UsesDataForm_BaseClass) :
 
     graphSize = django.forms.ChoiceField( widget=django.forms.widgets.RadioSelect(), choices=formConstants.graphSizeOptions, initial='800x600' )
     statisticalDistributionsSortBy = django.forms.ChoiceField( widget=django.forms.widgets.RadioSelect(), choices=formConstants.statisticalDistributionsSortByChoices, initial='AIC', required=False)
-
-
 
 class CharacterizeDataForm_1D (CharacterizeDataForm_BaseClass) :
     dataNameX = django.forms.CharField(max_length=40, initial='X data')
 
     def clean_dataNameX(self):
         return self.cleaned_data['dataNameX']
-
-
 
 class CharacterizeDataForm_2D (CharacterizeDataForm_1D) :
     scientificNotationX = django.forms.ChoiceField( widget=django.forms.widgets.RadioSelect(), choices=formConstants.scientificNotationChoices, initial='AUTO')
@@ -350,7 +326,6 @@ class CharacterizeDataForm_2D (CharacterizeDataForm_1D) :
 
     def clean_dataNameY(self):
         return self.cleaned_data['dataNameY']
-
 
         
 class CharacterizeDataForm_3D (CharacterizeDataForm_2D) :
@@ -377,7 +352,6 @@ class CharacterizeDataForm_3D (CharacterizeDataForm_2D) :
         return pointSize
     
 
-
 class FunctionFinder (UsesDataForm_BaseClass) :
     fittingTarget = django.forms.ChoiceField( widget=django.forms.widgets.RadioSelect(), choices=formConstants.fittingTargetChoices, initial='SSQABS' )
     extendedEquationTypes = django.forms.MultipleChoiceField( widget=django.forms.widgets.CheckboxSelectMultiple(), choices=formConstants.extendedEquationTypeChoices, initial=['STANDARD'])
@@ -385,14 +359,11 @@ class FunctionFinder (UsesDataForm_BaseClass) :
     dataNameY = django.forms.CharField(max_length=40, initial='Y data')
     smoothnessExactOrMax = django.forms.ChoiceField( widget=django.forms.widgets.RadioSelect(), choices=formConstants.smoothnessExactOrMaxChoices, initial='M' )
 
-
     def clean(self): # override, no graph scales in form for function finders
         self.LoadAndVerifyTextData()
         if self.equationBase.dataCache.DependentDataContainsZeroFlag != 0 and self.cleaned_data['fittingTarget'][-3:] == "REL":
             raise django.forms.ValidationError('Your data contains at least one dependent data value of exactly 0.0, a relative fit cannot be performed as divide-by-zero errors would occurr.')
         return self.cleaned_data
-
-
 
 class FunctionFinder_2D (FunctionFinder) :
     equationFamilyInclusion = django.forms.MultipleChoiceField( widget=django.forms.widgets.CheckboxSelectMultiple(), choices=formConstants.equationCategoryNameChoices2D, initial=formConstants.equationCategoryNameChoicesDefaultValues2D )
@@ -400,20 +371,16 @@ class FunctionFinder_2D (FunctionFinder) :
     logLinX = django.forms.ChoiceField( widget=django.forms.widgets.RadioSelect(), choices=formConstants.logLinChoices, initial='LIN')
     logLinY = django.forms.ChoiceField( widget=django.forms.widgets.RadioSelect(), choices=formConstants.logLinChoices, initial='LIN')
 
-
-
 class FunctionFinder_3D (FunctionFinder) :
     equationFamilyInclusion = django.forms.MultipleChoiceField( widget=django.forms.widgets.CheckboxSelectMultiple(), choices=formConstants.equationCategoryNameChoices3D, initial=formConstants.equationCategoryNameChoicesDefaultValues3D )
     smoothnessControl3D = django.forms.ChoiceField( choices=formConstants.smoothnessControl3DChoices, initial='6')
     dataNameZ = django.forms.CharField(max_length=40, initial='Z data')
 
-
-
 class Equation_2D(CharacterizeDataForm_2D) :
     fittingTarget = django.forms.ChoiceField( widget=django.forms.widgets.RadioSelect(), choices=formConstants.fittingTargetChoices, initial='SSQABS', required=False)
     polynomialOrderX2D = django.forms.ChoiceField( choices=formConstants.polynomialOrder2DChoices, initial='5', required=False)
     splineOrderX = django.forms.ChoiceField( choices=formConstants.splineOrderChoices, initial='3', required=False)
-    splineSmoothness = django.forms.FloatField(widget=django.forms.widgets.TextInput(attrs={'size':'12'}), initial = '1.0', required=False)
+    splineSmoothness = django.forms.FloatField(widget=django.forms.widgets.TextInput(attrs={'size':'10'}), initial = '1.0', required=False)
 
     polyLength = max(len(pyeq3.PolyFunctions.GenerateListForPolyfunctionals_2D()), len(pyeq3.PolyFunctions.GenerateListForCustomPolynomials_2D()))
     for i in range(polyLength):
@@ -424,7 +391,6 @@ class Equation_2D(CharacterizeDataForm_2D) :
         exec("polyRational_X_D" + str(i) + " = django.forms.BooleanField(widget=django.forms.widgets.HiddenInput(attrs={'value':False}), required=False)")
 
     polyRational_OFFSET  = django.forms.BooleanField(widget=django.forms.widgets.HiddenInput(attrs={'value':False}), required=False)
-
 
     def clean(self): # watch equation. and equationBase. here
         self.__class__.__bases__[0].clean(self)
@@ -516,7 +482,6 @@ class Equation_2D(CharacterizeDataForm_2D) :
 
         return self.cleaned_data
 
-
         
 class Equation_3D (CharacterizeDataForm_3D) :
     fittingTarget = django.forms.ChoiceField( widget=django.forms.widgets.RadioSelect(), choices=formConstants.fittingTargetChoices, initial='SSQABS', required=False)
@@ -524,12 +489,11 @@ class Equation_3D (CharacterizeDataForm_3D) :
     polynomialOrderY3D = django.forms.ChoiceField( choices=formConstants.polynomialOrder3DChoices, initial='3', required=False)
     splineOrderX = django.forms.ChoiceField( choices=formConstants.splineOrderChoices, initial='2', required=False)
     splineOrderY = django.forms.ChoiceField( choices=formConstants.splineOrderChoices, initial='2', required=False)
-    splineSmoothness = django.forms.FloatField(widget=django.forms.widgets.TextInput(attrs={'size':'12'}), initial = '1.0', required=False)
+    splineSmoothness = django.forms.FloatField(widget=django.forms.widgets.TextInput(attrs={'size':'10'}), initial = '1.0', required=False)
 
     for i in range(len(pyeq3.PolyFunctions.GenerateListForPolyfunctionals_3D_X())):
         for j in range(len(pyeq3.PolyFunctions.GenerateListForPolyfunctionals_3D_Y())):
             exec("polyFunctional_X" + str(i) + "Y" + str(j) + " = django.forms.BooleanField(widget=django.forms.widgets.HiddenInput(attrs={'value':False}), required=False)")
-
 
     def clean(self): # watch equation. and equationBase. here
         self.__class__.__bases__[0].clean(self)
