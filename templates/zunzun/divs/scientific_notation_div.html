@@ -1,41 +1,26 @@
 <div id="scientificNotation" class="hideable hidden">
 <h2>Scientific Notation</h2>
-<p>Here you can control scientific notation on the data plots{% if dimensionality != '3' %}.{% else %}
-and the contour plots.{% endif %}</p>
-<table >
-    <tr>
-        <td>X Control</td>
-{% if dimensionality != '1' %}
-        <td> &nbsp; </td>
-        <td>Y Control</td>
-{% if dimensionality == '3' %}
-        <td> &nbsp; </td>
-        <td>Z Control</td>
-{% endif %}
-{% endif %}
-    </tr>
-    <tr>
-    <td>
-        <table><tr><td>
+<p>Here you can control scientific notation on the data plots{% if dimensionality != '3' %}.{% else %} and the contour plots.{% endif %}</p>
+
+<div class="form-columns">
+    <div>
+        <small>X Control</small>
+        <hr>
         {{ mainForm.scientificNotationX }}
-        </td></tr></table>
-    </td>
+    </div>
 {% if dimensionality != '1' %}
-    <td> &nbsp; </td>
-    <td>
-        <table><tr><td>
+    <div>
+        <small>Y Control</small>
+        <hr>
         {{ mainForm.scientificNotationY }}
-        </td></tr></table>
-    </td>
+    </div>
+{% endif %}
 {% if dimensionality == '3' %}
-    <td> &nbsp; </td>
-    <td>
-        <table><tr><td>
+    <div>
+        <small>Z Control</small>
+        <hr>
         {{ mainForm.scientificNotationZ }}
-        </td></tr></table>
-    </td>
+    </div>
 {% endif %}
-{% endif %}
-    </tr>
-</table>
+</div>
 </div>
