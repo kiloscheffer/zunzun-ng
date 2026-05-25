@@ -12,6 +12,17 @@ import reportlab.platypus
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import mm
 import reportlab.lib.pagesizes
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+
+# Register the LM Roman math font for ReportLab PDF generation. Loaded
+# once per process at module import — fresh in each spawn child since
+# `multiprocessing.Process(spawn)` re-imports this module. The TTF file
+# lives in static/ alongside the WOFF2 variant that the browser uses
+# (registered via the @font-face rule in custom.css). The WOFF2 wraps
+# CFF outlines and ReportLab can't load CFF-flavored fonts, so we ship
+# both files: WOFF2 for browser efficiency, TTF for ReportLab compat.
+pdfmetrics.registerFont(TTFont('LMRoman10', os.path.join(settings.STATIC_FILES_DIR, 'lmroman10-regular.ttf')))
 
 from . import DataObject
 from . import ReportsAndGraphs

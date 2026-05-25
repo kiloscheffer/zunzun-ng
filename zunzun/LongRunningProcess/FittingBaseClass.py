@@ -87,7 +87,7 @@ You must provide any weights you wish to use.
         self.webFormName = self.boundForm.equation.GetDisplayName() + ' ' + str(self.dimensionality) + 'D<br>' + self.boundForm.equation.GetDisplayHTML() # requires the above call to Initalize()
 
         self.pdfTitleHTML = 'Equation Family: ' + self.boundForm.equation.__module__.split('.')[-1] + '<br><br>'
-        self.pdfTitleHTML += self.boundForm.equation.GetDisplayHTML() # requires the above webFormName which needs Initialize()
+        self.pdfTitleHTML += '<font name="LMRoman10">' + self.boundForm.equation.GetDisplayHTML() + '</font>' # requires the above webFormName which needs Initialize()
         
         self.boundForm.equation.dataCache = self.boundForm.equationBase.dataCache
         
