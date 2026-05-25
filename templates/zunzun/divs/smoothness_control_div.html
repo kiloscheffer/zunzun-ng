@@ -1,14 +1,15 @@
 <div id="smoothnessControl" class="hideable hidden">
-<div class="text-center"><h2>Smoothness Control</h2>
-<p>Select the maximum number of coefficients for the function finder.<br>
-Equations with fewer coefficients are generally smoother.</p>
-<p>
-{% if dimensionality == '2' %}
-	{{ mainForm.smoothnessControl2D }}
-{% else %}
-	{{ mainForm.smoothnessControl3D }}
-{% endif %}
-</p>
-<p>{{ mainForm.smoothnessExactOrMax }}</p>
-</div>
+  <div class="text-center">
+    <h2>Smoothness Control</h2>
+    <p>Select the maximum number of coefficients for the function finder.<br>
+      Equations with fewer coefficients are generally smoother.</p>
+    <div class="controls-block">
+      {% if dimensionality == '2' %}
+      {{ mainForm.smoothnessControl2D }}
+      {% else %}
+      {{ mainForm.smoothnessControl3D }}
+      {% endif %}
+      {{ mainForm.smoothnessExactOrMax }}
+    </div>
+  </div>
 </div>
