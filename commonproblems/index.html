@@ -1,78 +1,82 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8">
-    <title>Common Problems In Curve Fitting</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0">
 
-    <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
-    <link rel="icon" href="/static/favicon-96x96.png" type="image/png" sizes="96x96">
-    <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
+<head>
+  <meta charset="UTF-8" />
+  <title>Common Problems In Curve Fitting</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0" />
+  <meta name="generator" content="Notepad'); DROP TABLE Generators;--" />
 
-    <link rel="stylesheet" href="/static/modern-normalize.min.css">
-    <link rel="stylesheet" href="/static/simple.min.css">
-    <link rel="stylesheet" href="/static/custom.css">
-  </head>
-  <body>
-    <main>
-      <h1>Common Problems In Curve Fitting</h1>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
+  <link rel="icon" href="/static/favicon-96x96.png" type="image/png" sizes="96x96" />
+  <link rel="icon" href="/static/favicon.ico" type="image/x-icon" />
 
-      <article>
-        <h2>Single Outlier At End Point</h2>
-        <p>Outliers are often caused by manual errors in recording experimental data.</p>
-        <p><img src="Outlier_A_small.gif" alt=""></p>
-        <p class="text-center"><a class="button" href="Outlier_A.html">View animation and still images</a></p>
-      </article>
+  <link rel="stylesheet" href="/static/modern-normalize.min.css" />
+  <link rel="stylesheet" href="/static/simple.min.css" />
+  <link rel="stylesheet" href="/static/custom.css" />
+</head>
 
-      <article>
-        <h2>Single Outlier At Mid Point</h2>
-        <p>Outliers are often caused by manual errors in recording experimental data.</p>
-        <p><img src="Outlier_B_small.gif" alt=""></p>
-        <p class="text-center"><a class="button" href="Outlier_B.html">View animation and still images</a></p>
-      </article>
+<body>
+  <main>
+    <h1>Common Problems In Curve Fitting</h1>
 
-      <article>
-        <h2>Fitting Parallel Data</h2>
-        <p>This is often caused by environmental changes during data collection, such as temperature changes on different days when making multiple data collection runs.</p>
-        <p><img src="ParallelData_A_small.gif" alt=""></p>
-        <p class="text-center"><a class="button" href="ParallelData_A.html">View animation and still images</a></p>
-      </article>
+    <article>
+      <h2>Single Outlier At End Point</h2>
+      <p>Outliers are often caused by manual errors in recording experimental data.</p>
+      <p><img src="Outlier_A_small.gif" alt="" /></p>
+      <p class="text-center"><a class="button" href="Outlier_A.html">View animation and still images</a></p>
+    </article>
 
-      <article>
-        <h2>Data With A Large Step</h2>
-        <p>This is often caused by environmental changes during data collection such as a temperature change during a lunch break.</p>
-        <p><img src="LargeStep_A_small.gif" alt=""></p>
-        <p class="text-center"><a class="button" href="LargeStep_A.html">View animation and still images</a></p>
-      </article>
+    <article>
+      <h2>Single Outlier At Mid Point</h2>
+      <p>Outliers are often caused by manual errors in recording experimental data.</p>
+      <p><img src="Outlier_B_small.gif" alt="" /></p>
+      <p class="text-center"><a class="button" href="Outlier_B.html">View animation and still images</a></p>
+    </article>
 
-      <article>
-        <h2>Data With A Poorly Defined Region</h2>
-        <p>This can be mitigated by taking additional data in the region that is poorly defined.</p>
-        <p><img src="PoorlyDefined_A_small.gif" alt=""></p>
-        <p class="text-center"><a class="button" href="PoorlyDefined_A.html">View animation and still images</a></p>
-      </article>
+    <article>
+      <h2>Fitting Parallel Data</h2>
+      <p>This is often caused by environmental changes during data collection, such as temperature changes on different days when making multiple data collection runs.</p>
+      <p><img src="ParallelData_A_small.gif" alt="" /></p>
+      <p class="text-center"><a class="button" href="ParallelData_A.html">View animation and still images</a></p>
+    </article>
 
-      <article>
-        <h2>Equation Missing An Offset</h2>
-        <p>This illustrates the effect of fitting data with an offset to an equation that does not have one.</p>
-        <p>This can be caused by experimental equipment introducing bias (such as a DC offset) during data acquisition. Fitting the data to an equation with an offset will reveal the bias.</p>
-        <p><img src="MissingOffset_A_small.gif" alt=""></p>
-        <p class="text-center"><a class="button" href="MissingOffset_A.html">View animation and still images</a></p>
-      </article>
+    <article>
+      <h2>Data With A Large Step</h2>
+      <p>This is often caused by environmental changes during data collection such as a temperature change during a lunch break.</p>
+      <p><img src="LargeStep_A_small.gif" alt="" /></p>
+      <p class="text-center"><a class="button" href="LargeStep_A.html">View animation and still images</a></p>
+    </article>
 
-      <article>
-        <h2>Data Scatter Over Entire Range</h2>
-        <p>The effect of data scatter can be reduced by increasing the total number of data points.</p>
-        <p><img src="Scatter_A_small.gif" alt=""></p>
-        <p class="text-center"><a class="button" href="Scatter_A.html">View animation and still images</a></p>
-      </article>
+    <article>
+      <h2>Data With A Poorly Defined Region</h2>
+      <p>This can be mitigated by taking additional data in the region that is poorly defined.</p>
+      <p><img src="PoorlyDefined_A_small.gif" alt="" /></p>
+      <p class="text-center"><a class="button" href="PoorlyDefined_A.html">View animation and still images</a></p>
+    </article>
 
-      <article>
-        <h2>Fitting Random Data</h2>
-        <p>This illustrates the effect of fitting completely random data that has no relationship of any kind.</p>
-        <p><img src="RandomData_A_small.gif" alt=""></p>
-        <p class="text-center"><a class="button" href="RandomData_A.html">View animation and still images</a></p>
-      </article>
-    </main>
-  </body>
+    <article>
+      <h2>Equation Missing An Offset</h2>
+      <p>This illustrates the effect of fitting data with an offset to an equation that does not have one.</p>
+      <p>This can be caused by experimental equipment introducing bias (such as a DC offset) during data acquisition. Fitting the data to an equation with an offset will reveal the bias.</p>
+      <p><img src="MissingOffset_A_small.gif" alt="" /></p>
+      <p class="text-center"><a class="button" href="MissingOffset_A.html">View animation and still images</a></p>
+    </article>
+
+    <article>
+      <h2>Data Scatter Over Entire Range</h2>
+      <p>The effect of data scatter can be reduced by increasing the total number of data points.</p>
+      <p><img src="Scatter_A_small.gif" alt="" /></p>
+      <p class="text-center"><a class="button" href="Scatter_A.html">View animation and still images</a></p>
+    </article>
+
+    <article>
+      <h2>Fitting Random Data</h2>
+      <p>This illustrates the effect of fitting completely random data that has no relationship of any kind.</p>
+      <p><img src="RandomData_A_small.gif" alt="" /></p>
+      <p class="text-center"><a class="button" href="RandomData_A.html">View animation and still images</a></p>
+    </article>
+  </main>
+</body>
+
 </html>
