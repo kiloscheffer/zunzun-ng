@@ -5,50 +5,30 @@
 {% if dimensionality == '2' %}X and Y data labels {% endif %}
 {% if dimensionality == '3' %}X, Y and Z data labels {% endif %}
 to be printed on the report graphs.</p>
-<table >
-<tr>
-<td>
-    <table>
-        <tr>
-        <td>
+
+<div class="form-columns">
+    <div>
         <small>Label for first independent data (X)</small>
         <hr>
         {{ mainForm.dataNameX }}
-        </td>
-        </tr>
-    </table>
-</td>
+    </div>
 {% if dimensionality != '1' %}
-    <td>&nbsp;&nbsp;&nbsp;</td>
-    <td>
-        <table>
-            <tr>
-            <td>
+    <div>
 {% if dimensionality == '2' %}
-            <small>Label for dependent data (Y)</small>
-            <hr>
+        <small>Label for dependent data (Y)</small>
 {% else %}
-            <small>Label for second independent data (Y)</small>
-            <hr>
+        <small>Label for second independent data (Y)</small>
 {% endif %}
-            {{ mainForm.dataNameY }}
-            </td>
-            </tr>
-        </table>
-    </td>
+        <hr>
+        {{ mainForm.dataNameY }}
+    </div>
 {% endif %}
-</tr>
-</table>
 {% if dimensionality == '3' %}
-<br>
-<table>
-    <tr>
-    <td>
-    <small>Label for dependent data (Z)</small>
-    <hr>
-    {{ mainForm.dataNameZ }}
-    </td>
-    </tr>
-</table>
+    <div>
+        <small>Label for dependent data (Z)</small>
+        <hr>
+        {{ mainForm.dataNameZ }}
+    </div>
 {% endif %}
+</div>
 </div>
