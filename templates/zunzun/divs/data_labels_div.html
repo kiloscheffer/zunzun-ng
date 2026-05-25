@@ -1,34 +1,27 @@
 <div id="dataLabels" class="hideable hidden">
-<h2>Data labels for graphs</h2>
-<p>Here you can enter the
-{% if dimensionality == '1' %}X data label {% endif %}
-{% if dimensionality == '2' %}X and Y data labels {% endif %}
-{% if dimensionality == '3' %}X, Y and Z data labels {% endif %}
-to be printed on the report graphs.</p>
+  <h2>Data labels for graphs</h2>
+  <p>Here you can enter the
+    {% if dimensionality == '1' %}X data label {% endif %}
+    {% if dimensionality == '2' %}X and Y data labels {% endif %}
+    {% if dimensionality == '3' %}X, Y and Z data labels {% endif %}
+    to be printed on the report graphs.</p>
 
-<div class="form-columns">
+  <div class="form-columns">
     <div>
-        <small>Label for first independent data (X)</small>
-        <hr>
-        {{ mainForm.dataNameX }}
+      <label for="id_dataNameX">Label for first independent data (X)</label>
+      {{ mainForm.dataNameX }}
     </div>
-{% if dimensionality != '1' %}
+    {% if dimensionality != '1' %}
     <div>
-{% if dimensionality == '2' %}
-        <small>Label for dependent data (Y)</small>
-{% else %}
-        <small>Label for second independent data (Y)</small>
-{% endif %}
-        <hr>
-        {{ mainForm.dataNameY }}
+      <label for="id_dataNameY">{% if dimensionality == '2' %}Label for dependent data (Y){% else %}Label for second independent data (Y){% endif %}</label>
+      {{ mainForm.dataNameY }}
     </div>
-{% endif %}
-{% if dimensionality == '3' %}
+    {% endif %}
+    {% if dimensionality == '3' %}
     <div>
-        <small>Label for dependent data (Z)</small>
-        <hr>
-        {{ mainForm.dataNameZ }}
+      <label for="id_dataNameZ">Label for dependent data (Z)</label>
+      {{ mainForm.dataNameZ }}
     </div>
-{% endif %}
-</div>
+    {% endif %}
+  </div>
 </div>

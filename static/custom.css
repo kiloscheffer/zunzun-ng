@@ -60,6 +60,10 @@ a {
   text-decoration: none;
 }
 
+dt {
+    color: var(--text);
+}
+
 pre {
   font-size: 0.8em;
 }
@@ -207,6 +211,13 @@ header h1 .brand-logo {
   display: grid;
   gap: 2rem;
   grid-template-columns: repeat(auto-fit, minmax(min(18rem, 100%), 1fr));
+}
+
+.form-columns > div > label {
+  border-bottom: 1px solid var(--text-light);
+  display: block;
+  margin: 0 0 0.5rem 0;
+  padding-bottom: 0.25rem;
 }
 
 /* ------------------------------------------------------------------------ */
