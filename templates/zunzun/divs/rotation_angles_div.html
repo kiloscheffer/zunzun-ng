@@ -1,6 +1,10 @@
 <div id="rotationAngles" class="hideable hidden">
-<h2>3D Viewing Angles</h2>
-<p>Here you can select and rotate the 3D scatter and surface plots.</p>
-<p>{{ mainForm.rotationAnglesAzimuth }} Rotation view angle in degrees</p>
-<p>{{ mainForm.rotationAnglesAltimuth }} Vertical view angle in degrees</p>
+  <h2>3D Viewing Angles</h2>
+  <p>Here you can select and rotate the 3D scatter and surface plots.</p>
+  <div class="field-grid">
+    <label for="id_rotationAnglesAzimuth">Rotation view angle in degrees:</label>
+    {{ mainForm.rotationAnglesAzimuth }}
+    <label for="id_rotationAnglesAltimuth">Vertical view angle in degrees:</label>
+    {{ mainForm.rotationAnglesAltimuth }}
+  </div>
 </div>
