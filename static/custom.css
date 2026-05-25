@@ -326,7 +326,6 @@ footer > div:last-child {
 
 .results-table {
   border-collapse: collapse;
-  table-layout: fixed;
   width: 100%;
 }
 
@@ -349,15 +348,26 @@ footer > div:last-child {
 }
 
 .results-table h3 {
-  margin-top: 0;
+  margin-top: 1.5rem;
 }
 
-.results-table figure {
-  margin: 0 0 1rem 0;
+/* ------------------------------------------------------------------------ */
+/*   STATS LIST                                                             */
+/*   Two-column grid for <dl> lists of "metric label → numeric value"       */
+/*   stats. Label column sizes to widest label (max-content) so values      */
+/*   align in their own column for easy comparison row-to-row.              */
+/* ------------------------------------------------------------------------ */
+
+.stats-list {
+  display: grid;
+  gap: 0.25rem 0.5rem;
+  grid-template-columns: max-content auto;
+  margin: 0.5rem 0 1rem 0;
 }
 
-.results-table figcaption {
-  font-weight: 500;
+.stats-list dt,
+.stats-list dd {
+  margin: 0;
 }
 
 /* ------------------------------------------------------------------------ */

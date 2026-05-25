@@ -21,7 +21,7 @@
 <table class="results-table">
 <thead>
 <tr>
-    <th>Plots</th>
+    <th>Model &amp; Error Plots</th>
     <th>Statistics and Links</th>
 </tr>
 </thead>
@@ -31,7 +31,6 @@
 	<td>
 		{% for graphLocation in equationData.graphWebSiteLocations %}
 		<figure>
-			<figcaption>{% if forloop.first %}Model{% elif forloop.last %}{% if RelativeErrorPlotsFlag %}Relative Error{% else %}Error{% endif %}{% else %}Contour{% endif %}</figcaption>
 			<img src='{{ graphLocation }}' alt="">
 		</figure>
 		{% endfor %}
@@ -39,15 +38,20 @@
 
 	<td>
 	<h3>Rank {{ equationData.rank }}</h3>
-	<p>
-	{{ equationData.fittingTarget }}: {{ equationData.fittingTargetValue }}
-	{{ equationData.rmseString }}
-	{{ equationData.rsquaredString }}
-	<br>Equation Family: {{ equationData.moduleName }}
-	<br><b>{{ equationData.displayName }}</b>
-	</p>
+	<dl class="stats-list">
+		<dt>{{ equationData.fittingTarget }}:</dt>
+		<dd>{{ equationData.fittingTargetValue }}</dd>
+		{% if equationData.rmseValue %}
+		<dt>RMSE:</dt>
+		<dd>{{ equationData.rmseValue }}</dd>
+		<dt>R-squared:</dt>
+		<dd>{{ equationData.r2Value }}</dd>
+		{% endif %}
+	</dl>
+	<p>Equation Family: {{ equationData.moduleName }}<br>
+	<b>{{ equationData.displayName }}</b></p>
 	<p>{{ equationData.displayHTML }}</p>
-	<p><a href='/Equation/{{ dimensionality }}/{{ equationData.URLQuotedModuleName }}/{{ equationData.URLQuotedDisplayName }}/?RANK={{ equationData.rank }}&unused={{ uniqueTime }}' target='_blank' rel='noopener noreferrer'>Go to this equation</a></p>
+	<p><a class="button" href='/Equation/{{ dimensionality }}/{{ equationData.URLQuotedModuleName }}/{{ equationData.URLQuotedDisplayName }}/?RANK={{ equationData.rank }}&unused={{ uniqueTime }}' target='_blank' rel='noopener noreferrer'>Go to this equation</a></p>
 	</td>
 
 	</tr>

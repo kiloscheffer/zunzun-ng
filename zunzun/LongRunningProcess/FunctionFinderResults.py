@@ -268,12 +268,12 @@ class FunctionFinderResults(FittingBaseClass.FittingBaseClass):
             dataForOneEquation['fittingTarget'] = reportDataObject.equation.fittingTarget
             dataForOneEquation['fittingTargetValue'] = targetValue
             if reportDataObject.fittingTarget[-3:] != "REL": # only non-relative error fits get these displayed
-                dataForOneEquation['rmseString'] = '<br>RMSE: ' + str(reportDataObject.equation.rmse)
-                dataForOneEquation['rsquaredString'] = '<br>R-squared: ' + str(reportDataObject.equation.r2) + '<br>'
+                dataForOneEquation['rmseValue'] = str(reportDataObject.equation.rmse)
+                dataForOneEquation['r2Value'] = str(reportDataObject.equation.r2)
                 self.RelativeErrorPlotsFlag = False # ok to set many times
             else:
-                dataForOneEquation['rmseString'] = '<br>'
-                dataForOneEquation['rsquaredString'] = '<br>'
+                dataForOneEquation['rmseValue'] = ''
+                dataForOneEquation['r2Value'] = ''
                 self.RelativeErrorPlotsFlag = True # ok to set many times
             self.equationDataForDjangoTemplate.append(dataForOneEquation)
         
