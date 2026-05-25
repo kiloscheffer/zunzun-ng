@@ -76,6 +76,7 @@ textarea {
 
 h1 {
   font-size: 2.5rem;
+  margin-top: 0;
 }
 
 h2 {
@@ -326,6 +327,8 @@ footer > div:last-child {
 
 .results-table {
   border-collapse: collapse;
+  table-layout: fixed;
+  width: 100%;
 }
 
 .results-table th,
@@ -339,6 +342,11 @@ footer > div:last-child {
 
 .results-table th {
   font-weight: 500;
+}
+
+.results-table img {
+  height: auto;
+  max-width: 100%;
 }
 
 /* ------------------------------------------------------------------------ */
