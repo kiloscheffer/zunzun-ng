@@ -316,6 +316,32 @@ footer > div:last-child {
 }
 
 /* ------------------------------------------------------------------------ */
+/*   RESULTS TABLE                                                          */
+/*   List-of-results display where rows are separated by a horizontal line  */
+/*   but columns have no vertical chrome. Used for the function-finder      */
+/*   results page where each row is one ranked equation result, with plot   */
+/*   images + statistics text in adjacent cells. The row-separator-only    */
+/*   look reads as "card list" rather than "data grid."                     */
+/* ------------------------------------------------------------------------ */
+
+.results-table {
+  border-collapse: collapse;
+}
+
+.results-table th,
+.results-table td {
+  background-color: transparent;
+  border: none;
+  border-bottom: 1px solid var(--text-light);
+  padding: 0.5rem 0.75rem;
+  vertical-align: top;
+}
+
+.results-table th {
+  font-weight: 500;
+}
+
+/* ------------------------------------------------------------------------ */
 /*   SHOW/HIDE SYSTEM                                                       */
 /*   .hideable is a marker class for the show/hide nav system; jQuery in    */
 /*   generic_page_template.html toggles the .hidden class on these elements */

@@ -18,28 +18,30 @@
 {% endif %}
 </p>
 
-<table>
+<table class="results-table">
+<thead>
 <tr>
-    <td>Model Plots</td>
+    <th>Model Plots</th>
 {% if dimensionality == '3' %}
-    <td>Contour Plots</td>
+    <th>Contour Plots</th>
 {% endif %}
 {% if RelativeErrorPlotsFlag %}
-    <td>Relative Error Plots</td>
+    <th>Relative Error Plots</th>
 {% else %}
-    <td>Error Plots</td>
+    <th>Error Plots</th>
 {% endif %}
-    <td>Statistics and Links</td>
+    <th>Statistics and Links</th>
 </tr>
+</thead>
+<tbody>
 {% for equationData in equationDataForDjangoTemplate %}
 	<tr>
-        
 	{% for graphLocation in equationData.graphWebSiteLocations %}
-		<td style='border-top: none; border-right: none; border-left: none;'><img src='{{ graphLocation }}'></td>
+		<td><img src='{{ graphLocation }}' alt=""></td>
 	{% endfor %}
 
-	<td style='border-top: none; border-right: none; border-left: none;'>
-	<h2>Rank {{ equationData.rank }}</h2>
+	<td>
+	<h3>Rank {{ equationData.rank }}</h3>
 	<p>
 	{{ equationData.fittingTarget }}: {{ equationData.fittingTargetValue }}
 	{{ equationData.rmseString }}
@@ -50,10 +52,10 @@
 	<p>{{ equationData.displayHTML }}</p>
 	<p><a href='/Equation/{{ dimensionality }}/{{ equationData.URLQuotedModuleName }}/{{ equationData.URLQuotedDisplayName }}/?RANK={{ equationData.rank }}&unused={{ uniqueTime }}' target='_blank' rel='noopener noreferrer'>Go to this equation</a></p>
 	</td>
-	
+
 	</tr>
 {% endfor %}
-
+</tbody>
 </table>
 
 <p class="gap-lg">
