@@ -306,14 +306,13 @@ footer > div:last-child {
   border: none;
 }
 
-.form-table th,
-.form-table td {
-  padding: 0.25rem 0.75rem;
-  text-align: left;
-}
-
 .form-table th {
   font-weight: 500;
+  padding: 0.25rem 0.75rem;
+}
+
+.form-table td {
+  padding: 0rem 0.75rem;
 }
 
 /* ------------------------------------------------------------------------ */
