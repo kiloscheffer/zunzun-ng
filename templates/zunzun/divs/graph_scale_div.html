@@ -8,8 +8,12 @@ Log plots require data values greater than zero.</p>
         <small>X Scale (2D Only)</small>
         <hr>
         {{ mainForm.graphScaleRadioButtonX }}
-        <p>Max X: {{ mainForm.graphScaleManuallyEnteredMaxX }}<br>
-           Min X: {{ mainForm.graphScaleManuallyEnteredMinX }}</p>
+        <div class="field-grid">
+            <label for="id_graphScaleManuallyEnteredMaxX">Max X:</label>
+            {{ mainForm.graphScaleManuallyEnteredMaxX }}
+            <label for="id_graphScaleManuallyEnteredMinX">Min X:</label>
+            {{ mainForm.graphScaleManuallyEnteredMinX }}
+        </div>
         {{ mainForm.logLinX }}
     </div>
 {% if dimensionality != '1' %}
@@ -17,8 +21,12 @@ Log plots require data values greater than zero.</p>
         <small>Y Scale (2D Only)</small>
         <hr>
         {{ mainForm.graphScaleRadioButtonY }}
-        <p>Max Y: {{ mainForm.graphScaleManuallyEnteredMaxY }}<br>
-           Min Y: {{ mainForm.graphScaleManuallyEnteredMinY }}</p>
+        <div class="field-grid">
+            <label for="id_graphScaleManuallyEnteredMaxY">Max Y:</label>
+            {{ mainForm.graphScaleManuallyEnteredMaxY }}
+            <label for="id_graphScaleManuallyEnteredMinY">Min Y:</label>
+            {{ mainForm.graphScaleManuallyEnteredMinY }}
+        </div>
         {{ mainForm.logLinY }}
     </div>
 {% endif %}
@@ -27,8 +35,12 @@ Log plots require data values greater than zero.</p>
         <small>Z Scale (2D Only)</small>
         <hr>
         {{ mainForm.graphScaleRadioButtonZ }}
-        <p>Max Z: {{ mainForm.graphScaleManuallyEnteredMaxZ }}<br>
-           Min Z: {{ mainForm.graphScaleManuallyEnteredMinZ }}</p>
+        <div class="field-grid">
+            <label for="id_graphScaleManuallyEnteredMaxZ">Max Z:</label>
+            {{ mainForm.graphScaleManuallyEnteredMaxZ }}
+            <label for="id_graphScaleManuallyEnteredMinZ">Min Z:</label>
+            {{ mainForm.graphScaleManuallyEnteredMinZ }}
+        </div>
         {{ mainForm.logLinZ }}
     </div>
 {% endif %}
