@@ -1,69 +1,66 @@
 {% extends "zunzun/generic_page_template.html" %}
 
 {% block title %}
-    ZunZunNG - {{ dimensionality }}D Function Finder
+ZunZunNG - {{ dimensionality }}D Function Finder
 {% endblock %}
 
 {% block body_contents %}
 
 <form action="/FunctionFinder__F__/{{ dimensionality }}/" method='post'>
 
-<nav class="page-toolbar">
+  <nav class="page-toolbar">
     <div>
-        <select id="s1">
-            <option></option>
-            <option value="introDiv" selected>Introduction</option>
-            <option value="dataEntry">Text Data Editor</option>
-            <option value="fittingTarget">Fitting Target</option>
-            <option value="dataLabels">Data Labels For Graphs</option>
-{% if dimensionality == '2' %}
-            <option value="linLog">Lin/Log Control</option>
-{% endif %}
-            <option value="smoothnessControl">Smoothness Control</option>
-            <option value="equationFamilyInclusion">Equation Family Inclusion</option>
-            <option value="extendedEquationTypes">Extended Equation Types</option>
-        </select>
+      <select id="s1">
+        <option></option>
+        <option value="introDiv" selected>Introduction</option>
+        <option value="dataEntry">Text Data Editor</option>
+        <option value="fittingTarget">Fitting Target</option>
+        <option value="dataLabels">Data Labels For Graphs</option>
+        {% if dimensionality == '2' %}
+        <option value="linLog">Lin/Log Control</option>
+        {% endif %}
+        <option value="smoothnessControl">Smoothness Control</option>
+        <option value="equationFamilyInclusion">Equation Family Inclusion</option>
+        <option value="extendedEquationTypes">Extended Equation Types</option>
+      </select>
     </div>
     <div>
-        <input type="submit" value="Submit">
+      <input type="submit" value="Submit">
     </div>
-</nav>
+  </nav>
 
+  <div id="introDiv" class="hideable">
+    <h2>Introduction</h2>
+    Please select an option from the pull-down menu above.<br>
+    <br>
+    <b>Advice:</b> Most users should turn off the Polyfunctional family<br>
+    of equations and set the Smoothness Control to a small value<br>
+    to start, then increase the Smoothness Control value as needed.
+  </div>
 
-<div id="introDiv" class="hideable">
-<h2>Introduction</h2>
-Please select an option from the pull-down menu above.<br>
-<br>
-<b>Advice:</b> Most users should turn off the Polyfunctional family<br>
-of equations and set the Smoothness Control to a small value<br>
-to start, then increase the Smoothness Control value as needed.
-</div>
+  {% include "zunzun/divs/data_entry_div.html" %}
+  {% include "zunzun/divs/fitting_target_div.html" %}
+  {% include "zunzun/divs/data_labels_div.html" %}
+  {% include "zunzun/divs/smoothness_control_div.html" %}
+  {% include "zunzun/divs/equation_family_inclusion_div.html" %}
+  {% include "zunzun/divs/extended_equation_types_control_div.html" %}
 
-{% include "zunzun/divs/data_entry_div.html" %}
-{% include "zunzun/divs/fitting_target_div.html" %}
-{% include "zunzun/divs/data_labels_div.html" %}
-{% include "zunzun/divs/smoothness_control_div.html" %}
-{% include "zunzun/divs/equation_family_inclusion_div.html" %}
-{% include "zunzun/divs/extended_equation_types_control_div.html" %}
-
-{% if dimensionality == '2' %}
-<div id="linLog" class="hideable">
-<h2>Lin/log control</h2>
-<p>Log plots require data values greater than zero.</p>
-<div class="form-columns">
-    <div>
-        <small>Select X Lin/Log Scaling</small>
-        <hr>
+  {% if dimensionality == '2' %}
+  <div id="linLog" class="hideable">
+    <h2>Lin/log control</h2>
+    <p>Log plots require data values greater than zero.</p>
+    <div class="form-columns">
+      <div>
+        <label for="id_logLinX">Select X Lin/Log Scaling</label>
         {{ mainForm.logLinX }}
-    </div>
-    <div>
-        <small>Select Y Lin/Log Scaling</small>
-        <hr>
+      </div>
+      <div>
+        <label for="id_logLinY">Select Y Lin/Log Scaling</label>
         {{ mainForm.logLinY }}
+      </div>
     </div>
-</div>
-</div>
-{% endif %}
+  </div>
+  {% endif %}
 
 </form>
 {% endblock %}

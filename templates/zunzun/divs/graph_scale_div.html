@@ -1,48 +1,47 @@
 <div id="graphScale" class="hideable hidden">
-<h2>Graph scaling and lin/log control</h2>
-<p>Here you can choose the scaling of the data{% if dimensionality != '3' %} plots.{% else %} plots and the 3D scatterplots.{% endif %}<br>
-Log plots require data values greater than zero.</p>
+  <h2>Graph scaling and lin/log control</h2>
+  <p>Here you can choose the scaling of the data{% if dimensionality != '3' %} plots.{% else %} plots and the 3D scatterplots.{% endif %} Log plots require data values greater than zero.</p>
 
-<div class="form-columns">
+  <div class="form-columns">
     <div>
-        <small>X Scale (2D Only)</small>
-        <hr>
-        {{ mainForm.graphScaleRadioButtonX }}
-        <div class="field-grid">
-            <label for="id_graphScaleManuallyEnteredMaxX">Max X:</label>
-            {{ mainForm.graphScaleManuallyEnteredMaxX }}
-            <label for="id_graphScaleManuallyEnteredMinX">Min X:</label>
-            {{ mainForm.graphScaleManuallyEnteredMinX }}
-        </div>
-        {{ mainForm.logLinX }}
+      <label for="id_graphScaleRadioButtonX">X Scale (2D Only)</label>
+      {{ mainForm.graphScaleRadioButtonX }}
+      <div class="field-grid">
+        <label for="id_graphScaleManuallyEnteredMaxX">Max X:</label>
+        {{ mainForm.graphScaleManuallyEnteredMaxX }}
+        <label for="id_graphScaleManuallyEnteredMinX">Min X:</label>
+        {{ mainForm.graphScaleManuallyEnteredMinX }}
+      </div>
+      {{ mainForm.logLinX }}
     </div>
-{% if dimensionality != '1' %}
+    {% if dimensionality != '1' %}
+
     <div>
-        <small>Y Scale (2D Only)</small>
-        <hr>
-        {{ mainForm.graphScaleRadioButtonY }}
-        <div class="field-grid">
-            <label for="id_graphScaleManuallyEnteredMaxY">Max Y:</label>
-            {{ mainForm.graphScaleManuallyEnteredMaxY }}
-            <label for="id_graphScaleManuallyEnteredMinY">Min Y:</label>
-            {{ mainForm.graphScaleManuallyEnteredMinY }}
-        </div>
-        {{ mainForm.logLinY }}
+      <label for="id_graphScaleRadioButtonY">Y Scale (2D Only)</label>
+      {{ mainForm.graphScaleRadioButtonY }}
+      <div class="field-grid">
+        <label for="id_graphScaleManuallyEnteredMaxY">Max Y:</label>
+        {{ mainForm.graphScaleManuallyEnteredMaxY }}
+        <label for="id_graphScaleManuallyEnteredMinY">Min Y:</label>
+        {{ mainForm.graphScaleManuallyEnteredMinY }}
+      </div>
+      {{ mainForm.logLinY }}
     </div>
-{% endif %}
-{% if dimensionality == '3' %}
+    {% endif %}
+    {% if dimensionality == '3' %}
+
     <div>
-        <small>Z Scale (2D Only)</small>
-        <hr>
-        {{ mainForm.graphScaleRadioButtonZ }}
-        <div class="field-grid">
-            <label for="id_graphScaleManuallyEnteredMaxZ">Max Z:</label>
-            {{ mainForm.graphScaleManuallyEnteredMaxZ }}
-            <label for="id_graphScaleManuallyEnteredMinZ">Min Z:</label>
-            {{ mainForm.graphScaleManuallyEnteredMinZ }}
-        </div>
-        {{ mainForm.logLinZ }}
+      <label for="id_graphScaleRadioButtonZ">Z Scale (2D Only)</label>
+      {{ mainForm.graphScaleRadioButtonZ }}
+      <div class="field-grid">
+        <label for="id_graphScaleManuallyEnteredMaxZ">Max Z:</label>
+        {{ mainForm.graphScaleManuallyEnteredMaxZ }}
+        <label for="id_graphScaleManuallyEnteredMinZ">Min Z:</label>
+        {{ mainForm.graphScaleManuallyEnteredMinZ }}
+      </div>
+      {{ mainForm.logLinZ }}
     </div>
-{% endif %}
-</div>
+    {% endif %}
+
+  </div>
 </div>
