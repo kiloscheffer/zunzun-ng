@@ -5,12 +5,7 @@
     {{ mainForm.polynomialOrderX2D }}
 {% else %}
     <p>Select the highest order terms for the polynomial equation.</p>
-    <table>
-    <tr><td>
-    {{ mainForm.polynomialOrderX3D }} Highest term for first independent data (X)
-    <br>
-    {{ mainForm.polynomialOrderY3D }} Highest term for second independent data (Y)
-    </td></tr>
-    </table>
+    <p>{{ mainForm.polynomialOrderX3D }} Highest term for first independent data (X)</p>
+    <p>{{ mainForm.polynomialOrderY3D }} Highest term for second independent data (Y)</p>
 {% endif %}
 </div>
