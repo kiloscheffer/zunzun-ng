@@ -161,16 +161,27 @@ header h1 .brand-logo {
 /* ------------------------------------------------------------------------ */
 
 .page-toolbar {
+  align-items: end;
   display: flex;
   flex-wrap: wrap;
-  align-items: end;
+  font-size: 1rem;
   gap: 1rem 1.5rem;
-  max-width: min(45rem, 90%);
+  justify-content: center;
   margin: 0 auto;
 }
 
-.page-toolbar > div:last-child {
-  margin-left: auto;
+/* ------------------------------------------------------------------------ */
+/*   FORM COLUMNS                                                           */
+/*   Responsive multi-column layout for X/Y/Z form-field groups. On wide    */
+/*   viewports each axis occupies its own column; on narrow viewports they  */
+/*   stack to a single column via `auto-fit` + `minmax(min(...), 1fr)`.     */
+/*   Replaces the legacy nested-table pattern in divs/*.html.               */
+/* ------------------------------------------------------------------------ */
+
+.form-columns {
+  display: grid;
+  gap: 2rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(18rem, 100%), 1fr));
 }
 
 /* ------------------------------------------------------------------------ */
