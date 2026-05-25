@@ -1,9 +1,14 @@
 <div id="splineControl" class="hideable hidden">
-<h2>Spline Control Parameters</h2>
-<p>Here you can enter the control parameters for the spline.</p>
-<p><label>{{ mainForm.splineSmoothness }} <small>Smoothness (larger numbers are smoother)</small></label></p>
-<p><label>{{ mainForm.splineOrderX }} <small>{% if dimensionality == '2' %}Spline order{% else %}Spline order for first independent data (X){% endif %}</small></label></p>
-{% if dimensionality == '3' %}
-<p><label>{{ mainForm.splineOrderY }} <small>Spline order for second independent data (Y)</small></label></p>
-{% endif %}
+  <h2>Spline Control Parameters</h2>
+  <p>Here you can enter the control parameters for the spline.</p>
+  <div class="field-grid">
+    <label for="id_splineSmoothness">Smoothness (larger numbers are smoother):</label>
+    {{ mainForm.splineSmoothness }}
+    <label for="id_splineOrderX">{% if dimensionality == '2' %}Spline order{% else %}Spline order for first independent data (X){% endif %}:</label>
+    {{ mainForm.splineOrderX }}
+    {% if dimensionality == '3' %}
+    <label for="id_splineOrderY">Spline order for second independent data (Y):</label>
+    {{ mainForm.splineOrderY }}
+    {% endif %}
+  </div>
 </div>
