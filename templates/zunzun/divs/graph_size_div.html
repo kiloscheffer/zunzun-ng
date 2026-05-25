@@ -1,8 +1,10 @@
 <div id="graphSize" class="hideable hidden">
-<h2>{% if dimensionality == '3' %}Animation and {% endif %}Graph size</h2>
+<h2>Graph{% if dimensionality == '3' %} and Animation{% endif %} size</h2>
 <p>Here you can choose the size of the graphs. Smaller size files load quickly, with less resolution while large files show more resolution but load more slowly.</p>
 
+{% if dimensionality == '3' %}
 <h3>Graph Size</h3>
+{% endif %}
 {{ mainForm.graphSize }}
 
 {% if dimensionality == '3' %}
