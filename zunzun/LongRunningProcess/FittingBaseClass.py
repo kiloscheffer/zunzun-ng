@@ -84,10 +84,10 @@ You must provide any weights you wish to use.
         self.CommonCreateAndInitializeDataObject(False)
         self.dataObject.textDataEditor = self.boundForm.cleaned_data["textDataEditor"]
 
-        self.webFormName = self.boundForm.equation.GetDisplayName() + ' ' + str(self.dimensionality) + 'D<br><span class="math">' + self.boundForm.equation.GetDisplayHTML() + '</span>' # requires the above call to Initalize()
+        self.webFormName = self.boundForm.equation.GetDisplayName() + ' ' + str(self.dimensionality) + 'D<br>' + self.boundForm.equation.GetDisplayHTML() # requires the above call to Initalize()
 
         self.pdfTitleHTML = 'Equation Family: ' + self.boundForm.equation.__module__.split('.')[-1] + '<br><br>'
-        self.pdfTitleHTML += '<span class="math">' + self.boundForm.equation.GetDisplayHTML() + '</span>' # requires the above webFormName which needs Initialize()
+        self.pdfTitleHTML += self.boundForm.equation.GetDisplayHTML() # requires the above webFormName which needs Initialize()
         
         self.boundForm.equation.dataCache = self.boundForm.equationBase.dataCache
         

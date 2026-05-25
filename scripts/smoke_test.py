@@ -175,8 +175,7 @@ _POLY_EXPECTED_MARKERS = [
 
 _FF_EXPECTED_MARKERS = [
     "Function Finder Results",
-    "Model Plots",
-    "Error Plots",
+    "Model and Error Plots",
     "Rank 1",
 ]
 

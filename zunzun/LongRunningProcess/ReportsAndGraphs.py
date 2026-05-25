@@ -297,7 +297,7 @@ class CoefficientListing(TextOnlyReport):
 
         
     def CreateReportOutput(self):
-        self.stringList.append('<span class="math">' + self.dataObject.equation.GetDisplayHTML() + '</span>\n')
+        self.stringList.append(self.dataObject.equation.GetDisplayHTML() + '\n')
         
         if self.dataObject.equation.splineFlag:
             if self.dataObject.dimensionality == 2:
