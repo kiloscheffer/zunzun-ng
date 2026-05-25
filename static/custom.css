@@ -154,16 +154,17 @@ header h1 .brand-logo {
 
 /* ------------------------------------------------------------------------ */
 /*   PAGE TOOLBAR                                                           */
-/*   For interface pages with one dropdown + Submit. Distinct from          */
+/*   For interface pages with one dropdown + form actions. Distinct from    */
 /*   .dropdown-nav (which lays out the home page's 4 peer dropdowns as      */
-/*   equal columns). Elements size to their natural width and cluster at    */
-/*   the center of the toolbar; bottom edges align via align-items: end.    */
+/*   equal columns). Elements size to their natural width; the last child   */
+/*   (Home link) is right-aligned via margin-left: auto.                    */
 /* ------------------------------------------------------------------------ */
 
 .page-toolbar {
   align-items: end;
   display: flex;
   flex-wrap: wrap;
+  font-size: 1rem;
   gap: 1rem 1.5rem;
   justify-content: center;
   margin: 0 auto;
