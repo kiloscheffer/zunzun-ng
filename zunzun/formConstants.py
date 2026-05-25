@@ -1,6 +1,5 @@
 import inspect
-import pyeq3
-
+import pyeq3 # type: ignore
 
 udfTopText = '''# Enter the text of your function here. Comments begin with a "#". Lines
 # with no text are ignored.
@@ -151,7 +150,6 @@ fittingTargetChoices = []
 for target in targetList:
     fittingTargetChoices.append([target, 'Lowest ' + pyeq3.IModel.IModel.fittingTargetDictionary[target]])
 
-
 equationCategoryNameChoices2D = []
 equationCategoryNameChoicesDefaultValues2D = []
 for submodule in inspect.getmembers(pyeq3.Models_2D):
@@ -177,7 +175,6 @@ for submodule in inspect.getmembers(pyeq3.Models_3D):
         if submodule[0] not in ['Rational', 'Polyfunctional']:
             equationCategoryNameChoicesDefaultValues3D.append(submodule[0])
 equationCategoryNameChoices3D.sort()
-
 
 polynomialOrder2DChoices = [['0', '0'],
                             ['1', '1'],

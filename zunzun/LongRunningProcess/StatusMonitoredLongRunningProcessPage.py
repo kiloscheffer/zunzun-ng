@@ -1,9 +1,7 @@
-import sys, os, time, multiprocessing, io, string
+import os, time, multiprocessing
 from bs4 import BeautifulSoup # don't need everything, it has several components
 
 import settings
-import django.http # to raise 404's
-import django.utils.encoding
 from django import db
 from django.db import close_old_connections
 from django.contrib.sessions.backends.db import SessionStore
@@ -16,7 +14,6 @@ from reportlab.lib.units import mm
 import reportlab.lib.pagesizes
 
 from . import DataObject
-from . import ClassForAttachingProperties
 from . import ReportsAndGraphs
 from zunzun import platform_compat
 from .child_payload import ChildPayload
@@ -24,10 +21,7 @@ from .child_payload import ChildPayload
 import zunzun.forms
 from . import DefaultData
 
-import pyeq3
-
 from . import pid_trace
-
 
 def _json_native(value):
     """Recursively coerce numpy types to plain Python primitives.
@@ -48,7 +42,6 @@ def _json_native(value):
     if isinstance(value, (list, tuple)):
         return [_json_native(v) for v in value]
     return value
-
 
 def ParallelWorker_CreateReportOutput(inReportObject):
     try:
@@ -76,7 +69,6 @@ def ParallelWorker_CreateReportOutput(inReportObject):
         logging.exception('Exception creating report, inReportObject.dataObject yields:\n\n' + s)
         return [inReportObject.name, 0, 'Exception creating report, see log file']
 
-
 def ParallelWorker_CreateCharacterizerOutput(inReportObject):
     try:
         inReportObject.CreateCharacterizerOutput()
@@ -102,7 +94,6 @@ def ParallelWorker_CreateCharacterizerOutput(inReportObject):
         
         return [inReportObject.name, 0, 'Exception characterizer output, see log file']
 
-
 # from http://code.activestate.com/recipes/576832-improved-reportlab-recipe-for-page-x-of-y/
 class NumberedCanvas(canvas.Canvas):
     def __init__(self, *args, **kwargs):
@@ -126,8 +117,6 @@ class NumberedCanvas(canvas.Canvas):
         self.setFont("Helvetica", 7)
         self.drawRightString(200*mm, 20*mm, "Page %d of %d" % (self._pageNumber, page_count))
         self.drawCentredString(25*mm, 20*mm, 'https://github.com/kiloscheffer/zunzun-ng')
-
-
 
 class StatusMonitoredLongRunningProcessPage(object):
 
@@ -172,7 +161,6 @@ You must provide any weights you wish to use.
         self.defaultData1D = DefaultData.defaultData1D
         self.defaultData2D = DefaultData.defaultData2D
         self.defaultData3D = DefaultData.defaultData3D
-
 
     def build_child_payload(self) -> ChildPayload:
         """Produce a picklable snapshot for the spawned child process.
@@ -223,25 +211,20 @@ You must provide any weights you wish to use.
         self.inEquationName = payload.extra.get("inEquationName", "")
         self.inEquationFamilyName = payload.extra.get("inEquationFamilyName", "")
 
-
     def PerformWorkInParallel(self):
         pass
-
 
     def SaveSpecificDataToSessionStore(self):
         pass
 
-
     def GenerateListOfWorkItems(self):
         pass
-
 
     def GetParallelProcessCount(self):
         pid_trace.pid_trace()
         ppCount = platform_compat.get_parallel_process_count()
         pid_trace.pid_trace()
         return ppCount
-
 
     def CreateReportPDF(self):
         pid_trace.pid_trace()
@@ -402,7 +385,6 @@ You must provide any weights you wish to use.
             self.pdfFileName = '' # empty string used as a flag
         pid_trace.delete_pid_trace_file()
 
-
     def BaseCreateAndInitializeDataObject(self, xName, yName, zName):
         dataObject = DataObject.DataObject()
 
@@ -430,7 +412,6 @@ You must provide any weights you wish to use.
         dataObject.websiteStatusFileName = dataObject.WebsiteHTMLLocation + dataObject.uniqueString + '.html'
 
         return dataObject
-
 
     def CommonCreateAndInitializeDataObject(self, FF = False):
         pid_trace.pid_trace()
@@ -513,7 +494,6 @@ You must provide any weights you wish to use.
             
         pid_trace.delete_pid_trace_file()
 
-
     def SaveDictionaryOfItemsToSessionStore(self, inSessionStoreName, inDictionary):
         pid_trace.pid_trace(inSessionStoreName)
 
@@ -559,7 +539,6 @@ You must provide any weights you wish to use.
 
         pid_trace.delete_pid_trace_file()
 
-
     def LoadItemFromSessionStore(self, inSessionStoreName, inItemName):
         pid_trace.pid_trace()
 
@@ -577,7 +556,6 @@ You must provide any weights you wish to use.
         pid_trace.delete_pid_trace_file()
 
         return returnItem
-
 
     def PerformAllWork(self):
         pid_trace.pid_trace()
@@ -607,7 +585,6 @@ You must provide any weights you wish to use.
         self.RenderOutputHTMLToAFileAndSetStatusRedirect()
 
         pid_trace.delete_pid_trace_file()
-
 
     def CreateOutputReportsInParallelUsingProcessPool(self):
         pid_trace.pid_trace()
@@ -671,7 +648,6 @@ You must provide any weights you wish to use.
             
         pid_trace.delete_pid_trace_file()
 
-
     def Reports_CheckOneSecondSessionUpdates(self, countOfReportsRun, totalNumberOfReportsToBeRun):
         if self.oneSecondTimes != int(time.time()):
             self.CheckIfStillUsed()
@@ -680,7 +656,6 @@ You must provide any weights you wish to use.
                 processcountString = '<br><br>Currently using ' + str(len(multiprocessing.active_children())) + ' parallel processes'
             self.SaveDictionaryOfItemsToSessionStore('status', {'currentStatus':"Created %s of %s Reports and Graphs %s" % (countOfReportsRun, totalNumberOfReportsToBeRun, processcountString)})
             self.oneSecondTimes = int(time.time())
-
 
     def CheckIfStillUsed(self):
         import time
@@ -718,7 +693,6 @@ You must provide any weights you wish to use.
                 
             pid_trace.delete_pid_trace_file()
 
-
     def SetInitialStatusDataIntoSessionVariables(self, request):
         pid_trace.pid_trace()
         self.SaveDictionaryOfItemsToSessionStore('status',
@@ -735,7 +709,6 @@ You must provide any weights you wish to use.
                                                   'DependentDataName':self.dataObject.DependentDataName})
         pid_trace.delete_pid_trace_file()
 
-
     def SpecificCodeForGeneratingListOfOutputReports(self):
         pid_trace.pid_trace()
 
@@ -750,7 +723,6 @@ You must provide any weights you wish to use.
         self.ReportsAndGraphsCategoryDict = ReportsAndGraphs.FittingReportsDict(self.dataObject)
 
         pid_trace.delete_pid_trace_file()
-
 
     def GenerateListOfOutputReports(self):
         pid_trace.pid_trace()
@@ -787,7 +759,6 @@ You must provide any weights you wish to use.
                 self.graphReports.append(i)
 
         pid_trace.delete_pid_trace_file()
-
 
     def RenderOutputHTMLToAFileAndSetStatusRedirect(self):
         pid_trace.pid_trace()
@@ -854,7 +825,6 @@ You must provide any weights you wish to use.
         
         pid_trace.delete_pid_trace_file()
 
-
     def CreateUnboundInterfaceForm(self, request): # OVERRIDDEN in fittingBaseClass
         pid_trace.pid_trace()
         dictionaryToReturn = {}
@@ -883,7 +853,6 @@ You must provide any weights you wish to use.
 
         pid_trace.delete_pid_trace_file()
         return dictionaryToReturn
-
 
     def CreateBoundInterfaceForm(self, request): # OVERRIDDEN in fittingBaseClass
         pid_trace.pid_trace()
