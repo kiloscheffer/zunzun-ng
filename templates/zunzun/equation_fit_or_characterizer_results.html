@@ -1,159 +1,153 @@
 {% extends "zunzun/generic_page_template.html" %}
-
 {% block additional_javascript %}
 {% if equationInstance %}
-    {% include "zunzun/javascript/JavascriptForEvaluateAtAPoint.js" %}
+{% include "zunzun/javascript/JavascriptForEvaluateAtAPoint.js" %}
 {% endif %}
 {% endblock %}
-
-{% block body_contents %}
-
-<nav class="dropdown-nav">
+{% block body_contents %}<nav class="dropdown-nav">
     <div>
         <label for="s1">{% if equationInstance %}Coefficients And Text Reports{% else %}Text Reports{% endif %}</label>
         <select id="s1">
             <option></option>
             <option value="introDiv" selected>Introduction and PDF Link</option>
-{% if equationInstance %}
-    {% if equationInstance.splineFlag %}
+            {% if equationInstance %}
+            {% if equationInstance.splineFlag %}
             <option value="evaluateDiv">Evaluate This Spline At A Point</option>
-    {% else %}
+            {% else %}
             <option value="evaluateDiv">Evaluate This Equation At A Point</option>
-    {% endif %}
-{% endif %}
+            {% endif %}
+            {% endif %}
             {% for textReport in textReports %}
             <option value="{{ textReport.uniqueAnchorName }}">{{ textReport.name }}</option>
             {% endfor %}
         </select>
     </div>
+
     <div>
         <label for="s2">Histograms</label>
         <select id="s2">
             <option></option>
             <option value="introDiv" selected>Introduction and PDF Link</option>
             {% for graphReport in graphReports %}
-                {% if graphReport.StatisticsGraph == 1 %}
-                    {% if graphReport.HistogramFlag == 1 %}
+            {% if graphReport.StatisticsGraph == 1 %}
+            {% if graphReport.HistogramFlag == 1 %}
             <option value="{{ graphReport.uniqueAnchorName }}">{{ graphReport.name }}</option>
-                    {% endif %}
-                {% endif %}
+            {% endif %}
+            {% endif %}
             {% endfor %}
         </select>
     </div>
-{% if equationInstance %}
+    {% if equationInstance %}
+
     <div>
         <label for="s3">Statistical Scatterplots</label>
         <select id="s3">
             <option></option>
             <option value="introDiv" selected>Introduction and PDF Link</option>
             {% for graphReport in graphReports %}
-                {% if graphReport.StatisticsGraph == 1 %}
-                    {% if graphReport.HistogramFlag == 0 %}
+            {% if graphReport.StatisticsGraph == 1 %}
+            {% if graphReport.HistogramFlag == 0 %}
             <option value="{{ graphReport.uniqueAnchorName }}">{{ graphReport.name }}</option>
-                    {% endif %}
-                {% endif %}
+            {% endif %}
+            {% endif %}
             {% endfor %}
         </select>
     </div>
-{% endif %}
-{% if dimensionality != '1' %}
+    {% endif %}
+    {% if dimensionality != '1' %}
+
     <div>
-{% if equationInstance %}
+        {% if equationInstance %}
         <label for="s4">Data Graphs</label>
         <select id="s4">
-{% else %}
-        <label for="s3">Data Graphs</label>
-        <select id="s3">
-{% endif %}
-            <option></option>
-            <option value="introDiv" selected>Introduction and PDF Link</option>
-            {% for graphReport in graphReports %}
-                {% if graphReport.StatisticsGraph == 0 %}
-            <option value="{{ graphReport.uniqueAnchorName }}">{{ graphReport.name }}</option>
+            {% else %}
+            <label for="s3">Data Graphs</label>
+            <select id="s3">
                 {% endif %}
-            {% endfor %}
-        </select>
+                <option></option>
+                <option value="introDiv" selected>Introduction and PDF Link</option>
+                {% for graphReport in graphReports %}
+                {% if graphReport.StatisticsGraph == 0 %}
+                <option value="{{ graphReport.uniqueAnchorName }}">{{ graphReport.name }}</option>
+                {% endif %}
+                {% endfor %}
+            </select>
     </div>
-{% endif %}
+    {% endif %}
 </nav>
 
-
 <div id="introDiv" class="hideable">
-<h2>Introduction and PDF Link</h2>
-<p>Please select an item from the pull-down menu above.</p>
-<p>You can download almost all of these reports as <a href='/temp/{{ pdfFileName }}'>a single PDF file</a>.<br>
-<small><b>Hint:</b> if the graphs are too small, you can go back and increase the graph size.</small></p>
+    <h2>Introduction and PDF Link</h2>
+    <p>Please select an item from the pull-down menu above.</p>
+    <p>You can download almost all of these reports as <a href='/temp/{{ pdfFileName }}'>a single PDF file</a>.<br>
+        <small><b>Hint:</b> if the graphs are too small, you can go back and increase the graph size.</small>
+    </p>
 </div>
-
 
 {% if equationInstance %}
 <div id="evaluateDiv" class="hideable hidden">
-{% if equationInstance.splineFlag %}
-<h2>Evaluate This Spline At A Point</h2>
-{% else %}
-<h2>Evaluate This Equation At A Point</h2>
-{% endif %}
-<form name='evaluatePointForm'>
-{% if dimensionality == '2' %}
-{{ EvaluateAtAPointForm.x }}
-<br>
-{{ IndependentDataName1 }}
-{% else %}
-<div class="form-columns">
-    <div>
+    {% if equationInstance.splineFlag %}
+    <h2>Evaluate This Spline At A Point</h2>
+    {% else %}
+    <h2>Evaluate This Equation At A Point</h2>
+    {% endif %}
+    <form name='evaluatePointForm'>
+        {% if dimensionality == '2' %}
         {{ EvaluateAtAPointForm.x }}
         <br>
         {{ IndependentDataName1 }}
-    </div>
-    <div>
-        {{ EvaluateAtAPointForm.y }}
-        <br>
-        {{ IndependentDataName2 }}
-    </div>
+        {% else %}
+        <div class="form-columns">
+            <div>
+                {{ EvaluateAtAPointForm.x }}
+                <br>
+                {{ IndependentDataName1 }}
+            </div>
+            <div>
+                {{ EvaluateAtAPointForm.y }}
+                <br>
+                {{ IndependentDataName2 }}
+            </div>
+        </div>
+        {% endif %}
+        <p><button type="button" onclick='JavaScript:xmlhttpPost("/EvaluateAtAPoint/")'>Evaluate</button></p>
+    </form>
+    <div id="evaluateResultDiv" class="gap-md"></div>
 </div>
-{% endif %}
-<p><button type="button" onclick='JavaScript:xmlhttpPost("/EvaluateAtAPoint/")'>Evaluate</button></p>
-</form>
-<div id="evaluateResultDiv" class="gap-md"></div>
-</div>
-{% endif %}
 
-
+{% endif %}
 {% include "zunzun/divs/feedback_entry.html" %}
 {% include "zunzun/divs/server_load.html" %}
 {% include "zunzun/divs/dedication.html" %}
-
-
 {% for textReport in textReports %}
-	<div id="{{ textReport.uniqueAnchorName }}" class="hideable hidden">
-	<h2>{{ textReport.name }}</h2>
-<pre>{% for stringListItem in textReport.stringList %}{{ stringListItem }}
+<div id="{{ textReport.uniqueAnchorName }}" class="hideable hidden">
+    <h2>{{ textReport.name }}</h2>
+    <pre>{% for stringListItem in textReport.stringList %}{{ stringListItem }}
 {% endfor %}</pre>
-	</div>
+</div>
+
 {% endfor %}
-
-
 {% for graphReport in graphReports %}
-	<div id="{{ graphReport.uniqueAnchorName }}" class="hideable hidden">
-	<h2>{{ graphReport.name }}</h2>
-		{% if graphReport.animationFlag == 1 %}
-			<p><a href="{{ graphReport.websiteFileLocation }}" target="_blank" rel="noopener noreferrer">Click Here</a> to download GIF file ({{ graphReport.fileSize }})</p>
-			<p><b>NOTE:</b> The animation may appear jerky and uneven until the
-			download is complete and your browser displays the animation smoothly.</p>
-		{% else %}
-	<img src="{{ graphReport.websiteFileLocation }}" alt="{{ graphReport.name }}"><br>
-        <br>
-		Download this image as 
-			<a href="{{ graphReport.websiteFileLocation|slice:':-3' }}png" target='_blank' rel='noopener noreferrer'>PNG</a>
-			,
-			<a href="{{ graphReport.websiteFileLocation|slice:':-3' }}svg" target='_blank' rel='noopener noreferrer'>SVG</a>
-	
-	{% endif %}
-	
-	{% if graphReport.stringList %}
-		<pre>{% for stringListItem in graphReport.stringList %}{{ stringListItem }}{% endfor %}</pre>
-	{% endif %}
-	</div>
-{% endfor %}
+<div id="{{ graphReport.uniqueAnchorName }}" class="hideable hidden">
+    <h2>{{ graphReport.name }}</h2>
+    {% if graphReport.animationFlag == 1 %}
+    <p><a href="{{ graphReport.websiteFileLocation }}" target="_blank" rel="noopener noreferrer">Click Here</a> to download GIF file ({{ graphReport.fileSize }})</p>
+    <p><b>NOTE:</b> The animation may appear jerky and uneven until the
+        download is complete and your browser displays the animation smoothly.</p>
+    {% else %}
+    <img src="{{ graphReport.websiteFileLocation }}" alt="{{ graphReport.name }}"><br>
+    <br>
+    Download this image as
+    <a href="{{ graphReport.websiteFileLocation|slice:':-3' }}png" target='_blank' rel='noopener noreferrer'>PNG</a>
+    ,
+    <a href="{{ graphReport.websiteFileLocation|slice:':-3' }}svg" target='_blank' rel='noopener noreferrer'>SVG</a>
 
+    {% endif %}
+
+    {% if graphReport.stringList %}
+    <pre>{% for stringListItem in graphReport.stringList %}{{ stringListItem }}{% endfor %}</pre>
+    {% endif %}
+</div>
+
+{% endfor %}
 {% endblock %}
