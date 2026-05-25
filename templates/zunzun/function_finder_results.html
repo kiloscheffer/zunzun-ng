@@ -21,24 +21,21 @@
 <table class="results-table">
 <thead>
 <tr>
-    <th>Model Plots</th>
-{% if dimensionality == '3' %}
-    <th>Contour Plots</th>
-{% endif %}
-{% if RelativeErrorPlotsFlag %}
-    <th>Relative Error Plots</th>
-{% else %}
-    <th>Error Plots</th>
-{% endif %}
+    <th>Plots</th>
     <th>Statistics and Links</th>
 </tr>
 </thead>
 <tbody>
 {% for equationData in equationDataForDjangoTemplate %}
 	<tr>
-	{% for graphLocation in equationData.graphWebSiteLocations %}
-		<td><img src='{{ graphLocation }}' alt=""></td>
-	{% endfor %}
+	<td>
+		{% for graphLocation in equationData.graphWebSiteLocations %}
+		<figure>
+			<figcaption>{% if forloop.first %}Model{% elif forloop.last %}{% if RelativeErrorPlotsFlag %}Relative Error{% else %}Error{% endif %}{% else %}Contour{% endif %}</figcaption>
+			<img src='{{ graphLocation }}' alt="">
+		</figure>
+		{% endfor %}
+	</td>
 
 	<td>
 	<h3>Rank {{ equationData.rank }}</h3>
