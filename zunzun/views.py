@@ -648,7 +648,7 @@ def GetEquationInfoDictionary(inDimensionality, inAllOrStandardOnly):
                             temp.submoduleName = submoduleName
                             temp.extendedName = extendedName
                             temp.name = equation.GetDisplayName()
-                            temp.HTML = equation.GetDisplayHTML()
+                            temp.HTML = '<span class="math">' + equation.GetDisplayHTML() + '</span>'
                             temp.webCitationLink = equation.webReferenceURL
                             temp.url_quote_name = urllib.parse.quote(temp.name)
                             if '<BR>' in temp.HTML.upper():

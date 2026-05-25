@@ -9,8 +9,17 @@
   src: url("/static/CascadiaMono-SemiLight.woff2") format("woff2");
 }
 
+@font-face {
+  font-display: swap;
+  font-family: "LM-regular";
+  font-style: normal;
+  font-weight: normal;
+  src: url("/static/LM-regular.woff2") format("woff2");
+}
+
 :root {
   --mono-font: "Cascadia Mono SemiLight", Consolas, Menlo, Monaco, "Andale Mono", "Ubuntu Mono", monospace;
+  --math-font: "LM-regular", serif;
 }
 
 /* ------------------------------------------------------------------------ */
@@ -72,6 +81,10 @@ textarea {
   font-family: var(--mono-font);
   font-size: 0.8em;
   width: 100%;
+}
+
+.math {
+  font-family: var(--math-font);
 }
 
 /* ------------------------------------------------------------------------ */

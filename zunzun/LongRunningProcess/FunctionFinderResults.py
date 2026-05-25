@@ -261,7 +261,7 @@ class FunctionFinderResults(FittingBaseClass.FittingBaseClass):
             dataForOneEquation['displayName'] = reportDataObject.equation.GetDisplayName()
             dataForOneEquation['URLQuotedModuleName'] = urllib.parse.quote(splitted[-1])
             dataForOneEquation['URLQuotedDisplayName'] = urllib.parse.quote(reportDataObject.equation.GetDisplayName())
-            dataForOneEquation['displayHTML'] = reportDataObject.equation.GetDisplayHTML()
+            dataForOneEquation['displayHTML'] = '<span class="math">' + reportDataObject.equation.GetDisplayHTML() + '</span>'
             dataForOneEquation['graphWebSiteLocations'] = graphs
             dataForOneEquation['rank'] = i + self.rank
             dataForOneEquation['dimensionality'] = self.dimensionality
