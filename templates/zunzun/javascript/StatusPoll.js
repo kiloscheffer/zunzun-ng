@@ -13,8 +13,9 @@
       window.location.assign('/StatusAndResults/');
       return;
     }
-    /* currentStatus contains <br> tags written by the LRP (server-side),
-     * so innerHTML is intentional. */
+    /* currentStatus contains server-assembled HTML (<br>, <b>, <table>) written
+     * only by trusted LRP code in zunzun/LongRunningProcess/. No user-supplied
+     * text is interpolated into this string. innerHTML is safe here. */
     var statusEl = document.getElementById('currentStatus');
     if (statusEl) statusEl.innerHTML = data.currentStatus;
 
