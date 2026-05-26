@@ -534,3 +534,32 @@ footer > div:last-child {
   color: var(--accent-hover);
   border-color: var(--accent-hover);
 }
+
+/* ------------------------------------------------------------------------ */
+/*   STATUS PAGE                                                            */
+/*   Pulsing dot affordance next to the heading while a fit is in progress; */
+/*   status card highlights the live currentStatus message.                 */
+/* ------------------------------------------------------------------------ */
+
+.status-dot {
+  display: inline-block;
+  width: 0.6em;
+  height: 0.6em;
+  margin-left: 0.4em;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: status-pulse 1.4s ease-in-out infinite;
+  vertical-align: middle;
+}
+
+@keyframes status-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.3; }
+}
+
+.status-card {
+  background: var(--accent-bg);
+  border-radius: var(--standard-border-radius);
+  padding: 1rem 1.25rem;
+  margin: 1rem 0;
+}
