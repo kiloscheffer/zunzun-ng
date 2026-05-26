@@ -20,8 +20,6 @@
     if (statusEl) statusEl.innerHTML = data.currentStatus;
 
     setText('elapsedTime', data.elapsed);
-    setText('serverTime', data.serverTime);
-    setText('lastUpdate', data.lastUpdate);
 
     if (data.loadavg && data.loadavg.length === 3) {
       setText('load1', data.loadavg[0]);

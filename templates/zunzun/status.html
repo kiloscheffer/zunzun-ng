@@ -14,12 +14,7 @@
 
   <div class="status-card" id="currentStatus">{{ currentStatus }}</div>
 
-  <h3>Timing</h3>
-  <dl class="stats-list">
-    <dt>Elapsed time</dt>     <dd id="elapsedTime">{{ elapsed }}</dd>
-    <dt>Server time</dt>      <dd id="serverTime">{{ serverTime }}</dd>
-    <dt>Last update</dt>      <dd id="lastUpdate">{{ lastUpdate }}</dd>
-  </dl>
+  <p>Running for <span id="elapsedTime">{{ elapsed }}</span></p>
 
   <h3>Server load</h3>
   <dl class="server-load">

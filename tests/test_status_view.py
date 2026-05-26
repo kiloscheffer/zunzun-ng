@@ -99,10 +99,11 @@ def test_status_update_returns_in_progress_json(client):
     assert data["completed"] is False
     assert data["currentStatus"] == "Calculating Error Statistics"
     assert data["elapsed"] in ("00:01:24", "00:01:25")  # 84s offset ±1s for wall-clock race
-    assert "serverTime" in data
-    assert "lastUpdate" in data
     assert isinstance(data["loadavg"], list)
     assert len(data["loadavg"]) == 3
+    # serverTime / lastUpdate are intentionally NOT in the contract — see commit msg.
+    assert "serverTime" not in data
+    assert "lastUpdate" not in data
 
 
 @pytest.mark.django_db
@@ -185,11 +186,12 @@ def test_status_view_renders_template_when_in_progress(client):
     # JS-targeted element IDs must be present.
     assert 'id="currentStatus"' in body
     assert 'id="elapsedTime"' in body
-    assert 'id="serverTime"' in body
-    assert 'id="lastUpdate"' in body
     assert 'id="load1"' in body
     assert 'id="load5"' in body
     assert 'id="load15"' in body
+    # serverTime / lastUpdate were dropped as redundant; ensure they stay gone.
+    assert 'id="serverTime"' not in body
+    assert 'id="lastUpdate"' not in body
     # The poll script must be included.
     assert "StatusPoll.js" in body
     # The currentStatus value from the session must be rendered into the initial frame.

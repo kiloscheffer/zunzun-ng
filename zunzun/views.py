@@ -289,21 +289,17 @@ def StatusView(request):
     try:
         currentStatus = session_status["currentStatus"]
         startTime = session_status["start_time"]
-        timeStamp = session_status["timestamp"]
     except:
         return HttpResponse(
             "I could not read your session data, my apologies. This is usually caused by a stale browser cookie. Please delete the ZunZunNG browser cookie and try again."
         )
 
-    now = time.time()
     loadavg = platform_compat.get_loadavg()
     return render(request, "zunzun/status.html", {
         "title_string": "ZunZunNG - Working on your fit",
         "header_text": "ZunZunNG",
         "currentStatus": currentStatus,
-        "elapsed": ConvertSecondsToHMS(now - startTime),
-        "serverTime": time.asctime(time.localtime(now))[:-5],
-        "lastUpdate": time.asctime(time.localtime(timeStamp))[:-5],
+        "elapsed": ConvertSecondsToHMS(time.time() - startTime),
         "loadavg": list(loadavg),
         "coreCount": multiprocessing.cpu_count(),
     })
@@ -313,10 +309,10 @@ def StatusView(request):
 def StatusUpdateView(request):
     """JSON polling endpoint for the status page.
 
-    Returns the live status fields (currentStatus, elapsed/serverTime/
-    lastUpdate, loadavg) as JSON. On completion, returns {"completed": True}
-    and intentionally does NOT clear redirectToResultsFileOrURL — that's
-    StatusView's job when the browser follows up.
+    Returns the live status fields (currentStatus, elapsed, loadavg) as JSON.
+    On completion, returns {"completed": True} and intentionally does NOT
+    clear redirectToResultsFileOrURL — that's StatusView's job when the
+    browser follows up.
     """
     try:
         session_status = SessionStore(request.session["session_key_status"])
@@ -333,7 +329,6 @@ def StatusUpdateView(request):
     try:
         currentStatus = session_status["currentStatus"]
         startTime = session_status["start_time"]
-        timeStamp = session_status["timestamp"]
     except KeyError:
         return JsonResponse({"error": "stale_session"}, status=400)
 
@@ -355,13 +350,10 @@ def StatusUpdateView(request):
     close_old_connections()
 
     loadavg = platform_compat.get_loadavg()
-    now = time.time()
     return JsonResponse({
         "completed": False,
         "currentStatus": currentStatus,
-        "elapsed": ConvertSecondsToHMS(now - startTime),
-        "serverTime": time.asctime(time.localtime(now))[:-5],
-        "lastUpdate": time.asctime(time.localtime(timeStamp))[:-5],
+        "elapsed": ConvertSecondsToHMS(time.time() - startTime),
         "loadavg": list(loadavg),
     })
 
