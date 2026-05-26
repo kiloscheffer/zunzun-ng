@@ -29,7 +29,15 @@
           });
       });
 
-      pre.appendChild(btn);
+      /* Wrap the <pre> in a non-scrolling positioning context so the
+         button stays fixed in the corner when the user scrolls the
+         <pre> horizontally. Without this, the button is part of the
+         pre's scrolled content and drifts off-screen with scroll. */
+      const wrapper = document.createElement("div");
+      wrapper.className = "pre-wrap";
+      pre.parentNode.insertBefore(wrapper, pre);
+      wrapper.appendChild(pre);
+      wrapper.appendChild(btn);
     });
   });
 })();

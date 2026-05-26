@@ -19,7 +19,7 @@
 
 :root {
   --mono-font: "Cascadia Mono SemiLight", Consolas, Menlo, Monaco, "Andale Mono", "Ubuntu Mono", monospace;
-  --math-font: "LM-regular", serif;
+  --math-font: "LM-regular", ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
 }
 
 /* ------------------------------------------------------------------------ */
@@ -419,4 +419,45 @@ footer > div:last-child {
 
 .hidden {
   display: none;
+}
+
+/* ------------------------------------------------------------------------ */
+/*   COPY BUTTONS ON <pre>                                                  */
+/*   <pre> is itself a scroll container for long lines; positioning the     */
+/*   button inside <pre> would make it drift with horizontal scroll.        */
+/*   copy-code.js wraps each <pre> in a .pre-wrap div, and we position the  */
+/*   button against that wrapper so the button stays fixed in the corner    */
+/*   regardless of where the user has scrolled the <pre>'s content.        */
+/* ------------------------------------------------------------------------ */
+.pre-wrap {
+  position: relative;
+}
+
+/* Injected by /static/copy-code.js. */
+.pre-wrap .copy-btn {
+  position: absolute;
+  top: 0.35rem;
+  right: 0.35rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem;
+  color: var(--text-light);
+  /* Match <pre> background + border so the button blends into the block;
+     hover/focus brings the theme color in for affordance. */
+  background: var(--accent-bg);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--standard-border-radius);
+  cursor: pointer;
+}
+
+.pre-wrap .copy-btn:hover,
+.pre-wrap .copy-btn:focus-visible {
+  /* Hold the background -- simple.css's `button:enabled:hover` would
+     otherwise repaint to var(--accent-hover) and the button would flash
+     solid blue. Affordance comes from the icon + border tinting to the
+     theme color. */
+  background: var(--accent-bg);
+  color: var(--accent-hover);
+  border-color: var(--accent-hover);
 }
