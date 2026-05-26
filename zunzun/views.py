@@ -358,6 +358,62 @@ Load > %s means the server cores each average 100%% CPU with multiple users.
 
 
 @cache_control(no_cache=True)
+def StatusUpdateView(request):
+    """JSON polling endpoint for the status page.
+
+    Returns the live status fields (currentStatus, elapsed/serverTime/
+    lastUpdate, loadavg) as JSON. On completion, returns {"completed": True}
+    and intentionally does NOT clear redirectToResultsFileOrURL — that's
+    StatusView's job when the browser follows up.
+    """
+    from django.http import JsonResponse
+
+    try:
+        session_status = SessionStore(request.session["session_key_status"])
+    except KeyError:
+        return JsonResponse({"error": "no_session"}, status=400)
+
+    # Completion: report and return immediately. Do NOT clear the key.
+    if session_status.get("redirectToResultsFileOrURL", ""):
+        return JsonResponse({"completed": True})
+
+    try:
+        currentStatus = session_status["currentStatus"]
+        startTime = session_status["start_time"]
+        timeStamp = session_status["timestamp"]
+    except KeyError:
+        return JsonResponse({"error": "stale_session"}, status=400)
+
+    session_status["time_of_last_status_check"] = time.time()
+
+    save_complete = False
+    saveRetries = 0
+    while not save_complete:
+        try:
+            session_status.save()
+            save_complete = True
+        except Exception as e:
+            time.sleep(0.1)
+            saveRetries += 1
+            if saveRetries > 100:
+                raise e
+
+    db.connections.close_all()
+    close_old_connections()
+
+    loadavg = platform_compat.get_loadavg()
+    now = time.time()
+    return JsonResponse({
+        "completed": False,
+        "currentStatus": currentStatus,
+        "elapsed": ConvertSecondsToHMS(now - startTime),
+        "serverTime": time.asctime(time.localtime(now))[:-5],
+        "lastUpdate": time.asctime(time.localtime(timeStamp))[:-5],
+        "loadavg": list(loadavg),
+    })
+
+
+@cache_control(no_cache=True)
 @ratelimit(key="ip", rate="12/m", block=False)
 def LongRunningProcessView(
     request, inDimensionality, inEquationFamilyName="", inEquationName=""

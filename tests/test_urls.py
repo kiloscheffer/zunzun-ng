@@ -12,6 +12,7 @@ import zunzun.views
 @pytest.mark.parametrize("path,view_fn", [
     ("/", zunzun.views.HomePageView),
     ("/StatusAndResults/", zunzun.views.StatusView),
+    ("/StatusUpdate/", zunzun.views.StatusUpdateView),
     ("/CharacterizeData/2/", zunzun.views.LongRunningProcessView),
     ("/StatisticalDistributions/1/", zunzun.views.LongRunningProcessView),
     ("/FunctionFinder__F__/2/", zunzun.views.LongRunningProcessView),

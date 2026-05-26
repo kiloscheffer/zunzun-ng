@@ -82,3 +82,84 @@ def test_status_view_clears_redirect_key_after_consuming(client):
     # Reload the status session from the DB to see the cleared state.
     reloaded = SessionStore(status_session.session_key)
     assert reloaded["redirectToResultsFileOrURL"] == ""
+
+
+@pytest.mark.django_db
+def test_status_update_returns_in_progress_json(client):
+    status_session = _make_status_session(
+        currentStatus="Calculating Error Statistics",
+        start_time=time.time() - 84.0,
+        timestamp=time.time() - 2.0,
+    )
+    _wire_status_session(client, status_session)
+
+    response = client.get("/StatusUpdate/")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["completed"] is False
+    assert data["currentStatus"] == "Calculating Error Statistics"
+    assert data["elapsed"] == "00:01:24"
+    assert "serverTime" in data
+    assert "lastUpdate" in data
+    assert isinstance(data["loadavg"], list)
+    assert len(data["loadavg"]) == 3
+
+
+@pytest.mark.django_db
+def test_status_update_returns_completed_when_redirect_set(client):
+    """When redirectToResultsFileOrURL is set, the poll endpoint reports
+    completion and does NOT clear the key — clearing is owned by StatusView.
+    """
+    status_session = _make_status_session(
+        currentStatus="done",
+        start_time=time.time(),
+        timestamp=time.time(),
+        redirectToResultsFileOrURL="/FunctionFinderResults/2/?RANK=1&unused=1",
+    )
+    _wire_status_session(client, status_session)
+
+    response = client.get("/StatusUpdate/")
+    assert response.status_code == 200
+    assert response.json() == {"completed": True}
+
+    # Key must NOT be cleared by the polling endpoint.
+    reloaded = SessionStore(status_session.session_key)
+    assert reloaded["redirectToResultsFileOrURL"] == "/FunctionFinderResults/2/?RANK=1&unused=1"
+
+
+@pytest.mark.django_db
+def test_status_update_updates_heartbeat(client):
+    status_session = _make_status_session(
+        currentStatus="working",
+        start_time=time.time() - 10.0,
+        timestamp=time.time() - 1.0,
+    )
+    _wire_status_session(client, status_session)
+
+    before = time.time()
+    client.get("/StatusUpdate/")
+    after = time.time()
+
+    reloaded = SessionStore(status_session.session_key)
+    assert before <= reloaded["time_of_last_status_check"] <= after
+
+
+@pytest.mark.django_db
+def test_status_update_400_when_session_missing(client):
+    """No session_key_status on the request session -> 400 with no_session."""
+    response = client.get("/StatusUpdate/")
+    assert response.status_code == 400
+    assert response.json() == {"error": "no_session"}
+
+
+@pytest.mark.django_db
+def test_status_update_400_when_required_keys_missing(client):
+    """session_key_status present but the status session has no
+    currentStatus/start_time/timestamp -> stale_session 400.
+    """
+    status_session = _make_status_session()  # empty
+    _wire_status_session(client, status_session)
+
+    response = client.get("/StatusUpdate/")
+    assert response.status_code == 400
+    assert response.json() == {"error": "stale_session"}
