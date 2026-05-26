@@ -57,7 +57,7 @@ Python deps are declared in `pyproject.toml` and pinned in the committed `uv.loc
 
 **No non-Python runtime deps.** Earlier versions required `imagemagick` and `gifsicle` system binaries for animated GIF output; as of 2026-04-19 those paths are pure-Python via matplotlib's `PillowWriter`. See `docs/superpowers/specs/2026-04-19-pillow-gif-design.md` for the migration history.
 
-**pyeq3 fork.** `pyeq3` is pinned to `pyeq3-ng` (`github.com/kiloscheffer/pyeq3-ng`, tag `v1.0.0-ng`) via `[tool.uv.sources]` in `pyproject.toml`. The fork replaces `scipy.odr` (deprecated in scipy 1.17, slated for removal in 1.19) with the independent `odrpack` package on PyPI. Neither the original pyeq3 (bitbucket `zunzuncode`, dormant since 2020-01) nor the active PyPI-published fork (`github.com/equations-project/pyeq3`) has addressed this; pyeq3-ng is a permanent fork. See `docs/superpowers/specs/2026-04-20-pyeq3ng-odr-port-design.md` for migration rationale.
+**pyeq3 fork.** `pyeq3` is pinned to `pyeq3-ng` (`github.com/kiloscheffer/pyeq3-ng`) via `[tool.uv.sources]` in `pyproject.toml` — see that file for the exact tag. The fork replaces `scipy.odr` (deprecated in scipy 1.17, slated for removal in 1.19) with the independent `odrpack` package on PyPI. Neither the original pyeq3 (bitbucket `zunzuncode`, dormant since 2020-01) nor the active PyPI-published fork (`github.com/equations-project/pyeq3`) has addressed this; pyeq3-ng is a permanent fork. See `docs/superpowers/specs/2026-04-20-pyeq3ng-odr-port-design.md` for migration rationale.
 
 ## Tests
 
@@ -161,6 +161,11 @@ Two separate directories serve two separate URL prefixes:
 - **`temp/`** at the project root holds runtime-generated outputs: PDFs, error plots, surface animations written by spawned fit children. Gitignored except for a `.gitkeep` placeholder, served at `MEDIA_URL = '/temp/'` (dev: explicit `urlpatterns += static(MEDIA_URL, ...)` block in `urls.py`; production: nginx/IIS direct file serving). Auto-trimmed by `HomePageView`'s housekeeping when total size exceeds `MAX_TEMP_DIR_SIZE_IN_MBYTES` (default 500).
 
 For Python-side filesystem paths to static assets (e.g., the PDF watermark logo), use `settings.STATIC_FILES_DIR` (= `BASE_DIR/static`). For paths to runtime outputs, `settings.TEMP_FILES_DIR` (= `BASE_DIR/temp` and also `MEDIA_ROOT`). The split landed in the 2026-04-28 static-files restructure; before that, both lived under `temp/static_images/` and `temp/` with `STATIC_URL = '/temp/'`.
+
+### Coefficient-picker templates (`polyfunctional` / `polyrational` / `polynomial_customization`)
+
+- **Parallel family.** `templates/zunzun/divs/{polyfunctional,polyrational,polynomial_customization}_selection_div.html` share the same scaffolding: `.matrix-layout` CSS grid for 3D (with `.label-y` / `.label-x` axis labels), `.function-matrix` cell styling, `.function-matrix-scroll` horizontal-overflow wrapper, and `<h4>` section labels. When touching one for layout/styling, evaluate whether the change applies to all three.
+- **JS coupling on cells is load-bearing — do not touch without paired JS rewrite.** The coefficient-picker `<td>` cells in the three picker templates have legacy JS dependencies: `id="CPX..."` is read by `JavascriptForFunctionMatrix2D.js` / `JavascriptForFunctionMatrix3D.js` / `JavascriptForRationalMatrix2D.js` / `JavascriptForRationalMatrix3D.js` via `document.all` / `document.layers` pathways, and inline `style="background-color:..."` is read via `.style.backgroundColor` to determine the selected/unselected state. Changing either requires rewriting the matching JS — deferred indefinitely (out of scope for HTML modernization).
 
 ### `pid_trace.py` is dormant by design
 
