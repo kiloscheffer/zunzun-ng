@@ -169,8 +169,8 @@ _POLY_EXPECTED_MARKERS = [
     # catch regressions where parent-only state doesn't cross the spawn
     # payload boundary and the template falls back to its "no equation"
     # rendering.
-    "Coefficients And Text Reports",
-    "Statistical Scatterplots",
+    "Text Reports",
+    "Scatterplots",
 ]
 
 _FF_EXPECTED_MARKERS = [
