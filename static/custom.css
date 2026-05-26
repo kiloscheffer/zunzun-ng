@@ -230,6 +230,43 @@ header h1 .brand-logo {
 }
 
 /* ------------------------------------------------------------------------ */
+/*   MATRIX LAYOUT                                                          */
+/*   2×2 grid placing axis labels around a function-matrix table. Used by   */
+/*   the 3D polyfunctional/polyrational equation pickers where the matrix   */
+/*   has both X and Y dimensions to label. The .label-x uses                */
+/*   writing-mode: vertical-rl to render the X-axis label as rotated text   */
+/*   alongside the matrix (replaces the legacy F<br>u<br>n<br>c... vertical */
+/*   letter stack from the original templates).                             */
+/* ------------------------------------------------------------------------ */
+
+.matrix-layout {
+  align-items: center;
+  display: grid;
+  gap: 0.5rem;
+  grid-template-areas:
+    ".       label-y"
+    "label-x matrix";
+  grid-template-columns: auto auto;
+  justify-items: center;
+  margin: 1rem 0;
+}
+
+.matrix-layout > .label-y {
+  grid-area: label-y;
+  margin: 0;
+}
+
+.matrix-layout > .label-x {
+  grid-area: label-x;
+  margin: 0;
+  writing-mode: vertical-rl;
+}
+
+.matrix-layout > .function-matrix {
+  grid-area: matrix;
+}
+
+/* ------------------------------------------------------------------------ */
 /*   FORM COLUMNS                                                           */
 /*   Responsive multi-column layout for X/Y/Z form-field groups. On wide    */
 /*   viewports each axis occupies its own column; on narrow viewports they  */
