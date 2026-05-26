@@ -53,7 +53,7 @@ Any view that kicks off heavy work (curve fitting, function finding, characteriz
 
 ## Workflow
 
-1. Run `git diff` (against `master` by default, or the user-specified base) and enumerate changed files under `zunzun/views.py` and `zunzun/LongRunningProcess/`. If none are changed, report "No fork-pattern-relevant changes" and stop.
+1. Run `git diff` (against `main` by default, or the user-specified base) and enumerate changed files under `zunzun/views.py` and `zunzun/LongRunningProcess/`. If none are changed, report "No fork-pattern-relevant changes" and stop.
 2. For each changed file, read it and check the six primary criteria above against every new or modified function that calls `os.fork()` or `session.save()`.
 3. Also grep the diff for `os.fork`, `session.save`, `os._exit`, `_exit(`, `CommonToAllViews`, and `close_all` to catch patterns you might miss on a straight read.
 4. Produce a report with three sections:
