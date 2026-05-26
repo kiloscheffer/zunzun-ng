@@ -4,7 +4,8 @@
 {% include "zunzun/javascript/JavascriptForEvaluateAtAPoint.js" %}
 {% endif %}
 {% endblock %}
-{% block body_contents %}<nav class="dropdown-nav">
+{% block top_nav %}
+<nav class="dropdown-nav">
   <div>
     <label for="s1">{% if equationInstance %}Coefficients And Text Reports{% else %}Text Reports{% endif %}</label>
     <select id="s1">
@@ -75,13 +76,16 @@
   </div>
   {% endif %}
 </nav>
-
+{% endblock %}
+{% block body_contents %}
 <div id="introDiv" class="hideable">
   <h2>Introduction and PDF Link</h2>
   <p>Please select an item from the pull-down menu above.</p>
-  <p>You can download almost all of these reports as <a href='/temp/{{ pdfFileName }}'>a single PDF file</a>.<br>
-    <small><b>Hint:</b> if the graphs are too small, you can go back and increase the graph size.</small>
-  </p>
+  <p>You can download almost all of these reports as a single PDF file.</p>
+  <p><a class="button" href='/temp/{{ pdfFileName }}'>Download PDF</a></p>
+  <p><small>
+      <strong>Hint:</strong> if the graphs are too small, you can go back and increase the graph size.
+    </small></p>
 </div>
 
 {% if equationInstance %}
@@ -132,8 +136,7 @@
   <h2>{{ graphReport.name }}</h2>
   {% if graphReport.animationFlag == 1 %}
   <p><a href="{{ graphReport.websiteFileLocation }}" target="_blank" rel="noopener noreferrer">Click Here</a> to download GIF file ({{ graphReport.fileSize }})</p>
-  <p><b>NOTE:</b> The animation may appear jerky and uneven until the
-    download is complete and your browser displays the animation smoothly.</p>
+  <p><b>NOTE:</b> The animation may appear jerky and uneven until the download is complete and your browser displays the animation smoothly.</p>
   {% else %}
   <img src="{{ graphReport.websiteFileLocation }}" alt="{{ graphReport.name }}"><br>
   <br>
