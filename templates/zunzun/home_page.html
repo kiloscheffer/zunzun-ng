@@ -6,10 +6,11 @@
       <select id="s{{ forloop.counter }}">
         <option></option>
         <option value="introDiv" selected>Introduction</option>
-        <option value="spline{{ dim_to_map.0 }}DDiv">Spline Interpolation</option>
-        <option value="userDefinedFunction{{ dim_to_map.0 }}DDiv">User Defined Function</option>
-        <option value="functionFinder{{ dim_to_map.0 }}DDiv">Function Finder {% for equationClassPropertyList in dim_to_map.1 %}{% if equationClassPropertyList.firstItemInSubmoduleFlag %}</option>
-        <option value="A{{ dim_to_map.0 }}DA{{ equationClassPropertyList.submoduleName }}">{{ equationClassPropertyList.submoduleName }}{% endif %}{% endfor %}</option>
+        <option value="/Equation/{{ dim_to_map.0 }}/Spline/Spline/">Spline Interpolation</option>
+        <option value="/Equation/{{ dim_to_map.0 }}/UserDefinedFunction/UserDefinedFunction/">User Defined Function</option>
+        <option value="/FunctionFinder__F__/{{ dim_to_map.0 }}/">Function Finder</option>{% for equationClassPropertyList in dim_to_map.1 %}{% if equationClassPropertyList.firstItemInSubmoduleFlag %}{% if equationClassPropertyList.lastItemInSubmoduleFlag %}
+        <option value="/Equation/{{ dim_to_map.0 }}/{{ equationClassPropertyList.submoduleName }}/{{ equationClassPropertyList.url_quote_name }}/">{{ equationClassPropertyList.submoduleName }}</option>{% else %}
+        <option value="A{{ dim_to_map.0 }}DA{{ equationClassPropertyList.submoduleName }}">{{ equationClassPropertyList.submoduleName }}</option>{% endif %}{% endif %}{% endfor %}
         <option value="allEquations{{ dim_to_map.0 }}DDiv" selected>List All Equations</option>
       </select>
     </div>{% endfor %}
@@ -54,38 +55,17 @@
     <p><a href="CharacterizeData/2/">Characterize 2D (XY) Data</a></p>
     <p><a href="CharacterizeData/3/">Characterize 3D (XYZ) Data</a></p>
     <p><a href="StatisticalDistributions/1/">Fit Data To Statistical Distributions</a></p>
-  </div>{% for dim_to_map in dim_to_map_list %}
-
-  <div id="functionFinder{{ dim_to_map.0 }}DDiv" class="hideable hidden">
-    <h2>{{ dim_to_map.0 }}D Function Finder</h2>
-    <p></p><a href="FunctionFinder__F__/{{ dim_to_map.0 }}/">{{ dim_to_map.0 }}D Function Finder</a></p>
-  </div>{% endfor %}{% include "zunzun/divs/about.html" %}{% include "zunzun/divs/historical_note.html" %}{% include "zunzun/divs/server_load.html" %}{% include "zunzun/divs/dedication.html" %}{% for dim_to_spline in dim_to_spline_list %}
-
-  <div id="spline{{ dim_to_spline.0 }}DDiv" class="hideable hidden">
-    <h2>{{ dim_to_spline.0 }}D Spline Interpolation</h2>
-    <dl class="equation-list">
-      <dt><a href="Equation/{{ dim_to_spline.0 }}/Spline/Spline/">{{ dim_to_spline.1.GetDisplayName }}{{ dim_to_spline.0 }}D</a></dt>
-      <dd class="math">{{ dim_to_spline.1.GetDisplayHTML }}</dd>
-    </dl>
-  </div>{% endfor %}{% for dim_to_map in dim_to_map_list %}
-
-  <div id="userDefinedFunction{{ dim_to_map.0 }}DDiv" class="hideable hidden">
-    <h2>{{ dim_to_map.0 }}D User Defined Function</h2>
-    <dl class="equation-list">
-      <dt><a href="Equation/{{ dim_to_map.0 }}/UserDefinedFunction/UserDefinedFunction/">User Defined Function {{ dim_to_map.0 }}D</a></dt>
-      <dd class="math">{% if dim_to_map.0 == '2' %}y = user defined function{% else %}z = user defined function{% endif %}</dd>
-    </dl>
-  </div>{% endfor %}{% for dim_to_map in dim_to_map_list %}{% for equationClassProperties in dim_to_map.1 %}{% if equationClassProperties.firstItemInSubmoduleFlag %}
+  </div>{% include "zunzun/divs/about.html" %}{% include "zunzun/divs/historical_note.html" %}{% include "zunzun/divs/server_load.html" %}{% include "zunzun/divs/dedication.html" %}{% for dim_to_map in dim_to_map_list %}{% for equationClassProperties in dim_to_map.1 %}{% if equationClassProperties.firstItemInSubmoduleFlag %}{% if not equationClassProperties.lastItemInSubmoduleFlag %}
 
   <div id="A{{ dim_to_map.0 }}DA{{ equationClassProperties.submoduleName }}" class="hideable hidden">
-    <h2>{{ dim_to_map.0 }}D {{ equationClassProperties.submoduleName }}</h2>{% endif %}{% if equationClassProperties.firstItemInExtendedNameFlag %}
+    <h2>{{ dim_to_map.0 }}D {{ equationClassProperties.submoduleName }}</h2>{% endif %}{% endif %}{% if equationClassProperties.firstItemInExtendedNameFlag %}
     <section class="equation-group">
       <dl class="equation-list">{% endif %}
         <dt><a href="Equation/{{ dim_to_map.0 }}/{{ equationClassProperties.submoduleName }}/{{ equationClassProperties.url_quote_name }}/">{{ equationClassProperties.name }}{{ dim_to_map.0 }}D</a></dt>
         <dd>{{ equationClassProperties.HTML }}{% if equationClassProperties.webCitationLink %}<sup><a href="{{ equationClassProperties.webCitationLink }}" target="_blank" rel="noopener noreferrer">[web citation]</a></sup>{% endif %}</dd>{% if equationClassProperties.lastItemInExtendedNameFlag %}
       </dl>
-    </section>{% endif %}{% if equationClassProperties.lastItemInSubmoduleFlag %}
-  </div>{% endif %}{% endfor %}{% endfor %}{% for dim_to_map in dim_to_map_list %}
+    </section>{% endif %}{% if equationClassProperties.lastItemInSubmoduleFlag %}{% if not equationClassProperties.firstItemInSubmoduleFlag %}
+  </div>{% endif %}{% endif %}{% endfor %}{% endfor %}{% for dim_to_map in dim_to_map_list %}
 
   <div id="allEquations{{ dim_to_map.0 }}DDiv" class="hideable hidden">
     <h2>All {{ dim_to_map.0 }}D Equations</h2>
