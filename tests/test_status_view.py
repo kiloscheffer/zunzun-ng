@@ -98,7 +98,7 @@ def test_status_update_returns_in_progress_json(client):
     data = response.json()
     assert data["completed"] is False
     assert data["currentStatus"] == "Calculating Error Statistics"
-    assert data["elapsed"] == "00:01:24"
+    assert data["elapsed"] in ("00:01:24", "00:01:25")  # 84s offset ±1s for wall-clock race
     assert "serverTime" in data
     assert "lastUpdate" in data
     assert isinstance(data["loadavg"], list)

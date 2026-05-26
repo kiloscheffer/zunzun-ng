@@ -2,6 +2,7 @@ from django.shortcuts import render
 import django.http  # to raise 404's
 from django.http import HttpResponse
 from django.http import HttpResponseRedirect
+from django.http import JsonResponse
 from django.views.decorators.cache import cache_control
 from django.views.decorators.cache import cache_page
 from django.contrib.sessions.backends.db import SessionStore
@@ -366,8 +367,6 @@ def StatusUpdateView(request):
     and intentionally does NOT clear redirectToResultsFileOrURL — that's
     StatusView's job when the browser follows up.
     """
-    from django.http import JsonResponse
-
     try:
         session_status = SessionStore(request.session["session_key_status"])
     except KeyError:
