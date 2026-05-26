@@ -2,7 +2,7 @@
 {% if dimensionality == '2' %}
     <h2>Customize Polynomial</h2>
     <p>Here you can combine polynomials to create an equation.</p>
-    <p>Equation:</p><div id='FUNCTION'>{{ equationHTML }}</div><br>Powers of X<br>
+    <p>Equation:</p><div id='FUNCTION' class="math">{{ equationHTML }}</div><br>Powers of X<br>
      <table>
       <tr>
         {% for color, index, html in Polynomial2DColorList %}
@@ -18,7 +18,7 @@
 {% else %}
     <h3>Matrix of Functions</h3>
     <p>Here you can combine functions to create an equation.</p>
-    <p>Equation:</p><div id='FUNCTION'>{{ equationHTML }}</div><br><table>
+    <p>Equation:</p><div id='FUNCTION' class="math">{{ equationHTML }}</div><br><table>
     <tr><td> &nbsp; </td><td>Functions of Y</td>
     <tr><td>F<br>u<br>n<br>c<br>t<br>i<br>o<br>n<br>s<br>&nbsp;<br>o<br>f<br>&nbsp;<br>X</td><td>
 

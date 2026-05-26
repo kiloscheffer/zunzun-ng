@@ -2,7 +2,7 @@
 {% if dimensionality == '2' %}
     <h2>Select Functions</h2>
     <p>Here you can combine numerator and denominator functions to create a rational equation.</p>
-    <p>Equation:</p><div id='FUNCTION'>{{ equationHTML }}</div>
+    <p>Equation:</p><div id='FUNCTION' class="math">{{ equationHTML }}</div>
     
     <br>Numerator Functions of X<br>
      <table>
@@ -48,7 +48,7 @@
 {% else %}
     <h3>Matrix of Functions</h3>
     <p>Here you can create a function matrix to create an equation.</p>
-    <p>Equation:</p><div id='FUNCTION'>{{ equationHTML }}</div><br><table>
+    <p>Equation:</p><div id='FUNCTION' class="math">{{ equationHTML }}</div><br><table>
     <tr><td> &nbsp; </td><td>Functions of Y</td>
     <tr><td>F<br>u<br>n<br>c<br>t<br>i<br>o<br>n<br>s<br>&nbsp;<br>o<br>f<br>&nbsp;<br>X</td><td>
 
