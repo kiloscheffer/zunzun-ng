@@ -7,10 +7,10 @@
 {% block top_nav %}
 <nav class="dropdown-nav">
   <div>
-    <label for="s1">{% if equationInstance %}Coefficients And Text Reports{% else %}Text Reports{% endif %}</label>
+    <label for="s1">Text Reports</label>
     <select id="s1">
       <option></option>
-      <option value="introDiv" selected>Introduction and PDF Link</option>
+      <option value="introDiv" selected>Introduction</option>
       {% if equationInstance %}
       {% if equationInstance.splineFlag %}
       <option value="evaluateDiv">Evaluate This Spline At A Point</option>
@@ -28,7 +28,7 @@
     <label for="s2">Histograms</label>
     <select id="s2">
       <option></option>
-      <option value="introDiv" selected>Introduction and PDF Link</option>
+      <option value="introDiv" selected>Introduction</option>
       {% for graphReport in graphReports %}
       {% if graphReport.StatisticsGraph == 1 %}
       {% if graphReport.HistogramFlag == 1 %}
@@ -41,10 +41,10 @@
   {% if equationInstance %}
 
   <div>
-    <label for="s3">Statistical Scatterplots</label>
+    <label for="s3">Scatterplots</label>
     <select id="s3">
       <option></option>
-      <option value="introDiv" selected>Introduction and PDF Link</option>
+      <option value="introDiv" selected>Introduction</option>
       {% for graphReport in graphReports %}
       {% if graphReport.StatisticsGraph == 1 %}
       {% if graphReport.HistogramFlag == 0 %}
@@ -66,7 +66,7 @@
       <select id="s3">
         {% endif %}
         <option></option>
-        <option value="introDiv" selected>Introduction and PDF Link</option>
+        <option value="introDiv" selected>Introduction</option>
         {% for graphReport in graphReports %}
         {% if graphReport.StatisticsGraph == 0 %}
         <option value="{{ graphReport.uniqueAnchorName }}">{{ graphReport.name }}</option>
@@ -79,9 +79,9 @@
 {% endblock %}
 {% block body_contents %}
 <div id="introDiv" class="hideable">
-  <h2>Introduction and PDF Link</h2>
+  <h2>Introduction</h2>
   <p>Please select an item from the pull-down menu above.</p>
-  <p>You can download almost all of these reports as a single PDF file.</p>
+  <p>You can download almost all of these reports as a single PDF file:</p>
   <p><a class="button" href='/temp/{{ pdfFileName }}'>Download PDF</a></p>
   <p><small>
       <strong>Hint:</strong> if the graphs are too small, you can go back and increase the graph size.
