@@ -7,9 +7,9 @@
       <tr>
         {% for color, index, html in Polyfun2DColorList %}
             {% if html == '' %}
-	           	<td style='background-color:{{ color }}' class=pick id='CPX{{ index }}' onClick='cT(this.id,1)'>&nbsp;offset&nbsp;</td>
+	           	<td style='background-color:{{ color }}' class="pick math" id='CPX{{ index }}' onClick='cT(this.id,1)'>&nbsp;offset&nbsp;</td>
             {% else %}
-               	<td style='background-color:{{ color }}' class=pick id='CPX{{ index }}' onClick='cT(this.id,1)'>&nbsp;{{ html }}&nbsp;</td>
+               	<td style='background-color:{{ color }}' class="pick math" id='CPX{{ index }}' onClick='cT(this.id,1)'>&nbsp;{{ html }}&nbsp;</td>
             {% endif %}
         {% endfor %}
       </tr>
@@ -33,22 +33,22 @@
             {% endif %}
             {% if htmlX == '' %}{#           Both X and Y have empty HTML , yield offset          #}
                 {% if htmlY == '' %}
-                    <td style='background-color:{{ color }}' class=pick id='CPX{{ indexX }}Y{{ indexY }}' onClick='cT(this.id,1)'>&nbsp;offset&nbsp;</td>
+                    <td style='background-color:{{ color }}' class="pick math" id='CPX{{ indexX }}Y{{ indexY }}' onClick='cT(this.id,1)'>&nbsp;offset&nbsp;</td>
                 {% endif %}
             {% endif %}
             {% if htmlX != '' %}{#           Neither X and Y have empty HTML , yield XY          #}
                 {% if htmlY != '' %}
-                    <td style='background-color:{{ color }}' class=pick id='CPX{{ indexX }}Y{{ indexY }}' onClick='cT(this.id,1)'>&nbsp;{{ htmlX }}{{ htmlY }}&nbsp;</td>
+                    <td style='background-color:{{ color }}' class="pick math" id='CPX{{ indexX }}Y{{ indexY }}' onClick='cT(this.id,1)'>&nbsp;{{ htmlX }}{{ htmlY }}&nbsp;</td>
                 {% endif %}
             {% endif %}
             {% if htmlX != '' %}{#           Only Y has empty HTML , yield X          #}
                 {% if htmlY == '' %}
-                    <td style='background-color:{{ color }}' class=pick id='CPX{{ indexX }}Y{{ indexY }}' onClick='cT(this.id,1)'>&nbsp;{{ htmlX }}&nbsp;</td>
+                    <td style='background-color:{{ color }}' class="pick math" id='CPX{{ indexX }}Y{{ indexY }}' onClick='cT(this.id,1)'>&nbsp;{{ htmlX }}&nbsp;</td>
                 {% endif %}
             {% endif %}
             {% if htmlX == '' %}{#           Only X has empty HTML , yield Y          #}
                 {% if htmlY != '' %}
-                    <td style='background-color:{{ color }}' class=pick id='CPX{{ indexX }}Y{{ indexY }}' onClick='cT(this.id,1)'>&nbsp;{{ htmlY }}&nbsp;</td>
+                    <td style='background-color:{{ color }}' class="pick math" id='CPX{{ indexX }}Y{{ indexY }}' onClick='cT(this.id,1)'>&nbsp;{{ htmlY }}&nbsp;</td>
                 {% endif %}
             {% endif %}
             {% if indexY == maxPolyfunctionalListIndex %}
