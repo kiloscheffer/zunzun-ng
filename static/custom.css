@@ -103,6 +103,12 @@ h3 {
   font-size: 1.75rem;
 }
 
+h4 {
+  font-size: 1em;
+  font-weight: 500;
+  margin-bottom: 0;
+}
+
 h6 {
   font-size: 1em;
   font-weight: 500;
@@ -262,8 +268,27 @@ header h1 .brand-logo {
   writing-mode: vertical-rl;
 }
 
+.function-matrix {
+  margin-top: 0.5rem;
+}
+
 .matrix-layout > .function-matrix {
   grid-area: matrix;
+  margin-top: 0;
+}
+
+/* Scroll wrapper for matrix tables wider than their container. Local
+   horizontal scroll (vs. window scroll) keeps the rest of the page
+   stable, and padding-right makes the right end of the matrix visible
+   as a defined boundary instead of a flush-with-viewport edge. */
+.function-matrix-scroll {
+  overflow-x: auto;
+  padding-right: 1rem;
+}
+
+.matrix-layout > .function-matrix-scroll {
+  grid-area: matrix;
+  max-width: 100%;
 }
 
 /* ------------------------------------------------------------------------ */
