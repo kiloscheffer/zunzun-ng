@@ -320,7 +320,10 @@ def StatusUpdateView(request):
     """
     try:
         session_status = SessionStore(request.session["session_key_status"])
-    except KeyError:
+    except Exception:
+        # Matches StatusView's defensive bare-except on the same call:
+        # missing request-session key, malformed key, transient DB issue.
+        # JS treats any non-2xx as "wait and retry" so this is graceful.
         return JsonResponse({"error": "no_session"}, status=400)
 
     # Completion: report and return immediately. Do NOT clear the key.
