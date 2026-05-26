@@ -22,15 +22,15 @@ context.
 
 ## Pre-flight checks
 
-1. Ensure you're on a clean master:
+1. Ensure you're on a clean main:
 
     ```bash
-    git checkout master
-    git pull origin master
-    git status -sb        # expect: ## master...origin/master, no unstaged changes
+    git checkout main
+    git pull origin main
+    git status -sb        # expect: ## main...origin/main, no unstaged changes
     ```
 
-2. Verify CI is currently green for the master HEAD. Either look at the
+2. Verify CI is currently green for the main HEAD. Either look at the
    GitHub Actions tab on github.com/kiloscheffer/zunzun-ng or run locally:
 
     ```bash
@@ -103,10 +103,10 @@ Commit, merge, push, cleanup:
 ```bash
 git add uv.lock
 git commit -m "Quarterly upgrade: $(date +%Y-%m)"  # body summarizes major bumps
-git checkout master
+git checkout main
 git merge --no-ff quarterly-upgrade-$(date +%Y-%m) \
     -m "Merge quarterly-upgrade-$(date +%Y-%m): dependency refresh"
-git push origin master
+git push origin main
 git branch -d quarterly-upgrade-$(date +%Y-%m)
 ```
 

@@ -1,6 +1,6 @@
 # CI: pytest matrix on Linux/macOS/Windows + smoke test on Linux.
 #
-# Runs on every push to master, every PR, and every Monday at 06:00 UTC
+# Runs on every push to main, every PR, and every Monday at 06:00 UTC
 # (weekly heartbeat to catch infrastructure drift — wheel disappearance,
 # runner image changes, transitive dep silent bumps — that wouldn't be
 # triggered by maintainer pushes alone).
@@ -15,7 +15,7 @@ name: CI
 
 on:
   push:
-    branches: [master]
+    branches: [main]
   pull_request:
   schedule:
     - cron: "0 6 * * 1"

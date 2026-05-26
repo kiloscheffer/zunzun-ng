@@ -173,7 +173,7 @@ Both functions in `zunzun/LongRunningProcess/pid_trace.py` `return` at the top. 
 
 ## Conventions
 
-- **Feature branches with `--no-ff` merges.** Every non-trivial change goes through a feature branch and merges to master with `--no-ff`, preserving topology in `git log --first-parent`. Recent merge commits on master are templates for the commit-message structure (rationale, scope, verification, references to specs/plans).
+- **Feature branches with `--no-ff` merges.** Every non-trivial change goes through a feature branch and merges to main with `--no-ff`, preserving topology in `git log --first-parent`. Recent merge commits on main are templates for the commit-message structure (rationale, scope, verification, references to specs/plans).
 - **Historical specs and plans freeze their names.** Files under `docs/superpowers/specs/` and `docs/superpowers/plans/` keep their original names through any rename; only the *live surface* (active code, current docs, live identifiers) gets updated. RESOLVED entries in `BACKLOG.md` similarly preserve names that were current at resolution time — those documents describe work done under those names.
 - **Bulk `replace_all` is unsafe when a substring spans live identifiers AND historical filename references.** Use targeted Edit calls instead. Real example: `pyeq3ng → pyeq3-ng` over-substituted into a comment referencing the historical filename `pyeq3ng-odr-port-design.md` (commit `b1936c5`'s sloppy moment, fixed in `2ebff08`).
 
