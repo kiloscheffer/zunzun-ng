@@ -397,7 +397,13 @@ def _wait_for_port(port: int, timeout_s: float = 30.0) -> bool:
 
 
 def _poll_until_done(session: requests.Session, base: str, timeout_s: float) -> str | None:
-    """Poll /StatusAndResults/ until a final body (no REDIRECT/REFRESH) arrives.
+    """Poll /StatusAndResults/ until a final body arrives.
+
+    Detects the in-progress page by the presence of id="currentStatus"
+    (a stable marker the status.html template guarantees and the
+    StatusPoll.js client depends on). Completion bodies — whether the
+    result HTML file served in-place or a result page reached via
+    redirect — never contain this marker.
 
     Returns the final body on success or None on timeout. Handles chained
     redirects transparently (requests default follows them).
@@ -406,7 +412,7 @@ def _poll_until_done(session: requests.Session, base: str, timeout_s: float) -> 
     while time.time() < deadline:
         r = session.get(base + "/StatusAndResults/")
         body = r.text
-        if "REDIRECT" not in body and "REFRESH" not in body.upper():
+        if 'id="currentStatus"' not in body:
             return body
         time.sleep(3)
     return None
