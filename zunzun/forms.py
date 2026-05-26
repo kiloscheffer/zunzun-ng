@@ -399,7 +399,7 @@ class Equation_2D(CharacterizeDataForm_2D) :
         
         if self.equation.independentData1CannotContainZeroFlag and self.equationBase.dataCache.independentData1ContainsZeroFlag:
             errorString = self.equation.GetDisplayName() + " has the form<BR><BR>\n"
-            errorString += self.equation.GetDisplayHTML() + "\n<BR><BR>\n"
+            errorString += '<span class="math">' + self.equation.GetDisplayHTML() + '</span>\n<BR><BR>\n'
             errorString += "and requires non-zero values for the first independent variable (X).<BR>\n"
             errorString += "At least one of the values was exactly equal to zero.<BR>\n"
             errorString += "Examples that would fail would be ln(x) and 1/x, please check the data.\n"
@@ -407,7 +407,7 @@ class Equation_2D(CharacterizeDataForm_2D) :
 
         if self.equation.independentData1CannotContainNegativeFlag and self.equationBase.dataCache.independentData1ContainsNegativeFlag:
             errorString = self.equation.GetDisplayName() + " has the form<BR><BR>\n"
-            errorString += self.equation.GetDisplayHTML() + "\n<BR><BR>\n"
+            errorString += '<span class="math">' + self.equation.GetDisplayHTML() + '</span>\n<BR><BR>\n'
             errorString += "and requires non-negative values for the first independent variable (X).<BR>\n"
             errorString += "At least one of the values was negative.<BR>\n"
             errorString += "Examples that would fail would be ln(x) and x<sup>0.5</sup>, please check the data.\n"
@@ -415,7 +415,7 @@ class Equation_2D(CharacterizeDataForm_2D) :
 
         if self.equation.independentData1CannotContainPositiveFlag and self.equationBase.dataCache.independentData1ContainsPositiveFlag:
             errorString = self.equation.GetDisplayName() + " has the form<BR><BR>\n"
-            errorString += self.equation.GetDisplayHTML() + "\n<BR><BR>\n"
+            errorString += '<span class="math">' + self.equation.GetDisplayHTML() + '</span>\n<BR><BR>\n'
             errorString += "and requires non-positive values for the first independent variable (X).<BR>\n"
             errorString += "At least one of the values was positive.<BR>\n"
             errorString += "Examples that would fail would be ln(-x) and -x<sup>0.5</sup>, please check the data.\n"
@@ -423,7 +423,7 @@ class Equation_2D(CharacterizeDataForm_2D) :
 
         if self.equation.independentData1CannotContainBothPositiveAndNegativeFlag and self.equationBase.dataCache.independentData1ContainsPositiveFlag and self.equationBase.dataCache.independentData1ContainsNegativeFlag:
             errorString = self.equation.GetDisplayName() + " has the form<BR><BR>\n"
-            errorString += self.equation.GetDisplayHTML() + "\n<BR><BR>\n"
+            errorString += '<span class="math">' + self.equation.GetDisplayHTML() + '</span>\n<BR><BR>\n'
             errorString += "and cannot have both positive and negative values for the first independent variable (X).<BR>\n"
             errorString += "Please check the data.\n"
             raise django.forms.ValidationError(errorString)
@@ -502,7 +502,7 @@ class Equation_3D (CharacterizeDataForm_3D) :
 
         if self.equation.independentData1CannotContainZeroFlag and self.equationBase.dataCache.independentData1ContainsZeroFlag:
             errorString = self.equation.GetDisplayName() + " has the form<BR><BR>\n"
-            errorString += self.equation.GetDisplayHTML() + "\n<BR><BR>\n"
+            errorString += '<span class="math">' + self.equation.GetDisplayHTML() + '</span>\n<BR><BR>\n'
             errorString += "and requires non-zero values for the first independent variable (X).<BR>\n"
             errorString += "At least one of the values was exactly equal to zero.<BR>\n"
             errorString += "Examples that would fail would be ln(x) and 1/x, please check the data.\n"
@@ -510,7 +510,7 @@ class Equation_3D (CharacterizeDataForm_3D) :
 
         if self.equation.independentData2CannotContainZeroFlag and self.equationBase.dataCache.independentData2ContainsZeroFlag:
             errorString = self.equation.GetDisplayName() + " has the form<BR><BR>\n"
-            errorString += self.equation.GetDisplayHTML() + "\n<BR><BR>\n"
+            errorString += '<span class="math">' + self.equation.GetDisplayHTML() + '</span>\n<BR><BR>\n'
             errorString += "and requires non-zero values for the second independent variable (Y).<BR>\n"
             errorString += "At least one of the values was exactly equal to zero.<BR>\n"
             errorString += "Examples that would fail would be ln(y) and 1/y, please check the data.\n"
@@ -518,7 +518,7 @@ class Equation_3D (CharacterizeDataForm_3D) :
 
         if self.equation.independentData1CannotContainNegativeFlag and self.equationBase.dataCache.independentData1ContainsNegativeFlag:
             errorString = self.equation.GetDisplayName() + " has the form<BR><BR>\n"
-            errorString += self.equation.GetDisplayHTML() + "\n<BR><BR>\n"
+            errorString += '<span class="math">' + self.equation.GetDisplayHTML() + '</span>\n<BR><BR>\n'
             errorString += "and requires non-negative values for the first independent variable (X).<BR>\n"
             errorString += "At least one of the values was negative.<BR>\n"
             errorString += "Examples that would fail would be ln(x) and x<sup>0.5</sup>, please check the data.\n"
@@ -526,7 +526,7 @@ class Equation_3D (CharacterizeDataForm_3D) :
 
         if self.equation.independentData2CannotContainNegativeFlag and self.equationBase.dataCache.independentData2ContainsNegativeFlag:
             errorString = self.equation.GetDisplayName() + " has the form<BR><BR>\n"
-            errorString += self.equation.GetDisplayHTML() + "\n<BR><BR>\n"
+            errorString += '<span class="math">' + self.equation.GetDisplayHTML() + '</span>\n<BR><BR>\n'
             errorString += "and requires non-negative values for the second independent variable (Y).<BR>\n"
             errorString += "At least one of the values was negative.<BR>\n"
             errorString += "Examples that would fail would be ln(y) and y<sup>0.5</sup>, please check the data.\n"
@@ -534,7 +534,7 @@ class Equation_3D (CharacterizeDataForm_3D) :
 
         if self.equation.independentData1CannotContainPositiveFlag and self.equationBase.dataCache.independentData1ContainsPositiveFlag:
             errorString = self.equation.GetDisplayName() + " has the form<BR><BR>\n"
-            errorString += self.equation.GetDisplayHTML() + "\n<BR><BR>\n"
+            errorString += '<span class="math">' + self.equation.GetDisplayHTML() + '</span>\n<BR><BR>\n'
             errorString += "and requires non-positive values for the first independent variable (X).<BR>\n"
             errorString += "At least one of the values was positive.<BR>\n"
             errorString += "Examples that would fail would be ln(-x) and -x<sup>0.5</sup>, please check the data.\n"
@@ -542,7 +542,7 @@ class Equation_3D (CharacterizeDataForm_3D) :
 
         if self.equation.independentData2CannotContainPositiveFlag and self.equationBase.dataCache.independentData2ContainsPositiveFlag:
             errorString = self.equation.GetDisplayName() + " has the form<BR><BR>\n"
-            errorString += self.equation.GetDisplayHTML() + "\n<BR><BR>\n"
+            errorString += '<span class="math">' + self.equation.GetDisplayHTML() + '</span>\n<BR><BR>\n'
             errorString += "and requires non-positive values for the second independent variable (Y).<BR>\n"
             errorString += "At least one of the values was positive.<BR>\n"
             errorString += "Examples that would fail would be ln(-y) and -y<sup>0.5</sup>, please check the data.\n"
@@ -550,14 +550,14 @@ class Equation_3D (CharacterizeDataForm_3D) :
 
         if self.equation.independentData1CannotContainBothPositiveAndNegativeFlag and self.equationBase.dataCache.independentData1ContainsPositiveFlag and self.equationBase.dataCache.independentData1ContainsNegativeFlag:
             errorString = self.equation.GetDisplayName() + " has the form<BR><BR>\n"
-            errorString += self.equation.GetDisplayHTML() + "\n<BR><BR>\n"
+            errorString += '<span class="math">' + self.equation.GetDisplayHTML() + '</span>\n<BR><BR>\n'
             errorString += "and cannot have both positive and negative values for the first independent variable (X).<BR>\n"
             errorString += "Please check the data.\n"
             raise django.forms.ValidationError(errorString)
         
         if self.equation.independentData2CannotContainBothPositiveAndNegativeFlag and self.equationBase.dataCache.independentData2ContainsPositiveFlag and self.equationBase.dataCache.independentData2ContainsNegativeFlag:
             errorString = self.equation.GetDisplayName() + " has the form<BR><BR>\n"
-            errorString += self.equation.GetDisplayHTML() + "\n<BR><BR>\n"
+            errorString += '<span class="math">' + self.equation.GetDisplayHTML() + '</span>\n<BR><BR>\n'
             errorString += "and cannot have both positive and negative values for the second independent variable (Y).<BR>\n"
             errorString += "Please check the data.\n"
             raise django.forms.ValidationError(errorString)

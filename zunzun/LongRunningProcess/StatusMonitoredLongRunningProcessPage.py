@@ -784,7 +784,7 @@ You must provide any weights you wish to use.
 
         itemsToRender['header_text'] = 'ZunZunNG'
         itemsToRender['subtitle_text'] = self.webFormName
-        itemsToRender['title_string'] = 'ZunZunNG - ' + self.webFormName.replace('<br>', ' ')
+        itemsToRender['title_string'] = 'ZunZunNG - ' + self.webFormName.replace('<br>', ' ').replace('<span class="math">', '').replace('</span>', '')
 
         itemsToRender['textReports'] = self.textReports
 
