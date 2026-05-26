@@ -549,12 +549,16 @@ footer > div:last-child {
   border-radius: 50%;
   background: var(--accent);
   animation: status-pulse 1.4s ease-in-out infinite;
-  vertical-align: middle;
+  vertical-align: text-top;
 }
 
 @keyframes status-pulse {
   0%, 100% { opacity: 1; }
   50%      { opacity: 0.3; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .status-dot { animation: none; }
 }
 
 .status-card {
