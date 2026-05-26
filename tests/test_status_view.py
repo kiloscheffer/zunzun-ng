@@ -9,7 +9,7 @@ import time
 import pytest
 from django.contrib.sessions.backends.db import SessionStore
 
-import settings
+import settings  # raw module — views.py uses `import settings` directly; patch here, not django.conf.settings
 
 
 def _make_status_session(**kwargs):
