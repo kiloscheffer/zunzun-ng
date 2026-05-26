@@ -55,16 +55,16 @@
     <p><a href="CharacterizeData/2/">Characterize 2D (XY) Data</a></p>
     <p><a href="CharacterizeData/3/">Characterize 3D (XYZ) Data</a></p>
     <p><a href="StatisticalDistributions/1/">Fit Data To Statistical Distributions</a></p>
-  </div>{% include "zunzun/divs/about.html" %}{% include "zunzun/divs/historical_note.html" %}{% include "zunzun/divs/server_load.html" %}{% include "zunzun/divs/dedication.html" %}{% for dim_to_map in dim_to_map_list %}{% for equationClassProperties in dim_to_map.1 %}{% if equationClassProperties.firstItemInSubmoduleFlag %}{% if not equationClassProperties.lastItemInSubmoduleFlag %}
+  </div>{% include "zunzun/divs/about.html" %}{% include "zunzun/divs/historical_note.html" %}{% include "zunzun/divs/server_load.html" %}{% include "zunzun/divs/dedication.html" %}{% for dim_to_map in dim_to_map_list %}{% for equationClassProperties in dim_to_map.1 %}{% if not equationClassProperties.firstItemInSubmoduleFlag or not equationClassProperties.lastItemInSubmoduleFlag %}{% if equationClassProperties.firstItemInSubmoduleFlag %}
 
   <div id="A{{ dim_to_map.0 }}DA{{ equationClassProperties.submoduleName }}" class="hideable hidden">
-    <h2>{{ dim_to_map.0 }}D {{ equationClassProperties.submoduleName }}</h2>{% endif %}{% endif %}{% if equationClassProperties.firstItemInExtendedNameFlag %}
+    <h2>{{ dim_to_map.0 }}D {{ equationClassProperties.submoduleName }}</h2>{% endif %}{% if equationClassProperties.firstItemInExtendedNameFlag %}
     <section class="equation-group">
       <dl class="equation-list">{% endif %}
         <dt><a href="Equation/{{ dim_to_map.0 }}/{{ equationClassProperties.submoduleName }}/{{ equationClassProperties.url_quote_name }}/">{{ equationClassProperties.name }}{{ dim_to_map.0 }}D</a></dt>
         <dd>{{ equationClassProperties.HTML }}{% if equationClassProperties.webCitationLink %}<sup><a href="{{ equationClassProperties.webCitationLink }}" target="_blank" rel="noopener noreferrer">[web citation]</a></sup>{% endif %}</dd>{% if equationClassProperties.lastItemInExtendedNameFlag %}
       </dl>
-    </section>{% endif %}{% if equationClassProperties.lastItemInSubmoduleFlag %}{% if not equationClassProperties.firstItemInSubmoduleFlag %}
+    </section>{% endif %}{% if equationClassProperties.lastItemInSubmoduleFlag %}
   </div>{% endif %}{% endif %}{% endfor %}{% endfor %}{% for dim_to_map in dim_to_map_list %}
 
   <div id="allEquations{{ dim_to_map.0 }}DDiv" class="hideable hidden">
