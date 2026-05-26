@@ -250,21 +250,18 @@ def ConvertSecondsToHMS(seconds):
 
 @cache_control(no_cache=True)
 def StatusView(request):
-    import os, sys, time
-
     try:
         session_status = SessionStore(request.session["session_key_status"])
     except:
         return HttpResponse("I could not read your session data, please try again.")
 
-    # this is done so that the "back" button does not return users to a status page when viewing FF results
+    # Completion handoff: read, clear, serve file body OR HttpResponseRedirect.
+    # Behavior unchanged from the original implementation.
     if "redirectToResultsFileOrURL" in session_status:
         if session_status["redirectToResultsFileOrURL"] != "":
-            # read and reset
             redirect = session_status["redirectToResultsFileOrURL"]
             session_status["redirectToResultsFileOrURL"] = ""
 
-            # sometimes database is momentarily locked, so retry on exception to mitigate
             s = session_status
             save_complete = False
             saveRetries = 0
@@ -273,40 +270,22 @@ def StatusView(request):
                     s.save()
                     save_complete = True
                 except Exception as e:
-                    time.sleep(0.1)  # wait 1/10 second before retry
-                    saveRetries += 1  # increment retry count
-                    if saveRetries > 100:  # 10 per second * 10 seconds
-                        raise e  # re-raise exception from save operation
+                    time.sleep(0.1)
+                    saveRetries += 1
+                    if saveRetries > 100:
+                        raise e
 
             db.connections.close_all()
             close_old_connections()
 
-            # is this a file or a URL
             if redirect.startswith(settings.TEMP_FILES_DIR):
                 s = open(redirect, "r").read()
                 return HttpResponse(s)
-            else:  # URL
+            else:
                 return HttpResponseRedirect(redirect)
 
-    session_status["time_of_last_status_check"] = time.time()
-
-    # sometimes database is momentarily locked, so retry on exception to mitigate
-    s = session_status
-    save_complete = False
-    saveRetries = 0
-    while not save_complete:
-        try:
-            s.save()
-            save_complete = True
-        except Exception as e:
-            time.sleep(0.1)  # wait 1/10 second before retry
-            saveRetries += 1  # increment retry count
-            if saveRetries > 100:  # 10 per second * 10 seconds
-                raise e  # re-raise exception from save operation
-
-    db.connections.close_all()
-    close_old_connections()
-
+    # In-progress branch: render the template. Heartbeat write moved to
+    # StatusUpdateView so there is a single owner of that side effect.
     try:
         currentStatus = session_status["currentStatus"]
         startTime = session_status["start_time"]
@@ -316,46 +295,18 @@ def StatusView(request):
             "I could not read your session data, my apologies. This is usually caused by a stale browser cookie. Please delete the ZunZunNG browser cookie and try again."
         )
 
-    # reload every three seconds
-    s = """<html><head><meta HTTP-EQUIV=REFRESH CONTENT="3; URL='/StatusAndResults/'">
-    <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
-    <link rel="shortcut icon" href="/static/favicon.ico" type="image/x-icon">
-    </head><body>"""
-    s += currentStatus
-    s += "<br><br><br><br>"
-    s += "<pre>"
-    s += "Elapsed time: " + ConvertSecondsToHMS(time.time() - startTime) + " (hh:mm:ss)"
-    s += "\n"
-    s += "\n"
-    s += "Current time on server: " + time.asctime(time.localtime(time.time()))[:-5]
-    s += "\n"
-    s += "Time of last update   : " + time.asctime(time.localtime(timeStamp))[:-5]
-
+    now = time.time()
     loadavg = platform_compat.get_loadavg()
-    s += "\n\n"
-    s += "Server load average for the past 1 minute:   " + str(loadavg[0]) + "\n"
-    s += "Server load average for the past 5 minutes:  " + str(loadavg[1]) + "\n"
-    s += "Server load average for the past 15 minutes: " + str(loadavg[2]) + "\n\n"
-
-    s += "</pre>"
-    coreCount = str(multiprocessing.cpu_count())
-    s += """
-<BR><BR>
-<TABLE>
-<TR><TD align=left>
-Load < %s means the server cores are running with a light load.
-</TD></TR>
-<TR><TD align=left>
-Load = %s means the server cores each average 100%% CPU with a single user.
-</TD></TR>
-<TR><TD align=left>
-Load > %s means the server cores each average 100%% CPU with multiple users.
-</TD></TR>
-</TABLE>
-""" % (coreCount, coreCount, coreCount)
-    s += "</body></html>"
-
-    return HttpResponse(s)
+    return render(request, "zunzun/status.html", {
+        "title_string": "ZunZunNG - Working on your fit",
+        "header_text": "ZunZunNG",
+        "currentStatus": currentStatus,
+        "elapsed": ConvertSecondsToHMS(now - startTime),
+        "serverTime": time.asctime(time.localtime(now))[:-5],
+        "lastUpdate": time.asctime(time.localtime(timeStamp))[:-5],
+        "loadavg": list(loadavg),
+        "coreCount": multiprocessing.cpu_count(),
+    })
 
 
 @cache_control(no_cache=True)

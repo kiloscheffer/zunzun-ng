@@ -163,3 +163,83 @@ def test_status_update_400_when_required_keys_missing(client):
     response = client.get("/StatusUpdate/")
     assert response.status_code == 400
     assert response.json() == {"error": "stale_session"}
+
+
+@pytest.mark.django_db
+def test_status_view_renders_template_when_in_progress(client):
+    """When no redirect is set, StatusView renders the status.html template
+    with the expected DOM markers the JS will target.
+    """
+    status_session = _make_status_session(
+        currentStatus="Calculating Error Statistics",
+        start_time=time.time() - 30.0,
+        timestamp=time.time() - 1.0,
+    )
+    _wire_status_session(client, status_session)
+
+    response = client.get("/StatusAndResults/")
+    assert response.status_code == 200
+    assert response["Content-Type"].startswith("text/html")
+
+    body = response.content.decode("utf-8")
+    # JS-targeted element IDs must be present.
+    assert 'id="currentStatus"' in body
+    assert 'id="elapsedTime"' in body
+    assert 'id="serverTime"' in body
+    assert 'id="lastUpdate"' in body
+    assert 'id="load1"' in body
+    assert 'id="load5"' in body
+    assert 'id="load15"' in body
+    # The poll script must be included.
+    assert "StatusPoll.js" in body
+    # The currentStatus value from the session must be rendered into the initial frame.
+    assert "Calculating Error Statistics" in body
+
+
+@pytest.mark.django_db
+def test_status_view_extends_generic_template(client):
+    """Initial render should carry the site chrome (header logo, footer, css)."""
+    status_session = _make_status_session(
+        currentStatus="working",
+        start_time=time.time(),
+        timestamp=time.time(),
+    )
+    _wire_status_session(client, status_session)
+
+    body = client.get("/StatusAndResults/").content.decode("utf-8")
+    assert "small_logo.png" in body          # header logo from generic template
+    assert "custom.css" in body              # site CSS
+    assert "FindCurves" in body              # footer link
+
+
+@pytest.mark.django_db
+def test_status_view_does_not_write_heartbeat(client):
+    """Heartbeat write moved to StatusUpdateView; StatusView's initial render
+    must NOT update time_of_last_status_check.
+    """
+    status_session = _make_status_session(
+        currentStatus="working",
+        start_time=time.time(),
+        timestamp=time.time(),
+        time_of_last_status_check=0.0,  # sentinel
+    )
+    _wire_status_session(client, status_session)
+
+    client.get("/StatusAndResults/")
+
+    reloaded = SessionStore(status_session.session_key)
+    assert reloaded["time_of_last_status_check"] == 0.0
+
+
+@pytest.mark.django_db
+def test_status_view_400_when_required_keys_missing(client):
+    """If currentStatus/start_time/timestamp are missing, StatusView returns
+    a user-visible 'delete your cookie' message (unchanged behavior).
+    """
+    status_session = _make_status_session()  # empty
+    _wire_status_session(client, status_session)
+
+    response = client.get("/StatusAndResults/")
+    # Existing behavior is HttpResponse(str), which is 200 with an error message body.
+    assert response.status_code == 200
+    assert b"stale browser cookie" in response.content or b"session data" in response.content
