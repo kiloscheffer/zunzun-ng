@@ -541,15 +541,25 @@ footer > div:last-child {
 /*   status card highlights the live currentStatus message.                 */
 /* ------------------------------------------------------------------------ */
 
+/* Flex layout on the heading gives reliable vertical centering between the
+   dot and the heading text regardless of font metrics. Inline-only
+   vertical-align values (middle, text-top) end up looking high or low at
+   h2 scale because they snap to glyph-metric reference points, not the
+   visual center of the text block. */
+.working-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+}
+
 .status-dot {
   display: inline-block;
   width: 0.6em;
   height: 0.6em;
-  margin-left: 0.4em;
   border-radius: 50%;
   background: var(--accent);
   animation: status-pulse 1.4s ease-in-out infinite;
-  vertical-align: text-top;
+  flex: 0 0 auto;
 }
 
 @keyframes status-pulse {
@@ -566,4 +576,31 @@ footer > div:last-child {
   border-radius: var(--standard-border-radius);
   padding: 1rem 1.25rem;
   margin: 1rem 0;
+}
+
+/* The LRP writes server-side HTML into currentStatus, sometimes including
+   tables (e.g. FunctionFinder's per-family progress grid). simple.css's
+   default table chrome (borders, padding, zebra) doubles up against the
+   card background and makes the block much taller than needed. Strip the
+   chrome so the table reads as a flat compact list. */
+.status-card table,
+.status-card table tr,
+.status-card table th,
+.status-card table td {
+  background: transparent;
+  border: none;
+}
+
+.status-card table {
+  margin: 0;
+}
+
+.status-card table th,
+.status-card table td {
+  padding: 0.1rem 0.6rem;
+}
+
+.status-card table td:first-child,
+.status-card table th:first-child {
+  padding-left: 0;
 }
