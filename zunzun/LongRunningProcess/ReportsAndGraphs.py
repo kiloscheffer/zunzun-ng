@@ -9,15 +9,13 @@ from zunzun import platform_compat
 # matplotlib animation helpers for ScatterAnimation / SurfaceAnimation
 from matplotlib.animation import FuncAnimation, PillowWriter
 
-
 class Report(object):
 
     def __init__(self, dataObject):
         self.dataObject = dataObject
         self.stringList = []
-        self.name= ""
+        self.name= ''
         self.uuid = uuid.uuid4()
-
 
     def PrepareForReportOutput(self):
         self.PrepareForCharacterizerOutput()
@@ -28,7 +26,6 @@ class Report(object):
     def CreateReportOutput(self):
         self.CreateCharacterizerOutput()
 
-
 class TextOnlyReport(Report):
 
     def __init__(self, dataObject):
@@ -36,43 +33,41 @@ class TextOnlyReport(Report):
 
     def AddOneStatisticToStringList(self, label, selection, prefaceList):
         if prefaceList[0] + selection in self.dataObject.statistics:
-            temp1 = "%- E" % self.dataObject.statistics[prefaceList[0] + selection]
-            if len(temp1) < 14:
-                temp1 += " "
+            temp1 = '%- E' % self.dataObject.statistics[prefaceList[0] + selection]
+            if len(temp1) < 13:
+                temp1 += ' '
         else:
-            temp1 = "     n/a      "
+            temp1 = '&nbsp;    n/a      '
         if len(prefaceList) > 1 and prefaceList[1] + selection in self.dataObject.statistics:
-            temp2 = "%- E" % self.dataObject.statistics[prefaceList[1] + selection]
-            if len(temp2) < 14:
-                temp2 += " "
+            temp2 = '%- E' % self.dataObject.statistics[prefaceList[1] + selection]
+            if len(temp2) < 13:
+                temp2 += ' '
         else:
-            temp2 = "     n/a      "
+            temp2 = '&nbsp;    n/a      '
         if len(prefaceList) > 2 and  prefaceList[2] + selection in self.dataObject.statistics:
-            temp3 = "%- E" % self.dataObject.statistics[prefaceList[2] + selection]
-            if len(temp3) < 14:
-                temp3 += " "
+            temp3 = '%- E' % self.dataObject.statistics[prefaceList[2] + selection]
+            if len(temp3) < 13:
+                temp3 += ' '
         else:
-            temp3 = "     n/a      "
+            temp3 = '&nbsp;    n/a      '
 
         if len(prefaceList) == 1:
-            self.stringList.append("  " + label + temp1)
+            self.stringList.append(label + temp1)
         if len(prefaceList) == 2:
-            self.stringList.append("  " + label + temp1 + "    " + temp2)
+            self.stringList.append(label + temp1 + '&nbsp;   ' + temp2)
         if len(prefaceList) == 3:
-            self.stringList.append("  " + label + temp1 + "    " + temp2 + "    " + temp3)
+            self.stringList.append(label + temp1 + '&nbsp;   ' + temp2 + '&nbsp;   ' + temp3)
 
     def AddStatisticsToStringList(self, prefaceList):
-        self.AddOneStatisticToStringList("Minimum:             ", "_min", prefaceList)
-        self.AddOneStatisticToStringList("Maximum:             ", "_max", prefaceList)
-        self.AddOneStatisticToStringList("Mean:                ", "_mean", prefaceList)
-        self.AddOneStatisticToStringList("Std. Error of Mean:  ", "_sem", prefaceList)
-        self.AddOneStatisticToStringList("Median:              ", "_median", prefaceList)
-        self.AddOneStatisticToStringList("Variance:            ", "_var", prefaceList)
-        self.AddOneStatisticToStringList("Standard Deviation:  ", "_std", prefaceList)
-        self.AddOneStatisticToStringList("Skew:                ", "_skew", prefaceList)
-        self.AddOneStatisticToStringList("Kurtosis:            ", "_kurtosis", prefaceList)
-
-
+        self.AddOneStatisticToStringList('Minimum:              ', '_min', prefaceList)
+        self.AddOneStatisticToStringList('Maximum:              ', '_max', prefaceList)
+        self.AddOneStatisticToStringList('Mean:                 ', '_mean', prefaceList)
+        self.AddOneStatisticToStringList('Std. Error of Mean:   ', '_sem', prefaceList)
+        self.AddOneStatisticToStringList('Median:               ', '_median', prefaceList)
+        self.AddOneStatisticToStringList('Variance:             ', '_var', prefaceList)
+        self.AddOneStatisticToStringList('Standard Deviation:   ', '_std', prefaceList)
+        self.AddOneStatisticToStringList('Skew:                 ', '_skew', prefaceList)
+        self.AddOneStatisticToStringList('Kurtosis:             ', '_kurtosis', prefaceList)
 
 # enter in Text Reports at bottom
 class CodeReportCPP(TextOnlyReport):
@@ -82,16 +77,14 @@ class CodeReportCPP(TextOnlyReport):
 
     def PrepareForReportOutput(self):
         if self.dataObject.equation.userDefinedFunctionFlag:
-            self.name= ""
+            self.name= ''
             return
-        self.name = "Source Code in C++"
+        self.name = 'Source Code in C++'
         self.uniqueAnchorName = 'CppSourceCode'
-        
+
     def CreateReportOutput(self):
         code = pyeq3.outputSourceCodeService().GetOutputSourceCodeCPP(self.dataObject.equation)
-        self.stringList.append('<textarea rows="24" cols="85" wrap="OFF">' +  code + '</textarea>')
-
-
+        self.stringList.append(code)
 
 # enter in Text Reports at bottom
 class CodeReportFORTRAN90(TextOnlyReport):
@@ -101,16 +94,14 @@ class CodeReportFORTRAN90(TextOnlyReport):
 
     def PrepareForReportOutput(self):
         if self.dataObject.equation.userDefinedFunctionFlag or self.dataObject.equation.splineFlag:
-            self.name= ""
+            self.name= ''
             return
-        self.name = "Source Code in Fortran90"
+        self.name = 'Source Code in Fortran90'
         self.uniqueAnchorName = 'Fortran90SourceCode'
-        
+
     def CreateReportOutput(self):
         code = pyeq3.outputSourceCodeService().GetOutputSourceCodeFORTRAN90(self.dataObject.equation)
-        self.stringList.append('<textarea rows="24" cols="85" wrap="OFF">' +  code + '</textarea>')
-
-
+        self.stringList.append(code)
 
 # enter in Text Reports at bottom
 class CodeReportJAVA(TextOnlyReport):
@@ -120,16 +111,14 @@ class CodeReportJAVA(TextOnlyReport):
 
     def PrepareForReportOutput(self):
         if self.dataObject.equation.userDefinedFunctionFlag:
-            self.name= ""
+            self.name= ''
             return
-        self.name = "Source Code in Java"
+        self.name = 'Source Code in Java'
         self.uniqueAnchorName = 'JavaSourceCode'
-        
+
     def CreateReportOutput(self):
         code = pyeq3.outputSourceCodeService().GetOutputSourceCodeJAVA(self.dataObject.equation)
-        self.stringList.append('<textarea rows="24" cols="85" wrap="OFF">' +  code + '</textarea>')
-
-
+        self.stringList.append(code)
 
 # enter in Text Reports at bottom
 class CodeReportJAVASCRIPT(TextOnlyReport):
@@ -139,16 +128,14 @@ class CodeReportJAVASCRIPT(TextOnlyReport):
 
     def PrepareForReportOutput(self):
         if self.dataObject.equation.userDefinedFunctionFlag:
-            self.name= ""
+            self.name= ''
             return
-        self.name = "Source Code in JavaScript"
+        self.name = 'Source Code in JavaScript'
         self.uniqueAnchorName = 'JavaScriptSourceCode'
-        
+
     def CreateReportOutput(self):
         code = pyeq3.outputSourceCodeService().GetOutputSourceCodeJAVASCRIPT(self.dataObject.equation)
-        self.stringList.append('<textarea rows="24" cols="85" wrap="OFF">' +  code + '</textarea>')
-
-
+        self.stringList.append(code)
 
 # enter in Text Reports at bottom
 class CodeReportJULIA(TextOnlyReport):
@@ -158,16 +145,14 @@ class CodeReportJULIA(TextOnlyReport):
 
     def PrepareForReportOutput(self):
         if self.dataObject.equation.userDefinedFunctionFlag or self.dataObject.equation.splineFlag:
-            self.name= ""
+            self.name= ''
             return
-        self.name = "Source Code in Julia"
+        self.name = 'Source Code in Julia'
         self.uniqueAnchorName = 'JuliaSourceCode'
-        
+
     def CreateReportOutput(self):
         code = pyeq3.outputSourceCodeService().GetOutputSourceCodeJULIA(self.dataObject.equation)
-        self.stringList.append('<textarea rows="24" cols="85" wrap="OFF">' +  code + '</textarea>')
-
-
+        self.stringList.append(code)
 
 # enter in Text Reports at bottom
 class CodeReportPYTHON(TextOnlyReport):
@@ -177,16 +162,14 @@ class CodeReportPYTHON(TextOnlyReport):
 
     def PrepareForReportOutput(self):
         if self.dataObject.equation.userDefinedFunctionFlag:
-            self.name= ""
+            self.name= ''
             return
-        self.name = "Source Code in Python"
+        self.name = 'Source Code in Python'
         self.uniqueAnchorName = 'PythonSourceCode'
-        
+
     def CreateReportOutput(self):
         code = pyeq3.outputSourceCodeService().GetOutputSourceCodePYTHON(self.dataObject.equation)
-        self.stringList.append('<textarea rows="24" cols="85" wrap="OFF">' +  code + '</textarea>')
-
-
+        self.stringList.append(code)
 
 # enter in Text Reports at bottom
 class CodeReportCSHARP(TextOnlyReport):
@@ -196,16 +179,14 @@ class CodeReportCSHARP(TextOnlyReport):
 
     def PrepareForReportOutput(self):
         if self.dataObject.equation.userDefinedFunctionFlag or self.dataObject.equation.splineFlag:
-            self.name= ""
+            self.name= ''
             return
-        self.name = "Source Code in C#"
+        self.name = 'Source Code in C#'
         self.uniqueAnchorName = 'CSSourceCode'
-        
+
     def CreateReportOutput(self):
         code = pyeq3.outputSourceCodeService().GetOutputSourceCodeCSHARP(self.dataObject.equation)
-        self.stringList.append('<textarea rows="24" cols="85" wrap="OFF">' +  code + '</textarea>')
-
-
+        self.stringList.append(code)
 
 # enter in Text Reports at bottom
 class CodeReportSCILAB(TextOnlyReport):
@@ -215,16 +196,14 @@ class CodeReportSCILAB(TextOnlyReport):
 
     def PrepareForReportOutput(self):
         if self.dataObject.equation.userDefinedFunctionFlag or self.dataObject.equation.splineFlag:
-            self.name= ""
+            self.name= ''
             return
-        self.name = "Source Code in SCILAB"
+        self.name = 'Source Code in SCILAB'
         self.uniqueAnchorName = 'SCILABSourceCode'
-        
+
     def CreateReportOutput(self):
         code = pyeq3.outputSourceCodeService().GetOutputSourceCodeSCILAB(self.dataObject.equation)
-        self.stringList.append('<textarea rows="24" cols="85" wrap="OFF">' +  code + '</textarea>')
-
-
+        self.stringList.append(code)
 
 # enter in Text Reports at bottom
 class CodeReportMATLAB(TextOnlyReport):
@@ -234,16 +213,14 @@ class CodeReportMATLAB(TextOnlyReport):
 
     def PrepareForReportOutput(self):
         if self.dataObject.equation.userDefinedFunctionFlag or self.dataObject.equation.splineFlag:
-            self.name= ""
+            self.name= ''
             return
-        self.name = "Source Code in MATLAB"
+        self.name = 'Source Code in MATLAB'
         self.uniqueAnchorName = 'MATLABSourceCode'
-        
+
     def CreateReportOutput(self):
         code = pyeq3.outputSourceCodeService().GetOutputSourceCodeMATLAB(self.dataObject.equation)
-        self.stringList.append('<textarea rows="24" cols="85" wrap="OFF">' +  code + '</textarea>')
-
-
+        self.stringList.append(code)
 
 # enter in Text Reports at bottom
 class CodeReportVBA(TextOnlyReport):
@@ -253,16 +230,14 @@ class CodeReportVBA(TextOnlyReport):
 
     def PrepareForReportOutput(self):
         if self.dataObject.equation.userDefinedFunctionFlag or self.dataObject.equation.splineFlag:
-            self.name= ""
+            self.name= ''
             return
-        self.name = "Source Code in VBA"
+        self.name = 'Source Code in VBA'
         self.uniqueAnchorName = 'VBASourceCode'
-        
+
     def CreateReportOutput(self):
         code = pyeq3.outputSourceCodeService().GetOutputSourceCodeVBA(self.dataObject.equation)
-        self.stringList.append('<textarea rows="24" cols="85" wrap="OFF">' +  code + '</textarea>')
-
-
+        self.stringList.append(code)
 
 # enter in Text Reports at bottom
 class UserDefinedFunctionText(TextOnlyReport):
@@ -272,15 +247,13 @@ class UserDefinedFunctionText(TextOnlyReport):
 
     def PrepareForReportOutput(self):
         if not self.dataObject.equation.userDefinedFunctionFlag:
-            self.name= ""
+            self.name= ''
             return
-        self.name = "User Defined Function Text"
-        self.uniqueAnchorName = "UserDefinedFunctionText"
-        
+        self.name = 'User Defined Function Text'
+        self.uniqueAnchorName = 'UserDefinedFunctionText'
+
     def CreateReportOutput(self):
         self.stringList.append(self.dataObject.equation.userDefinedFunctionText + '\n')
-
-
 
 # enter in Text Reports at bottom
 class CoefficientListing(TextOnlyReport):
@@ -290,15 +263,14 @@ class CoefficientListing(TextOnlyReport):
 
     def PrepareForReportOutput(self):
         if self.dataObject.equation.splineFlag:
-            self.name = "Coefficients And Knot Points"
+            self.name = 'Coefficients And Knot Points'
         else:
-            self.name = "Coefficients"
-        self.uniqueAnchorName = "Coefficients"
+            self.name = 'Coefficients'
+        self.uniqueAnchorName = 'Coefficients'
 
-        
     def CreateReportOutput(self):
         self.stringList.append(self.dataObject.equation.GetDisplayHTML() + '\n')
-        
+
         if self.dataObject.equation.splineFlag:
             if self.dataObject.dimensionality == 2:
                 coeffs = self.dataObject.equation.scipySpline._eval_args[1]
@@ -309,47 +281,44 @@ class CoefficientListing(TextOnlyReport):
                 yKnots = self.dataObject.equation.scipySpline.get_knots()[1]
         else:
             coeffs = self.dataObject.equation.solvedCoefficients
-            fittingTargetText = "Fitting target of lowest " + self.dataObject.equation.fittingTargetDictionary[self.dataObject.equation.fittingTarget]
-            self.stringList.append(fittingTargetText + " = %.16E" % (self.dataObject.equation.CalculateAllDataFittingTarget(self.dataObject.equation.solvedCoefficients)) + '\n')
-            
-        
+            fittingTargetText = 'Fitting target of lowest ' + self.dataObject.equation.fittingTargetDictionary[self.dataObject.equation.fittingTarget]
+            self.stringList.append(fittingTargetText + ' = %.16E' % (self.dataObject.equation.CalculateAllDataFittingTarget(self.dataObject.equation.solvedCoefficients)) + '\n')
+
         for i in range(len(coeffs)):
             if self.dataObject.equation.splineFlag:
                 designator = 'coeff ' + str(i)
             else:
                 designator = self.dataObject.equation.GetCoefficientDesignators()[i]
             if coeffs[i] < 0.0:
-                self.stringList.append("%s = %-.16E" % (designator, coeffs[i]))
+                self.stringList.append('%s = %-.16E' % (designator, coeffs[i]))
             else: # need a hard space if there is no negative sign
-                self.stringList.append("%s =  %-.16E" % (designator, coeffs[i]))
+                self.stringList.append('%s =  %-.16E' % (designator, coeffs[i]))
 
         if self.dataObject.equation.splineFlag:
-            self.stringList.append("<br>")
+            self.stringList.append('<br>')
             if self.dataObject.dimensionality == 2:
                 for i in range(len(xKnots)):
                     designator = 'knot point ' + str(i)
                     if xKnots[i] < 0.0:
-                        self.stringList.append("%s = %-.16E" % (designator, xKnots[i]))
+                        self.stringList.append('%s = %-.16E' % (designator, xKnots[i]))
                     else: # need a hard space if there is no negative sign
-                        self.stringList.append("%s =  %-.16E" % (designator, xKnots[i]))
+                        self.stringList.append('%s =  %-.16E' % (designator, xKnots[i]))
             else:
                 for i in range(len(xKnots)):
                     designator = 'X knot point ' + str(i)
                     if xKnots[i] < 0.0:
-                        self.stringList.append("%s = %-.16E" % (designator, xKnots[i]))
+                        self.stringList.append('%s = %-.16E' % (designator, xKnots[i]))
                     else: # need a hard space if there is no negative sign
-                        self.stringList.append("%s =  %-.16E" % (designator, xKnots[i]))
-                        
-                self.stringList.append("<br>")
+                        self.stringList.append('%s =  %-.16E' % (designator, xKnots[i]))
+
+                self.stringList.append('<br>')
 
                 for i in range(len(yKnots)):
                     designator = 'Y knot point ' + str(i)
                     if yKnots[i] < 0.0:
-                        self.stringList.append("%s = %-.16E" % (designator, yKnots[i]))
+                        self.stringList.append('%s = %-.16E' % (designator, yKnots[i]))
                     else: # need a hard space if there is no negative sign
-                        self.stringList.append("%s =  %-.16E" % (designator, yKnots[i]))
-
-
+                        self.stringList.append('%s =  %-.16E' % (designator, yKnots[i]))
 
 # enter in Text Reports at bottom
 class CoefficientAndFitStatistics(TextOnlyReport):
@@ -359,79 +328,71 @@ class CoefficientAndFitStatistics(TextOnlyReport):
 
     def PrepareForReportOutput(self):
         if self.dataObject.equation.splineFlag:
-            self.name = "Fit Statistics"
+            self.name = 'Fit Statistics'
         else:
-            self.name = "Coefficient and Fit Statistics"
+            self.name = 'Coefficient and Fit Statistics'
         self.uniqueAnchorName = 'CoeffAndFitStats'
-        
+
     def CreateReportOutput(self):
-        self.stringList.append('</pre>')
-        
-        self.stringList.append('Most statstics from scipy.odr.odrpack and http://www.scipy.org/Cookbook/OLS<br>')
-        self.stringList.append('LL, AIC and BIC from http://stackoverflow.com/questions/7458391/python-multiple-linear-regression-using-ols-code-with-specific-data<br>')
+        self.stringList.append('Most statstics from scipy.odr.odrpack and http://www.scipy.org/Cookbook/OLS')
+        self.stringList.append('')
+        self.stringList.append('LL, AIC and BIC from http://stackoverflow.com/questions/7458391/python-multiple-linear-regression-using-ols-code-with-specific-data')
+        self.stringList.append('')
+        self.stringList.append('If you entered coefficient bounds, parameter statistics may not be valid for parameter values at or near the bounds.')
+        self.stringList.append('')
 
-        self.stringList.append('<br>')
-        self.stringList.append('If you entered coefficient bounds. Parameter statistics may<br>')
-        self.stringList.append('not be valid for parameter values at or near the bounds.<br>')
-        self.stringList.append('<br>')
+        self.stringList.append('Degrees of freedom (error):       ' + str(self.dataObject.equation.df_e))
+        self.stringList.append('Degrees of freedom (regression):  ' + str(self.dataObject.equation.df_r))
 
-        self.stringList.append('<table style="font-family: monospace"><tr><td align="left"><br>')
-
-        self.stringList.append('Degrees of freedom (error): ' + str(self.dataObject.equation.df_e) + '<br>')
-        self.stringList.append('Degrees of freedom (regression): ' + str(self.dataObject.equation.df_r) + '<br>')
-            
         if self.dataObject.equation.sumOfSquaredErrors == None:
-            self.stringList.append('Chi-squared: n/a' + '<br>')
+            self.stringList.append('Chi-squared:                      n/a')
         else:
-            self.stringList.append('Chi-squared: ' + str(self.dataObject.equation.sumOfSquaredErrors) + '<br>')
+            self.stringList.append('Chi-squared:                      ' + str(self.dataObject.equation.sumOfSquaredErrors))
 
         if self.dataObject.equation.r2 == None:
-            self.stringList.append('R-squared: n/a' + '<br>')
+            self.stringList.append('R-squared:                        n/a')
         else:
-            self.stringList.append('R-squared: ' + str(self.dataObject.equation.r2) + '<br>')
+            self.stringList.append('R-squared:                        ' + str(self.dataObject.equation.r2))
 
         if self.dataObject.equation.r2adj == None:
-            self.stringList.append('R-squared adjusted: n/a' + '<br>')
+            self.stringList.append('R-squared adjusted:               n/a')
         else:
-            self.stringList.append('R-squared adjusted: ' + str(self.dataObject.equation.r2adj) + '<br>')
+            self.stringList.append('R-squared adjusted:               ' + str(self.dataObject.equation.r2adj))
 
         if self.dataObject. equation.Fstat == None:
-            self.stringList.append('Model F-statistic: n/a' + '<br>')
+            self.stringList.append('Model F-statistic:                n/a')
         else:
-            self.stringList.append('Model F-statistic: ' + str(self.dataObject.equation.Fstat) + '<br>')
+            self.stringList.append('Model F-statistic:                ' + str(self.dataObject.equation.Fstat))
 
         if self.dataObject.equation.Fpv == None:
-            self.stringList.append('Model F-statistic p-value: n/a' + '<br>')
+            self.stringList.append('Model F-statistic p-value:        n/a')
         else:
-            self.stringList.append('Model F-statistic p-value: ' + str(self.dataObject.equation.Fpv) + '<br>')
+            self.stringList.append('Model F-statistic p-value:        ' + str(self.dataObject.equation.Fpv))
 
         if self.dataObject.equation.ll == None:
-            self.stringList.append('Model log-likelihood: n/a' + '<br>')
+            self.stringList.append('Model log-likelihood:             n/a')
         else:
-            self.stringList.append('Model log-likelihood: ' + str(self.dataObject.equation.ll) + '<br>')
+            self.stringList.append('Model log-likelihood:             ' + str(self.dataObject.equation.ll))
 
         if self.dataObject.equation.aic == None:
-            self.stringList.append('AIC: n/a' + '<br>')
+            self.stringList.append('AIC:                              n/a')
         else:
-            self.stringList.append('AIC: ' + str(self.dataObject.equation.aic) + '<br>')
+            self.stringList.append('AIC:                              ' + str(self.dataObject.equation.aic))
 
         if self.dataObject.equation.bic== None:
-            self.stringList.append('BIC: n/a' + '<br>')
+            self.stringList.append('BIC:                              n/a')
         else:
-            self.stringList.append('BIC: ' + str(self.dataObject.equation.bic) + '<br>')
+            self.stringList.append('BIC:                              ' + str(self.dataObject.equation.bic))
 
         if self.dataObject.equation.rmse == None:
-            self.stringList.append('Root Mean Squared Error (RMSE): n/a' + '<br>')
+            self.stringList.append('Root Mean Squared Error (RMSE):   n/a')
         else:
-            self.stringList.append('Root Mean Squared Error (RMSE): ' + str(self.dataObject.equation.rmse) + '<br>')
+            self.stringList.append('Root Mean Squared Error (RMSE):   ' + str(self.dataObject.equation.rmse))
 
-        self.stringList.append('\n' + '<br>')
-        
         if self.dataObject.equation.splineFlag:
-            self.stringList.append('</td></tr></table>\n')
-            self.stringList.append('<pre>')
+            self.stringList.append('')
             return
-            
+
         for i in range(len(self.dataObject.equation.solvedCoefficients)):
             if str(self.dataObject.equation.tstat_beta) == 'None':
                 tstat = 'n/a'
@@ -443,23 +404,19 @@ class CoefficientAndFitStatistics(TextOnlyReport):
             else:
                 pstat = '%-.5E' %  (self.dataObject.equation.pstat_beta[i])
 
-            self.stringList.append("%s = %-.16E" % (self.dataObject.equation.GetCoefficientDesignators()[i], self.dataObject.equation.solvedCoefficients[i]) + '<br>')
+            self.stringList.append('\n%s = %-.16E' % (self.dataObject.equation.GetCoefficientDesignators()[i], self.dataObject.equation.solvedCoefficients[i]))
             try:
-                self.stringList.append("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; std err: %-.5E" % (self.dataObject.equation.sd_beta[i]) + '<br>')
+                self.stringList.append('&nbsp;       std err:                  %-.5E' % (self.dataObject.equation.sd_beta[i]))
             except:
-                self.stringList.append('&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; std err: n/a<br>')
-            self.stringList.append("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; t-stat: " + tstat + '<br>')
-            self.stringList.append("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; p-stat: " + pstat + '<br>')
-            self.stringList.append("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 95% confidence intervals:" + ' [%-.5E, %-.5E]' % (self.dataObject.equation.ci[i][0], self.dataObject.equation.ci[i][1]) + '<br>')
+                self.stringList.append('&nbsp;       std err:                  n/a<br>')
+            self.stringList.append('&nbsp;       t-stat:                   ' + tstat)
+            self.stringList.append('&nbsp;       p-stat:                   ' + pstat)
+            self.stringList.append('&nbsp;       95% confidence intervals: ' + '[%-.5E, %-.5E]' % (self.dataObject.equation.ci[i][0], self.dataObject.equation.ci[i][1]))
 
-        self.stringList.append('\n' + '<br>')
-        self.stringList.append("Coefficient Covariance Matrix" + '<br>')
+        self.stringList.append('\nCoefficient Covariance Matrix:\n')
         for i in self.dataObject.equation.cov_beta:
-            self.stringList.append(str(i) + '<br>')
-        self.stringList.append('</td></tr></table>\n')
-        self.stringList.append('<pre>')
-
-
+            self.stringList.append(str(i))
+        self.stringList.append('')
 
 # enter in Text Reports at bottom
 class ErrorListing(TextOnlyReport):
@@ -468,9 +425,9 @@ class ErrorListing(TextOnlyReport):
         TextOnlyReport.__init__(self, dataObject)
 
     def PrepareForReportOutput(self):
-        self.name = "Error Listing"
-        self.uniqueAnchorName = "ErrorListing"
-        
+        self.name = 'Error Listing'
+        self.uniqueAnchorName = 'ErrorListing'
+
     def CreateReportOutput(self):
         datalen = len(self.dataObject.equation.dataCache.allDataCacheDictionary['DependentData'])
 
@@ -478,7 +435,7 @@ class ErrorListing(TextOnlyReport):
         dopIndep1 = 10
         dopIndep2 = 10
         dopDep = 10
-        
+
         breakLoop = False
         for i in reversed(list(range(dopIndep1))):
             if breakLoop == True:
@@ -489,7 +446,7 @@ class ErrorListing(TextOnlyReport):
                     dopIndep1 = i+1
                     breakLoop = True
                     break
-        
+
         breakLoop = False
         for i in reversed(list(range(dopDep))):
             if breakLoop == True:
@@ -500,7 +457,7 @@ class ErrorListing(TextOnlyReport):
                     dopDep = i+1
                     breakLoop = True
                     break
-                    
+
         if self.dataObject.dimensionality == 3:
             breakLoop = False
             for i in reversed(list(range(dopIndep2))):
@@ -512,34 +469,30 @@ class ErrorListing(TextOnlyReport):
                         dopIndep2 = i+1
                         breakLoop = True
                         break
-        
-        # now create report
-        self.stringList.append("<table>")
 
+        # now create report
         if self.dataObject.dimensionality == 2:
-            self.stringList.append("<tr><td align=center> Independent Data </td><td align=center> Dependent Data </td><td align=center> Predicted </td><td align=center> Abs Error </td><td align=center> Rel Error </td></tr>")
+            self.stringList.append('Independent Data     Dependent Data      Predicted         Abs Error       Rel Error')
+            self.stringList.append('')
             if str(self.dataObject.equation.modelRelativeError) == 'None':
                 for i in range(datalen): # number of data points
-                    tempString = "<tr><td align=center> % ." + str(dopIndep1) + "E </td><td align=center> % ." + str(dopDep) + "E </td><td align=center> % .10E </td><td align=center> % .6E </td><td align=center> n/a </td></tr>"
+                    tempString = '&nbsp; % .' + str(dopIndep1) + 'E          % .' + str(dopDep) + 'E     % .10E   % .6E   n/a'
                     self.stringList.append(tempString % (self.dataObject.equation.dataCache.allDataCacheDictionary['IndependentData'][0][i], self.dataObject.equation.dataCache.allDataCacheDictionary['DependentData'][i], self.dataObject.equation.modelPredictions[i], self.dataObject.equation.modelAbsoluteError[i]))
             else:
                 for i in range(datalen): # number of data points
-                    tempString = "<tr><td align=center> % ." + str(dopIndep1) + "E </td><td align=center> % ." + str(dopDep) + "E </td><td align=center> % .10E </td><td align=center> % .6E </td><td align=center> % .6E </td></tr>"
+                    tempString = '&nbsp; % .' + str(dopIndep1) + 'E          % .' + str(dopDep) + 'E     % .10E   % .6E   % .6E'
                     self.stringList.append(tempString % (self.dataObject.equation.dataCache.allDataCacheDictionary['IndependentData'][0][i], self.dataObject.equation.dataCache.allDataCacheDictionary['DependentData'][i], self.dataObject.equation.modelPredictions[i], self.dataObject.equation.modelAbsoluteError[i], self.dataObject.equation.modelRelativeError[i]))
         else:
-            self.stringList.append("<tr><td align=center> Indep. Data 1 </td><td align=center> Indep. Data 2 </td><td align=center> Dependent Data </td><td align=center> Predicted </td><td align=center> Abs Error </td><td align=center> Rel Error <td></tr>")
+            self.stringList.append('&nbsp;Indep. Data 1     Indep. Data 2    Dependent Data       Predicted         Abs Error       Rel Error <td></tr>')
+            self.stringList.append('')
             if str(self.dataObject.equation.modelRelativeError) == 'None':
                 for i in range(datalen): # number of data points
-                    tempString = "<tr><td align=center> % ." + str(dopIndep1) + "E </td><td align=center> % ." + str(dopIndep2) + "E </td><td align=center> % ." + str(dopDep) + "E </td><td align=center> % .10E </td><td align=center> % .6E </td><td align=center> n/a </td></tr>"
+                    tempString = '&nbsp; % .' + str(dopIndep1) + 'E        % .' + str(dopIndep2) + 'E       % .' + str(dopDep) + 'E      % .10E   % .6E   n/a'
                     self.stringList.append(tempString % (self.dataObject.equation.dataCache.allDataCacheDictionary['IndependentData'][0][i], self.dataObject.equation.dataCache.allDataCacheDictionary['IndependentData'][1][i], self.dataObject.equation.dataCache.allDataCacheDictionary['DependentData'][i], self.dataObject.equation.modelPredictions[i], self.dataObject.equation.modelAbsoluteError[i]))
             else:
                 for i in range(datalen): # number of data points
-                    tempString = "<tr><td align=center> % ." + str(dopIndep1) + "E </td><td align=center> % ." + str(dopIndep2) + "E </td><td align=center> % ." + str(dopDep) + "E </td><td align=center> % .10E </td><td align=center> % .6E </td><td align=center> % .6E </td></tr>"
+                    tempString = '&nbsp; % .' + str(dopIndep1) + 'E        % .' + str(dopIndep2) + 'E       % .' + str(dopDep) + 'E      % .10E   % .6E   % .6E'
                     self.stringList.append(tempString % (self.dataObject.equation.dataCache.allDataCacheDictionary['IndependentData'][0][i], self.dataObject.equation.dataCache.allDataCacheDictionary['IndependentData'][1][i], self.dataObject.equation.dataCache.allDataCacheDictionary['DependentData'][i], self.dataObject.equation.modelPredictions[i], self.dataObject.equation.modelAbsoluteError[i], self.dataObject.equation.modelRelativeError[i]))
-
-        self.stringList.append("</table>")
-
-
 
 # enter in Text Reports at bottom
 class StatisticsListing(TextOnlyReport):
@@ -548,20 +501,18 @@ class StatisticsListing(TextOnlyReport):
         TextOnlyReport.__init__(self, dataObject)
 
     def PrepareForReportOutput(self):
-        self.name = "Error Statistics"
+        self.name = 'Error Statistics'
         self.uniqueAnchorName = 'ErrorStatistics'
 
     def CreateReportOutput(self):
         if self.dataObject.equation.dataCache.DependentDataContainsZeroFlag == 0:
-            self.stringList.append("                      Absolute Error     Relative Error\n")
-            self.AddStatisticsToStringList(["abs_err", "rel_err"])
+            self.stringList.append('&nbsp;                     Absolute Error   Relative Error\n')
+            self.AddStatisticsToStringList(['abs_err', 'rel_err'])
         else:
-            self.stringList.append("NOTE: Relative error statistics cannot be compiled, as at least one of")
-            self.stringList.append("the dependent variable data points contains a value of exactly zero.\n")
-            self.stringList.append("                   Absolute Error\n")
-            self.AddStatisticsToStringList(["abs_err"])
-
-
+            self.stringList.append('NOTE: Relative error statistics cannot be compiled, as at least one of')
+            self.stringList.append('the dependent variable data points contains a value of exactly zero.\n')
+            self.stringList.append('&nbsp;                    Absolute Error\n')
+            self.AddStatisticsToStringList(['abs_err'])
 
 # enter in Text Reports at bottom
 class CharacterizerStatisticsListing(TextOnlyReport):
@@ -570,29 +521,26 @@ class CharacterizerStatisticsListing(TextOnlyReport):
         TextOnlyReport.__init__(self, dataObject)
 
     def PrepareForCharacterizerOutput(self):
-        self.name = "Data Statistics"
-        self.uniqueAnchorName = "DataStatistics"
+        self.name = 'Data Statistics'
+        self.uniqueAnchorName = 'DataStatistics'
 
     def CreateCharacterizerOutput(self):
         if self.dataObject.dimensionality == 1:
-            self.stringList.append("                             X\n")
-            self.AddStatisticsToStringList(["1"])
+            self.stringList.append('&nbsp;                           X\n')
+            self.AddStatisticsToStringList(['1'])
 
         if self.dataObject.dimensionality == 2:
-            self.stringList.append("                             X                Y\n")
-            self.AddStatisticsToStringList(["1", "2"])
+            self.stringList.append('&nbsp;                           X                Y\n')
+            self.AddStatisticsToStringList(['1', '2'])
 
         if self.dataObject.dimensionality == 3:
-            self.stringList.append("                             X                 Y               Z\n")
-            self.AddStatisticsToStringList(["1", "2", "3"])
-
-
+            self.stringList.append('&nbsp;                           X                 Y               Z\n')
+            self.AddStatisticsToStringList(['1', '2', '3'])
 
 # enter in Text Reports at bottom
 class StatisticalDistributions(TextOnlyReport):
     def __init__(self, dataObject):
         TextOnlyReport.__init__(self, dataObject)
-
 
     def PrepareForCharacterizerOutput(self):
 
@@ -600,49 +548,46 @@ class StatisticalDistributions(TextOnlyReport):
         if self.numberOfFittedDistributions == 0:
             return
 
-        self.name = "Top " + str(self.numberOfFittedDistributions) + " Statistical Distributions"
-        self.uniqueAnchorName = "XStatDist"
-
+        self.name = 'Top ' + str(self.numberOfFittedDistributions) + ' Statistical Distributions'
+        self.uniqueAnchorName = 'XStatDist'
 
     def CreateCharacterizerOutput(self):
         self.stringList.append('</pre><table style="font-family: monospace"><tr><td align="left">')
-        
+
         # these are also in the graph reports
         rank = 1
         for i in self.dataObject.fittedStatisticalDistributionsList:
-            self.stringList.append("<b>Rank " + str(rank) + ": " + i[1]['distributionLongName'] + ' distribution</b><BR>')
+            self.stringList.append('<b>Rank ' + str(rank) + ': ' + i[1]['distributionLongName'] + ' distribution</b><BR>')
             rank += 1
             self.stringList.append('http://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.' + i[1]['distributionName'] + '.html<br>')
-            
+
             self.stringList.append('<br>')
-            
-            self.stringList.append("Fit Statistics for " + str(len(self.dataObject.IndependentDataArray[0])) + " data points:<br>")
-            self.stringList.append('&nbsp;&nbsp;&nbsp;&nbsp;' + "Negative Two Log Likelihood = %-.16E<br>" % (2.0 * i[1]['nnlf']))
+
+            self.stringList.append('Fit Statistics for ' + str(len(self.dataObject.IndependentDataArray[0])) + ' data points:<br>')
+            self.stringList.append('&nbsp;   ' + 'Negative Two Log Likelihood = %-.16E<br>' % (2.0 * i[1]['nnlf']))
             if numpy.isfinite(i[1]['AIC']):
-                self.stringList.append('&nbsp;&nbsp;&nbsp;&nbsp;' + "AIC = %-.16E<br>" % (i[1]['AIC']))
+                self.stringList.append('&nbsp;   ' + 'AIC = %-.16E<br>' % (i[1]['AIC']))
             else:
-                self.stringList.append('&nbsp;&nbsp;&nbsp;&nbsp;' + "AIC = N/A<br>")
+                self.stringList.append('&nbsp;   ' + 'AIC = N/A<br>')
             if numpy.isfinite(i[1]['AICc_BA']):
-                self.stringList.append('&nbsp;&nbsp;&nbsp;&nbsp;' + "AICc (Burnham and Anderson) = %-.16E<br>" % (i[1]['AICc_BA']))
+                self.stringList.append('&nbsp;   ' + 'AICc (Burnham and Anderson) = %-.16E<br>' % (i[1]['AICc_BA']))
             else:
-                self.stringList.append('&nbsp;&nbsp;&nbsp;&nbsp;' + "AICc (Burnham and Anderson) = N/A<br>")
-            
+                self.stringList.append('&nbsp;   ' + 'AICc (Burnham and Anderson) = N/A<br>')
+
             self.stringList.append('<br><br>')
-            
+
             self.stringList.append('Parameters:<BR>')
             for parmIndex in range(len(i[1]['parameterNames'])):
-                self.stringList.append('&nbsp;&nbsp;&nbsp;&nbsp;' + i[1]['parameterNames'][parmIndex] + ' = %-.16E' % (i[1]['fittedParameters'][parmIndex]) + "<BR>")
-                
+                self.stringList.append('&nbsp;   ' + i[1]['parameterNames'][parmIndex] + ' = %-.16E' % (i[1]['fittedParameters'][parmIndex]))
+
             self.stringList.append('<br>')
 
             self.stringList.append('Additional Information:')
             for infoString in i[1]['additionalInfo']:
-                self.stringList.append(infoString.replace(' ', '&nbsp;') + '<BR>')
+                self.stringList.append(infoString.replace(' ', '&nbsp;'))
 
             self.stringList.append('<BR><BR><BR>')
         self.stringList.append('</td></tr></table><pre>')
-
-
 
 class GraphReport(Report):
 
@@ -655,15 +600,12 @@ class GraphReport(Report):
         self.animationFlag = 0
         self.animationFrameSeparation = 2 # angular distance between animation frames
         self.rank = '' # function finders use rank to distinguish different graph reports
-        
-        
+
     def GetRankString(self):
         if self.rank:
-            return "_" + str(self.rank)
+            return '_' + str(self.rank)
         return ''
 
-
-    
 # enter in Graph Reports at bottom
 class AbsoluteErrorHistogram(GraphReport):
 
@@ -672,15 +614,13 @@ class AbsoluteErrorHistogram(GraphReport):
         self.HistogramFlag = 1
 
     def PrepareForReportOutput(self):
-        self.name = "Histogram of Absolute Error"
-        self.uniqueAnchorName = "AbsErrHist"
-        self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        
-    def CreateReportOutput(self):        
-        MatplotlibGraphs_2D.HistogramPlot(self.dataObject, self.physicalFileLocation, "Absolute Error", self.dataObject.equation.modelAbsoluteError)
+        self.name = 'Histogram of Absolute Error'
+        self.uniqueAnchorName = 'AbsErrHist'
+        self.physicalFileLocation = '%s/%s%s' % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + '.png'
+        self.websiteFileLocation = '%s%s%s' % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + '.png'
 
-
+    def CreateReportOutput(self):
+        MatplotlibGraphs_2D.HistogramPlot(self.dataObject, self.physicalFileLocation, 'Absolute Error', self.dataObject.equation.modelAbsoluteError)
 
 # enter in Graph Reports at bottom
 class RelativeErrorHistogram(GraphReport):
@@ -692,17 +632,15 @@ class RelativeErrorHistogram(GraphReport):
 
     def PrepareForReportOutput(self):
         if self.dataObject.equation.dataCache.DependentDataContainsZeroFlag == 1:
-            self.name= ""
+            self.name= ''
             return
-        self.name = "Histogram of Relative Error"
-        self.uniqueAnchorName = "RelErrHist"
-        self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        
+        self.name = 'Histogram of Relative Error'
+        self.uniqueAnchorName = 'RelErrHist'
+        self.physicalFileLocation = '%s/%s%s' % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + '.png'
+        self.websiteFileLocation = '%s%s%s' % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + '.png'
+
     def CreateReportOutput(self):
-        MatplotlibGraphs_2D.HistogramPlot(self.dataObject, self.physicalFileLocation, "Relative Error", self.dataObject.equation.modelRelativeError)
-
-
+        MatplotlibGraphs_2D.HistogramPlot(self.dataObject, self.physicalFileLocation, 'Relative Error', self.dataObject.equation.modelRelativeError)
 
 # enter in Graph Reports at bottom
 class PercentErrorHistogram(GraphReport):
@@ -714,17 +652,15 @@ class PercentErrorHistogram(GraphReport):
 
     def PrepareForReportOutput(self):
         if self.dataObject.equation.dataCache.DependentDataContainsZeroFlag == 1:
-            self.name = "" # used as a 'do not create' flag
+            self.name = '' # used as a 'do not create' flag
             return
-        self.name = "Histogram of Percent Error"
-        self.uniqueAnchorName = "PerErrHist"
-        self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        
+        self.name = 'Histogram of Percent Error'
+        self.uniqueAnchorName = 'PerErrHist'
+        self.physicalFileLocation = '%s/%s%s' % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + '.png'
+        self.websiteFileLocation = '%s%s%s' % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + '.png'
+
     def CreateReportOutput(self):
-        MatplotlibGraphs_2D.HistogramPlot(self.dataObject, self.physicalFileLocation, "Percent Error", self.dataObject.equation.modelPercentError)
-
-
+        MatplotlibGraphs_2D.HistogramPlot(self.dataObject, self.physicalFileLocation, 'Percent Error', self.dataObject.equation.modelPercentError)
 
 # enter in Graph Reports at bottom
 class Data1Histogram(GraphReport):
@@ -734,15 +670,13 @@ class Data1Histogram(GraphReport):
         self.HistogramFlag = 1
 
     def PrepareForCharacterizerOutput(self):
-        self.name = "Histogram of " + self.dataObject.IndependentDataName1
-        self.uniqueAnchorName = "XDataHist"
-        self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        
+        self.name = 'Histogram of ' + self.dataObject.IndependentDataName1
+        self.uniqueAnchorName = 'XDataHist'
+        self.physicalFileLocation = '%s/%s%s' % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + '.png'
+        self.websiteFileLocation = '%s%s%s' % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + '.png'
+
     def CreateCharacterizerOutput(self):
         MatplotlibGraphs_2D.HistogramPlot(self.dataObject, self.physicalFileLocation, self.dataObject.IndependentDataName1, self.dataObject.IndependentDataArray[0])
-
-
 
 # enter in Graph Reports at bottom
 class Data2Histogram(GraphReport):
@@ -754,15 +688,13 @@ class Data2Histogram(GraphReport):
     def PrepareForCharacterizerOutput(self):
         if self.dataObject.dimensionality != 3:
             return
-        self.name = "Histogram of " + self.dataObject.IndependentDataName2
-        self.uniqueAnchorName = "YDataHist"
-        self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        
+        self.name = 'Histogram of ' + self.dataObject.IndependentDataName2
+        self.uniqueAnchorName = 'YDataHist'
+        self.physicalFileLocation = '%s/%s%s' % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + '.png'
+        self.websiteFileLocation = '%s%s%s' % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + '.png'
+
     def CreateCharacterizerOutput(self):
         MatplotlibGraphs_2D.HistogramPlot(self.dataObject, self.physicalFileLocation, self.dataObject.IndependentDataName2, self.dataObject.IndependentDataArray[1])
-
-
 
 # enter in Graph Reports at bottom
 class DependentDataHistogram(GraphReport):
@@ -775,17 +707,15 @@ class DependentDataHistogram(GraphReport):
         if self.dataObject.dimensionality == 1:
             return
         if self.dataObject.dimensionality == 2:
-            self.uniqueAnchorName = "YDataHist"
+            self.uniqueAnchorName = 'YDataHist'
         else:
-            self.uniqueAnchorName = "ZDataHist"
-        self.name = "Histogram of " + self.dataObject.DependentDataName
-        self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        
+            self.uniqueAnchorName = 'ZDataHist'
+        self.name = 'Histogram of ' + self.dataObject.DependentDataName
+        self.physicalFileLocation = '%s/%s%s' % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + '.png'
+        self.websiteFileLocation = '%s%s%s' % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + '.png'
+
     def CreateCharacterizerOutput(self):
         MatplotlibGraphs_2D.HistogramPlot(self.dataObject, self.physicalFileLocation, self.dataObject.DependentDataName, self.dataObject.DependentDataArray)
-
-
 
 # enter in Graph Reports at bottom
 class AbsoluteErrorVsDependentData_ScatterPlot(GraphReport):
@@ -794,25 +724,23 @@ class AbsoluteErrorVsDependentData_ScatterPlot(GraphReport):
         GraphReport.__init__(self, dataObject)
 
     def PrepareForReportOutput(self):
-        self.name = "Absolute Error vs. " + self.dataObject.DependentDataName
-        self.uniqueAnchorName = "AbsErrVsDepData"
-        self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
+        self.name = 'Absolute Error vs. ' + self.dataObject.DependentDataName
+        self.uniqueAnchorName = 'AbsErrVsDepData'
+        self.physicalFileLocation = '%s/%s%s' % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + '.png'
+        self.websiteFileLocation = '%s%s%s' % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + '.png'
         if self.dataObject.dimensionality == 2:
             self.ScientificNotationXAxis = self.dataObject.ScientificNotationY
             self.logLinXAxis = self.dataObject.logLinY
         else:
             self.ScientificNotationXAxis = self.dataObject.ScientificNotationZ
             self.logLinXAxis = self.dataObject.logLinZ
-            
+
     def CreateReportOutput(self):
         MatplotlibGraphs_2D.ScatterPlot(self.dataObject, self.physicalFileLocation,
                                       self.dataObject.DependentDataName, self.dataObject.DependentDataArray,  self.ScientificNotationXAxis,
-                                      "Absolute Error",  self.dataObject.equation.modelAbsoluteError,  "AUTO",
-                                      0, "", "",
+                                      'Absolute Error',  self.dataObject.equation.modelAbsoluteError,  'AUTO',
+                                      0, '', '',
                                       'LIN', self.logLinXAxis)
-
-
 
 # enter in Graph Reports at bottom
 class AbsoluteErrorVsIndependentData1_ScatterPlot(GraphReport):
@@ -821,19 +749,17 @@ class AbsoluteErrorVsIndependentData1_ScatterPlot(GraphReport):
         GraphReport.__init__(self, dataObject)
 
     def PrepareForReportOutput(self):
-        self.name = "Absolute Error vs. " + self.dataObject.IndependentDataName1
-        self.uniqueAnchorName = "AbsErrVsIndepData1"
-        self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
+        self.name = 'Absolute Error vs. ' + self.dataObject.IndependentDataName1
+        self.uniqueAnchorName = 'AbsErrVsIndepData1'
+        self.physicalFileLocation = '%s/%s%s' % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + '.png'
+        self.websiteFileLocation = '%s%s%s' % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + '.png'
 
     def CreateReportOutput(self):
         MatplotlibGraphs_2D.ScatterPlot(self.dataObject, self.physicalFileLocation,
                                       self.dataObject.IndependentDataName1, self.dataObject.IndependentDataArray[0], self.dataObject.ScientificNotationX,
-                                      "Absolute Error", self.dataObject.equation.modelAbsoluteError, "AUTO",
-                                      0, "", "",
+                                      'Absolute Error', self.dataObject.equation.modelAbsoluteError, 'AUTO',
+                                      0, '', '',
                                       'LIN', self.dataObject.logLinX)
-
-
 
 # enter in Graph Reports at bottom
 class AbsoluteErrorVsIndependentData2_ScatterPlot(GraphReport):
@@ -844,19 +770,17 @@ class AbsoluteErrorVsIndependentData2_ScatterPlot(GraphReport):
     def PrepareForReportOutput(self):
         if self.dataObject.dimensionality == 2:
             return
-        self.name = "Absolute Error vs. " + self.dataObject.IndependentDataName2
-        self.uniqueAnchorName = "AbsErrVsIndepData2"
-        self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
+        self.name = 'Absolute Error vs. ' + self.dataObject.IndependentDataName2
+        self.uniqueAnchorName = 'AbsErrVsIndepData2'
+        self.physicalFileLocation = '%s/%s%s' % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + '.png'
+        self.websiteFileLocation = '%s%s%s' % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + '.png'
 
     def CreateReportOutput(self):
         MatplotlibGraphs_2D.ScatterPlot(self.dataObject, self.physicalFileLocation,
                                       self.dataObject.IndependentDataName2, self.dataObject.IndependentDataArray[1], self.dataObject.ScientificNotationY,
-                                      "Absolute Error", self.dataObject.equation.modelAbsoluteError, "AUTO",
-                                      0, "", "",
+                                      'Absolute Error', self.dataObject.equation.modelAbsoluteError, 'AUTO',
+                                      0, '', '',
                                       'LIN', self.dataObject.logLinY)
-
-
 
 # enter in Graph Reports at bottom
 class RelativeErrorVsDependentData_ScatterPlot(GraphReport):
@@ -868,10 +792,10 @@ class RelativeErrorVsDependentData_ScatterPlot(GraphReport):
     def PrepareForReportOutput(self):
         if self.dataObject.equation.dataCache.DependentDataContainsZeroFlag == 1:
             return
-        self.name = "Relative Error vs. " + self.dataObject.DependentDataName
-        self.uniqueAnchorName = "RelErrVsDepData"
-        self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
+        self.name = 'Relative Error vs. ' + self.dataObject.DependentDataName
+        self.uniqueAnchorName = 'RelErrVsDepData'
+        self.physicalFileLocation = '%s/%s%s' % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + '.png'
+        self.websiteFileLocation = '%s%s%s' % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + '.png'
         if self.dataObject.dimensionality == 2:
             self.ScientificNotationXAxis = self.dataObject.ScientificNotationY
             self.logLinXAxis = self.dataObject.logLinY
@@ -882,11 +806,9 @@ class RelativeErrorVsDependentData_ScatterPlot(GraphReport):
     def CreateReportOutput(self):
         MatplotlibGraphs_2D.ScatterPlot(self.dataObject, self.physicalFileLocation,
                                       self.dataObject.DependentDataName, self.dataObject.DependentDataArray, self.ScientificNotationXAxis,
-                                      "Relative Error", self.dataObject.equation.modelRelativeError, "AUTO",
-                                      0, "", "",
+                                      'Relative Error', self.dataObject.equation.modelRelativeError, 'AUTO',
+                                      0, '', '',
                                       'LIN', self.logLinXAxis)
-
-
 
 # enter in Graph Reports at bottom
 class PercentErrorVsDependentData_ScatterPlot(GraphReport):
@@ -898,10 +820,10 @@ class PercentErrorVsDependentData_ScatterPlot(GraphReport):
     def PrepareForReportOutput(self):
         if self.dataObject.equation.dataCache.DependentDataContainsZeroFlag == 1:
             return
-        self.name = "Percent Error vs. " + self.dataObject.DependentDataName
-        self.uniqueAnchorName = "PerErrVsDepData"
-        self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
+        self.name = 'Percent Error vs. ' + self.dataObject.DependentDataName
+        self.uniqueAnchorName = 'PerErrVsDepData'
+        self.physicalFileLocation = '%s/%s%s' % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + '.png'
+        self.websiteFileLocation = '%s%s%s' % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + '.png'
         if self.dataObject.dimensionality == 2:
             self.ScientificNotationXAxis = self.dataObject.ScientificNotationY
             self.logLinXAxis = self.dataObject.logLinY
@@ -912,11 +834,9 @@ class PercentErrorVsDependentData_ScatterPlot(GraphReport):
     def CreateReportOutput(self):
         MatplotlibGraphs_2D.ScatterPlot(self.dataObject, self.physicalFileLocation,
                                       self.dataObject.DependentDataName, self.dataObject.DependentDataArray, self.ScientificNotationXAxis,
-                                      "Percent Error", self.dataObject.equation.modelPercentError, "AUTO",
-                                      0, "", "",
+                                      'Percent Error', self.dataObject.equation.modelPercentError, 'AUTO',
+                                      0, '', '',
                                       'LIN', self.logLinXAxis)
-
-
 
 # enter in Graph Reports at bottom
 class RelativeErrorVsIndependentData1_ScatterPlot(GraphReport):
@@ -928,19 +848,17 @@ class RelativeErrorVsIndependentData1_ScatterPlot(GraphReport):
     def PrepareForReportOutput(self):
         if self.dataObject.equation.dataCache.DependentDataContainsZeroFlag == 1:
             return
-        self.name = "Relative Error vs. " + self.dataObject.IndependentDataName1
-        self.uniqueAnchorName = "RelErrVsIndepData1"
-        self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
+        self.name = 'Relative Error vs. ' + self.dataObject.IndependentDataName1
+        self.uniqueAnchorName = 'RelErrVsIndepData1'
+        self.physicalFileLocation = '%s/%s%s' % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + '.png'
+        self.websiteFileLocation = '%s%s%s' % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + '.png'
 
     def CreateReportOutput(self):
         MatplotlibGraphs_2D.ScatterPlot(self.dataObject, self.physicalFileLocation,
                                       self.dataObject.IndependentDataName1, self.dataObject.IndependentDataArray[0], self.dataObject.ScientificNotationX,
-                                      "Relative Error", self.dataObject.equation.modelRelativeError, "AUTO",
-                                      0, "", "",
+                                      'Relative Error', self.dataObject.equation.modelRelativeError, 'AUTO',
+                                      0, '', '',
                                       'LIN', self.dataObject.logLinX)
-
-
 
 # enter in Graph Reports at bottom
 class PercentErrorVsIndependentData1_ScatterPlot(GraphReport):
@@ -952,19 +870,17 @@ class PercentErrorVsIndependentData1_ScatterPlot(GraphReport):
     def PrepareForReportOutput(self):
         if self.dataObject.equation.dataCache.DependentDataContainsZeroFlag == 1:
             return
-        self.name = "Percent Error vs. " + self.dataObject.IndependentDataName1
-        self.uniqueAnchorName = "PerErrVsIndepData1"
-        self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
+        self.name = 'Percent Error vs. ' + self.dataObject.IndependentDataName1
+        self.uniqueAnchorName = 'PerErrVsIndepData1'
+        self.physicalFileLocation = '%s/%s%s' % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + '.png'
+        self.websiteFileLocation = '%s%s%s' % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + '.png'
 
     def CreateReportOutput(self):
         MatplotlibGraphs_2D.ScatterPlot(self.dataObject, self.physicalFileLocation,
                                       self.dataObject.IndependentDataName1, self.dataObject.IndependentDataArray[0], self.dataObject.ScientificNotationX,
-                                      "Percent Error", self.dataObject.equation.modelPercentError, "AUTO",
-                                      0, "", "",
+                                      'Percent Error', self.dataObject.equation.modelPercentError, 'AUTO',
+                                      0, '', '',
                                       'LIN', self.dataObject.logLinX)
-
-
 
 # enter in Graph Reports at bottom
 class RelativeErrorVsIndependentData2_ScatterPlot(GraphReport):
@@ -978,19 +894,17 @@ class RelativeErrorVsIndependentData2_ScatterPlot(GraphReport):
             return
         if self.dataObject.equation.dataCache.DependentDataContainsZeroFlag == 1:
             return
-        self.name = "Relative Error vs. " + self.dataObject.IndependentDataName2
-        self.uniqueAnchorName = "RelErrVsIndepData2"
-        self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
+        self.name = 'Relative Error vs. ' + self.dataObject.IndependentDataName2
+        self.uniqueAnchorName = 'RelErrVsIndepData2'
+        self.physicalFileLocation = '%s/%s%s' % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + '.png'
+        self.websiteFileLocation = '%s%s%s' % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + '.png'
 
     def CreateReportOutput(self):
         MatplotlibGraphs_2D.ScatterPlot(self.dataObject, self.physicalFileLocation,
                                       self.dataObject.IndependentDataName2, self.dataObject.IndependentDataArray[1], self.dataObject.ScientificNotationY,
-                                      "Relative Error", self.dataObject.equation.modelRelativeError, "AUTO",
-                                      0, "", "",
+                                      'Relative Error', self.dataObject.equation.modelRelativeError, 'AUTO',
+                                      0, '', '',
                                       'LIN', self.dataObject.logLinY)
-
-
 
 # enter in Graph Reports at bottom
 class PercentErrorVsIndependentData2_ScatterPlot(GraphReport):
@@ -1004,19 +918,17 @@ class PercentErrorVsIndependentData2_ScatterPlot(GraphReport):
             return
         if self.dataObject.equation.dataCache.DependentDataContainsZeroFlag == 1:
             return
-        self.name = "Percent Error vs. " + self.dataObject.IndependentDataName2
-        self.uniqueAnchorName = "PerErrVsIndepData2"
-        self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
+        self.name = 'Percent Error vs. ' + self.dataObject.IndependentDataName2
+        self.uniqueAnchorName = 'PerErrVsIndepData2'
+        self.physicalFileLocation = '%s/%s%s' % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + '.png'
+        self.websiteFileLocation = '%s%s%s' % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + '.png'
 
     def CreateReportOutput(self):
         MatplotlibGraphs_2D.ScatterPlot(self.dataObject, self.physicalFileLocation,
                                       self.dataObject.IndependentDataName2, self.dataObject.IndependentDataArray[1], self.dataObject.ScientificNotationY,
-                                      "Percent Error", self.dataObject.equation.modelPercentError, "AUTO",
-                                      0, "", "",
+                                      'Percent Error', self.dataObject.equation.modelPercentError, 'AUTO',
+                                      0, '', '',
                                       'LIN', self.dataObject.logLinY)
-
-
 
 # enter in Graph Reports at bottom
 class DependentDataVsIndependentData1_ScatterPlot(GraphReport):
@@ -1029,10 +941,10 @@ class DependentDataVsIndependentData1_ScatterPlot(GraphReport):
     def PrepareForCharacterizerOutput(self):
         if self.dataObject.dimensionality == 1:
             return
-        self.name = self.dataObject.DependentDataName + " vs. " + self.dataObject.IndependentDataName1
-        self.uniqueAnchorName = "DepDataVsIndepData1"
-        self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
+        self.name = self.dataObject.DependentDataName + ' vs. ' + self.dataObject.IndependentDataName1
+        self.uniqueAnchorName = 'DepDataVsIndepData1'
+        self.physicalFileLocation = '%s/%s%s' % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + '.png'
+        self.websiteFileLocation = '%s%s%s' % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + '.png'
         if self.dataObject.dimensionality == 2:
             self.YorZ = 'Y'
             self.ScientificNotationXAxis = self.dataObject.ScientificNotationY
@@ -1049,7 +961,6 @@ class DependentDataVsIndependentData1_ScatterPlot(GraphReport):
                                       1, 'X', self.YorZ,
                                       self.logLinYAxis, self.dataObject.logLinX)
 
-
 # enter in Graph Reports at bottom
 class DependentDataVsIndependentData1_ModelPlot(GraphReport):
 
@@ -1059,15 +970,15 @@ class DependentDataVsIndependentData1_ModelPlot(GraphReport):
         self.DataGraph = 1
 
     def PrepareForReportOutput(self):
-        
-        self.name = self.dataObject.DependentDataName + " vs. " + self.dataObject.IndependentDataName1
+
+        self.name = self.dataObject.DependentDataName + ' vs. ' + self.dataObject.IndependentDataName1
         if self.dataObject.dimensionality == 2:
             self.name += ' with model'
         else:
             self.name = ''
-        self.uniqueAnchorName = "DepDataVsIndepData1_modelplot"
-        self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
+        self.uniqueAnchorName = 'DepDataVsIndepData1_modelplot'
+        self.physicalFileLocation = '%s/%s%s' % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + '.png'
+        self.websiteFileLocation = '%s%s%s' % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + '.png'
         if self.dataObject.dimensionality == 2:
             self.YorZ = 'Y'
             self.ScientificNotationXAxis = self.dataObject.ScientificNotationY
@@ -1085,7 +996,6 @@ class DependentDataVsIndependentData1_ModelPlot(GraphReport):
                                           self.logLinYAxis, self.dataObject.logLinX,
                                           False)
 
-
 # enter in Graph Reports at bottom
 class DependentDataVsIndependentData1_ConfidenceIntervals(GraphReport):
 
@@ -1095,14 +1005,14 @@ class DependentDataVsIndependentData1_ConfidenceIntervals(GraphReport):
         self.DataGraph = 1
 
     def PrepareForReportOutput(self):
-        self.name = self.dataObject.DependentDataName + " vs. " + self.dataObject.IndependentDataName1
+        self.name = self.dataObject.DependentDataName + ' vs. ' + self.dataObject.IndependentDataName1
         if self.dataObject.dimensionality == 2:
             self.name += ' with 95% confidence intervals'
         else:
             self.name = ''
-        self.uniqueAnchorName = "DepDataVsIndepData1_ci"
-        self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
+        self.uniqueAnchorName = 'DepDataVsIndepData1_ci'
+        self.physicalFileLocation = '%s/%s%s' % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + '.png'
+        self.websiteFileLocation = '%s%s%s' % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + '.png'
         if self.dataObject.dimensionality == 2:
             self.YorZ = 'Y'
             self.ScientificNotationXAxis = self.dataObject.ScientificNotationY
@@ -1120,7 +1030,6 @@ class DependentDataVsIndependentData1_ConfidenceIntervals(GraphReport):
                                           self.logLinYAxis, self.dataObject.logLinX,
                                           True)
 
-
 # enter in Graph Reports at bottom
 class DependentDataVsIndependentData2_ScatterPlot(GraphReport):
 
@@ -1132,18 +1041,17 @@ class DependentDataVsIndependentData2_ScatterPlot(GraphReport):
     def PrepareForCharacterizerOutput(self):
         if self.dataObject.dimensionality != 3:
             return
-        self.name = self.dataObject.DependentDataName + " vs. " + self.dataObject.IndependentDataName2
-        self.uniqueAnchorName = "DepDataVsIndepData2"
-        self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
+        self.name = self.dataObject.DependentDataName + ' vs. ' + self.dataObject.IndependentDataName2
+        self.uniqueAnchorName = 'DepDataVsIndepData2'
+        self.physicalFileLocation = '%s/%s%s' % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + '.png'
+        self.websiteFileLocation = '%s%s%s' % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + '.png'
 
     def CreateCharacterizerOutput(self):
         MatplotlibGraphs_2D.ScatterPlot(self.dataObject, self.physicalFileLocation,
                                       self.dataObject.IndependentDataName2, self.dataObject.IndependentDataArray[1], self.dataObject.ScientificNotationY,
                                       self.dataObject.DependentDataName, self.dataObject.DependentDataArray, self.dataObject.ScientificNotationZ,
-                                      1, "Y", "Z",
+                                      1, 'Y', 'Z',
                                       self.dataObject.logLinZ, self.dataObject.logLinY)
-
 
 # enter in Graph Reports at bottom
 class IndependentData1VsDependentData_ScatterPlot(GraphReport):
@@ -1156,16 +1064,16 @@ class IndependentData1VsDependentData_ScatterPlot(GraphReport):
     def PrepareForCharacterizerOutput(self):
         if self.dataObject.dimensionality == 1:
             return
-        self.name = self.dataObject.IndependentDataName1 + " vs. " + self.dataObject.DependentDataName
-        self.uniqueAnchorName = "IndepData1VsDepData"
-        self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
+        self.name = self.dataObject.IndependentDataName1 + ' vs. ' + self.dataObject.DependentDataName
+        self.uniqueAnchorName = 'IndepData1VsDepData'
+        self.physicalFileLocation = '%s/%s%s' % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + '.png'
+        self.websiteFileLocation = '%s%s%s' % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + '.png'
         if self.dataObject.dimensionality == 2:
-            self.YorZ = "Y"
+            self.YorZ = 'Y'
             self.ScientificNotationXAxis = self.dataObject.ScientificNotationY
             self.logLinXAxis = self.dataObject.logLinY
         else:
-            self.YorZ = "Z"
+            self.YorZ = 'Z'
             self.ScientificNotationXAxis = self.dataObject.ScientificNotationZ
             self.logLinXAxis = self.dataObject.logLinZ
 
@@ -1173,9 +1081,8 @@ class IndependentData1VsDependentData_ScatterPlot(GraphReport):
         MatplotlibGraphs_2D.ScatterPlot(self.dataObject, self.physicalFileLocation,
                                       self.dataObject.DependentDataName, self.dataObject.DependentDataArray, self.ScientificNotationXAxis,
                                       self.dataObject.IndependentDataName1, self.dataObject.IndependentDataArray[0], self.dataObject.ScientificNotationX,
-                                      1, self.YorZ, "X",
+                                      1, self.YorZ, 'X',
                                       self.dataObject.logLinX, self.logLinXAxis)
-
 
 # enter in Graph Reports at bottom
 class IndependentData1VsIndependentData2_ScatterPlot(GraphReport):
@@ -1188,18 +1095,17 @@ class IndependentData1VsIndependentData2_ScatterPlot(GraphReport):
     def PrepareForCharacterizerOutput(self):
         if self.dataObject.dimensionality != 3:
             return
-        self.name = self.dataObject.IndependentDataName1 + " vs. "  + self.dataObject.IndependentDataName2
-        self.uniqueAnchorName = "IndepData1VsIndepData2"
-        self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
+        self.name = self.dataObject.IndependentDataName1 + ' vs. ' + self.dataObject.IndependentDataName2
+        self.uniqueAnchorName = 'IndepData1VsIndepData2'
+        self.physicalFileLocation = '%s/%s%s' % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + '.png'
+        self.websiteFileLocation = '%s%s%s' % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + '.png'
 
     def CreateCharacterizerOutput(self):
         MatplotlibGraphs_2D.ScatterPlot(self.dataObject, self.physicalFileLocation,
                                       self.dataObject.IndependentDataName2, self.dataObject.IndependentDataArray[1], self.dataObject.ScientificNotationY,
                                       self.dataObject.IndependentDataName1, self.dataObject.IndependentDataArray[0], self.dataObject.ScientificNotationX,
-                                      1, "Y", "X",
+                                      1, 'Y', 'X',
                                       self.dataObject.logLinX, self.dataObject.logLinY)
-
 
 # enter in Graph Reports at bottom
 class IndependentData2VsDependentData_ScatterPlot(GraphReport):
@@ -1212,18 +1118,17 @@ class IndependentData2VsDependentData_ScatterPlot(GraphReport):
     def PrepareForCharacterizerOutput(self):
         if self.dataObject.dimensionality != 3:
             return
-        self.name = self.dataObject.IndependentDataName2 + " vs. "  + self.dataObject.DependentDataName
-        self.uniqueAnchorName = "IndepData2VsDepData"
-        self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
+        self.name = self.dataObject.IndependentDataName2 + ' vs. ' + self.dataObject.DependentDataName
+        self.uniqueAnchorName = 'IndepData2VsDepData'
+        self.physicalFileLocation = '%s/%s%s' % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + '.png'
+        self.websiteFileLocation = '%s%s%s' % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + '.png'
 
     def CreateCharacterizerOutput(self):
         MatplotlibGraphs_2D.ScatterPlot(self.dataObject, self.physicalFileLocation,
                                       self.dataObject.DependentDataName, self.dataObject.DependentDataArray, self.dataObject.ScientificNotationZ,
                                       self.dataObject.IndependentDataName2, self.dataObject.IndependentDataArray[1], self.dataObject.ScientificNotationY,
-                                      1, "Z", "Y",
+                                      1, 'Z', 'Y',
                                       self.dataObject.logLinY, self.dataObject.logLinZ)
-
 
 # enter in Graph Reports at bottom
 class IndependentData2VsIndependentData1_ScatterPlot(GraphReport):
@@ -1236,18 +1141,17 @@ class IndependentData2VsIndependentData1_ScatterPlot(GraphReport):
     def PrepareForCharacterizerOutput(self):
         if self.dataObject.dimensionality != 3:
             return
-        self.name = self.dataObject.IndependentDataName2 + " vs. "  + self.dataObject.IndependentDataName1
-        self.uniqueAnchorName = "IndepData2VsIndepData1"
-        self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
+        self.name = self.dataObject.IndependentDataName2 + ' vs. ' + self.dataObject.IndependentDataName1
+        self.uniqueAnchorName = 'IndepData2VsIndepData1'
+        self.physicalFileLocation = '%s/%s%s' % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + '.png'
+        self.websiteFileLocation = '%s%s%s' % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + '.png'
 
     def CreateCharacterizerOutput(self):
         MatplotlibGraphs_2D.ScatterPlot(self.dataObject, self.physicalFileLocation,
                                       self.dataObject.IndependentDataName1, self.dataObject.IndependentDataArray[0], self.dataObject.ScientificNotationX,
                                       self.dataObject.IndependentDataName2, self.dataObject.IndependentDataArray[1], self.dataObject.ScientificNotationY,
-                                      1, "X", "Y",
+                                      1, 'X', 'Y',
                                       self.dataObject.logLinY, self.dataObject.logLinX)
-
 
 # enter in Graph Reports at bottom
 class AbsErrScatterPlot3D(GraphReport):
@@ -1255,26 +1159,23 @@ class AbsErrScatterPlot3D(GraphReport):
     def __init__(self, dataObject):
         GraphReport.__init__(self, dataObject)
 
-
     def PrepareForCharacterizerOutput(self):
         if self.dataObject.dimensionality != 3:
             return
-        self.name = "Absolute Error Scatter Plot"
-        self.uniqueAnchorName = "AbsErrScatterPlot3D"
+        self.name = 'Absolute Error Scatter Plot'
+        self.uniqueAnchorName = 'AbsErrScatterPlot3D'
         self.dataObject.ScientificNotationZ = 'AUTO'
-        self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        
+        self.physicalFileLocation = '%s/%s%s' % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + '.png'
+        self.websiteFileLocation = '%s%s%s' % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + '.png'
+
     def CreateCharacterizerOutput(self):
-        self.dataObject.DependentDataName = "Absolute Error"
+        self.dataObject.DependentDataName = 'Absolute Error'
         self.dataObject.DependentDataArray = self.dataObject.equation.modelAbsoluteError
         self.dataObject.CalculateDataStatistics()
         self.Extrapolation_z = 0.05
         self.dataObject.CalculateGraphBoundaries()
         from . import MatplotlibGraphs_3D
         MatplotlibGraphs_3D.ScatterPlot3D(self.dataObject, self.physicalFileLocation)
-
-
 
 # enter in Graph Reports at bottom
 class RelErrScatterPlot3D(GraphReport):
@@ -1283,28 +1184,26 @@ class RelErrScatterPlot3D(GraphReport):
         GraphReport.__init__(self, dataObject)
         self.RequiresRelativeError = 1
 
-
     def PrepareForCharacterizerOutput(self):
         if self.dataObject.dimensionality != 3:
             return
         if self.dataObject.equation.dataCache.DependentDataContainsZeroFlag == 1:
-            self.name= ""
+            self.name= ''
             return
-        self.name = "Relative Error Scatter Plot"
-        self.uniqueAnchorName = "RelErrScatterPlot3D"
+        self.name = 'Relative Error Scatter Plot'
+        self.uniqueAnchorName = 'RelErrScatterPlot3D'
         self.dataObject.ScientificNotationZ = 'AUTO'
-        self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        
+        self.physicalFileLocation = '%s/%s%s' % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + '.png'
+        self.websiteFileLocation = '%s%s%s' % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + '.png'
+
     def CreateCharacterizerOutput(self):
-        self.dataObject.DependentDataName = "Relative Error"
+        self.dataObject.DependentDataName = 'Relative Error'
         self.dataObject.DependentDataArray = self.dataObject.equation.modelRelativeError
         self.dataObject.CalculateDataStatistics()
         self.Extrapolation_z = 0.05
         self.dataObject.CalculateGraphBoundaries()
         from . import MatplotlibGraphs_3D
         MatplotlibGraphs_3D.ScatterPlot3D(self.dataObject, self.physicalFileLocation)
-
 
 # enter in Graph Reports at bottom
 class PerErrScatterPlot3D(GraphReport):
@@ -1317,23 +1216,22 @@ class PerErrScatterPlot3D(GraphReport):
         if self.dataObject.dimensionality != 3:
             return
         if self.dataObject.equation.dataCache.DependentDataContainsZeroFlag == 1:
-            self.name= ""
+            self.name= ''
             return
-        self.name = "Percent Error Scatter Plot"
-        self.uniqueAnchorName = "PerErrScatterPlot3D"
+        self.name = 'Percent Error Scatter Plot'
+        self.uniqueAnchorName = 'PerErrScatterPlot3D'
         self.dataObject.ScientificNotationZ = 'AUTO'
-        self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        
+        self.physicalFileLocation = '%s/%s%s' % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + '.png'
+        self.websiteFileLocation = '%s%s%s' % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + '.png'
+
     def CreateCharacterizerOutput(self):
-        self.dataObject.DependentDataName = "Percent Error"
+        self.dataObject.DependentDataName = 'Percent Error'
         self.dataObject.DependentDataArray = self.dataObject.equation.modelPercentError
         self.dataObject.CalculateDataStatistics()
         self.Extrapolation_z = 0.05
         self.dataObject.CalculateGraphBoundaries()
         from . import MatplotlibGraphs_3D
         MatplotlibGraphs_3D.ScatterPlot3D(self.dataObject, self.physicalFileLocation)
-
 
 # enter in Graph Reports at bottom
 class ScatterPlot3D(GraphReport):
@@ -1346,16 +1244,14 @@ class ScatterPlot3D(GraphReport):
     def PrepareForCharacterizerOutput(self):
         if self.dataObject.dimensionality != 3:
             return
-        self.name = "Scatter Plot"
-        self.uniqueAnchorName = "ScatterPlot3D"
-        self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        
+        self.name = 'Scatter Plot'
+        self.uniqueAnchorName = 'ScatterPlot3D'
+        self.physicalFileLocation = '%s/%s%s' % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + '.png'
+        self.websiteFileLocation = '%s%s%s' % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + '.png'
+
     def CreateCharacterizerOutput(self):
         from . import MatplotlibGraphs_3D
         MatplotlibGraphs_3D.ScatterPlot3D(self.dataObject, self.physicalFileLocation)
-
-
 
 # enter in Graph Reports at bottom
 class SurfacePlot(GraphReport):
@@ -1367,16 +1263,14 @@ class SurfacePlot(GraphReport):
     def PrepareForReportOutput(self):
         if self.dataObject.dimensionality == 2:
             return
-        self.name = "Surface Plot"
-        self.uniqueAnchorName = "SurfacePlot"
-        self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        
+        self.name = 'Surface Plot'
+        self.uniqueAnchorName = 'SurfacePlot'
+        self.physicalFileLocation = '%s/%s%s' % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + '.png'
+        self.websiteFileLocation = '%s%s%s' % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + '.png'
+
     def CreateReportOutput(self):
         from . import MatplotlibGraphs_3D
         MatplotlibGraphs_3D.SurfacePlot(self.dataObject, self.physicalFileLocation)
-
-
 
 # enter in Graph Reports at bottom
 class ContourPlot(GraphReport):
@@ -1388,14 +1282,13 @@ class ContourPlot(GraphReport):
     def PrepareForReportOutput(self):
         if self.dataObject.dimensionality == 2:
             return
-        self.name = "Contour Plot"
-        self.uniqueAnchorName = "ContourPlot"
-        self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        
+        self.name = 'Contour Plot'
+        self.uniqueAnchorName = 'ContourPlot'
+        self.physicalFileLocation = '%s/%s%s' % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + '.png'
+        self.websiteFileLocation = '%s%s%s' % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + '.png'
+
     def CreateReportOutput(self):
         MatplotlibGraphs_2D.ContourPlot(self.dataObject, self.physicalFileLocation)
-
 
 # enter in Graph Reports at bottom
 class StatisticalDistributionHistogram(GraphReport):
@@ -1405,9 +1298,8 @@ class StatisticalDistributionHistogram(GraphReport):
         self.HistogramFlag = 1
         self.distributionIndex = distributionIndex
 
-
     def PrepareForCharacterizerOutput(self):
-        self.name= ""
+        self.name= ''
 
         self.numberOfFittedDistributions = len(self.dataObject.fittedStatisticalDistributionsList)
         if self.numberOfFittedDistributions <= self.distributionIndex:
@@ -1422,50 +1314,47 @@ class StatisticalDistributionHistogram(GraphReport):
 
         self.stringList.append('<br>')
 
-        self.stringList.append("Fit Statistics for " + str(len(self.dataObject.IndependentDataArray[0])) + " data points:<br>")
-        self.stringList.append('&nbsp;&nbsp;&nbsp;&nbsp;' + "Negative Two Log Likelihood = %-.16E<br>" % (2.0 * i[1]['nnlf']))
+        self.stringList.append('Fit Statistics for ' + str(len(self.dataObject.IndependentDataArray[0])) + ' data points:<br>')
+        self.stringList.append('&nbsp;   ' + 'Negative Two Log Likelihood = %-.16E<br>' % (2.0 * i[1]['nnlf']))
         if numpy.isfinite(i[1]['AIC']):
-            self.stringList.append('&nbsp;&nbsp;&nbsp;&nbsp;' + "AIC = %-.16E<br>" % (i[1]['AIC']))
+            self.stringList.append('&nbsp;   ' + 'AIC = %-.16E<br>' % (i[1]['AIC']))
         else:
-            self.stringList.append('&nbsp;&nbsp;&nbsp;&nbsp;' + "AIC = N/A<br>")
+            self.stringList.append('&nbsp;   ' + 'AIC = N/A<br>')
         if numpy.isfinite(i[1]['AICc_BA']):
-            self.stringList.append('&nbsp;&nbsp;&nbsp;&nbsp;' + "AICc (Burnham and Anderson) = %-.16E<br>" % (i[1]['AICc_BA']))
+            self.stringList.append('&nbsp;   ' + 'AICc (Burnham and Anderson) = %-.16E<br>' % (i[1]['AICc_BA']))
         else:
-            self.stringList.append('&nbsp;&nbsp;&nbsp;&nbsp;' + "AICc (Burnham and Anderson) = N/A<br>")
-        
+            self.stringList.append('&nbsp;   ' + 'AICc (Burnham and Anderson) = N/A<br>')
+
         self.stringList.append('<br><br>')
-        
+
         self.stringList.append('Parameters:<BR>')
         for parmIndex in range(len(i[1]['parameterNames'])):
-            self.stringList.append('&nbsp;&nbsp;&nbsp;&nbsp;' + i[1]['parameterNames'][parmIndex] + ' = %-.16E' % (i[1]['fittedParameters'][parmIndex]) + "<BR>")
-            
+            self.stringList.append('&nbsp;   ' + i[1]['parameterNames'][parmIndex] + ' = %-.16E' % (i[1]['fittedParameters'][parmIndex]))
+
         self.stringList.append('<br>')
 
         self.stringList.append('Additional Information:')
         for infoString in i[1]['additionalInfo']:
-            self.stringList.append(infoString.replace(' ', '&nbsp;') + '<BR>')
-            
+            self.stringList.append(infoString.replace(' ', '&nbsp;'))
+
         self.stringList.append('</td></tr></table><pre>')
 
-        self.name = "Rank " + str(self.distributionIndex + 1) + ": " + i[1]['distributionLongName']
-        self.uniqueAnchorName = "XStatDistHist_" + str(self.distributionIndex)
+        self.name = 'Rank ' + str(self.distributionIndex + 1) + ': ' + i[1]['distributionLongName']
+        self.uniqueAnchorName = 'XStatDistHist_' + str(self.distributionIndex)
 
-        self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
-        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".png"
- 
-        
+        self.physicalFileLocation = '%s/%s%s' % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + '.png'
+        self.websiteFileLocation = '%s%s%s' % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + '.png'
+
     def CreateCharacterizerOutput(self):
         self.dataObject.distributionIndex = self.distributionIndex
-        
+
         distro = self.dataObject.fittedStatisticalDistributionsList[self.distributionIndex][1]
-        
+
         MatplotlibGraphs_2D.HistogramPlot(self.dataObject,
                                        self.physicalFileLocation,
-                                       distro['distributionLongName'] + " distribution",
+                                       distro['distributionLongName'] + ' distribution',
                                        self.dataObject.IndependentDataArray[0],
                                        1)
-
-
 
 # enter in Graph Reports at bottom
 class ScatterAnimation(GraphReport):
@@ -1475,22 +1364,20 @@ class ScatterAnimation(GraphReport):
         self.StatisticsGraph = 0
         self.animationFlag = 1
         self.DataGraph = 1
-        
+
         # used in creating individual animation frames on clusters
         self.functionString = 'MatplotlibGraphs_3D.ScatterPlot3D'
-
 
     def PrepareForCharacterizerOutput(self):
         if self.dataObject.dimensionality == 2:
             return
         if self.dataObject.animationHeight == 0:
             return
-        
-        self.name = "GIF Scatter Animation"
-        self.uniqueAnchorName = "ScatterAnimation"
-        self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + ".gif"
-        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + ".gif"
-            
+
+        self.name = 'GIF Scatter Animation'
+        self.uniqueAnchorName = 'ScatterAnimation'
+        self.physicalFileLocation = '%s/%s%s' % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + '.gif'
+        self.websiteFileLocation = '%s%s%s' % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + '.gif'
 
     def CreateCharacterizerOutput(self):
         from . import MatplotlibGraphs_3D
@@ -1519,8 +1406,6 @@ class ScatterAnimation(GraphReport):
             logging.basicConfig(filename = os.path.join(settings.TEMP_FILES_DIR, str(os.getpid()) + '.log'), level=logging.DEBUG)
             logging.exception('Exception creating GIF animation')
 
-
-
 # enter in Graph Reports at bottom
 class SurfaceAnimation(GraphReport):
 
@@ -1528,22 +1413,20 @@ class SurfaceAnimation(GraphReport):
         GraphReport.__init__(self, dataObject)
         self.StatisticsGraph = 0
         self.animationFlag = 1
-        
+
         # used in creating individual animation frames on clusters
         self.functionString = 'MatplotlibGraphs_3D.SurfacePlot'
-
 
     def PrepareForReportOutput(self):
         if self.dataObject.dimensionality == 2:
             return
         if self.dataObject.animationHeight == 0:
             return
-        
-        self.name = "GIF Surface Animation"
-        self.uniqueAnchorName = "SurfaceAnimation"
-        self.physicalFileLocation = "%s/%s%s" % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".gif"
-        self.websiteFileLocation = "%s%s%s" % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + ".gif"
 
+        self.name = 'GIF Surface Animation'
+        self.uniqueAnchorName = 'SurfaceAnimation'
+        self.physicalFileLocation = '%s/%s%s' % (settings.TEMP_FILES_DIR, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + '.gif'
+        self.websiteFileLocation = '%s%s%s' % (settings.MEDIA_URL, self.uniqueAnchorName, self.dataObject.uniqueString) + self.GetRankString() + '.gif'
 
     def CreateReportOutput(self):
         try:
@@ -1572,12 +1455,10 @@ class SurfaceAnimation(GraphReport):
             logging.basicConfig(filename = os.path.join(settings.TEMP_FILES_DIR, str(os.getpid()) + '.log'), level=logging.DEBUG)
             logging.exception('Exception creating GIF animation')
 
-
-
 def StatisticalDistributionReportsDict(dataObject):
-    return {"Text Reports" : [CharacterizerStatisticsListing(dataObject),
+    return {'Text Reports' : [CharacterizerStatisticsListing(dataObject),
                               StatisticalDistributions(dataObject)],
-            "Graph Reports" : [Data1Histogram(dataObject),
+            'Graph Reports' : [Data1Histogram(dataObject),
                                StatisticalDistributionHistogram(dataObject,  0),
                                StatisticalDistributionHistogram(dataObject,  1),
                                StatisticalDistributionHistogram(dataObject,  2),
@@ -1681,8 +1562,8 @@ def StatisticalDistributionReportsDict(dataObject):
             }
 
 def CharacterizerReportsDict(dataObject):
-    return {"Text Reports" : [CharacterizerStatisticsListing(dataObject)],
-            "Graph Reports" : [Data1Histogram(dataObject),
+    return {'Text Reports' : [CharacterizerStatisticsListing(dataObject)],
+            'Graph Reports' : [Data1Histogram(dataObject),
                                Data2Histogram(dataObject),
                                DependentDataHistogram(dataObject),
                                DependentDataVsIndependentData1_ScatterPlot(dataObject),
@@ -1697,7 +1578,7 @@ def CharacterizerReportsDict(dataObject):
             }
 
 def FittingReportsDict(dataObject):
-    return {"Text Reports" : [UserDefinedFunctionText(dataObject),
+    return {'Text Reports' : [UserDefinedFunctionText(dataObject),
                               CoefficientListing(dataObject),
                               CoefficientAndFitStatistics(dataObject),
                               ErrorListing(dataObject),
@@ -1713,7 +1594,7 @@ def FittingReportsDict(dataObject):
                               CodeReportSCILAB(dataObject),
                               CodeReportMATLAB(dataObject),
                               CodeReportVBA(dataObject)],
-            "Graph Reports" : [Data1Histogram(dataObject),
+            'Graph Reports' : [Data1Histogram(dataObject),
                                Data2Histogram(dataObject),
                                DependentDataHistogram(dataObject),
                                AbsoluteErrorHistogram(dataObject),

@@ -4,13 +4,13 @@ from bs4 import BeautifulSoup # don't need everything, it has several components
 import settings
 from django import db
 from django.db import close_old_connections
-from django.contrib.sessions.backends.db import SessionStore
+from django.contrib.sessions.backends.db import SessionStore # pyright: ignore[reportUnusedImport]
 from django.template.loader import render_to_string
 
 import reportlab
 import reportlab.platypus
 from reportlab.pdfgen import canvas
-from reportlab.lib.units import mm
+from reportlab.lib.units import inch
 import reportlab.lib.pagesizes
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
@@ -125,9 +125,9 @@ class NumberedCanvas(canvas.Canvas):
         canvas.Canvas.save(self)
 
     def draw_page_number(self, page_count):
-        self.setFont("Helvetica", 7)
-        self.drawRightString(200*mm, 20*mm, "Page %d of %d" % (self._pageNumber, page_count))
-        self.drawCentredString(25*mm, 20*mm, 'https://github.com/kiloscheffer/zunzun-ng')
+        self.setFontSize(7)
+        self.drawString(1*inch, 1*inch, 'https://github.com/kiloscheffer/zunzun-ng')
+        self.drawRightString((8.5 - 1)*inch, 1*inch, "Page %d of %d" % (self._pageNumber, page_count))
 
 class StatusMonitoredLongRunningProcessPage(object):
 
@@ -240,11 +240,8 @@ You must provide any weights you wish to use.
     def CreateReportPDF(self):
         pid_trace.pid_trace()
 
-        specialExceptionFileText = 'Entered CreateReportPDF'
         self.SaveDictionaryOfItemsToSessionStore('status', {'currentStatus':"Creating PDF Output File"})
         try:
-            specialExceptionFileText = 'Top of function'
-
             scale = 72.0 / 300.0 # dpi conversion factor for PDF file images
 
             self.pdfFileName = self.dataObject.uniqueString + ".pdf"
@@ -253,12 +250,14 @@ You must provide any weights you wish to use.
             styles = reportlab.lib.styles.getSampleStyleSheet()
 
             styles.add(reportlab.lib.styles.ParagraphStyle(name='CenteredBodyText', parent=styles['BodyText'], alignment=reportlab.lib.enums.TA_CENTER))
-            styles.add(reportlab.lib.styles.ParagraphStyle(name='SmallCode', parent=styles['Code'], fontSize=6, alignment=reportlab.lib.enums.TA_LEFT)) # 'Code' and wordwrap=CJK causes problems
+            styles.add(reportlab.lib.styles.ParagraphStyle(name='SmallCenteredBodyText', parent=styles['BodyText'], fontSize=8, alignment=reportlab.lib.enums.TA_CENTER))
+            styles.add(reportlab.lib.styles.ParagraphStyle(name='SmallCode', parent=styles['Code'], fontSize=8, alignment=reportlab.lib.enums.TA_LEFT, leftIndent=0)) # 'Code' and wordwrap=CJK causes problems
 
-            myTableStyle = [('ALIGN', (1,1), (-1,-1), 'CENTER'),
-                            ('VALIGN', (1,1), (-1,-1), 'MIDDLE')]
+            myTableStyle = [ ('FACE', (1, 0), (1, 0), 'Helvetica-Bold'),
+                             ('SIZE', (1, 0), (1, 0), 22),
+                             ('VALIGN', (1, 0), (1, 0), 'TOP') ]
 
-            largeLogoImage = reportlab.platypus.Image(os.path.join(settings.STATIC_FILES_DIR, 'logo.png'), 25 * scale * 3, 25 * scale * 3)
+            largeLogoImage = reportlab.platypus.Image(os.path.join(settings.STATIC_FILES_DIR, 'logo.png'), 37 * scale * 3, 37 * scale * 3)
 
             tableRow = [largeLogoImage,
                         'ZunZunNG',
@@ -268,26 +267,24 @@ You must provide any weights you wish to use.
 
             pageElements.append(table)
 
-            pageElements.append(reportlab.platypus.XPreformatted('<br/><br/><br/><br/>', styles['CenteredBodyText']))
+            pageElements.append(reportlab.platypus.XPreformatted('&nbsp;\n&nbsp;\n&nbsp;\n&nbsp;\n', styles['CenteredBodyText']))
 
             if self.inEquationName:
                 pageElements.append(reportlab.platypus.Paragraph(self.inEquationName, styles['CenteredBodyText']))
-            pageElements.append(reportlab.platypus.XPreformatted('<br/><br/>', styles['CenteredBodyText']))
 
             titleXML = self.pdfTitleHTML.replace('sup>', 'super>').replace('SUP>', 'super>').replace('<br>', '<br/>').replace('<BR>', '<br/>')
             pageElements.append(reportlab.platypus.Paragraph(titleXML, styles['CenteredBodyText']))
 
-            pageElements.append(reportlab.platypus.XPreformatted('<br/><br/>', styles['CenteredBodyText']))
-            pageElements.append(reportlab.platypus.Paragraph(time.asctime(time.localtime()) + ' local server time', styles['CenteredBodyText']))
+            pageElements.append(reportlab.platypus.XPreformatted('&nbsp;\n&nbsp;\n', styles['CenteredBodyText']))
+            pageElements.append(reportlab.platypus.Paragraph(time.asctime(time.localtime()) + ' local server time', styles['SmallCenteredBodyText']))
 
             pageElements.append(reportlab.platypus.PageBreak())
 
             # make a page for each report output, with report name as page header
             # graphs may not exist if they raised an exception at creation time, trap and handle this condition
             for report in self.textReports:
-                specialExceptionFileText = report.name
                 pageElements.append(reportlab.platypus.Preformatted(report.name, styles['SmallCode']))
-                pageElements.append(reportlab.platypus.XPreformatted('<br/><br/><br/>', styles['CenteredBodyText']))
+                pageElements.append(reportlab.platypus.XPreformatted('&nbsp;\n&nbsp;\n&nbsp;\n', styles['SmallCode']))
 
                 if report.stringList[0] == '</pre>': # corrects fit statistics not in PDF
                     report.stringList = report.stringList[1:]
@@ -359,9 +356,8 @@ You must provide any weights you wish to use.
                 if report.animationFlag: # pdf files cannot contain GIF animations
                     continue
                 if os.path.isfile(report.physicalFileLocation):
-                    specialExceptionFileText = report.name
                     pageElements.append(reportlab.platypus.Paragraph(report.name, styles['CenteredBodyText']))
-                    pageElements.append(reportlab.platypus.XPreformatted('<br/><br/>', styles['CenteredBodyText']))
+                    pageElements.append(reportlab.platypus.XPreformatted('&nbsp;\n&nbsp;\n', styles['CenteredBodyText']))
                     try:
                         im = reportlab.platypus.Image(report.physicalFileLocation, self.dataObject.graphWidth * scale, self.dataObject.graphHeight * scale)
                     except:
@@ -371,22 +367,19 @@ You must provide any weights you wish to use.
                     pageElements.append(im)
                     if report.stringList != []:
                         pageElements.append(reportlab.platypus.Preformatted(report.name, styles['SmallCode']))
-                        pageElements.append(reportlab.platypus.XPreformatted('<br/><br/><br/>', styles['CenteredBodyText']))
+                        pageElements.append(reportlab.platypus.XPreformatted('&nbsp;\n&nbsp;\n&nbsp;\n', styles['CenteredBodyText']))
                         for line in report.stringList:
-                            replacedLine = line.replace('<br>', '<br/>').replace('<BR>', '<br/>').replace('<pre>', '').replace('</pre>', '').replace('<tr>', '').replace('</tr>', '').replace('<td>', '').replace('</td>', '').replace('sup>', 'super>').replace('SUP>', 'super>').replace('\r\n', '\n').replace('\n', '<br/>').replace('&nbsp;', ' ')
+                            replacedLine = line.replace('<br>', '\n').replace('<BR>', '\n').replace('<pre>', '').replace('</pre>', '').replace('<tr>', '').replace('</tr>', '').replace('<td>', '').replace('</td>', '').replace('sup>', 'super>').replace('SUP>', 'super>').replace('\r\n', '\n').replace('&nbsp;', ' ')
                             pageElements.append(reportlab.platypus.XPreformatted(replacedLine, styles['SmallCode']))
 
                 pageElements.append(reportlab.platypus.PageBreak())
 
-            specialExceptionFileText = 'calling doc.build(pageElements) 0'
             try:
                 doc = reportlab.platypus.SimpleDocTemplate(os.path.join(settings.TEMP_FILES_DIR, self.pdfFileName), pagesize=reportlab.lib.pagesizes.letter)
-                specialExceptionFileText = 'calling doc.build(pageElements) 1'
                 doc.build(pageElements, canvasmaker=NumberedCanvas)
             except:
                 time.sleep(1.0)
                 doc = reportlab.platypus.SimpleDocTemplate(os.path.join(settings.TEMP_FILES_DIR, self.pdfFileName), pagesize=reportlab.lib.pagesizes.letter)
-                specialExceptionFileText = 'calling doc.build(pageElements) 2'
                 doc.build(pageElements, canvasmaker=NumberedCanvas)
         except:
             import logging
@@ -871,4 +864,3 @@ You must provide any weights you wish to use.
         self.boundForm.dimensionality = str(self.dimensionality)
         self.boundForm['statisticalDistributionsSortBy'].required = self.statisticalDistribution
         pid_trace.delete_pid_trace_file()
-
