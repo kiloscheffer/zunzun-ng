@@ -1,19 +1,22 @@
-<div id="polyfunctionalSelection"  class="hideable hidden">
+<div id="polyfunctionalSelection" class="hideable hidden">
 {% if dimensionality == '2' %}
     <h2>Select Functions</h2>
     <p>Here you can combine functions to create an equation.</p>
-    <p>Equation:</p><div id='FUNCTION' class="math">{{ equationHTML }}</div><br>Functions of X<br>
-     <table>
+    <p>Equation:</p>
+    <div id='FUNCTION' class="math">{{ equationHTML }}</div>
+
+    <p>Functions of X</p>
+    <table class="function-matrix">
       <tr>
         {% for color, index, html in Polyfun2DColorList %}
             {% if html == '' %}
-	           	<td style='background-color:{{ color }}' class="pick math" id='CPX{{ index }}' onClick='cT(this.id,1)'>&nbsp;offset&nbsp;</td>
+                <td style='background-color:{{ color }}' class="pick math" id='CPX{{ index }}' onClick='cT(this.id,1)'>&nbsp;offset&nbsp;</td>
             {% else %}
-               	<td style='background-color:{{ color }}' class="pick math" id='CPX{{ index }}' onClick='cT(this.id,1)'>&nbsp;{{ html }}&nbsp;</td>
+                <td style='background-color:{{ color }}' class="pick math" id='CPX{{ index }}' onClick='cT(this.id,1)'>&nbsp;{{ html }}&nbsp;</td>
             {% endif %}
         {% endfor %}
       </tr>
-     </table>
+    </table>
 
     {% for color, index, html in Polyfun2DColorList %}
     	<input type="hidden" name="polyFunctional_X{{ index }}" value="False" id="id_polyFunctional_X{{ index }}">
@@ -22,31 +25,33 @@
 {% else %}
     <h3>Matrix of Functions</h3>
     <p>Here you can combine functions to create an equation.</p>
-    <p>Equation:</p><div id='FUNCTION' class="math">{{ equationHTML }}</div><br><table>
-    <tr><td> &nbsp; </td><td>Functions of Y</td>
-    <tr><td>F<br>u<br>n<br>c<br>t<br>i<br>o<br>n<br>s<br>&nbsp;<br>o<br>f<br>&nbsp;<br>X</td><td>
+    <p>Equation:</p>
+    <div id='FUNCTION' class="math">{{ equationHTML }}</div>
 
-     <table>
+    <div class="matrix-layout">
+      <p class="label-y">Functions of Y</p>
+      <p class="label-x">Functions of X</p>
+      <table class="function-matrix">
         {% for color, indexX, indexY, htmlX, htmlY in Polyfun3DColorList %}
             {% if indexY == 0 %}
                 <tr>
             {% endif %}
-            {% if htmlX == '' %}{#           Both X and Y have empty HTML , yield offset          #}
+            {% if htmlX == '' %}{# Both X and Y have empty HTML, yield offset #}
                 {% if htmlY == '' %}
                     <td style='background-color:{{ color }}' class="pick math" id='CPX{{ indexX }}Y{{ indexY }}' onClick='cT(this.id,1)'>&nbsp;offset&nbsp;</td>
                 {% endif %}
             {% endif %}
-            {% if htmlX != '' %}{#           Neither X and Y have empty HTML , yield XY          #}
+            {% if htmlX != '' %}{# Neither X nor Y has empty HTML, yield XY #}
                 {% if htmlY != '' %}
                     <td style='background-color:{{ color }}' class="pick math" id='CPX{{ indexX }}Y{{ indexY }}' onClick='cT(this.id,1)'>&nbsp;{{ htmlX }}{{ htmlY }}&nbsp;</td>
                 {% endif %}
             {% endif %}
-            {% if htmlX != '' %}{#           Only Y has empty HTML , yield X          #}
+            {% if htmlX != '' %}{# Only Y has empty HTML, yield X #}
                 {% if htmlY == '' %}
                     <td style='background-color:{{ color }}' class="pick math" id='CPX{{ indexX }}Y{{ indexY }}' onClick='cT(this.id,1)'>&nbsp;{{ htmlX }}&nbsp;</td>
                 {% endif %}
             {% endif %}
-            {% if htmlX == '' %}{#           Only X has empty HTML , yield Y          #}
+            {% if htmlX == '' %}{# Only X has empty HTML, yield Y #}
                 {% if htmlY != '' %}
                     <td style='background-color:{{ color }}' class="pick math" id='CPX{{ indexX }}Y{{ indexY }}' onClick='cT(this.id,1)'>&nbsp;{{ htmlY }}&nbsp;</td>
                 {% endif %}
@@ -55,8 +60,8 @@
                 </tr>
             {% endif %}
         {% endfor %}
-     </table>
-    </table>
+      </table>
+    </div>
 
     {% for color, indexX, indexY, htmlX, htmlY in Polyfun3DColorList %}
         <input type="hidden" name="polyFunctional_X{{ indexX }}Y{{ indexY }}" value="False" id="id_polyFunctional_X{{ indexX }}Y{{ indexY }}">
