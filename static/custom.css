@@ -11,15 +11,23 @@
 
 @font-face {
   font-display: swap;
-  font-family: "LM-regular";
+  font-family: "Latin Modern";
   font-style: normal;
   font-weight: normal;
   src: url("/static/LM-regular.woff2") format("woff2");
 }
 
+@font-face {
+  font-display: swap;
+  font-family: "Latin Modern";
+  font-style: normal;
+  font-weight: bold;
+  src: url("/static/LM-bold.woff2") format("woff2");
+}
+
 :root {
   --mono-font: "Cascadia Mono SemiLight", Consolas, Menlo, Monaco, "Andale Mono", "Ubuntu Mono", monospace;
-  --math-font: "LM-regular", ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+  --math-font: "Latin Modern", ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
 }
 
 /* ------------------------------------------------------------------------ */
@@ -240,9 +248,9 @@ header h1 .brand-logo {
 /*   2×2 grid placing axis labels around a function-matrix table. Used by   */
 /*   the 3D polyfunctional/polyrational equation pickers where the matrix   */
 /*   has both X and Y dimensions to label. The .label-x uses                */
-/*   writing-mode: vertical-rl to render the X-axis label as rotated text   */
-/*   alongside the matrix (replaces the legacy F<br>u<br>n<br>c... vertical */
-/*   letter stack from the original templates).                             */
+/*   writing-mode: sideways-lr to render the X-axis label as rotated text   */
+/*   reading bottom-to-top alongside the matrix (replaces the legacy        */
+/*   F<br>u<br>n<br>c... vertical letter stack from the original templates).*/
 /* ------------------------------------------------------------------------ */
 
 .matrix-layout {
@@ -260,12 +268,13 @@ header h1 .brand-logo {
 .matrix-layout > .label-y {
   grid-area: label-y;
   margin: 0;
+  margin-bottom: -0.5rem;
 }
 
 .matrix-layout > .label-x {
   grid-area: label-x;
   margin: 0;
-  writing-mode: vertical-rl;
+  writing-mode: sideways-lr;
 }
 
 .function-matrix {
