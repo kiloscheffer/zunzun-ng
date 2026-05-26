@@ -15,7 +15,7 @@ The single shared [`Caddyfile.example`](Caddyfile.example) works on all three pl
 
 ## Minimum stack
 
-- Python 3.14 (uv-managed; see `README.txt`)
+- Python 3.14 (uv-managed; see `README.md`)
 - `uv sync --no-dev` to install production dependencies
 - Caddy on `PATH` (or installed as a service)
 - A process supervisor appropriate to the OS (systemd, launchd, NSSM)
