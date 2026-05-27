@@ -1334,12 +1334,15 @@ class StatisticalDistributionHistogram(GraphReport):
         self.stringList.append('</td></tr></table><pre>')
 
         self.name = 'Rank ' + str(self.distributionIndex + 1) + ': ' + i[1]['distributionLongName']
-        # Fixed anchor 'xsh' (X-Stat-Histogram); the parametrized index
-        # rides on the rank field. 'xsd' (XStatDist summary report) is
-        # the related fixed anchor. CharacterizeData doesn't use rank
-        # for FunctionFinder-style ordering, so it's free for the index.
-        self.uniqueAnchorName = 'xsh'
-        self.rank = self.distributionIndex
+        # Parametrized anchor: 'h' (Histogram namespace, reserved — no
+        # other uniqueAnchorName may start with 'h') + 2-char base36 of
+        # distributionIndex. Each instance gets a unique 3-char anchor:
+        # h00, h01, ..., h2r for the 100 registered indices.
+        # Unique anchors matter because the results template renders
+        # <div id="{{ uniqueAnchorName }}"> and the dropdown nav uses
+        # uniqueAnchorName as the option value — collisions would let
+        # jQuery's $('#anchor') match only the first histogram panel.
+        self.uniqueAnchorName = 'h' + b36(self.distributionIndex, 2)
 
         self._buildFilePaths('png')
 
