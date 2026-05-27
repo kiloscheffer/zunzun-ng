@@ -170,15 +170,9 @@ class StatisticalDistributions(StatusMonitoredLongRunningProcessPage.StatusMonit
         
 
     def WorkItems_CheckOneSecondSessionUpdates(self, countOfWorkItemsRun, totalNumberOfWorkItemsToBeRun):
-        if self.oneSecondTimes != int(time.time()):
-            self.CheckIfStillUsed()
-            # parallelProcessCount is its own session field; status page
-            # renders it next to the elapsed timer.
-            self.SaveDictionaryOfItemsToSessionStore('status', {
-                'currentStatus': "Fitted %s of %s Statistical Distributions" % (countOfWorkItemsRun, totalNumberOfWorkItemsToBeRun),
-                'parallelProcessCount': len(multiprocessing.active_children()),
-            })
-            self.oneSecondTimes = int(time.time())
+        self._oneSecondStatusUpdate(
+            "Fitted %s of %s Statistical Distributions" % (countOfWorkItemsRun, totalNumberOfWorkItemsToBeRun)
+        )
             
 
     def SpecificCodeForGeneratingListOfOutputReports(self):

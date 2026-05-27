@@ -656,19 +656,37 @@ You must provide any weights you wish to use.
 
         pid_trace.delete_pid_trace_file()
 
+    def _oneSecondStatusUpdate(self, currentStatus):
+        """Throttled (≤1Hz) liveness + status write for tight work loops.
+
+        Per second: runs ``CheckIfStillUsed`` to detect abandoned fits,
+        writes the supplied ``currentStatus`` plus the current
+        ``parallelProcessCount`` to the status session, and bumps
+        ``self.oneSecondTimes``. Returns immediately if a second hasn't
+        elapsed since the last call.
+
+        ``parallelProcessCount`` lives as its own session field so the
+        status page renders it next to the elapsed timer instead of
+        wedged into ``currentStatus``. UI hides the indicator when the
+        count is ≤1 (single-thread phases or pool idle).
+
+        Used by ``Reports_CheckOneSecondSessionUpdates`` here, and by
+        the equivalent ``WorkItems_*`` methods on the FunctionFinder and
+        StatisticalDistributions subclasses.
+        """
+        if self.oneSecondTimes == int(time.time()):
+            return
+        self.CheckIfStillUsed()
+        self.SaveDictionaryOfItemsToSessionStore('status', {
+            'currentStatus': currentStatus,
+            'parallelProcessCount': len(multiprocessing.active_children()),
+        })
+        self.oneSecondTimes = int(time.time())
+
     def Reports_CheckOneSecondSessionUpdates(self, countOfReportsRun, totalNumberOfReportsToBeRun):
-        if self.oneSecondTimes != int(time.time()):
-            self.CheckIfStillUsed()
-            # parallelProcessCount lives as its own session field so the
-            # status page can render it next to the elapsed timer rather
-            # than wedged into currentStatus. UI hides the indicator when
-            # count <= 1; that's the "single-process / server is busy"
-            # case which used to render as inline status text.
-            self.SaveDictionaryOfItemsToSessionStore('status', {
-                'currentStatus': "Created %s of %s Reports and Graphs" % (countOfReportsRun, totalNumberOfReportsToBeRun),
-                'parallelProcessCount': len(multiprocessing.active_children()),
-            })
-            self.oneSecondTimes = int(time.time())
+        self._oneSecondStatusUpdate(
+            "Created %s of %s Reports and Graphs" % (countOfReportsRun, totalNumberOfReportsToBeRun)
+        )
 
     def CheckIfStillUsed(self):
         import time
