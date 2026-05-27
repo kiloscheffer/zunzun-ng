@@ -650,16 +650,24 @@ You must provide any weights you wish to use.
             self.pool.close()
             self.pool.join()
             self.pool = None
-            
+            # Clear the parallel-processes indicator now that the pool is
+            # gone; subsequent phases (PDF, stats calc) are single-threaded.
+            self.SaveDictionaryOfItemsToSessionStore('status', {'parallelProcessCount': 0})
+
         pid_trace.delete_pid_trace_file()
 
     def Reports_CheckOneSecondSessionUpdates(self, countOfReportsRun, totalNumberOfReportsToBeRun):
         if self.oneSecondTimes != int(time.time()):
             self.CheckIfStillUsed()
-            processcountString = '<br><br>Currently using 1 process (the server is busy)'
-            if len(multiprocessing.active_children()) > 1:
-                processcountString = '<br><br>Currently using ' + str(len(multiprocessing.active_children())) + ' parallel processes'
-            self.SaveDictionaryOfItemsToSessionStore('status', {'currentStatus':"Created %s of %s Reports and Graphs %s" % (countOfReportsRun, totalNumberOfReportsToBeRun, processcountString)})
+            # parallelProcessCount lives as its own session field so the
+            # status page can render it next to the elapsed timer rather
+            # than wedged into currentStatus. UI hides the indicator when
+            # count <= 1; that's the "single-process / server is busy"
+            # case which used to render as inline status text.
+            self.SaveDictionaryOfItemsToSessionStore('status', {
+                'currentStatus': "Created %s of %s Reports and Graphs" % (countOfReportsRun, totalNumberOfReportsToBeRun),
+                'parallelProcessCount': len(multiprocessing.active_children()),
+            })
             self.oneSecondTimes = int(time.time())
 
     def CheckIfStillUsed(self):

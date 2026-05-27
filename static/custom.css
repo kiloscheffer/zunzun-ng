@@ -571,36 +571,30 @@ footer > div:last-child {
   .status-dot { animation: none; }
 }
 
-.status-card {
-  background: var(--accent-bg);
-  border-radius: var(--standard-border-radius);
-  padding: 1rem 1.25rem;
-  margin: 1rem 0;
-}
-
-/* The LRP writes server-side HTML into currentStatus, sometimes including
-   tables (e.g. FunctionFinder's per-family progress grid). simple.css's
-   default table chrome (borders, padding, zebra) doubles up against the
-   card background and makes the block much taller than needed. Strip the
-   chrome so the table reads as a flat compact list. */
-.status-card table,
-.status-card table tr,
-.status-card table th,
-.status-card table td {
+/* The LRP writes server-side HTML into currentStatus (rendered inside
+   the simple.css .notice block), sometimes including tables — e.g.
+   FunctionFinder's per-family progress grid. simple.css's default
+   table chrome (borders, padding, zebra) doubles up against the
+   notice background and makes the block much taller than needed.
+   Strip the chrome so the table reads as a flat compact list. */
+.notice table,
+.notice table tr,
+.notice table th,
+.notice table td {
   background: transparent;
   border: none;
 }
 
-.status-card table {
+.notice table {
   margin: 0;
 }
 
-.status-card table th,
-.status-card table td {
+.notice table th,
+.notice table td {
   padding: 0.1rem 0.6rem;
 }
 
-.status-card table td:first-child,
-.status-card table th:first-child {
+.notice table td:first-child,
+.notice table th:first-child {
   padding-left: 0;
 }

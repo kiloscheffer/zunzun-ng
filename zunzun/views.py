@@ -302,6 +302,7 @@ def StatusView(request):
         "elapsed": ConvertSecondsToHMS(time.time() - startTime),
         "loadavg": list(loadavg),
         "coreCount": multiprocessing.cpu_count(),
+        "parallelProcessCount": session_status.get("parallelProcessCount", 0),
     })
 
 
@@ -355,6 +356,7 @@ def StatusUpdateView(request):
         "currentStatus": currentStatus,
         "elapsed": ConvertSecondsToHMS(time.time() - startTime),
         "loadavg": list(loadavg),
+        "parallelProcessCount": session_status.get("parallelProcessCount", 0),
     })
 
 

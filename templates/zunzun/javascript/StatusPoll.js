@@ -21,6 +21,17 @@
 
     setText('elapsedTime', data.elapsed);
 
+    /* parallelProcessCount is shown inline only during the parallel
+     * reports phase; suppressed otherwise to avoid flickering. */
+    var ppi = document.getElementById('parallelProcessInfo');
+    if (ppi) {
+      if (data.parallelProcessCount && data.parallelProcessCount > 1) {
+        ppi.textContent = ' · ' + data.parallelProcessCount + ' parallel processes';
+      } else {
+        ppi.textContent = '';
+      }
+    }
+
     if (data.loadavg && data.loadavg.length === 3) {
       setText('load1', data.loadavg[0]);
       setText('load5', data.loadavg[1]);
