@@ -3,7 +3,7 @@
 Usage:
     uv run python scripts/bench_parallel.py
 
-Compares four execution modes for N=8 identical pyeq3 fits:
+Compares four execution modes for N=16 identical pyeq3 fits:
     serial           — single-threaded baseline
     threaded         — concurrent.futures.ThreadPoolExecutor(max_workers=N)
     spawn-fresh      — multiprocessing.Process per fit, joined per fit (current
@@ -217,7 +217,7 @@ def main() -> None:
         lambda: _bench_pool_persistent(N_FITS, N_WORKERS)
     )
     print(
-        f"{'pool-persistent (8)':<22}{pp_time:>12.2f}"
+        f"{'pool-persistent (' + str(N_WORKERS) + ')':<22}{pp_time:>12.2f}"
         f"{serial_time / pp_time:>10.2f}x{_format_rss(pp_rss):>14}"
     )
     sys.stdout.flush()
