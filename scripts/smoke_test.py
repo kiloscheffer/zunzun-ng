@@ -29,6 +29,7 @@ Scenarios
 Usage:
   uv run python scripts/smoke_test.py
 """
+
 import contextlib
 import re
 import socket
@@ -333,7 +334,9 @@ _INVALID_MARKERS = [
 # hyperlink in the FunctionFinder results listing. family and equation
 # segments are URL-encoded (%20 for spaces, %28 for '(', etc.) and
 # intentionally stay encoded — the fit POST URL reuses them verbatim.
-_RANK1_LINK = re.compile(r"/Equation/(?P<dim>\d+)/(?P<family>[^/?\"<>]+)/(?P<equation>[^/?\"<>]+)/\?RANK=1")
+_RANK1_LINK = re.compile(
+    r"/Equation/(?P<dim>\d+)/(?P<family>[^/?\"<>]+)/(?P<equation>[^/?\"<>]+)/\?RANK=1"
+)
 
 
 def _check_animation_gif(session, base, body, name_prefix, min_frames=2):
@@ -395,7 +398,7 @@ def _wait_for_port(port: int, timeout_s: float = 30.0) -> bool:
         try:
             with contextlib.closing(socket.create_connection(("127.0.0.1", port), timeout=1)):
                 return True
-        except (OSError, ConnectionRefusedError):
+        except OSError, ConnectionRefusedError:
             time.sleep(0.5)
     return False
 
@@ -507,9 +510,7 @@ def _run_ff_detail_scenario(
 def run_smoke() -> int:
     port = _find_free_port()
     base = f"http://127.0.0.1:{port}"
-    proc = subprocess.Popen(
-        ["waitress-serve", f"--listen=127.0.0.1:{port}", "wsgi:application"]
-    )
+    proc = subprocess.Popen(["waitress-serve", f"--listen=127.0.0.1:{port}", "wsgi:application"])
     try:
         if not _wait_for_port(port):
             print("ERROR: server never became ready", file=sys.stderr)
@@ -690,9 +691,7 @@ def run_smoke() -> int:
                 data=_EVAL_AT_POINT_FIELDS,
                 allow_redirects=True,
             )
-            err = _check_markers(
-                "evaluate_at_a_point_spline", r.text, _EVAL_AT_POINT_MARKERS
-            )
+            err = _check_markers("evaluate_at_a_point_spline", r.text, _EVAL_AT_POINT_MARKERS)
             if err:
                 errors.append(err)
             else:
@@ -719,9 +718,7 @@ def run_smoke() -> int:
                 data=_EVAL_AT_POINT_FIELDS,
                 allow_redirects=True,
             )
-            err = _check_markers(
-                "evaluate_at_a_point_udf", r.text, _EVAL_AT_POINT_MARKERS
-            )
+            err = _check_markers("evaluate_at_a_point_udf", r.text, _EVAL_AT_POINT_MARKERS)
             if err:
                 errors.append(err)
             else:

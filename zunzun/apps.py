@@ -5,6 +5,7 @@ external binaries are missing from PATH. As of 2026-04-19 the
 codebase has no non-Python runtime binary dependencies; the hook
 is retained for future platform-specific checks.
 """
+
 import logging
 
 from django.apps import AppConfig
@@ -17,6 +18,7 @@ class ZunZunConfig(AppConfig):
 
     def ready(self) -> None:
         from . import platform_compat
+
         missing = platform_compat.ensure_external_binaries()
         if missing:
             _logger.warning(

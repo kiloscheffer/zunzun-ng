@@ -23,13 +23,11 @@ from .StatusMonitoredLongRunningProcessPage import _json_native
 
 
 class FitUserDefinedFunction(FittingBaseClass.FittingBaseClass):
-
     def __init__(self):
         super().__init__()
-        self.interfaceString = 'zunzun/equation_fit_interface.html'
+        self.interfaceString = "zunzun/equation_fit_interface.html"
         self.userDefinedFunction = True
         self.reniceLevel = 15
-
 
     def build_child_payload(self):
         payload = super().build_child_payload()
@@ -53,46 +51,67 @@ class FitUserDefinedFunction(FittingBaseClass.FittingBaseClass):
         self.dataObject.equation.ParseAndCompileUserFunctionString(text, payload.dimensionality)
 
     def SaveSpecificDataToSessionStore(self):
-        self.SaveDictionaryOfItemsToSessionStore('data', _json_native({'dimensionality':self.dimensionality,
-                                                          'equationName':self.inEquationName,
-                                                          'equationFamilyName':self.inEquationFamilyName,
-                                                          'solvedCoefficients':self.dataObject.equation.solvedCoefficients,
-                                                          'udfEditor_' + str(self.dimensionality) + 'D':self.dataObject.equation.userDefinedFunctionText}))
+        self.SaveDictionaryOfItemsToSessionStore(
+            "data",
+            _json_native(
+                {
+                    "dimensionality": self.dimensionality,
+                    "equationName": self.inEquationName,
+                    "equationFamilyName": self.inEquationFamilyName,
+                    "solvedCoefficients": self.dataObject.equation.solvedCoefficients,
+                    "udfEditor_"
+                    + str(self.dimensionality)
+                    + "D": self.dataObject.equation.userDefinedFunctionText,
+                }
+            ),
+        )
 
-
-    def TransferFormDataToDataObject(self, request): # return any error in a user-viewable string (self.dataObject.ErrorString)
+    def TransferFormDataToDataObject(
+        self, request
+    ):  # return any error in a user-viewable string (self.dataObject.ErrorString)
         s = FittingBaseClass.FittingBaseClass.TransferFormDataToDataObject(self, request)
-        self.boundForm.equation.fittingTarget = self.boundForm.cleaned_data['fittingTarget']
+        self.boundForm.equation.fittingTarget = self.boundForm.cleaned_data["fittingTarget"]
         return s
 
-
     def SpecificEquationUnboundInterfaceCode(self, request):
-        self.unboundForm.fields['udfEditor'].initial = eval('zunzun.formConstants.initialUserDefinedFunctionText' + str(self.dimensionality) + 'D')
+        self.unboundForm.fields["udfEditor"].initial = eval(
+            "zunzun.formConstants.initialUserDefinedFunctionText" + str(self.dimensionality) + "D"
+        )
         if self.dimensionality == 2:
-            self.dictionaryToReturn['udfFunctionsDict'] = pyeq3.Models_2D.UserDefinedFunction.UserDefinedFunction.functionDictionary
+            self.dictionaryToReturn["udfFunctionsDict"] = (
+                pyeq3.Models_2D.UserDefinedFunction.UserDefinedFunction.functionDictionary
+            )
         else:
-            self.dictionaryToReturn['udfFunctionsDict'] = pyeq3.Models_3D.UserDefinedFunction.UserDefinedFunction.functionDictionary
-
+            self.dictionaryToReturn["udfFunctionsDict"] = (
+                pyeq3.Models_3D.UserDefinedFunction.UserDefinedFunction.functionDictionary
+            )
 
     def SpecificEquationBoundInterfaceCode(self, request):
-        self.boundForm.equation.userDefinedFunctionText = request.POST['udfEditor']
-        self.boundForm.equation.ParseAndCompileUserFunctionString(self.boundForm.equation.userDefinedFunctionText, self.dimensionality)
-
+        self.boundForm.equation.userDefinedFunctionText = request.POST["udfEditor"]
+        self.boundForm.equation.ParseAndCompileUserFunctionString(
+            self.boundForm.equation.userDefinedFunctionText, self.dimensionality
+        )
 
     def SpecificCodeForGeneratingListOfOutputReports(self):
-        self.functionString = 'PrepareForReportOutput'
-        self.SaveDictionaryOfItemsToSessionStore('status', {'currentStatus':"Calculating Error Statistics"})
+        self.functionString = "PrepareForReportOutput"
+        self.SaveDictionaryOfItemsToSessionStore(
+            "status", {"currentStatus": "Calculating Error Statistics"}
+        )
         try:
             self.dataObject.CalculateErrorStatistics()
         except:
             itemsToRender = {}
-            itemsToRender['error0'] = str(sys.exc_info()[0])
-            itemsToRender['error1'] = str(sys.exc_info()[1])
-            itemsToRender['extraText'] = 'Please check the text of your User Defined Function.'
+            itemsToRender["error0"] = str(sys.exc_info()[0])
+            itemsToRender["error1"] = str(sys.exc_info()[1])
+            itemsToRender["extraText"] = "Please check the text of your User Defined Function."
             error_html_path = page_artifact_path(self.dataObject.uniqueString, "html")
             f = open(error_html_path, "w")
-            f.write(render_to_string('zunzun/exception_while_fitting_an_equation.html', itemsToRender))
-            self.SaveDictionaryOfItemsToSessionStore('status', {'redirectToResultsFileOrURL': error_html_path})
+            f.write(
+                render_to_string("zunzun/exception_while_fitting_an_equation.html", itemsToRender)
+            )
+            self.SaveDictionaryOfItemsToSessionStore(
+                "status", {"redirectToResultsFileOrURL": error_html_path}
+            )
             # Raise SystemExit so the spawned child terminates cleanly without
             # overwriting the redirect already written to the session store.
             # SystemExit is a BaseException, not Exception, so the generic
@@ -100,8 +119,12 @@ class FitUserDefinedFunction(FittingBaseClass.FittingBaseClass):
             # The finally block in _run_fit_child provides the post-work sleep.
             raise SystemExit(0)
 
-        self.SaveDictionaryOfItemsToSessionStore('status', {'currentStatus':"Calculating Parameter Statistics"})
+        self.SaveDictionaryOfItemsToSessionStore(
+            "status", {"currentStatus": "Calculating Parameter Statistics"}
+        )
         self.dataObject.equation.CalculateCoefficientAndFitStatistics()
 
-        self.SaveDictionaryOfItemsToSessionStore('status', {'currentStatus':"Generating Report Objects"})
+        self.SaveDictionaryOfItemsToSessionStore(
+            "status", {"currentStatus": "Generating Report Objects"}
+        )
         self.ReportsAndGraphsCategoryDict = ReportsAndGraphs.FittingReportsDict(self.dataObject)

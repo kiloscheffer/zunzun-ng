@@ -1,13 +1,13 @@
 import os
 import sys
 
-if os.path.dirname( os.path.realpath( __file__ ) )  not in sys.path:
-    sys.path.append(os.path.dirname( os.path.realpath( __file__ ) ) )
+if os.path.dirname(os.path.realpath(__file__)) not in sys.path:
+    sys.path.append(os.path.dirname(os.path.realpath(__file__)))
 
-os.environ['DJANGO_SETTINGS_MODULE'] = 'settings'
+os.environ["DJANGO_SETTINGS_MODULE"] = "settings"
 
-#import django.core.handlers.wsgi
-#application = django.core.handlers.wsgi.WSGIHandler()
+# import django.core.handlers.wsgi
+# application = django.core.handlers.wsgi.WSGIHandler()
 
 from django.core.wsgi import get_wsgi_application
 

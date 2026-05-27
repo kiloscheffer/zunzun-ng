@@ -7,6 +7,7 @@ and subprocess.run for the cross-platform implementations.
 Named platform_compat (not platform) to avoid shadowing the stdlib
 platform module.
 """
+
 from __future__ import annotations
 
 import functools
@@ -29,8 +30,7 @@ def _warn_loadavg_unavailable() -> None:
     Use .cache_clear() in tests to re-arm the warning.
     """
     _logger.warning(
-        "platform_compat.get_loadavg: psutil.getloadavg() unavailable; "
-        "returning (0.0, 0.0, 0.0)"
+        "platform_compat.get_loadavg: psutil.getloadavg() unavailable; returning (0.0, 0.0, 0.0)"
     )
 
 
@@ -45,7 +45,7 @@ def get_loadavg() -> tuple[float, float, float]:
     try:
         one, five, fifteen = psutil.getloadavg()
         return (float(one), float(five), float(fifteen))
-    except (AttributeError, OSError):
+    except AttributeError, OSError:
         _warn_loadavg_unavailable()
         return (0.0, 0.0, 0.0)
 

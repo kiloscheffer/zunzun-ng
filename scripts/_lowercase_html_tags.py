@@ -16,6 +16,7 @@ Run with: uv run python scripts/_lowercase_html_tags.py
 Preserved at scripts/_lowercase_html_tags.py for auditability — the
 leading underscore marks this as a one-shot maintenance helper.
 """
+
 import re
 from pathlib import Path
 
@@ -34,58 +35,53 @@ _ATTR_NAME_RE = re.compile(r"(\s)([A-Z][A-Z0-9_]*)=")
 # Match boolean-style attributes (no value). Restricted to a known list
 # to avoid accidentally matching unrelated uppercase tokens.
 _BOOLEAN_ATTRS = (
-    "SELECTED", "CHECKED", "DISABLED", "READONLY", "REQUIRED",
-    "MULTIPLE", "AUTOFOCUS", "HIDDEN", "NOSHADE",
+    "SELECTED",
+    "CHECKED",
+    "DISABLED",
+    "READONLY",
+    "REQUIRED",
+    "MULTIPLE",
+    "AUTOFOCUS",
+    "HIDDEN",
+    "NOSHADE",
 )
-_BOOLEAN_ATTR_RE = re.compile(
-    rf"(\s)({'|'.join(_BOOLEAN_ATTRS)})(\s|/?>)"
-)
+_BOOLEAN_ATTR_RE = re.compile(rf"(\s)({'|'.join(_BOOLEAN_ATTRS)})(\s|/?>)")
 
 # Whitelisted presentation-keyword values that are safe to lowercase
 # (HTML5 treats these as case-insensitive). Identifiers and URLs are
 # NOT in this list — those need to stay as-is to preserve JavaScript
 # / CSS selector resolution.
 _VALUE_WHITELIST = (
-    "CENTER", "LEFT", "RIGHT", "JUSTIFY",
-    "TOP", "BOTTOM", "MIDDLE",
-    "SUBMIT", "BUTTON", "RESET",
-    "POST", "GET",
+    "CENTER",
+    "LEFT",
+    "RIGHT",
+    "JUSTIFY",
+    "TOP",
+    "BOTTOM",
+    "MIDDLE",
+    "SUBMIT",
+    "BUTTON",
+    "RESET",
+    "POST",
+    "GET",
 )
 # Match double-quoted, single-quoted, or unquoted (terminated by space
 # or `>`) values. Three regexes for clarity.
-_VALUE_DQUOTED_RE = re.compile(
-    rf'=("(?:{"|".join(_VALUE_WHITELIST)})")'
-)
-_VALUE_SQUOTED_RE = re.compile(
-    rf"=('(?:{'|'.join(_VALUE_WHITELIST)})')"
-)
-_VALUE_UNQUOTED_RE = re.compile(
-    rf"=({'|'.join(_VALUE_WHITELIST)})([>\s/])"
-)
+_VALUE_DQUOTED_RE = re.compile(rf'=("(?:{"|".join(_VALUE_WHITELIST)})")')
+_VALUE_SQUOTED_RE = re.compile(rf"=('(?:{'|'.join(_VALUE_WHITELIST)})')")
+_VALUE_UNQUOTED_RE = re.compile(rf"=({'|'.join(_VALUE_WHITELIST)})([>\s/])")
 
 
 def lowercase_tags(content: str) -> str:
-    content = _OPEN_TAG_RE.sub(
-        lambda m: f"<{m.group(1).lower()}{m.group(2)}", content
-    )
-    content = _CLOSE_TAG_RE.sub(
-        lambda m: f"</{m.group(1).lower()}>", content
-    )
-    content = _ATTR_NAME_RE.sub(
-        lambda m: f"{m.group(1)}{m.group(2).lower()}=", content
-    )
+    content = _OPEN_TAG_RE.sub(lambda m: f"<{m.group(1).lower()}{m.group(2)}", content)
+    content = _CLOSE_TAG_RE.sub(lambda m: f"</{m.group(1).lower()}>", content)
+    content = _ATTR_NAME_RE.sub(lambda m: f"{m.group(1)}{m.group(2).lower()}=", content)
     content = _BOOLEAN_ATTR_RE.sub(
         lambda m: f"{m.group(1)}{m.group(2).lower()}{m.group(3)}", content
     )
-    content = _VALUE_DQUOTED_RE.sub(
-        lambda m: f"={m.group(1).lower()}", content
-    )
-    content = _VALUE_SQUOTED_RE.sub(
-        lambda m: f"={m.group(1).lower()}", content
-    )
-    content = _VALUE_UNQUOTED_RE.sub(
-        lambda m: f"={m.group(1).lower()}{m.group(2)}", content
-    )
+    content = _VALUE_DQUOTED_RE.sub(lambda m: f"={m.group(1).lower()}", content)
+    content = _VALUE_SQUOTED_RE.sub(lambda m: f"={m.group(1).lower()}", content)
+    content = _VALUE_UNQUOTED_RE.sub(lambda m: f"={m.group(1).lower()}{m.group(2)}", content)
     return content
 
 

@@ -13,6 +13,7 @@ The view builds its redirect using request.META['HTTP_HOST']; under
 the Django test client this resolves to 'testserver' so the redirect
 target is 'http://testserver/StatusAndResults/'.
 """
+
 import pytest
 
 _VALID_POLY_FIELDS = {

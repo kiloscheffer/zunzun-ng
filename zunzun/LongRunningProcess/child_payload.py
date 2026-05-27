@@ -7,6 +7,7 @@ to the child to be picklable. ChildPayload carries only the primitives
 and pickle-safe objects the child needs to reconstruct an LRP instance
 and run PerformAllWork().
 """
+
 from __future__ import annotations
 
 import importlib
@@ -63,6 +64,7 @@ def _run_fit_child(payload: ChildPayload) -> None:
     # (e.g. SessionStore save) raises AppRegistryNotReady.
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "settings")
     import django
+
     django.setup()
 
     from zunzun import platform_compat
@@ -89,6 +91,7 @@ def _run_fit_child(payload: ChildPayload) -> None:
         import logging as _logging
 
         import settings
+
         log_path = os.path.join(settings.TEMP_FILES_DIR, f"{os.getpid()}.log")
         _logging.basicConfig(filename=log_path, level=_logging.DEBUG)
         _logging.exception("Child exception in _run_fit_child")
@@ -96,9 +99,10 @@ def _run_fit_child(payload: ChildPayload) -> None:
         try:
             lrp.SaveDictionaryOfItemsToSessionStore(
                 "status",
-                {"currentStatus":
-                    "An unknown exception has occurred, and an email with "
-                    "details has been sent to the site administrator."}
+                {
+                    "currentStatus": "An unknown exception has occurred, and an email with "
+                    "details has been sent to the site administrator."
+                },
             )
         except Exception:
             _logging.exception("Also failed to write status after child exception")

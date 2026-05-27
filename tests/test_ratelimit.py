@@ -7,6 +7,7 @@ Pre-Phase-4 this test FAILS because django_brake is not installed
 and the pass-through decorator does not set request.limited.
 Post-Phase-4 it PASSES because django-ratelimit sets request.limited.
 """
+
 import pytest
 
 
@@ -41,7 +42,7 @@ def test_thirteenth_rapid_post_is_rate_limited(client, mocked_process_start):
     # First 12 posts: succeed (302 redirect to /StatusAndResults/).
     for i in range(12):
         response = client.post(url, data=fields, HTTP_HOST="testserver")
-        assert response.status_code == 302, f"Request {i+1} unexpectedly non-302"
+        assert response.status_code == 302, f"Request {i + 1} unexpectedly non-302"
 
     # 13th post: rate-limited. Because the view does NOT block (uses
     # block=False), the request still gets handled - but CommonToAllViews
@@ -50,9 +51,9 @@ def test_thirteenth_rapid_post_is_rate_limited(client, mocked_process_start):
     # limiter by asserting the response took noticeably longer OR by
     # patching time.sleep to record its invocations.
     from unittest.mock import patch
+
     with patch("time.sleep") as mock_sleep:
         response = client.post(url, data=fields, HTTP_HOST="testserver")
-        assert any(
-            call.args and call.args[0] >= 5
-            for call in mock_sleep.call_args_list
-        ), "expected request.limited branch to sleep >=5s"
+        assert any(call.args and call.args[0] >= 5 for call in mock_sleep.call_args_list), (
+            "expected request.limited branch to sleep >=5s"
+        )

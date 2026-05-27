@@ -3,39 +3,39 @@ import os
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 
-ALLOWED_HOSTS=['*']
+ALLOWED_HOSTS = ["*"]
 
 # this is for serving static files with the django development server
 import sys
 
-if 'runserver' in sys.argv:
+if "runserver" in sys.argv:
     DEBUG = True
 else:
     DEBUG = False
 
 ADMINS = (
-    #(ADMIN_NAME, ADMIN_EMAIL_ADDRESS),
+    # (ADMIN_NAME, ADMIN_EMAIL_ADDRESS),
 )
 
-EXCEPTION_EMAIL_ADDRESS = '' # for unknown site exceptions
-FEEDBACK_EMAIL_ADDRESS = '' # for any user feedback
+EXCEPTION_EMAIL_ADDRESS = ""  # for unknown site exceptions
+FEEDBACK_EMAIL_ADDRESS = ""  # for any user feedback
 
-SESSION_COOKIE_NAME = 'sessionid'
-SESSION_COOKIE_AGE = 60 * 60 * 24 * 5 # 60 seconds * 60 minutes * 24 hours * 5 days
+SESSION_COOKIE_NAME = "sessionid"
+SESSION_COOKIE_AGE = 60 * 60 * 24 * 5  # 60 seconds * 60 minutes * 24 hours * 5 days
 
-EMAIL_USE_TLS = True # assuming gmail
-EMAIL_PORT = 587 # assuming gmail
-EMAIL_HOST = 'smtp.gmail.com' # assuming gmail
-EMAIL_HOST_USER = ''
-EMAIL_HOST_PASSWORD = ''
+EMAIL_USE_TLS = True  # assuming gmail
+EMAIL_PORT = 587  # assuming gmail
+EMAIL_HOST = "smtp.gmail.com"  # assuming gmail
+EMAIL_HOST_USER = ""
+EMAIL_HOST_PASSWORD = ""
 
 MANAGERS = ADMINS
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': 'session_db/db.sqlite3',
-        'OPTIONS':{'timeout':5} # in case database is busy or slow
+    "default": {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": "session_db/db.sqlite3",
+        "OPTIONS": {"timeout": 5},  # in case database is busy or slow
     }
 }
 
@@ -43,55 +43,55 @@ DATABASES = {
 # http://en.wikipedia.org/wiki/List_of_tz_zones_by_name
 # although not all choices may be available on all operating systems.
 # NOTE:vIf running in a Windows environment this must be set to the
-#vsame as your system time zone.
-TIME_ZONE = 'America/Chicago'
+# vsame as your system time zone.
+TIME_ZONE = "America/Chicago"
 
 # Language code for this installation. All choices can be found here:
 # http://www.i18nguy.com/unicode/language-identifiers.html
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = "en-us"
 
-SITE_ID = 1 # we're number one! we're number one!
+SITE_ID = 1  # we're number one! we're number one!
 
 # If you set this to False, Django will make some optimizations so as not
 # to load the internationalization machinery.
 USE_I18N = False
 
 # Make this unique, and don't share it with anybody.
-SECRET_KEY = 'super-secret-key'
+SECRET_KEY = "super-secret-key"
 
 MIDDLEWARE = [
-    'django.middleware.gzip.GZipMiddleware',
-    'django.middleware.common.CommonMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
+    "django.middleware.gzip.GZipMiddleware",
+    "django.middleware.common.CommonMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
     # 'django.contrib.auth.middleware.AuthenticationMiddleware',
 ]
 
-ROOT_URLCONF = 'urls'
+ROOT_URLCONF = "urls"
 
 ROOT_PATH = os.path.dirname(__file__)
 
 TEMPLATES = [
     {
-        'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [os.path.join(ROOT_PATH, 'templates')],
-        'APP_DIRS': True,
-        'OPTIONS': {},
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [os.path.join(ROOT_PATH, "templates")],
+        "APP_DIRS": True,
+        "OPTIONS": {},
     },
 ]
 INSTALLED_APPS = (
-#    'django.contrib.auth',
-#    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-#    'django.contrib.sites',
-    'django.contrib.staticfiles',
-    'zunzun',
+    #    'django.contrib.auth',
+    #    'django.contrib.contenttypes',
+    "django.contrib.sessions",
+    #    'django.contrib.sites',
+    "django.contrib.staticfiles",
+    "zunzun",
 )
 
 # Static files (committed assets that ship with the codebase: CSS, JS,
 # logos, favicon). Served at /static/ in dev by django.contrib.staticfiles
 # during runserver, and by the reverse proxy (nginx/IIS) in production.
-STATIC_URL = '/static/'
-STATIC_FILES_DIR = os.path.join(ROOT_PATH, 'static')
+STATIC_URL = "/static/"
+STATIC_FILES_DIR = os.path.join(ROOT_PATH, "static")
 STATICFILES_DIRS = (STATIC_FILES_DIR,)
 
 # Media / runtime-generated files (PDFs, graphs, animations written by
@@ -100,7 +100,7 @@ STATICFILES_DIRS = (STATIC_FILES_DIR,)
 # In dev, urls.py has to add explicit serving for MEDIA_URL since the
 # staticfiles app doesn't auto-serve media. In production, nginx/IIS
 # handles it directly.
-MEDIA_URL = '/temp/'
-TEMP_FILES_DIR = os.path.join(ROOT_PATH, 'temp')
+MEDIA_URL = "/temp/"
+TEMP_FILES_DIR = os.path.join(ROOT_PATH, "temp")
 MEDIA_ROOT = TEMP_FILES_DIR
-MAX_TEMP_DIR_SIZE_IN_MBYTES = 500 # default 500 megabytes maximum
+MAX_TEMP_DIR_SIZE_IN_MBYTES = 500  # default 500 megabytes maximum

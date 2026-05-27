@@ -1,9 +1,11 @@
 """Tests for the spawn-safe ChildPayload dataclass."""
+
 import pickle
 
 
 def test_child_payload_round_trips():
     from zunzun.LongRunningProcess.child_payload import ChildPayload
+
     p = ChildPayload(
         lrp_class_path="zunzun.LongRunningProcess.FitOneEquation.FitOneEquation",
         session_key_status="s1",
@@ -26,6 +28,7 @@ def test_child_payload_has_required_fields():
     import dataclasses
 
     from zunzun.LongRunningProcess.child_payload import ChildPayload
+
     fields = {f.name for f in dataclasses.fields(ChildPayload)}
     assert fields == {
         "lrp_class_path",
