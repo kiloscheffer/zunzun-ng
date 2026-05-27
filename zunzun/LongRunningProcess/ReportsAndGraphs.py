@@ -603,16 +603,16 @@ class GraphReport(Report):
         self.rank = '' # function finders use rank to distinguish different graph reports
 
     def GetRankString(self):
-        """Zero-padded rank suffix, base36, always three chars.
+        """Zero-padded rank suffix, base36, two chars by default.
 
         Function finders set ``self.rank`` to an integer position in
-        the ranked-equation list. Three base36 chars cover 0..46,655,
-        sized to hold FunctionFinder's ~23K equation types across all
-        families with headroom. All other report types leave rank as
-        ``''`` and render as ``_000``. Fixed width keeps filenames
-        sortable and avoids ambiguous parsing of trailing digits.
+        the ranked-equation list. Two base36 chars cover 0..1295,
+        sized to hold FunctionFinder's ~1k FF-results cap. Ranks beyond
+        1295 produce a longer-than-two-chars suffix — fixed-width is
+        broken for those rows but no data is lost (b36 never truncates).
+        All other report types leave rank as ``''`` and render as ``_00``.
         """
-        return '_' + b36(int(self.rank) if self.rank else 0, 3)
+        return '_' + b36(int(self.rank) if self.rank else 0, 2)
 
     def _buildFilePaths(self, ext):
         """Compose ``physicalFileLocation`` and ``websiteFileLocation``
@@ -626,7 +626,7 @@ class GraphReport(Report):
             self.GetRankString(),
             ext,
         )
-        self.physicalFileLocation = settings.TEMP_FILES_DIR + '/' + name
+        self.physicalFileLocation = os.path.join(settings.TEMP_FILES_DIR, name)
         self.websiteFileLocation = settings.MEDIA_URL + name
 
 # enter in Graph Reports at bottom
@@ -1334,11 +1334,12 @@ class StatisticalDistributionHistogram(GraphReport):
         self.stringList.append('</td></tr></table><pre>')
 
         self.name = 'Rank ' + str(self.distributionIndex + 1) + ': ' + i[1]['distributionLongName']
-        # Parametrized: 'xs' + base36 of distributionIndex (0..35).
-        # 'xsd' (XStatDist summary report) is the related fixed anchor.
-        idx = self.distributionIndex
-        idx_char = '0123456789abcdefghijklmnopqrstuvwxyz'[idx] if 0 <= idx < 36 else 'z'
-        self.uniqueAnchorName = 'xs' + idx_char
+        # Fixed anchor 'xsh' (X-Stat-Histogram); the parametrized index
+        # rides on the rank field. 'xsd' (XStatDist summary report) is
+        # the related fixed anchor. CharacterizeData doesn't use rank
+        # for FunctionFinder-style ordering, so it's free for the index.
+        self.uniqueAnchorName = 'xsh'
+        self.rank = self.distributionIndex
 
         self._buildFilePaths('png')
 
