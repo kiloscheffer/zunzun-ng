@@ -30,10 +30,19 @@ import string
 import time
 from datetime import datetime, timezone
 
+import settings
+
 
 _BASE36 = string.digits + string.ascii_lowercase
 _EPOCH_MS = int(datetime(2026, 1, 1, tzinfo=timezone.utc).timestamp() * 1000)
 # = 1_767_225_600_000
+
+# Suffix attached to page-level artifacts (PDF, result HTML). The "zun"
+# anchor code is reserved (see module docstring) and the "000" rank
+# placeholder pads out to the same 5-segment shape as per-component
+# artifacts. Defined once here so a future change to the convention
+# lands in one place rather than 8+ callsites.
+_PAGE_SUFFIX = "_zun_000"
 
 
 def b36(n: int, width: int) -> str:
@@ -51,3 +60,28 @@ def new_unique_string() -> str:
     pid_field = os.getpid() & 0x7FFF
     ms_since_epoch = max(int(time.time() * 1000) - _EPOCH_MS, 0)
     return "zun_%s_%s" % (b36(pid_field, 3), b36(ms_since_epoch, 8))
+
+
+def page_artifact_filename(unique_string: str, ext: str) -> str:
+    """Bare filename of a page-level artifact (PDF or result HTML).
+
+    Example: ``page_artifact_filename("zun_h5g_05spf7rm", "pdf")``
+    returns ``"zun_h5g_05spf7rm_zun_000.pdf"``.
+
+    Use when the consumer needs the bare name — e.g., setting
+    ``self.pdfFileName`` for later joining with TEMP_FILES_DIR and
+    for embedding in the ``/temp/{{ pdfFileName }}`` download link.
+    For filesystem paths use ``page_artifact_path``; for site URLs
+    use ``page_artifact_url``.
+    """
+    return unique_string + _PAGE_SUFFIX + "." + ext
+
+
+def page_artifact_path(unique_string: str, ext: str) -> str:
+    """Filesystem path of a page-level artifact under ``TEMP_FILES_DIR``."""
+    return os.path.join(settings.TEMP_FILES_DIR, page_artifact_filename(unique_string, ext))
+
+
+def page_artifact_url(unique_string: str, ext: str) -> str:
+    """Site URL of a page-level artifact under ``MEDIA_URL``."""
+    return settings.MEDIA_URL + page_artifact_filename(unique_string, ext)
