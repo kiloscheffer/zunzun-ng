@@ -116,9 +116,12 @@ def test_fit_pool_shutdown_cancel_futures_stops_pending():
     pool = FitPool(max_workers=1)  # one worker forces serialization
     futures = [pool.submit(_slow, i) for i in range(5)]
     pool.shutdown(wait=False, cancel_futures=True)
-    # At least the later-submitted futures should be cancelled
+    # The 1-worker pool can only execute one item at a time; items 1-4
+    # stay pending while item 0 runs (and item 0 may finish or be
+    # uncancellable depending on timing). At least 3 of the 4 pending
+    # items must be cancelled by the pre-cancel loop.
     cancelled = sum(1 for f in futures if f.cancelled())
-    assert cancelled >= 1
+    assert cancelled >= 3
 
 
 def test_fit_pool_context_manager_shuts_down():

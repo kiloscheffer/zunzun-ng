@@ -147,9 +147,12 @@ class FitPool:
         self._shutdown = True
         if cancel_futures:
             # Cancel any futures still sitting in _pending_work_items before
-            # handing off to the executor's own shutdown logic.  The executor
+            # handing off to the executor's own shutdown logic. The executor
             # also sets _cancel_pending_futures, but only acts on it in its
             # manager thread, which may not have run yet when wait=False.
+            # _pending_work_items is a CPython private attribute (stable since
+            # Python 3.2). Verified present in Python 3.14.4; the getattr
+            # fallback below makes this a no-op if it ever disappears.
             pending = getattr(self._executor, "_pending_work_items", {})
             for work_item in list(pending.values()):
                 work_item.future.cancel()
