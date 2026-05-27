@@ -5,6 +5,7 @@ import pyeq3
 import uuid
 import settings
 from zunzun import platform_compat
+from ._unique import b36
 
 # matplotlib animation helpers for ScatterAnimation / SurfaceAnimation
 from matplotlib.animation import FuncAnimation, PillowWriter
@@ -602,14 +603,16 @@ class GraphReport(Report):
         self.rank = '' # function finders use rank to distinguish different graph reports
 
     def GetRankString(self):
-        """Zero-padded rank suffix, always two digits.
+        """Zero-padded rank suffix, base36, always three chars.
 
-        Function finders set ``self.rank`` to an integer position in the
-        ranked-equation list; all other report types leave it as ``''``,
-        which renders as ``_00``. Fixed width keeps filenames sortable
-        and avoids ambiguous parsing of trailing digits.
+        Function finders set ``self.rank`` to an integer position in
+        the ranked-equation list. Three base36 chars cover 0..46,655,
+        sized to hold FunctionFinder's ~23K equation types across all
+        families with headroom. All other report types leave rank as
+        ``''`` and render as ``_000``. Fixed width keeps filenames
+        sortable and avoids ambiguous parsing of trailing digits.
         """
-        return '_%02d' % (int(self.rank) if self.rank else 0)
+        return '_' + b36(int(self.rank) if self.rank else 0, 3)
 
     def _buildFilePaths(self, ext):
         """Compose ``physicalFileLocation`` and ``websiteFileLocation``

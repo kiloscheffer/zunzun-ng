@@ -120,7 +120,7 @@ class FunctionFinderResults(FittingBaseClass.FittingBaseClass):
         itemsToRender['RelativeErrorPlotsFlag'] = self.RelativeErrorPlotsFlag
 
         tempString = render_to_string('zunzun/function_finder_results.html', itemsToRender)
-        fileLocation = os.path.join(settings.TEMP_FILES_DIR, self.dataObject.uniqueString + "_zun_00.html")
+        fileLocation = os.path.join(settings.TEMP_FILES_DIR, self.dataObject.uniqueString + "_zun_000.html")
         open(fileLocation, "w").write(tempString)
         self.SaveDictionaryOfItemsToSessionStore('status', {'redirectToResultsFileOrURL':fileLocation})
         

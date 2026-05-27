@@ -245,7 +245,7 @@ You must provide any weights you wish to use.
         try:
             scale = 72.0 / 300.0 # dpi conversion factor for PDF file images
 
-            self.pdfFileName = self.dataObject.uniqueString + "_zun_00.pdf"
+            self.pdfFileName = self.dataObject.uniqueString + "_zun_000.pdf"
             pageElements = []
 
             styles = reportlab.lib.styles.getSampleStyleSheet()
@@ -413,8 +413,8 @@ You must provide any weights you wish to use.
             dataObject.DependentDataName = zName
 
         dataObject.uniqueString = new_unique_string()
-        dataObject.physicalStatusFileName = os.path.join(settings.TEMP_FILES_DIR, dataObject.uniqueString + '_zun_00.html')
-        dataObject.websiteStatusFileName = dataObject.WebsiteHTMLLocation + dataObject.uniqueString + '_zun_00.html'
+        dataObject.physicalStatusFileName = os.path.join(settings.TEMP_FILES_DIR, dataObject.uniqueString + '_zun_000.html')
+        dataObject.websiteStatusFileName = dataObject.WebsiteHTMLLocation + dataObject.uniqueString + '_zun_000.html'
 
         return dataObject
 
@@ -817,7 +817,7 @@ You must provide any weights you wish to use.
         pid_trace.pid_trace()
         
         try:
-            f = open(os.path.join(settings.TEMP_FILES_DIR, self.dataObject.uniqueString + "_zun_00.html"), "w")
+            f = open(os.path.join(settings.TEMP_FILES_DIR, self.dataObject.uniqueString + "_zun_000.html"), "w")
             f.write(render_to_string('zunzun/equation_fit_or_characterizer_results.html', itemsToRender))
             f.flush()
             f.close()
@@ -826,7 +826,7 @@ You must provide any weights you wish to use.
             logging.basicConfig(filename = os.path.join(settings.TEMP_FILES_DIR,  str(os.getpid()) + '.log'),level=logging.DEBUG)
             logging.exception('Exception rendering HTML to a file')
             
-        self.SaveDictionaryOfItemsToSessionStore('status', {'redirectToResultsFileOrURL':os.path.join(settings.TEMP_FILES_DIR, self.dataObject.uniqueString + "_zun_00.html")})
+        self.SaveDictionaryOfItemsToSessionStore('status', {'redirectToResultsFileOrURL':os.path.join(settings.TEMP_FILES_DIR, self.dataObject.uniqueString + "_zun_000.html")})
         
         pid_trace.delete_pid_trace_file()
 

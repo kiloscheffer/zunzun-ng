@@ -6,10 +6,12 @@ pattern with a base36-packed form that keeps PID as a debugging breadcrumb
 
 Format: ``zun_<pid_b36_3>_<ms_b36_8>`` — 12-char fixed-width payload.
 
-Per-component artifacts (PNG, SVG, GIF) append ``_{anchor3}_{rank2}``
+Per-component artifacts (PNG, SVG, GIF) append ``_{anchor3}_{rank3}``
 where ``anchor3`` is the 3-letter ``uniqueAnchorName`` set in
-``ReportsAndGraphs.py``. Page-level artifacts (PDF, result HTML) use
-the reserved anchor code ``zun`` and the placeholder rank ``00`` so
+``ReportsAndGraphs.py`` and ``rank3`` is a 3-char base36 number
+(covers 0..46,655 — handles FunctionFinder's ~23K ranked equations
+with headroom). Page-level artifacts (PDF, result HTML) use the
+reserved anchor code ``zun`` and the placeholder rank ``000`` so
 every artifact matches the same 5-segment shape. Anchor namespace:
 ``zun`` is reserved and MUST NOT be used as a per-component anchor.
 
@@ -34,7 +36,8 @@ _EPOCH_MS = int(datetime(2026, 1, 1, tzinfo=timezone.utc).timestamp() * 1000)
 # = 1_767_225_600_000
 
 
-def _b36(n: int, width: int) -> str:
+def b36(n: int, width: int) -> str:
+    """Format ``n`` as base36, zero-padded to ``width`` characters."""
     if n <= 0:
         return "0" * width
     out = ""
@@ -47,4 +50,4 @@ def _b36(n: int, width: int) -> str:
 def new_unique_string() -> str:
     pid_field = os.getpid() & 0x7FFF
     ms_since_epoch = max(int(time.time() * 1000) - _EPOCH_MS, 0)
-    return "zun_%s_%s" % (_b36(pid_field, 3), _b36(ms_since_epoch, 8))
+    return "zun_%s_%s" % (b36(pid_field, 3), b36(ms_since_epoch, 8))

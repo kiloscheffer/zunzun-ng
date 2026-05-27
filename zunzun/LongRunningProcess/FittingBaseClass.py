@@ -473,7 +473,7 @@ You must provide any weights you wish to use.
             itemsToRender["error1"] = str(sys.exc_info()[1])
             open(
                 os.path.join(
-                    settings.TEMP_FILES_DIR, self.dataObject.uniqueString + "_zun_00.html"
+                    settings.TEMP_FILES_DIR, self.dataObject.uniqueString + "_zun_000.html"
                 ),
                 "w",
             ).write(
@@ -485,7 +485,7 @@ You must provide any weights you wish to use.
                 "status",
                 {
                     "redirectToResultsFileOrURL": os.path.join(
-                        settings.TEMP_FILES_DIR, self.dataObject.uniqueString + "_zun_00.html"
+                        settings.TEMP_FILES_DIR, self.dataObject.uniqueString + "_zun_000.html"
                     )
                 },
             )

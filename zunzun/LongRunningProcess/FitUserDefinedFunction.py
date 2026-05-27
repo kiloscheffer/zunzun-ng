@@ -82,9 +82,9 @@ class FitUserDefinedFunction(FittingBaseClass.FittingBaseClass):
             itemsToRender['error0'] = str(sys.exc_info()[0])
             itemsToRender['error1'] = str(sys.exc_info()[1])
             itemsToRender['extraText'] = 'Please check the text of your User Defined Function.'
-            f = open(os.path.join(settings.TEMP_FILES_DIR, self.dataObject.uniqueString + "_zun_00.html"), "w")
+            f = open(os.path.join(settings.TEMP_FILES_DIR, self.dataObject.uniqueString + "_zun_000.html"), "w")
             f.write(render_to_string('zunzun/exception_while_fitting_an_equation.html', itemsToRender))
-            self.SaveDictionaryOfItemsToSessionStore('status', {'redirectToResultsFileOrURL':os.path.join(settings.TEMP_FILES_DIR, self.dataObject.uniqueString + "_zun_00.html")})
+            self.SaveDictionaryOfItemsToSessionStore('status', {'redirectToResultsFileOrURL':os.path.join(settings.TEMP_FILES_DIR, self.dataObject.uniqueString + "_zun_000.html")})
             # Raise SystemExit so the spawned child terminates cleanly without
             # overwriting the redirect already written to the session store.
             # SystemExit is a BaseException, not Exception, so the generic
