@@ -82,6 +82,11 @@ dev = [
     # feature requirement; uv.lock pins the exact tested version.
     "mypy",
     "ruff",
+    # Type stubs for `requests` so mypy can verify the smoke test's HTTP
+    # calls. Without this, mypy errors on `import requests` even under
+    # ignore_missing_imports (requests has an official stubs package,
+    # which mypy notices specifically).
+    "types-requests",
     "pytest>=7.0",
     "pytest-django>=4.5",
     "requests>=2.28",  # for scripts/smoke_test.py in later phases
@@ -106,6 +111,45 @@ package = false
 # Upstream pyeq3 has been dormant since 2020-01 and is not a PR
 # target. See docs/superpowers/specs/2026-04-20-pyeq3ng-odr-port-design.md.
 pyeq3 = { git = "https://github.com/kiloscheffer/pyeq3-ng.git", tag = "v1.0.2-ng" }
+
+[tool.mypy]
+# Permissive baseline for the 2016-era code. Strict mode would surface
+# hundreds of issues in untyped Django request handlers and dynamic
+# patterns that would block every commit until methodically addressed.
+# This config lets mypy catch real type errors in newly-written code
+# (which we DO annotate, e.g., zunzun/LongRunningProcess/_unique.py)
+# while staying out of the way of the legacy codebase.
+python_version = "3.14"
+ignore_missing_imports = true
+strict_optional = false
+exclude = [
+    "commonproblems",   # vendored upstream (BSD-2-clause attribution)
+    "funkload_tests",   # legacy Py2.7 / pre-uv code
+    "temp",             # runtime scratch
+    "session_db",       # SQLite session store
+    "\\.venv",
+    "build",
+]
+files = [
+    "zunzun",
+    "tests",
+    "scripts",
+    "manage.py",
+    "settings.py",
+    "urls.py",
+    "wsgi.py",
+]
+
+[[tool.mypy.overrides]]
+# zunzun/views.py:50-57 builds a list-of-lists with mixed element types
+# (mtime float, size int, filename str) in a housekeeping loop. mypy
+# infers the elements as `object` and complains on `totalReduction +=
+# fileItem[1]` (operator) and `os.path.join(..., fileItem[2])`
+# (call-overload). Fixing properly needs a TypedDict / NamedTuple
+# annotation that would touch surrounding 2016-era code; suppress
+# these two error codes for the module instead.
+module = "zunzun.views"
+disable_error_code = ["operator", "call-overload"]
 
 [tool.ruff]
 # Line length sized to fit the existing codebase without manufactured
