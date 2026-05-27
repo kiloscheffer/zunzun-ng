@@ -22,7 +22,7 @@ docs/superpowers/
 *~
 
 # Generated source
-src/dbxignore/_version.py
+_version.py
 
 # OS metadata
 .DS_Store
