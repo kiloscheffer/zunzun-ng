@@ -1,0 +1,9 @@
+# git blame revisions to ignore.
+# Use: git config blame.ignoreRevsFile .git-blame-ignore-revs
+#
+# These are commits where the diff is purely formatting / mass-rewrite —
+# git blame skips them and continues to the underlying authoring commit
+# for each line.
+
+# 2026-05-27: ruff format adoption (44 files reformatted, cosmetic only)
+1f8e4cfd890a156bd627b614cd59cd13062a8bfa
