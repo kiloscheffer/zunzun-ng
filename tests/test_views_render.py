@@ -12,6 +12,7 @@ Phase 1 calibration notes:
     trailing path segment is an all-or-standard flag, not a family name.
   - Invalid-form error template header is "Error In Form" (not "could not").
 """
+
 import pytest
 
 
@@ -43,10 +44,13 @@ def test_feedback_get_redirects_to_home(client):
 
 @pytest.mark.django_db
 def test_feedback_post_renders_reply(client):
-    response = client.post("/Feedback/", data={
-        "feedbackText": "integration test comment",
-        "emailAddress": "test@example.com",
-    })
+    response = client.post(
+        "/Feedback/",
+        data={
+            "feedbackText": "integration test comment",
+            "emailAddress": "test@example.com",
+        },
+    )
     assert response.status_code == 200
     # Reply template renders (no crash even if email send is skipped
     # due to empty EMAIL_HOST_USER placeholder in settings.py). The

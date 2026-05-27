@@ -7,6 +7,7 @@ bypassed. django.setup() is idempotent (apps.populate short-circuits on
 apps.ready), so calling it again is safe even if pytest-django already
 configured the app registry.
 """
+
 import os
 
 import django
@@ -29,6 +30,7 @@ def client(db):
     run once per test session).
     """
     from django.test import Client
+
     return Client()
 
 

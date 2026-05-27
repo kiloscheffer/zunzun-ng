@@ -7,7 +7,6 @@ from . import pid_trace
 
 
 class DataObject:
-
     def __init__(self):
         self.dataPointSize3D = 0
         self.pngOnlyFlag = False
@@ -151,17 +150,16 @@ class DataObject:
 
         pid_trace.pid_trace()
 
-
     def CalculateDataStatistics(self):
         pid_trace.pid_trace()
 
         tempdata = self.IndependentDataArray[0]
         # if max == min, add a little error
         if max(tempdata) == min(tempdata):
-            if abs(tempdata[0]) < 1.0E-100:
-                tempdata[0] = 1.0E-110
+            if abs(tempdata[0]) < 1.0e-100:
+                tempdata[0] = 1.0e-110
             else:
-                tempdata[0] += tempdata[0] / 1.0E6
+                tempdata[0] += tempdata[0] / 1.0e6
 
         pid_trace.pid_trace()
 
@@ -177,10 +175,10 @@ class DataObject:
                 tempdata = self.IndependentDataArray[1]
             # if max == min, add a little error
             if max(tempdata) == min(tempdata):
-                if abs(tempdata[0]) < 1.0E-100:
-                    tempdata[0] = 1.0E-110
+                if abs(tempdata[0]) < 1.0e-100:
+                    tempdata[0] = 1.0e-110
                 else:
-                    tempdata[0] += tempdata[0] / 1.0E6
+                    tempdata[0] += tempdata[0] / 1.0e6
 
             pid_trace.pid_trace()
 
@@ -193,10 +191,10 @@ class DataObject:
             tempdata = self.DependentDataArray
             # if max == min, add a little error
             if max(tempdata) == min(tempdata):
-                if abs(tempdata[0]) < 1.0E-100:
-                    tempdata[0] = 1.0E-110
+                if abs(tempdata[0]) < 1.0e-100:
+                    tempdata[0] = 1.0e-110
                 else:
-                    tempdata[0] += tempdata[0] / 1.0E6
+                    tempdata[0] += tempdata[0] / 1.0e6
 
             pid_trace.pid_trace()
 
@@ -204,12 +202,13 @@ class DataObject:
 
             pid_trace.pid_trace()
 
-
     def CalculateErrorStatistics(self):
         pid_trace.pid_trace()
 
         # calculate model predictions and errors
-        self.equation.CalculateModelErrors(self.equation.solvedCoefficients, self.equation.dataCache.allDataCacheDictionary)
+        self.equation.CalculateModelErrors(
+            self.equation.solvedCoefficients, self.equation.dataCache.allDataCacheDictionary
+        )
 
         # absolute error statistics
         self.CalculateStatisticsForList("abs_err", self.equation.modelAbsoluteError)
@@ -219,9 +218,9 @@ class DataObject:
             self.CalculateStatisticsForList("rel_err", self.equation.modelRelativeError)
             self.CalculateStatisticsForList("per_err", self.equation.modelRelativeError)
 
-        #_p05 is for error plot axes, etc.
-        self.abs_err_min_p05 = self.statistics['abs_err_min']
-        self.abs_err_max_p05 = self.statistics['abs_err_max']
+        # _p05 is for error plot axes, etc.
+        self.abs_err_min_p05 = self.statistics["abs_err_min"]
+        self.abs_err_max_p05 = self.statistics["abs_err_max"]
         self.delta_abs_err_p05 = self.abs_err_max_p05 - self.abs_err_min_p05
         self.gabs_err_min_p05 = self.abs_err_min_p05 - (self.delta_abs_err_p05 * 0.05)
         self.gabs_err_max_p05 = self.abs_err_max_p05 + (self.delta_abs_err_p05 * 0.05)
@@ -229,15 +228,15 @@ class DataObject:
 
         # relative error statistics
         if self.equation.dataCache.DependentDataContainsZeroFlag == 0:
-            self.rel_err_min_p05 = self.statistics['rel_err_min']
-            self.rel_err_max_p05 = self.statistics['rel_err_max']
+            self.rel_err_min_p05 = self.statistics["rel_err_min"]
+            self.rel_err_max_p05 = self.statistics["rel_err_max"]
             self.delta_rel_err_p05 = self.rel_err_max_p05 - self.rel_err_min_p05
             self.grel_err_min_p05 = self.rel_err_min_p05 - (self.delta_rel_err_p05 * 0.05)
             self.grel_err_max_p05 = self.rel_err_max_p05 + (self.delta_rel_err_p05 * 0.05)
             self.gdelta_rel_err_p05 = self.grel_err_max_p05 - self.grel_err_min_p05
 
-            self.per_err_min_p05 = self.statistics['per_err_min']
-            self.per_err_max_p05 = self.statistics['per_err_max']
+            self.per_err_min_p05 = self.statistics["per_err_min"]
+            self.per_err_max_p05 = self.statistics["per_err_max"]
             self.delta_per_err_p05 = self.per_err_max_p05 - self.per_err_min_p05
             self.gper_err_min_p05 = self.per_err_min_p05 - (self.delta_per_err_p05 * 0.05)
             self.gper_err_max_p05 = self.per_err_max_p05 + (self.delta_per_err_p05 * 0.05)
@@ -245,13 +244,12 @@ class DataObject:
 
         pid_trace.delete_pid_trace_file()
 
-
     def CalculateGraphBoundaries(self):
         pid_trace.pid_trace()
 
-        #_p05 is for error plot axes, etc.
-        self.xmin_p05 = self.statistics['1_min']
-        self.xmax_p05 = self.statistics['1_max']
+        # _p05 is for error plot axes, etc.
+        self.xmin_p05 = self.statistics["1_min"]
+        self.xmax_p05 = self.statistics["1_max"]
         self.deltax_p05 = self.xmax_p05 - self.xmin_p05
         self.gxmin_p05 = self.xmin_p05 - (self.deltax_p05 * 0.05)
         self.gxmax_p05 = self.xmax_p05 + (self.deltax_p05 * 0.05)
@@ -260,8 +258,8 @@ class DataObject:
         pid_trace.pid_trace()
 
         if self.dimensionality > 1:
-            self.ymin_p05 = self.statistics['2_min']
-            self.ymax_p05 = self.statistics['2_max']
+            self.ymin_p05 = self.statistics["2_min"]
+            self.ymax_p05 = self.statistics["2_max"]
             self.deltay_p05 = self.ymax_p05 - self.ymin_p05
             self.gymin_p05 = self.ymin_p05 - (self.deltay_p05 * 0.05)
             self.gymax_p05 = self.ymax_p05 + (self.deltay_p05 * 0.05)
@@ -270,8 +268,8 @@ class DataObject:
         pid_trace.pid_trace()
 
         if self.dimensionality == 3:
-            self.zmin_p05 = self.statistics['3_min']
-            self.zmax_p05 = self.statistics['3_max']
+            self.zmin_p05 = self.statistics["3_min"]
+            self.zmax_p05 = self.statistics["3_max"]
             self.deltaz_p05 = self.zmax_p05 - self.zmin_p05
             self.gzmin_p05 = self.zmin_p05 - (self.deltaz_p05 * 0.05)
             self.gzmax_p05 = self.zmax_p05 + (self.deltaz_p05 * 0.05)
@@ -279,9 +277,9 @@ class DataObject:
 
         pid_trace.pid_trace()
 
-        if self.Extrapolation_x < 98.0: # 99.0 means Manual Scaling
-            self.xmin = self.statistics['1_min']
-            self.xmax = self.statistics['1_max']
+        if self.Extrapolation_x < 98.0:  # 99.0 means Manual Scaling
+            self.xmin = self.statistics["1_min"]
+            self.xmax = self.statistics["1_max"]
             self.deltax = self.xmax - self.xmin
             self.gxmin = self.xmin - (self.deltax * self.Extrapolation_x)
             self.gxmax = self.xmax + (self.deltax * self.Extrapolation_x)
@@ -294,12 +292,12 @@ class DataObject:
             self.gxmax = self.xmax
             self.gdeltax = self.gxmax - self.gxmin
 
-        pid_trace.pid_trace('dim = ' + str(self.dimensionality))
+        pid_trace.pid_trace("dim = " + str(self.dimensionality))
 
         if self.dimensionality > 1:
-            if self.Extrapolation_y < 98.0: # 99.0 means Manual Scaling
-                self.ymin = self.statistics['2_min']
-                self.ymax = self.statistics['2_max']
+            if self.Extrapolation_y < 98.0:  # 99.0 means Manual Scaling
+                self.ymin = self.statistics["2_min"]
+                self.ymax = self.statistics["2_max"]
                 self.deltay = self.ymax - self.ymin
                 self.gymin = self.ymin - (self.deltay * self.Extrapolation_y)
                 self.gymax = self.ymax + (self.deltay * self.Extrapolation_y)
@@ -315,9 +313,9 @@ class DataObject:
         pid_trace.pid_trace()
 
         if self.dimensionality == 3:
-            if self.Extrapolation_z < 98.0: # 99.0 means Manual Scaling
-                self.zmin = self.statistics['3_min']
-                self.zmax = self.statistics['3_max']
+            if self.Extrapolation_z < 98.0:  # 99.0 means Manual Scaling
+                self.zmin = self.statistics["3_min"]
+                self.zmax = self.statistics["3_max"]
                 self.deltaz = self.zmax - self.zmin
                 self.gzmin = self.zmin - (self.deltaz * self.Extrapolation_z)
                 self.gzmax = self.zmax + (self.deltaz * self.Extrapolation_z)
@@ -330,8 +328,8 @@ class DataObject:
                 self.gzmax = self.zmax
                 self.gdeltaz = self.gzmax - self.gzmin
 
-        pid_trace.pid_trace('self.graphHeight = ' + str(self.graphHeight))
-        pid_trace.pid_trace('self.graphWidth = ' + str(self.graphWidth))
+        pid_trace.pid_trace("self.graphHeight = " + str(self.graphHeight))
+        pid_trace.pid_trace("self.graphWidth = " + str(self.graphWidth))
 
         self.gridResolution = (self.graphHeight + self.graphWidth) // 40
 
@@ -342,11 +340,10 @@ class DataObject:
 
         pid_trace.delete_pid_trace_file()
 
-
     def hex_char_to_decimal(self, character):
         """Used to turn hex input into decimal values"""
         for index in range(len(string.hexdigits)):
-            if (character == string.hexdigits[index]) and (index < 16): # 0-9, a-f
+            if (character == string.hexdigits[index]) and (index < 16):  # 0-9, a-f
                 return index
-            if (character == string.hexdigits[index]) and (index > 15): # A-F
+            if (character == string.hexdigits[index]) and (index > 15):  # A-F
                 return index - 6

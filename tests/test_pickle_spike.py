@@ -8,6 +8,7 @@ We test pickling under the spawn protocol specifically (highest
 pickle protocol) because that's what multiprocessing.Process(spawn)
 uses internally.
 """
+
 import pickle
 
 import pyeq3
@@ -23,6 +24,7 @@ import pytest
 
 class _FakeDataObject:
     """Minimal stand-in for the DataObject attr-bag."""
+
     pass
 
 
@@ -68,11 +70,13 @@ class _FakeEquation_Rational:
 
 class _FakeEquation_FF:
     """Equation base used by FunctionFinder (sits on dataObject.equation)."""
+
     pass
 
 
 class _FakeEquation_FFR:
     """Equation base used by FunctionFinderResults (via boundForm)."""
+
     pass
 
 
@@ -114,6 +118,7 @@ class _FakeBoundForm_FFR:
 
 class _FakeDataObject_FF:
     """DataObject with equation attr for FunctionFinder."""
+
     equation = _FakeEquation_FF()
 
 
@@ -163,6 +168,7 @@ def test_lrp_instance_pickles_minimally():
     that persistent __init__ state (e.g. inEquationName) round-trips.
     """
     from zunzun.LongRunningProcess import FitOneEquation
+
     lrp = FitOneEquation.FitOneEquation()
     clone = _roundtrip(lrp)
     assert clone.__class__.__name__ == "FitOneEquation"
@@ -189,6 +195,7 @@ def _base_lrp_attrs(lrp, dimensionality=2):
 
 def test_fit_one_equation_payload_round_trips():
     from zunzun.LongRunningProcess.FitOneEquation import FitOneEquation
+
     lrp = FitOneEquation()
     _base_lrp_attrs(lrp)
     lrp.boundForm = None  # FittingBaseClass.build_child_payload guards on this
@@ -201,6 +208,7 @@ def test_fit_one_equation_payload_round_trips():
 
 def test_fit_spline_payload_round_trips():
     from zunzun.LongRunningProcess.FitSpline import FitSpline
+
     lrp = FitSpline()
     _base_lrp_attrs(lrp, dimensionality=2)
     lrp.boundForm = _FakeBoundForm_Spline()
@@ -216,6 +224,7 @@ def test_fit_spline_payload_round_trips():
 def test_fit_spline_3d_payload_round_trips():
     """FitSpline adds yOrder only when dimensionality==3."""
     from zunzun.LongRunningProcess.FitSpline import FitSpline
+
     lrp = FitSpline()
     _base_lrp_attrs(lrp, dimensionality=3)
     lrp.boundForm = _FakeBoundForm_Spline3D()
@@ -227,6 +236,7 @@ def test_fit_spline_3d_payload_round_trips():
 
 def test_fit_user_defined_function_payload_round_trips():
     from zunzun.LongRunningProcess.FitUserDefinedFunction import FitUserDefinedFunction
+
     lrp = FitUserDefinedFunction()
     _base_lrp_attrs(lrp)
     lrp.boundForm = _FakeBoundForm_UDF()
@@ -240,6 +250,7 @@ def test_fit_user_customizable_polynomial_payload_round_trips():
     from zunzun.LongRunningProcess.FitUserCustomizablePolynomial import (
         FitUserCustomizablePolynomial,
     )
+
     lrp = FitUserCustomizablePolynomial()
     _base_lrp_attrs(lrp)
     lrp.boundForm = _FakeBoundForm_CustomPoly()
@@ -251,6 +262,7 @@ def test_fit_user_customizable_polynomial_payload_round_trips():
 
 def test_fit_user_selectable_polynomial_payload_round_trips():
     from zunzun.LongRunningProcess.FitUserSelectablePolynomial import FitUserSelectablePolynomial
+
     lrp = FitUserSelectablePolynomial()
     _base_lrp_attrs(lrp, dimensionality=2)
     lrp.boundForm = _FakeBoundForm_SelectPoly()
@@ -264,6 +276,7 @@ def test_fit_user_selectable_polynomial_payload_round_trips():
 def test_fit_user_selectable_polynomial_3d_payload_round_trips():
     """FitUserSelectablePolynomial adds yPolynomialOrder only for 3D."""
     from zunzun.LongRunningProcess.FitUserSelectablePolynomial import FitUserSelectablePolynomial
+
     lrp = FitUserSelectablePolynomial()
     _base_lrp_attrs(lrp, dimensionality=3)
     lrp.boundForm = _FakeBoundForm_SelectPoly3D()
@@ -277,6 +290,7 @@ def test_fit_user_selectable_polyfunctional_payload_round_trips():
     from zunzun.LongRunningProcess.FitUserSelectablePolyfunctional import (
         FitUserSelectablePolyfunctional,
     )
+
     lrp = FitUserSelectablePolyfunctional()
     _base_lrp_attrs(lrp)
     lrp.boundForm = _FakeBoundForm_Polyfunc()
@@ -289,6 +303,7 @@ def test_fit_user_selectable_polyfunctional_payload_round_trips():
 
 def test_fit_user_selectable_rational_payload_round_trips():
     from zunzun.LongRunningProcess.FitUserSelectableRational import FitUserSelectableRational
+
     lrp = FitUserSelectableRational()
     _base_lrp_attrs(lrp)
     lrp.boundForm = _FakeBoundForm_Rational()
@@ -301,6 +316,7 @@ def test_fit_user_selectable_rational_payload_round_trips():
 
 def test_function_finder_payload_round_trips():
     from zunzun.LongRunningProcess.FunctionFinder import FunctionFinder
+
     lrp = FunctionFinder()
     _base_lrp_attrs(lrp)
     lrp.dataObject = _FakeDataObject_FF()
@@ -315,6 +331,7 @@ def test_function_finder_payload_round_trips():
 
 def test_function_finder_results_payload_round_trips():
     from zunzun.LongRunningProcess.FunctionFinderResults import FunctionFinderResults
+
     lrp = FunctionFinderResults()
     _base_lrp_attrs(lrp)
     lrp.boundForm = _FakeBoundForm_FFR()
@@ -327,6 +344,7 @@ def test_function_finder_results_payload_round_trips():
 
 def test_characterize_data_payload_round_trips():
     from zunzun.LongRunningProcess.CharacterizeData import CharacterizeData
+
     lrp = CharacterizeData()
     _base_lrp_attrs(lrp, dimensionality=1)
     lrp.dataObject = _FakeDataObject()
@@ -340,6 +358,7 @@ def test_characterize_data_payload_round_trips():
 
 def test_statistical_distributions_payload_round_trips():
     from zunzun.LongRunningProcess.StatisticalDistributions import StatisticalDistributions
+
     lrp = StatisticalDistributions()
     _base_lrp_attrs(lrp, dimensionality=1)
     lrp.dataObject = _FakeDataObject()

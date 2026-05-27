@@ -1,4 +1,4 @@
-defaultData1D = '''This data was generated from a Rayleigh distribution (5.0, 2.0)
+defaultData1D = """This data was generated from a Rayleigh distribution (5.0, 2.0)
 
 6.80743717445
 5.73241246041
@@ -149,9 +149,9 @@ defaultData1D = '''This data was generated from a Rayleigh distribution (5.0, 2.
 6.48809806813
 7.66644773214
 7.60246282819
-7.23133792963'''
+7.23133792963"""
 
-defaultData2D = '''5.357    0.376
+defaultData2D = """5.357    0.376
 5.457    0.489
 5.797    0.874
 5.936    1.049
@@ -161,9 +161,9 @@ defaultData2D = '''5.357    0.376
 6.775    2.138
 8.442    4.744
 9.769    7.068
-9.861    7.104'''
+9.861    7.104"""
 
-defaultData3D =  '''3.017    2.175    0.320
+defaultData3D = """3.017    2.175    0.320
 2.822    2.624    0.629
 2.632    2.839    0.950
 2.287    3.030    1.574
@@ -189,4 +189,4 @@ defaultData3D =  '''3.017    2.175    0.320
 1.279    2.554    1.927
 1.016    2.564    2.243
 0.742    2.568    2.581
-0.607    2.571    2.753'''
+0.607    2.571    2.753"""

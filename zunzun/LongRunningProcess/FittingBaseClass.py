@@ -13,9 +13,7 @@ from . import StatusMonitoredLongRunningProcessPage
 from ._unique import page_artifact_path
 
 
-class FittingBaseClass(
-    StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRunningProcessPage
-):
+class FittingBaseClass(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRunningProcessPage):
     extraExampleDataTextForWeightedFitting = """Weighted fitting requires an additional number to be used as a weight when fitting. The site does not calculate any weights, which are used as:
 
 error = weight * (predicted - actual)
@@ -189,9 +187,7 @@ You must provide any weights you wish to use.
         self.dictionaryToReturn["dimensionality"] = str(self.dimensionality)
 
         # make a dimensionality-based unbound Django form
-        self.unboundForm = eval(
-            "zunzun.forms.Equation_" + str(self.dimensionality) + "D()"
-        )
+        self.unboundForm = eval("zunzun.forms.Equation_" + str(self.dimensionality) + "D()")
 
         # FF - set "rank" variable if coming from the function finders, else set "rank" to None
         if "RANK" in list(request.GET.keys()):
@@ -199,9 +195,7 @@ You must provide any weights you wish to use.
                 self.rank = int(request.GET["RANK"])
             except:
                 raise Exception("Incorrect call to equation interface.")
-            if (
-                self.rank < 1 or self.rank > 10000000
-            ):  # must be between 1 and 10 million
+            if self.rank < 1 or self.rank > 10000000:  # must be between 1 and 10 million
                 raise Exception("Bad call to equation interface.")
 
             # bounds check
@@ -216,32 +210,26 @@ You must provide any weights you wish to use.
                 self.rank = len(self.functionFinderResultsList)
 
             if self.dimensionality == 2:
-                self.unboundForm.fields[
-                    "dataNameX"
-                ].initial = self.LoadItemFromSessionStore(
+                self.unboundForm.fields["dataNameX"].initial = self.LoadItemFromSessionStore(
                     "data", "IndependentDataName1"
                 )
-                self.unboundForm.fields[
-                    "dataNameY"
-                ].initial = self.LoadItemFromSessionStore("data", "DependentDataName")
+                self.unboundForm.fields["dataNameY"].initial = self.LoadItemFromSessionStore(
+                    "data", "DependentDataName"
+                )
             else:
-                self.unboundForm.fields[
-                    "dataNameX"
-                ].initial = self.LoadItemFromSessionStore(
+                self.unboundForm.fields["dataNameX"].initial = self.LoadItemFromSessionStore(
                     "data", "IndependentDataName1"
                 )
-                self.unboundForm.fields[
-                    "dataNameY"
-                ].initial = self.LoadItemFromSessionStore(
+                self.unboundForm.fields["dataNameY"].initial = self.LoadItemFromSessionStore(
                     "data", "IndependentDataName2"
                 )
-                self.unboundForm.fields[
-                    "dataNameZ"
-                ].initial = self.LoadItemFromSessionStore("data", "DependentDataName")
+                self.unboundForm.fields["dataNameZ"].initial = self.LoadItemFromSessionStore(
+                    "data", "DependentDataName"
+                )
 
-            self.unboundForm.fields[
-                "fittingTarget"
-            ].initial = self.LoadItemFromSessionStore("data", "fittingTarget")
+            self.unboundForm.fields["fittingTarget"].initial = self.LoadItemFromSessionStore(
+                "data", "fittingTarget"
+            )
 
         self.dictionaryToReturn["quotedEquationFamilyName"] = self.inEquationFamilyName
         self.dictionaryToReturn["quotedEquationName"] = self.inEquationName
@@ -271,9 +259,7 @@ You must provide any weights you wish to use.
         if temp:
             self.unboundForm.fields["textDataEditor"].initial = temp
         elif self.equation.splineFlag:
-            self.unboundForm.fields[
-                "textDataEditor"
-            ].initial += self.equation.exampleData
+            self.unboundForm.fields["textDataEditor"].initial += self.equation.exampleData
         else:
             self.unboundForm.fields["textDataEditor"].initial += (
                 self.extraExampleDataTextForWeightedFitting + self.equation.exampleData
@@ -304,9 +290,7 @@ You must provide any weights you wish to use.
 
         self.unboundForm.weightedFittingPossibleFlag = not self.spline
 
-        temp = self.LoadItemFromSessionStore(
-            "data", "udfEditor_" + str(self.dimensionality) + "D"
-        )
+        temp = self.LoadItemFromSessionStore("data", "udfEditor_" + str(self.dimensionality) + "D")
         if temp:
             self.unboundForm.fields["udfEditor"].initial = temp
 
@@ -327,34 +311,20 @@ You must provide any weights you wish to use.
                         coefficientBoundsTemplateRequirement.append(
                             [
                                 self.equation.listOfAdditionalCoefficientDesignators[i],
-                                eval(
-                                    'self.unboundForm["upperCoefficientBound'
-                                    + str(i)
-                                    + '"]'
-                                ),
-                                eval(
-                                    'self.unboundForm["lowerCoefficientBound'
-                                    + str(i)
-                                    + '"]'
-                                ),
+                                eval('self.unboundForm["upperCoefficientBound' + str(i) + '"]'),
+                                eval('self.unboundForm["lowerCoefficientBound' + str(i) + '"]'),
                             ]
                         )
                         fixedCoefficientTemplateRequirement.append(
                             [
                                 self.equation.listOfAdditionalCoefficientDesignators[i],
-                                eval(
-                                    'self.unboundForm["fixedCoefficient' + str(i) + '"]'
-                                ),
+                                eval('self.unboundForm["fixedCoefficient' + str(i) + '"]'),
                             ]
                         )
                         estimatedCoefficientTemplateRequirement.append(
                             [
                                 self.equation.listOfAdditionalCoefficientDesignators[i],
-                                eval(
-                                    'self.unboundForm["estimatedCoefficient'
-                                    + str(i)
-                                    + '"]'
-                                ),
+                                eval('self.unboundForm["estimatedCoefficient' + str(i) + '"]'),
                             ]
                         )
                 else:
@@ -365,16 +335,8 @@ You must provide any weights you wish to use.
                     coefficientBoundsTemplateRequirement.append(
                         [
                             coeffDesignatorList[i],
-                            eval(
-                                'self.unboundForm["upperCoefficientBound'
-                                + str(i)
-                                + '"]'
-                            ),
-                            eval(
-                                'self.unboundForm["lowerCoefficientBound'
-                                + str(i)
-                                + '"]'
-                            ),
+                            eval('self.unboundForm["upperCoefficientBound' + str(i) + '"]'),
+                            eval('self.unboundForm["lowerCoefficientBound' + str(i) + '"]'),
                         ]
                     )
                     if self.equation.upperCoefficientBounds:
@@ -402,9 +364,7 @@ You must provide any weights you wish to use.
                     estimatedCoefficientTemplateRequirement.append(
                         [
                             coeffDesignatorList[i],
-                            eval(
-                                'self.unboundForm["estimatedCoefficient' + str(i) + '"]'
-                            ),
+                            eval('self.unboundForm["estimatedCoefficient' + str(i) + '"]'),
                         ]
                     )
 
@@ -467,9 +427,7 @@ You must provide any weights you wish to use.
 
     def GenerateListOfWorkItems(self):
 
-        self.SaveDictionaryOfItemsToSessionStore(
-            "status", {"currentStatus": "Fitting Data"}
-        )
+        self.SaveDictionaryOfItemsToSessionStore("status", {"currentStatus": "Fitting Data"})
 
         try:
             self.dataObject.equation.Solve()
@@ -479,9 +437,7 @@ You must provide any weights you wish to use.
             itemsToRender["error1"] = str(sys.exc_info()[1])
             error_html_path = page_artifact_path(self.dataObject.uniqueString, "html")
             open(error_html_path, "w").write(
-                render_to_string(
-                    "zunzun/exception_while_fitting_an_equation.html", itemsToRender
-                )
+                render_to_string("zunzun/exception_while_fitting_an_equation.html", itemsToRender)
             )
             self.SaveDictionaryOfItemsToSessionStore(
                 "status", {"redirectToResultsFileOrURL": error_html_path}
@@ -506,9 +462,9 @@ You must provide any weights you wish to use.
                     continue
                 for equationClass in inspect.getmembers(submodule[1]):
                     if inspect.isclass(equationClass[1]):
-                        for extendedName in (
-                            pyeq3.ExtendedVersionHandlers.extendedVersionHandlerNameList
-                        ):
+                        for (
+                            extendedName
+                        ) in pyeq3.ExtendedVersionHandlers.extendedVersionHandlerNameList:
                             try:
                                 tempEquation = equationClass[1]("SSQABS", extendedName)
                                 if tempEquation.GetDisplayName() == inEquationName:

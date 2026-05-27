@@ -16,16 +16,14 @@ from .child_payload import ChildPayload
 
 
 class FunctionFinderResults(FittingBaseClass.FittingBaseClass):
-
     def __init__(self):
         super().__init__()
         self.equationName = None
         self.userInterfaceRequired = False
         self.equationDataForDjangoTemplate = []
-        self.webFormName = 'Function Finder Results'
+        self.webFormName = "Function Finder Results"
         self.reniceLevel = 11
         self.maxNumberOfEquationsToDisplay = 40
-
 
     def build_child_payload(self):
         payload = super().build_child_payload()
@@ -59,29 +57,41 @@ class FunctionFinderResults(FittingBaseClass.FittingBaseClass):
             if attr in payload.extra:
                 setattr(self, attr, payload.extra[attr])
 
-    def TransferFormDataToDataObject(self, request): # return any error in a user-viewable string (self.dataObject.ErrorString)
-        IndependentDataName1 = self.LoadItemFromSessionStore('data', 'IndependentDataName1')
-        IndependentDataName2 =self.LoadItemFromSessionStore('data', 'IndependentDataName2')
-        DependentDataName = self.LoadItemFromSessionStore('data', 'DependentDataName')
-        self.dataObject = self.BaseCreateAndInitializeDataObject(IndependentDataName1, IndependentDataName2, DependentDataName)
-        self.dataObject.commaConversion = self.LoadItemFromSessionStore('data', 'commaConversion')
+    def TransferFormDataToDataObject(
+        self, request
+    ):  # return any error in a user-viewable string (self.dataObject.ErrorString)
+        IndependentDataName1 = self.LoadItemFromSessionStore("data", "IndependentDataName1")
+        IndependentDataName2 = self.LoadItemFromSessionStore("data", "IndependentDataName2")
+        DependentDataName = self.LoadItemFromSessionStore("data", "DependentDataName")
+        self.dataObject = self.BaseCreateAndInitializeDataObject(
+            IndependentDataName1, IndependentDataName2, DependentDataName
+        )
+        self.dataObject.commaConversion = self.LoadItemFromSessionStore("data", "commaConversion")
         self.dataObject.equation = pyeq3.IModel.IModel()
         self.dataObject.equation._dimensionality = self.dimensionality
 
-        self.functionFinderResultsList = self.LoadItemFromSessionStore('functionfinder', 'functionFinderResultsList')
+        self.functionFinderResultsList = self.LoadItemFromSessionStore(
+            "functionfinder", "functionFinderResultsList"
+        )
         if self.functionFinderResultsList == None:
             return "Your session has expired.  Please run the function finder again."
         if self.functionFinderResultsList == []:
             return "No functions were found to model your data."
 
-        self.dataObject.textDataEditor = self.LoadItemFromSessionStore('data', 'textDataEditor')
-        self.dataObject.weightedFittingChoice = self.LoadItemFromSessionStore('data', 'weightedFittingChoice')
-        self.dataObject.fittingTarget = self.LoadItemFromSessionStore('data', 'fittingTarget')
-        self.dataObject.DependentDataArray = self.LoadItemFromSessionStore('data', 'DependentDataArray')
-        self.dataObject.IndependentDataArray = self.LoadItemFromSessionStore('data', 'IndependentDataArray')
+        self.dataObject.textDataEditor = self.LoadItemFromSessionStore("data", "textDataEditor")
+        self.dataObject.weightedFittingChoice = self.LoadItemFromSessionStore(
+            "data", "weightedFittingChoice"
+        )
+        self.dataObject.fittingTarget = self.LoadItemFromSessionStore("data", "fittingTarget")
+        self.dataObject.DependentDataArray = self.LoadItemFromSessionStore(
+            "data", "DependentDataArray"
+        )
+        self.dataObject.IndependentDataArray = self.LoadItemFromSessionStore(
+            "data", "IndependentDataArray"
+        )
 
-        self.dataObject.logLinX = self.LoadItemFromSessionStore('data', 'logLinX')
-        self.dataObject.logLinY = self.LoadItemFromSessionStore('data', 'logLinY')
+        self.dataObject.logLinX = self.LoadItemFromSessionStore("data", "logLinX")
+        self.dataObject.logLinY = self.LoadItemFromSessionStore("data", "logLinY")
 
         if len(self.functionFinderResultsList) < self.rank:
             self.rank = len(self.functionFinderResultsList)
@@ -92,53 +102,63 @@ class FunctionFinderResults(FittingBaseClass.FittingBaseClass):
 
         # this is for determining 'previous' and 'next' links on page - use zero for "none"
         if self.rank == 1:
-            self.previousSelectorRank = 0 # no 'previous' rank to go back to
+            self.previousSelectorRank = 0  # no 'previous' rank to go back to
         else:
             self.previousSelectorRank = self.rank - self.maxNumberOfEquationsToDisplay
             if self.previousSelectorRank < 1:
                 self.previousSelectorRank = 0
         if self.rank > (len(self.functionFinderResultsList) - self.maxNumberOfEquationsToDisplay):
-            self.nextSelectorRank = 0 # no 'next' rank to go forwards to
+            self.nextSelectorRank = 0  # no 'next' rank to go forwards to
         else:
             self.nextSelectorRank = self.rank + self.maxNumberOfEquationsToDisplay
             if self.nextSelectorRank > len(self.functionFinderResultsList):
                 self.nextSelectorRank = 0
-        return ''
-
+        return ""
 
     def RenderOutputHTMLToAFileAndSetStatusRedirect(self):
 
         import time  # acts strangely if import is at top of file
 
-        self.SaveDictionaryOfItemsToSessionStore('status', {'currentStatus':"Generating Output HTML"})
+        self.SaveDictionaryOfItemsToSessionStore(
+            "status", {"currentStatus": "Generating Output HTML"}
+        )
 
         itemsToRender = {}
-        itemsToRender['dimensionality'] = str(self.dataObject.dimensionality)
-        itemsToRender['header_text'] = 'ZunZunNG'
-        itemsToRender['subtitle_text'] = str(self.dataObject.dimensionality) + 'D ' + self.webFormName
-        itemsToRender['title_string'] = 'ZunZunNG ' + str(self.dataObject.dimensionality) + 'D ' + self.webFormName
-        itemsToRender['equationDataForDjangoTemplate'] = self.equationDataForDjangoTemplate
-        itemsToRender['uniqueTime'] = str(time.time())
-        itemsToRender['previousSelectorRank'] = self.previousSelectorRank
-        itemsToRender['nextSelectorRank'] = self.nextSelectorRank
-        itemsToRender['RelativeErrorPlotsFlag'] = self.RelativeErrorPlotsFlag
+        itemsToRender["dimensionality"] = str(self.dataObject.dimensionality)
+        itemsToRender["header_text"] = "ZunZunNG"
+        itemsToRender["subtitle_text"] = (
+            str(self.dataObject.dimensionality) + "D " + self.webFormName
+        )
+        itemsToRender["title_string"] = (
+            "ZunZunNG " + str(self.dataObject.dimensionality) + "D " + self.webFormName
+        )
+        itemsToRender["equationDataForDjangoTemplate"] = self.equationDataForDjangoTemplate
+        itemsToRender["uniqueTime"] = str(time.time())
+        itemsToRender["previousSelectorRank"] = self.previousSelectorRank
+        itemsToRender["nextSelectorRank"] = self.nextSelectorRank
+        itemsToRender["RelativeErrorPlotsFlag"] = self.RelativeErrorPlotsFlag
 
-        tempString = render_to_string('zunzun/function_finder_results.html', itemsToRender)
+        tempString = render_to_string("zunzun/function_finder_results.html", itemsToRender)
         fileLocation = page_artifact_path(self.dataObject.uniqueString, "html")
         open(fileLocation, "w").write(tempString)
-        self.SaveDictionaryOfItemsToSessionStore('status', {'redirectToResultsFileOrURL':fileLocation})
-
+        self.SaveDictionaryOfItemsToSessionStore(
+            "status", {"redirectToResultsFileOrURL": fileLocation}
+        )
 
     def SetInitialStatusDataIntoSessionVariables(self, request):
         import time
-        pid_trace.pid_trace()
-        self.SaveDictionaryOfItemsToSessionStore('status',
-                                                 {'currentStatus':'Initializing Reports and Graphs',
-                                                  'start_time':time.time(),
-                                                  'time_of_last_status_check':time.time(),
-                                                  'redirectToResultsFileOrURL':''})
-        pid_trace.delete_pid_trace_file()
 
+        pid_trace.pid_trace()
+        self.SaveDictionaryOfItemsToSessionStore(
+            "status",
+            {
+                "currentStatus": "Initializing Reports and Graphs",
+                "start_time": time.time(),
+                "time_of_last_status_check": time.time(),
+                "redirectToResultsFileOrURL": "",
+            },
+        )
+        pid_trace.delete_pid_trace_file()
 
     def GenerateListOfOutputReports(self):
 
@@ -147,46 +167,51 @@ class FunctionFinderResults(FittingBaseClass.FittingBaseClass):
         self.textReports = []
         self.graphReports = []
 
-        externalDataCache = pyeq3.dataCache() # reuse this to speed up some caching
+        externalDataCache = pyeq3.dataCache()  # reuse this to speed up some caching
 
         for i in range(self.numberOfEquationsToDisplay):
-
-            listItem = self.functionFinderResultsList[i + self.rank-1]
+            listItem = self.functionFinderResultsList[i + self.rank - 1]
 
             reportDataObject = copy.copy(self.dataObject)
 
             # find the equation instance for the incoming dimensionality, equation family name and equation name - 404 if not found
-            reportDataObject.equation = eval(listItem[1] + "." + listItem[2] + "('SSQABS', '" + listItem[3] + "')")
+            reportDataObject.equation = eval(
+                listItem[1] + "." + listItem[2] + "('SSQABS', '" + listItem[3] + "')"
+            )
 
-            if externalDataCache.allDataCacheDictionary == {}: # This should only run for the first equation
+            if (
+                externalDataCache.allDataCacheDictionary == {}
+            ):  # This should only run for the first equation
                 temp = reportDataObject.textDataEditor
 
                 # comma conversions
-                if reportDataObject.commaConversion == "D": # decimal separator
-                    temp = temp.replace(",",".")
-                elif reportDataObject.commaConversion == "I": # as if they don't exist
-                    temp = temp.replace(",","")
+                if reportDataObject.commaConversion == "D":  # decimal separator
+                    temp = temp.replace(",", ".")
+                elif reportDataObject.commaConversion == "I":  # as if they don't exist
+                    temp = temp.replace(",", "")
                 else:
-                    temp = temp.replace(","," ") # default to the original default conversion
+                    temp = temp.replace(",", " ")  # default to the original default conversion
 
                 # replace these characters with spaces for use by float()
-                temp = temp.replace("$"," ")
-                temp = temp.replace("%"," ")
-                temp = temp.replace("("," ")
-                temp = temp.replace(")"," ")
-                temp = temp.replace("{"," ")
-                temp = temp.replace("}"," ")
+                temp = temp.replace("$", " ")
+                temp = temp.replace("%", " ")
+                temp = temp.replace("(", " ")
+                temp = temp.replace(")", " ")
+                temp = temp.replace("{", " ")
+                temp = temp.replace("}", " ")
 
-                temp = temp.replace('\r\n','\n')
-                temp = temp.replace('\r','\n')
+                temp = temp.replace("\r\n", "\n")
+                temp = temp.replace("\r", "\n")
 
                 # replace HTML spaces and tabs with spaces
-                temp = temp.replace("&nbsp;"," ")
-                temp = temp.replace("&#9;"," ")
-                temp = temp.replace("&#09;"," ")
-                temp = temp.replace("&#32;"," ")
+                temp = temp.replace("&nbsp;", " ")
+                temp = temp.replace("&#9;", " ")
+                temp = temp.replace("&#09;", " ")
+                temp = temp.replace("&#32;", " ")
 
-                pyeq3.dataConvertorService().ConvertAndSortColumnarASCII(temp, reportDataObject.equation, False)
+                pyeq3.dataConvertorService().ConvertAndSortColumnarASCII(
+                    temp, reportDataObject.equation, False
+                )
                 externalDataCache = reportDataObject.equation.dataCache
 
             reportDataObject.equation.polyfunctional2DFlags = listItem[4]
@@ -204,19 +229,18 @@ class FunctionFinderResults(FittingBaseClass.FittingBaseClass):
             reportDataObject.equation.dataCache.FindOrCreateAllDataCache(reportDataObject.equation)
             externalDataCache = reportDataObject.equation.dataCache
 
-
             # add a bit more extrapolation for the function finder result displays
             reportDataObject.Extrapolation_x = 0.05
             reportDataObject.Extrapolation_y = 0.05
             reportDataObject.Extrapolation_z = 0.05
 
             # needed here for graph boundary calculation
-            reportDataObject.graphWidth  = 280
+            reportDataObject.graphWidth = 280
             reportDataObject.graphHeight = 240
 
             # 3D rotation angles
             reportDataObject.altimuth3D = 45.0
-            reportDataObject.azimuth3D  = 45.0
+            reportDataObject.azimuth3D = 45.0
 
             reportDataObject.CalculateDataStatistics()
             reportDataObject.CalculateErrorStatistics()
@@ -260,34 +284,37 @@ class FunctionFinderResults(FittingBaseClass.FittingBaseClass):
                 self.graphReports.append(graph)
 
             dataForOneEquation = {}
-            splitted = listItem[1].split('.')
-            dataForOneEquation['moduleName'] = splitted[-1]
-            dataForOneEquation['displayName'] = reportDataObject.equation.GetDisplayName()
-            dataForOneEquation['URLQuotedModuleName'] = urllib.parse.quote(splitted[-1])
-            dataForOneEquation['URLQuotedDisplayName'] = urllib.parse.quote(reportDataObject.equation.GetDisplayName())
-            dataForOneEquation['displayHTML'] = '<span class="math">' + reportDataObject.equation.GetDisplayHTML() + '</span>'
-            dataForOneEquation['graphWebSiteLocations'] = graphs
-            dataForOneEquation['rank'] = i + self.rank
-            dataForOneEquation['dimensionality'] = self.dimensionality
-            dataForOneEquation['fittingTarget'] = reportDataObject.equation.fittingTarget
-            dataForOneEquation['fittingTargetValue'] = targetValue
-            if reportDataObject.fittingTarget[-3:] != "REL": # only non-relative error fits get these displayed
-                dataForOneEquation['rmseValue'] = str(reportDataObject.equation.rmse)
-                dataForOneEquation['r2Value'] = str(reportDataObject.equation.r2)
-                self.RelativeErrorPlotsFlag = False # ok to set many times
+            splitted = listItem[1].split(".")
+            dataForOneEquation["moduleName"] = splitted[-1]
+            dataForOneEquation["displayName"] = reportDataObject.equation.GetDisplayName()
+            dataForOneEquation["URLQuotedModuleName"] = urllib.parse.quote(splitted[-1])
+            dataForOneEquation["URLQuotedDisplayName"] = urllib.parse.quote(
+                reportDataObject.equation.GetDisplayName()
+            )
+            dataForOneEquation["displayHTML"] = (
+                '<span class="math">' + reportDataObject.equation.GetDisplayHTML() + "</span>"
+            )
+            dataForOneEquation["graphWebSiteLocations"] = graphs
+            dataForOneEquation["rank"] = i + self.rank
+            dataForOneEquation["dimensionality"] = self.dimensionality
+            dataForOneEquation["fittingTarget"] = reportDataObject.equation.fittingTarget
+            dataForOneEquation["fittingTargetValue"] = targetValue
+            if (
+                reportDataObject.fittingTarget[-3:] != "REL"
+            ):  # only non-relative error fits get these displayed
+                dataForOneEquation["rmseValue"] = str(reportDataObject.equation.rmse)
+                dataForOneEquation["r2Value"] = str(reportDataObject.equation.r2)
+                self.RelativeErrorPlotsFlag = False  # ok to set many times
             else:
-                dataForOneEquation['rmseValue'] = ''
-                dataForOneEquation['r2Value'] = ''
-                self.RelativeErrorPlotsFlag = True # ok to set many times
+                dataForOneEquation["rmseValue"] = ""
+                dataForOneEquation["r2Value"] = ""
+                self.RelativeErrorPlotsFlag = True  # ok to set many times
             self.equationDataForDjangoTemplate.append(dataForOneEquation)
 
         pid_trace.pid_trace()
 
-
     def GenerateListOfWorkItems(self):
         pass
 
-
     def CreateReportPDF(self):
-        pass # no PDF file
-
+        pass  # no PDF file

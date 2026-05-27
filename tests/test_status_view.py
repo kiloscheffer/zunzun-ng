@@ -3,6 +3,7 @@
 Pins existing completion-branch behavior (file body serve, URL redirect,
 key clearing) and exercises the new JSON polling endpoint.
 """
+
 import os
 import time
 
@@ -210,9 +211,9 @@ def test_status_view_extends_generic_template(client):
     _wire_status_session(client, status_session)
 
     body = client.get("/StatusAndResults/").content.decode("utf-8")
-    assert "small_logo.png" in body          # header logo from generic template
-    assert "custom.css" in body              # site CSS
-    assert "FindCurves" in body              # footer link
+    assert "small_logo.png" in body  # header logo from generic template
+    assert "custom.css" in body  # site CSS
+    assert "FindCurves" in body  # footer link
 
 
 @pytest.mark.django_db

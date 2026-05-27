@@ -70,9 +70,7 @@ def EvaluateAtAPointView(request):
     import sys
     import time
 
-    if CommonToAllViews(
-        request
-    ):  # any referrer blocks or web request checks processed here
+    if CommonToAllViews(request):  # any referrer blocks or web request checks processed here
         raise django.http.Http404
 
     # only allow POST for this view
@@ -140,12 +138,8 @@ def EvaluateAtAPointView(request):
             equation.userDefinedFunctionText, LRP.dimensionality
         )
     elif equation.userSelectablePolynomialFlag:
-        equation.xPolynomialOrder = LRP.LoadItemFromSessionStore(
-            "data", "xPolynomialOrder"
-        )
-        equation.yPolynomialOrder = LRP.LoadItemFromSessionStore(
-            "data", "yPolynomialOrder"
-        )
+        equation.xPolynomialOrder = LRP.LoadItemFromSessionStore("data", "xPolynomialOrder")
+        equation.yPolynomialOrder = LRP.LoadItemFromSessionStore("data", "yPolynomialOrder")
     elif equation.userSelectableRationalFlag:
         equation.rationalNumeratorFlags = LRP.LoadItemFromSessionStore(
             "data", "rationalNumeratorFlags"
@@ -161,9 +155,7 @@ def EvaluateAtAPointView(request):
             "data", "polyfunctional3DFlags"
         )
     elif equation.userCustomizablePolynomialFlag:
-        equation.polynomial2DFlags = LRP.LoadItemFromSessionStore(
-            "data", "polynomial2DFlags"
-        )
+        equation.polynomial2DFlags = LRP.LoadItemFromSessionStore("data", "polynomial2DFlags")
     else:
         equation.fittingTarget = LRP.LoadItemFromSessionStore("data", "fittingTarget")
 
@@ -209,26 +201,23 @@ def EvaluateAtAPointView(request):
             equation.solvedCoefficients, equation.dataCache.allDataCacheDictionary
         )
         try:
-            pointValue = pointValue[
-                0
-            ]  # spline evaluation was returning scalar and not array
+            pointValue = pointValue[0]  # spline evaluation was returning scalar and not array
         except:
             pass
         if pointValue < 1.0e300 and pointValue > -1.0e300:
             pointValueAsString = "evaluates to <b>" + str(pointValue) + "</b>"
         else:
-            pointValueAsString = "Evaluation was outside numeric bounds of +/- 1.0E300, please check the data."
+            pointValueAsString = (
+                "Evaluation was outside numeric bounds of +/- 1.0E300, please check the data."
+            )
     except:
         exceptionString = str(sys.exc_info()[0]) + "  " + str(sys.exc_info()[1]) + "\n"
         exceptionString += inEquationFamilyName + "\n"
         exceptionString += inEquationName + "\n"
         exceptionString += str(equation.solvedCoefficients) + "\n"
-        exceptionString += str(
-            equation.dataCache.allDataCacheDictionary["IndependentData"]
-        )
+        exceptionString += str(equation.dataCache.allDataCacheDictionary["IndependentData"])
         pointValueAsString = (
-            "Exception in evaluation, please check the data. Exception text: "
-            + exceptionString
+            "Exception in evaluation, please check the data. Exception text: " + exceptionString
         )
         if settings.EXCEPTION_EMAIL_ADDRESS:
             EmailMessage(
@@ -294,15 +283,19 @@ def StatusView(request):
         )
 
     loadavg = platform_compat.get_loadavg()
-    return render(request, "zunzun/status.html", {
-        "title_string": "ZunZunNG - Working on your fit",
-        "header_text": "ZunZunNG",
-        "currentStatus": currentStatus,
-        "elapsed": ConvertSecondsToHMS(time.time() - startTime),
-        "loadavg": list(loadavg),
-        "coreCount": multiprocessing.cpu_count(),
-        "parallelProcessCount": session_status.get("parallelProcessCount", 0),
-    })
+    return render(
+        request,
+        "zunzun/status.html",
+        {
+            "title_string": "ZunZunNG - Working on your fit",
+            "header_text": "ZunZunNG",
+            "currentStatus": currentStatus,
+            "elapsed": ConvertSecondsToHMS(time.time() - startTime),
+            "loadavg": list(loadavg),
+            "coreCount": multiprocessing.cpu_count(),
+            "parallelProcessCount": session_status.get("parallelProcessCount", 0),
+        },
+    )
 
 
 @cache_control(no_cache=True)
@@ -353,13 +346,15 @@ def StatusUpdateView(request):
     close_old_connections()
 
     loadavg = platform_compat.get_loadavg()
-    return JsonResponse({
-        "completed": False,
-        "currentStatus": currentStatus,
-        "elapsed": ConvertSecondsToHMS(time.time() - startTime),
-        "loadavg": list(loadavg),
-        "parallelProcessCount": session_status.get("parallelProcessCount", 0),
-    })
+    return JsonResponse(
+        {
+            "completed": False,
+            "currentStatus": currentStatus,
+            "elapsed": ConvertSecondsToHMS(time.time() - startTime),
+            "loadavg": list(loadavg),
+            "parallelProcessCount": session_status.get("parallelProcessCount", 0),
+        }
+    )
 
 
 @cache_control(no_cache=True)
@@ -377,15 +372,15 @@ def LongRunningProcessView(
         if -1 != request.path.find("UserDefinedFunction"):
             LRP = LongRunningProcess.FitUserDefinedFunction.FitUserDefinedFunction()
         elif -1 != request.path.find("User-Selectable Polyfunctional"):
-            LRP = LongRunningProcess.FitUserSelectablePolyfunctional.FitUserSelectablePolyfunctional()
+            LRP = (
+                LongRunningProcess.FitUserSelectablePolyfunctional.FitUserSelectablePolyfunctional()
+            )
         elif -1 != request.path.find("User-Selectable Polynomial"):
             LRP = LongRunningProcess.FitUserSelectablePolynomial.FitUserSelectablePolynomial()
         elif -1 != request.path.find("User-Customizable Polynomial"):
             LRP = LongRunningProcess.FitUserCustomizablePolynomial.FitUserCustomizablePolynomial()
         elif -1 != request.path.find("User-Selectable Rational"):
-            LRP = (
-                LongRunningProcess.FitUserSelectableRational.FitUserSelectableRational()
-            )
+            LRP = LongRunningProcess.FitUserSelectableRational.FitUserSelectableRational()
         elif -1 != request.path.find("Spline"):
             LRP = LongRunningProcess.FitSpline.FitSpline()
         else:
@@ -398,13 +393,9 @@ def LongRunningProcessView(
         LRP = LongRunningProcess.FunctionFinder.FunctionFinder()
     elif -1 != request.path.find("FunctionFinderResults/"):
         if request.method != "GET":  # send an error message
-            return HttpResponse(
-                "The function finder results view was called incorrectly."
-            )
+            return HttpResponse("The function finder results view was called incorrectly.")
         if "RANK" not in list(request.GET.keys()):  # send an error message
-            return HttpResponse(
-                "The function finder results view was not called correctly."
-            )
+            return HttpResponse("The function finder results view was not called correctly.")
         try:
             rank = int(request.GET["RANK"])
         except:
@@ -425,9 +416,7 @@ def LongRunningProcessView(
     LRP.inEquationFamilyName = urllib.parse.unquote(inEquationFamilyName)
     LRP.dimensionality = int(inDimensionality)
 
-    if CommonToAllViews(
-        request
-    ):  # any referrer blocks or web request checks processed here
+    if CommonToAllViews(request):  # any referrer blocks or web request checks processed here
         raise django.http.Http404
 
     if "session_key_status" not in list(request.session.keys()):
@@ -505,9 +494,7 @@ def LongRunningProcessView(
                 )
                 # return render_to_response(LRP.interfaceString, LRP.CreateUnboundInterfaceForm(request))
             except:
-                return HttpResponse(
-                    repr(sys.exc_info()[0]) + "<br>" + repr(sys.exc_info()[1])
-                )
+                return HttpResponse(repr(sys.exc_info()[0]) + "<br>" + repr(sys.exc_info()[1]))
 
     if "cookie_test" not in list(request.session.keys()):
         return HttpResponse(
@@ -563,9 +550,7 @@ def LongRunningProcessView(
     child.start()
 
     # using HTTP_HOST allows dev server
-    return HttpResponseRedirect(
-        "http://" + request.META["HTTP_HOST"] + "/StatusAndResults/"
-    )
+    return HttpResponseRedirect("http://" + request.META["HTTP_HOST"] + "/StatusAndResults/")
 
 
 @cache_control(no_cache=True)
@@ -576,9 +561,7 @@ def FeedbackView(request):
     import sys
     import time
 
-    if CommonToAllViews(
-        request
-    ):  # any referrer blocks or web request checks processed here
+    if CommonToAllViews(request):  # any referrer blocks or web request checks processed here
         raise django.http.Http404
 
     if request.method == "POST":
@@ -600,9 +583,7 @@ def FeedbackView(request):
             + form.cleaned_data["feedbackText"]
         )
         if settings.FEEDBACK_EMAIL_ADDRESS:
-            EmailMessage(
-                "ZunZunNG Feedback Form", msg, to=[settings.FEEDBACK_EMAIL_ADDRESS]
-            ).send()
+            EmailMessage("ZunZunNG Feedback Form", msg, to=[settings.FEEDBACK_EMAIL_ADDRESS]).send()
 
         return render(request, "zunzun/feedback_reply.html", {})
     else:  # not a POST
@@ -632,9 +613,7 @@ def HomePageView(request):
     ).start()
 
     # parent process, start code for view generation
-    if CommonToAllViews(
-        request
-    ):  # any referrer blocks or web request checks processed here
+    if CommonToAllViews(request):  # any referrer blocks or web request checks processed here
         raise django.http.Http404
 
     request.session["cookie_test"] = 1
@@ -669,27 +648,23 @@ def AllEquationsView(
     if request.method != "GET":
         return HttpResponse("I am not able to process your request.")
 
-    if CommonToAllViews(
-        request
-    ):  # any referrer blocks or web request checks processed here
+    if CommonToAllViews(request):  # any referrer blocks or web request checks processed here
         raise django.http.Http404
 
     items_to_render = {}
 
     if "2" == inDimensionality:
-        items_to_render["sortedEquationClassPropertiesList"] = (
-            GetEquationInfoDictionary(2, inAllOrStandardOnly)
+        items_to_render["sortedEquationClassPropertiesList"] = GetEquationInfoDictionary(
+            2, inAllOrStandardOnly
         )
     else:
-        items_to_render["sortedEquationClassPropertiesList"] = (
-            GetEquationInfoDictionary(3, inAllOrStandardOnly)
+        items_to_render["sortedEquationClassPropertiesList"] = GetEquationInfoDictionary(
+            3, inAllOrStandardOnly
         )
 
     items_to_render["header_text"] = "ZunZunNG"
     if inAllOrStandardOnly == "All":
-        items_to_render["subtitle_text"] = (
-            "List Of All " + inDimensionality + "D Equations"
-        )
+        items_to_render["subtitle_text"] = "List Of All " + inDimensionality + "D Equations"
     else:
         items_to_render["subtitle_text"] = (
             "List Of All Standard " + inDimensionality + "D Equations"
@@ -739,8 +714,7 @@ def GetEquationInfoDictionary(inDimensionality, inAllOrStandardOnly):
                             if (
                                 (
                                     equationClass[0] == "UserSelectableRational"
-                                    or equationClass[0]
-                                    == "UserSelectablePolyfunctional"
+                                    or equationClass[0] == "UserSelectablePolyfunctional"
                                 )
                                 and extendedName != "Default"
                             ):  # only need to see default versions of these
@@ -751,9 +725,9 @@ def GetEquationInfoDictionary(inDimensionality, inAllOrStandardOnly):
                             except:
                                 continue
 
-                            extendedSuffix = equation.extendedVersionHandler.__class__.__name__.split(
-                                "_"
-                            )[1]
+                            extendedSuffix = (
+                                equation.extendedVersionHandler.__class__.__name__.split("_")[1]
+                            )
 
                             if (
                                 equation.autoGenerateOffsetForm == False
@@ -797,9 +771,7 @@ def GetEquationInfoDictionary(inDimensionality, inAllOrStandardOnly):
                             temp.extendedName = extendedName
                             temp.name = equation.GetDisplayName()
                             temp.HTML = (
-                                '<span class="math">'
-                                + equation.GetDisplayHTML()
-                                + "</span>"
+                                '<span class="math">' + equation.GetDisplayHTML() + "</span>"
                             )
                             temp.webCitationLink = equation.webReferenceURL
                             temp.url_quote_name = urllib.parse.quote(temp.name)
@@ -809,9 +781,7 @@ def GetEquationInfoDictionary(inDimensionality, inAllOrStandardOnly):
                             # add item to dictionary
                             allEquationClassPropertiesList.append(temp)
 
-    allEquationClassPropertiesList.sort(
-        key=keyFunctionToSortListOfEquationPropertyClasses
-    )
+    allEquationClassPropertiesList.sort(key=keyFunctionToSortListOfEquationPropertyClasses)
     for index in range(1, len(allEquationClassPropertiesList)):
         if index == 1:
             allEquationClassPropertiesList[index - 1].firstItemInSubmoduleFlag = True
@@ -822,9 +792,7 @@ def GetEquationInfoDictionary(inDimensionality, inAllOrStandardOnly):
             ):
                 allEquationClassPropertiesList[index - 1].lastItemInSubmoduleFlag = True
                 allEquationClassPropertiesList[index].firstItemInSubmoduleFlag = True
-                allEquationClassPropertiesList[
-                    index - 1
-                ].lastItemInExtendedNameFlag = True
+                allEquationClassPropertiesList[index - 1].lastItemInExtendedNameFlag = True
                 allEquationClassPropertiesList[index].firstItemInExtendedNameFlag = True
 
         if index == 1:
@@ -834,9 +802,7 @@ def GetEquationInfoDictionary(inDimensionality, inAllOrStandardOnly):
                 allEquationClassPropertiesList[index].extendedName
                 != allEquationClassPropertiesList[index - 1].extendedName
             ):
-                allEquationClassPropertiesList[
-                    index - 1
-                ].lastItemInExtendedNameFlag = True
+                allEquationClassPropertiesList[index - 1].lastItemInExtendedNameFlag = True
                 allEquationClassPropertiesList[index].firstItemInExtendedNameFlag = True
 
         allEquationClassPropertiesList[

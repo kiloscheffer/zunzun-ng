@@ -8,6 +8,7 @@ pickle can trivially round-trip any JSON-native value), AND on the
 Phase 3 post-refactor implementation (because JSON can too). This
 lets us write the tests once and have them validate both states.
 """
+
 import json
 
 import pytest
@@ -22,6 +23,7 @@ def _make_lrp(db):
     needed for Save/Load helpers to work.
     """
     from django.contrib.sessions.backends.db import SessionStore
+
     lrp = StatusMonitoredLongRunningProcessPage()
     # Create a new session and stash its key on the LRP.
     session = SessionStore()
@@ -35,16 +37,19 @@ def _make_lrp(db):
     return lrp
 
 
-@pytest.mark.parametrize("key,value", [
-    ("a_float", 3.14),
-    ("a_string", "hello world"),
-    ("an_empty_string", ""),
-    ("a_list_of_floats", [1.0, 2.5, 3.7]),
-    ("a_nested_dict", {"x": 1.0, "y": "text", "z": [1, 2, 3]}),
-    ("a_unicode_string", "café résumé 🙂"),
-    ("a_bool", True),
-    ("an_int", 42),
-])
+@pytest.mark.parametrize(
+    "key,value",
+    [
+        ("a_float", 3.14),
+        ("a_string", "hello world"),
+        ("an_empty_string", ""),
+        ("a_list_of_floats", [1.0, 2.5, 3.7]),
+        ("a_nested_dict", {"x": 1.0, "y": "text", "z": [1, 2, 3]}),
+        ("a_unicode_string", "café résumé 🙂"),
+        ("a_bool", True),
+        ("an_int", 42),
+    ],
+)
 @pytest.mark.django_db
 def test_save_load_roundtrip(db, key, value):
     lrp = _make_lrp(db)
@@ -53,14 +58,17 @@ def test_save_load_roundtrip(db, key, value):
     assert loaded == value
 
 
-@pytest.mark.parametrize("value", [
-    3.14,
-    "hello",
-    [1.0, 2.0, 3.0],
-    {"nested": {"x": 1, "y": "two"}},
-    True,
-    42,
-])
+@pytest.mark.parametrize(
+    "value",
+    [
+        3.14,
+        "hello",
+        [1.0, 2.0, 3.0],
+        {"nested": {"x": 1, "y": "two"}},
+        True,
+        42,
+    ],
+)
 @pytest.mark.django_db
 def test_values_are_json_native(db, value):
     """Post-Phase-3 invariant: every value handed to the session helper

@@ -37,10 +37,11 @@ if settings.DEBUG:
     # On-disk directory is lowercase (`commonproblems/`); URL is
     # case-sensitive `/CommonProblems/` per the Django routing default
     # and to match the upstream bitbucket repo's CapitalCase URL.
-    _CP_DIR = os.path.join(settings.ROOT_PATH, 'commonproblems')
+    _CP_DIR = os.path.join(settings.ROOT_PATH, "commonproblems")
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
     urlpatterns += [
-        re_path(r'^CommonProblems/$', static_serve,
-                {'document_root': _CP_DIR, 'path': 'index.html'}),
+        re_path(
+            r"^CommonProblems/$", static_serve, {"document_root": _CP_DIR, "path": "index.html"}
+        ),
     ]
-    urlpatterns += static('/CommonProblems/', document_root=_CP_DIR)
+    urlpatterns += static("/CommonProblems/", document_root=_CP_DIR)

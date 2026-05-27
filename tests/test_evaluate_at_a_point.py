@@ -10,11 +10,11 @@ is 'evaluates to' (views.py line 153).
 Phase 3: seeds JSON-native values to match what production now writes
 (pickle/hex encoding was removed from the session helpers).
 """
+
 import pytest
 
 
-def _seed_data_session(client, equation_name, equation_family, dimensionality,
-                      coefficients):
+def _seed_data_session(client, equation_name, equation_family, dimensionality, coefficients):
     """Seed session_data with the minimum keys EvaluateAtAPointView needs.
 
     Writes JSON-native values (dict/list/str/int/float). The production
@@ -23,6 +23,7 @@ def _seed_data_session(client, equation_name, equation_family, dimensionality,
     CalculateModelPredictions accepts both list and numpy.ndarray.
     """
     from django.contrib.sessions.backends.db import SessionStore
+
     session_data = SessionStore()
     session_data.create()
 

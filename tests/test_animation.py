@@ -8,6 +8,7 @@ animated GIF.
 
 No Django, no spawn, no session DB — just matplotlib + Pillow.
 """
+
 import os
 
 import numpy
@@ -73,13 +74,15 @@ def test_scatter_animation_produces_valid_gif(settings_temp_dir):
     animation.animationFrameSeparation = 60  # 6 frames for fast test
     animation.PrepareForCharacterizerOutput()
 
-    assert animation.physicalFileLocation, \
+    assert animation.physicalFileLocation, (
         "PrepareForCharacterizerOutput did not set physicalFileLocation"
+    )
 
     animation.CreateCharacterizerOutput()
 
-    assert os.path.exists(animation.physicalFileLocation), \
+    assert os.path.exists(animation.physicalFileLocation), (
         f"GIF not created at {animation.physicalFileLocation}"
+    )
 
     with Image.open(animation.physicalFileLocation) as img:
         assert img.format == "GIF", f"Expected GIF, got {img.format}"
@@ -94,6 +97,7 @@ def test_surface_animation_produces_valid_gif(settings_temp_dir):
     stub a 3D Linear polynomial (Z = a + b*X + c*Y) with known values.
     """
     import pyeq3
+
     dataobject = _build_3d_dataobject(settings_temp_dir)
 
     equation = pyeq3.Models_3D.Polynomial.Linear()
@@ -107,13 +111,13 @@ def test_surface_animation_produces_valid_gif(settings_temp_dir):
     animation.animationFrameSeparation = 60
     animation.PrepareForReportOutput()
 
-    assert animation.physicalFileLocation, \
-        "PrepareForReportOutput did not set physicalFileLocation"
+    assert animation.physicalFileLocation, "PrepareForReportOutput did not set physicalFileLocation"
 
     animation.CreateReportOutput()
 
-    assert os.path.exists(animation.physicalFileLocation), \
+    assert os.path.exists(animation.physicalFileLocation), (
         f"GIF not created at {animation.physicalFileLocation}"
+    )
 
     with Image.open(animation.physicalFileLocation) as img:
         assert img.format == "GIF"
