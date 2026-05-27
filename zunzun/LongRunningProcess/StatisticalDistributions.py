@@ -1,13 +1,21 @@
-import inspect, time, math, random, multiprocessing, io
-import os, sys
-import numpy, scipy, scipy.stats, pyeq3
+import inspect
+import io
+import math
+import multiprocessing
+import os
+import random
+import sys
+import time
 
-from . import StatusMonitoredLongRunningProcessPage
-from .child_payload import ChildPayload
+import numpy
+import pyeq3
+import scipy
+import scipy.stats
+
 import zunzun.forms
-from . import ReportsAndGraphs
 
-from . import pid_trace
+from . import ReportsAndGraphs, StatusMonitoredLongRunningProcessPage, pid_trace
+from .child_payload import ChildPayload
 
 
 def parallelWorkFunction(distributionName, data, sortCriteriaName):
@@ -23,7 +31,7 @@ def parallelWorkFunction(distributionName, data, sortCriteriaName):
 
 
 class StatisticalDistributions(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRunningProcessPage):
-    
+
     def __init__(self):
         super().__init__()
         self.parallelWorkItemsList = []
@@ -47,7 +55,7 @@ class StatisticalDistributions(StatusMonitoredLongRunningProcessPage.StatusMonit
 
     def TransferFormDataToDataObject(self, request): # return any error in a user-viewable string (self.dataObject.ErrorString)
         pid_trace.pid_trace()
-        
+
         self.pdfTitleHTML = self.webFormName + ' ' + str(self.dimensionality) + 'D'
         self.CommonCreateAndInitializeDataObject(False)
         self.dataObject.equation = self.boundForm.equationBase
@@ -58,25 +66,25 @@ class StatisticalDistributions(StatusMonitoredLongRunningProcessPage.StatusMonit
 
 
     def GenerateListOfWorkItems(self):
-        
+
         pid_trace.pid_trace()
-        
+
         self.SaveDictionaryOfItemsToSessionStore('status', {'currentStatus':"Sorting Data"})
-        
+
         # required for special beta distribution data max/min case
         self.dataObject.IndependentDataArray[0].sort()
-        
+
         self.SaveDictionaryOfItemsToSessionStore('status', {'currentStatus':"Generating List Of Work Items"})
         for item in inspect.getmembers(scipy.stats): # weibull max and min are duplicates of Frechet distributions
             if isinstance(item[1], scipy.stats.rv_continuous) and item[0] not in ['kstwobign', 'ncf', 'levy_stable']: # these are very slow, taking too long
                 self.parallelWorkItemsList.append(item[0])
-        
+
         pid_trace.pid_trace()
 
 
     def PerformWorkInParallel(self):
         pid_trace.pid_trace()
-        
+
         countOfWorkItemsRun = 0
         totalNumberOfWorkItemsToBeRun = len(self.parallelWorkItemsList)
 
@@ -101,14 +109,14 @@ class StatisticalDistributions(StatusMonitoredLongRunningProcessPage.StatusMonit
             calculateCriteriaForUseInListSorting = 'AIC'
         if 'AICc_BA' == self.dataObject.statisticalDistributionsSortBy:
             calculateCriteriaForUseInListSorting = 'AICc_BA'
-        
+
         for i in indices:
             parallelChunkResultsList = []
             self.pool = multiprocessing.Pool(self.GetParallelProcessCount())
-            
+
             for item in self.parallelWorkItemsList[i[0]:i[1]]:
                 parallelChunkResultsList.append(self.pool.apply_async(parallelWorkFunction, (item, self.dataObject.IndependentDataArray[0], calculateCriteriaForUseInListSorting)))
-            
+
             for r in parallelChunkResultsList:
                 returnedValue = r.get()
                 if not returnedValue:
@@ -116,20 +124,20 @@ class StatisticalDistributions(StatusMonitoredLongRunningProcessPage.StatusMonit
                 countOfWorkItemsRun += 1
                 self.completedWorkItemsList.append(returnedValue)
                 self.WorkItems_CheckOneSecondSessionUpdates(countOfWorkItemsRun, totalNumberOfWorkItemsToBeRun)
- 
+
             self.pool.close()
             self.pool.join()
             self.pool = None
-                
+
         # final save is outside the 'one second updates'. Clearing
         # parallelProcessCount drops the indicator now that no pool is active.
         self.SaveDictionaryOfItemsToSessionStore('status', {
             'currentStatus': "Fitted %s of %s Statistical Distributions" % (countOfWorkItemsRun, totalNumberOfWorkItemsToBeRun),
             'parallelProcessCount': 0,
         })
-        
+
         for i in self.completedWorkItemsList:
-            
+
             distro = getattr(scipy.stats, i[1]['distributionName']) # convert distro name back into a distribution object
             # dig out a long name. scipy's names and doc strings
             # are irregular, so dig lfrom the scipy.stats.__doc__ text
@@ -148,14 +156,14 @@ class StatisticalDistributions(StatusMonitoredLongRunningProcessPage.StatusMonit
             try:
                 n = distro.__doc__.find('Notes\n')
                 e = distro.__doc__.find('Examples\n')
-                
+
                 notes =  distro.__doc__[n:e]
-                notes = '\n' + notes[notes.find('-\n') + 2:].replace('::', ':').strip()  
-                
+                notes = '\n' + notes[notes.find('-\n') + 2:].replace('::', ':').strip()
+
                 i[1]['additionalInfo'] = io.StringIO(notes).readlines()
             except:
                 i[1]['additionalInfo'] = ['No additional information available.']
-            
+
             if distro.name == 'loggamma' and not distro.shapes:
                 distro.shapes = 'c'
             if distro.shapes:
@@ -163,24 +171,24 @@ class StatisticalDistributions(StatusMonitoredLongRunningProcessPage.StatusMonit
             else:
                 parameterNames = ['location', 'scale']
             i[1]['parameterNames'] = parameterNames
-        
+
         self.completedWorkItemsList.sort(key=lambda x: x[0])
-        
+
         pid_trace.pid_trace()
-        
+
 
     def WorkItems_CheckOneSecondSessionUpdates(self, countOfWorkItemsRun, totalNumberOfWorkItemsToBeRun):
         self._oneSecondStatusUpdate(
             "Fitted %s of %s Statistical Distributions" % (countOfWorkItemsRun, totalNumberOfWorkItemsToBeRun)
         )
-            
+
 
     def SpecificCodeForGeneratingListOfOutputReports(self):
         pid_trace.pid_trace()
-        
+
         self.functionString = 'PrepareForCharacterizerOutput'
         self.SaveDictionaryOfItemsToSessionStore('status', {'currentStatus':"Generating Report Objects"})
         self.dataObject.fittedStatisticalDistributionsList = self.completedWorkItemsList
         self.ReportsAndGraphsCategoryDict = ReportsAndGraphs.StatisticalDistributionReportsDict(self.dataObject)
-        
+
         pid_trace.pid_trace()

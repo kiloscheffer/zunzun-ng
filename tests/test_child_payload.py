@@ -23,8 +23,9 @@ def test_child_payload_round_trips():
 
 def test_child_payload_has_required_fields():
     """Ensure the dataclass exposes every field needed by PerformAllWork."""
-    from zunzun.LongRunningProcess.child_payload import ChildPayload
     import dataclasses
+
+    from zunzun.LongRunningProcess.child_payload import ChildPayload
     fields = {f.name for f in dataclasses.fields(ChildPayload)}
     assert fields == {
         "lrp_class_path",

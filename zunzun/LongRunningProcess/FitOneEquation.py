@@ -1,13 +1,20 @@
-import inspect, time, math, random, multiprocessing, os, sys, copy
+import copy
+import inspect
+import math
+import multiprocessing
+import os
+import random
+import sys
+import time
 
-import numpy, scipy, scipy.stats
+import numpy
+import scipy
+import scipy.stats
 
-from . import FittingBaseClass
-from .StatusMonitoredLongRunningProcessPage import _json_native
 import zunzun.forms
 
-from . import pid_trace
-
+from . import FittingBaseClass, pid_trace
+from .StatusMonitoredLongRunningProcessPage import _json_native
 
 
 class FitOneEquation(FittingBaseClass.FittingBaseClass):
@@ -48,16 +55,16 @@ class FitOneEquation(FittingBaseClass.FittingBaseClass):
 
             if logLinX != 'LIN' and logLinX != 'LOG':
                 logLinX = 'LIN'
-                logLinY = 'LIN'                
+                logLinY = 'LIN'
             if logLinY != 'LIN' and logLinY != 'LOG':
                 logLinY = 'LIN'
                 logLinY = 'LIN'
-                
+
             pid_trace.pid_trace('1 logLinX:' + str(logLinX) + ' logLinY: ' + str(logLinY))
-                
+
             self.unboundForm.fields['logLinX'].initial = logLinX
             self.unboundForm.fields['logLinY'].initial = logLinY
-            
+
             pid_trace.delete_pid_trace_file()
-        
+
         return dictionaryToReturn

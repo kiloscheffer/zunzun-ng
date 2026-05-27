@@ -15,7 +15,6 @@ target is 'http://testserver/StatusAndResults/'.
 """
 import pytest
 
-
 _VALID_POLY_FIELDS = {
     "commaConversion": "I",
     "graphSize": "320x240",

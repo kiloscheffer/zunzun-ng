@@ -1,28 +1,25 @@
-from django.shortcuts import render
+import multiprocessing
+import os
+import time
+import urllib.parse
+
 import django.http  # to raise 404's
-from django.http import HttpResponse
-from django.http import HttpResponseRedirect
-from django.http import JsonResponse
-from django.views.decorators.cache import cache_control
-from django.views.decorators.cache import cache_page
-from django.contrib.sessions.backends.db import SessionStore
+import numpy
+import pyeq3
+import scipy.interpolate
 from django import db
-from django.db import close_old_connections
+from django.contrib.sessions.backends.db import SessionStore
 from django.core.mail import EmailMessage
+from django.db import close_old_connections
+from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
+from django.shortcuts import render
+from django.views.decorators.cache import cache_control, cache_page
+from django_ratelimit.decorators import ratelimit
 
 import settings
 
-import os, time, urllib.parse
-from . import forms
-import numpy, multiprocessing
-import scipy.interpolate
-
-import pyeq3
-from . import LongRunningProcess
-from . import platform_compat
+from . import LongRunningProcess, forms, platform_compat
 from .LongRunningProcess.child_payload import _run_fit_child
-
-from django_ratelimit.decorators import ratelimit
 
 
 def _housekeeping_child(temp_dir: str, max_size_mb: int) -> None:
@@ -69,7 +66,9 @@ def _housekeeping_child(temp_dir: str, max_size_mb: int) -> None:
 @cache_control(no_cache=True)
 @ratelimit(key="ip", rate="12/m", block=False)
 def EvaluateAtAPointView(request):
-    import os, sys, time
+    import os
+    import sys
+    import time
 
     if CommonToAllViews(
         request
@@ -368,7 +367,9 @@ def StatusUpdateView(request):
 def LongRunningProcessView(
     request, inDimensionality, inEquationFamilyName="", inEquationName=""
 ):  # from urls.py, inDimensionality can only be '1', '2' or '3'
-    import os, sys, time
+    import os
+    import sys
+    import time
 
     if -1 != request.path.find("FitEquation__F__/") or -1 != request.path.find(
         "Equation/"
@@ -571,7 +572,9 @@ def LongRunningProcessView(
 @ratelimit(key="ip", rate="12/m", block=False)
 def FeedbackView(request):
     import datetime
-    import os, sys, time
+    import os
+    import sys
+    import time
 
     if CommonToAllViews(
         request
@@ -609,7 +612,9 @@ def FeedbackView(request):
 @cache_page(60 * 60)  # 60 minutes
 @ratelimit(key="ip", rate="12/m", block=False)
 def HomePageView(request):
-    import os, sys, time
+    import os
+    import sys
+    import time
 
     # only allow GET for this view
     if request.method != "GET":
@@ -656,7 +661,9 @@ def HomePageView(request):
 def AllEquationsView(
     request, inDimensionality, inAllOrStandardOnly
 ):  # from urls.py, inDimensionality can only be '2' or '3'
-    import os, sys, time
+    import os
+    import sys
+    import time
 
     # only allow GET for this view
     if request.method != "GET":

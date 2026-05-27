@@ -6,19 +6,17 @@
 # CI re-runs the equivalent checks via commit-check-action and pytest,
 # so the local install is a convenience, not a merge gate.
 #
-# Two hook families currently configured:
+# Hook families currently configured:
 #   - commit-check: validates Conventional Commits message and
 #     Conventional Branch name against cchk.toml at the repo root.
+#   - ruff: lint (E/W/F/I subset; see pyproject.toml [tool.ruff.lint]
+#     for the full select/ignore list). Autofix-on-commit is enabled
+#     so safe issues (whitespace, import order, multi-import splits)
+#     repair themselves without manual intervention.
 #   - mypy: project-wide static type check. Runs in unstrict mode
 #     (no [tool.mypy] config in pyproject.toml on purpose — strict
 #     mode would surface dozens of issues in the 2016-era code that
 #     would block every commit until addressed).
-#
-# Ruff is deliberately NOT configured here. Adopting ruff requires
-# a pyproject.toml [tool.ruff] section plus a first-run cleanup pass
-# across the codebase; that's a follow-up, not a hook addition. See
-# the original recommendation list in CLAUDE.local.md if reactivating
-# this decision.
 
 repos:
   - repo: https://github.com/commit-check/commit-check
@@ -31,6 +29,12 @@ repos:
 
   - repo: local
     hooks:
+      - id: ruff
+        name: ruff lint (with --fix)
+        entry: uv run ruff check --fix
+        language: system
+        types: [python]
+        pass_filenames: false
       - id: mypy
         name: mypy
         entry: uv run mypy .

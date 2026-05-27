@@ -1,20 +1,23 @@
-import inspect, time, math, random, multiprocessing, queue, copy, sys, os
+import copy
+import inspect
+import math
+import multiprocessing
+import os
+import queue
+import random
+import sys
+import time
 
 import numpy
-
-from . import StatusMonitoredLongRunningProcessPage
-from .StatusMonitoredLongRunningProcessPage import _json_native
-from . import ReportsAndGraphs
-from .child_payload import ChildPayload
-import settings
-import zunzun.forms
-import zunzun.formConstants
-import multiprocessing
-
 import pyeq3
 
-from . import pid_trace
+import settings
+import zunzun.formConstants
+import zunzun.forms
 
+from . import ReportsAndGraphs, StatusMonitoredLongRunningProcessPage, pid_trace
+from .child_payload import ChildPayload
+from .StatusMonitoredLongRunningProcessPage import _json_native
 
 externalDataCache = pyeq3.dataCache()
 
@@ -41,16 +44,16 @@ def parallelWorkFunction(inParameterList, dataCache):
 
         if j.ShouldDataBeRejected(j):
             return [None, inParameterList[0], inParameterList[1], inParameterList[2]]
-        
+
         try:
             j.Solve()
             target = j.CalculateAllDataFittingTarget(j.solvedCoefficients)
         except:
             target = 1.0E300
-        
+
         if target > 1.0E290:
             return [None, inParameterList[0], inParameterList[1], inParameterList[2]]
-        
+
         t0 = target # always make this first for the result list sort function to work properly
         t1 = copy.copy(j.__module__)
         t2 = copy.copy(j.__class__.__name__)
@@ -63,9 +66,9 @@ def parallelWorkFunction(inParameterList, dataCache):
         t9 = copy.copy(j.rationalDenominatorFlags)
         t10 = copy.copy(j.fittingTarget)
         t11 = copy.copy(j.solvedCoefficients)
-        
+
         j = None
-            
+
         return [t0,t1,t2,t3,t4,t5,t6,t7,t8,t9,t10,t11]
     except:
         import logging
@@ -157,7 +160,6 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
 
 
     def RenderOutputHTMLToAFileAndSetStatusRedirect(self):
-        import time
 
         self.SaveDictionaryOfItemsToSessionStore('functionfinder', {'functionFinderResultsList':_json_native(self.functionFinderResultsList)})
 
@@ -166,19 +168,19 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
                                                            'fittingTarget':self.dataObject.fittingTarget,
                                                            'DependentDataArray':self.dataObject.DependentDataArray,
                                                            'IndependentDataArray':self.dataObject.IndependentDataArray}))
-                    
+
         if self.dataObject.dimensionality == 2:
             self.SaveDictionaryOfItemsToSessionStore('data', {'logLinX':self.dataObject.logLinX,
                                                               'logLinY':self.dataObject.logLinY})
-        
+
         self.SaveDictionaryOfItemsToSessionStore('status', {'redirectToResultsFileOrURL':'/FunctionFinderResults/' + str(self.dataObject.dimensionality) + '/?RANK=1&unused=' + str(time.time())})
-        
+
 
     def AddEquationInfoToLinearAndParallelFittingListsAndCheckOneSecond(self):
         global externalDataCache
 
         self.numberOfEquationsScannedSoFar += 1
-        
+
         # fit data and only keep non-exception fits
         self.dataObject.equationdataCache = externalDataCache
 
@@ -196,7 +198,7 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
         if len(self.dataObject.equation.GetCoefficientDesignators()) > self.dataLength:
             self.fit_skip_count += 1
             return
-    
+
         # check for functions requiring non-zero nor non-negative data such as 1/x, etc.
         if self.dataObject.equation.ShouldDataBeRejected(self.dataObject.equation):
             self.fit_skip_count += 1
@@ -222,7 +224,7 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
             if self.dictionaryOf_BothGoodAndBadCacheData_Flags[i[0]] == False: # if bad
                 self.fit_skip_count += 1
                 return
-                
+
         t0 = copy.copy(self.dataObject.equation.__module__)
         t1 = copy.copy(self.dataObject.equation.__class__.__name__)
         t2 = copy.copy(self.dataObject.equation.extendedVersionHandler.__class__.__name__.split('_')[1])
@@ -248,9 +250,9 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
         global externalDataCache
 
         externalDataCache = self.dataObject.equation.dataCache
-        
+
         self.dataLength = len(externalDataCache.allDataCacheDictionary['DependentData'])
-        
+
         # loop through all equations
         if self.dataObject.dimensionality == 2:
             loopover = inspect.getmembers(pyeq3.Models_2D)
@@ -263,7 +265,7 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
                 for equationClass in inspect.getmembers(submodule[1]):
                     if inspect.isclass(equationClass[1]):
                         for extendedName in pyeq3.ExtendedVersionHandlers.extendedVersionHandlerNameList:
-                        
+
                             if 'STANDARD' not in self.dataObject.extendedEquationTypes:
                                 if extendedName in ['', 'Default', 'Offset', 'PlusLine', 'PlusPlane']:
                                     continue
@@ -300,20 +302,20 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
                                 continue
                             if (-1 != extendedName.find('Decay')) and (equationClass[1].autoGenerateGrowthAndDecayForms == False):
                                 continue
- 
+
                             try:
                                 j = equationClass[1](self.dataObject.fittingTarget, extendedName)
                             except:
                                 continue
-                                                        
+
                             self.dataObject.equation = j
                             self.dataObject.equation.FamilyName = submodule[0]
-                            
+
                             self.dataObject.equation.dataCache = externalDataCache
-                            
+
                             if self.dataObject.equation.userSelectablePolynomialFlag == False and self.dataObject.equation.userCustomizablePolynomialFlag == False and self.dataObject.equation.userSelectablePolyfunctionalFlag == False and self.dataObject.equation.userSelectableRationalFlag == False:
                                 self.AddEquationInfoToLinearAndParallelFittingListsAndCheckOneSecond()
-        
+
                             if self.dataObject.equation.userSelectablePolynomialFlag == True:
                                 if self.dataObject.equation.GetDimensionality() == 2:
                                     for k in range(self.dataObject.Max2DPolynomialOrder+1):
@@ -321,18 +323,18 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
                                         self.AddEquationInfoToLinearAndParallelFittingListsAndCheckOneSecond()
                                 else:
                                     for k in range(self.dataObject.Max3DPolynomialOrder+1):
-                                        for l in range(self.dataObject.Max3DPolynomialOrder+1):
+                                        for l in range(self.dataObject.Max3DPolynomialOrder+1):  # noqa: E741
                                             self.dataObject.equation.xPolynomialOrder = k
                                             self.dataObject.equation.yPolynomialOrder = l
                                             self.AddEquationInfoToLinearAndParallelFittingListsAndCheckOneSecond()
-        
+
                             # polyfunctionals are not used unless unweighted SSQ due to CPU hogging
                             if self.dataObject.equation.userSelectablePolyfunctionalFlag == True and self.dataObject.fittingTarget == "SSQABS" and len(self.dataObject.equation.dataCache.allDataCacheDictionary['Weights']) == 0:
                                 functionList = []
                                 if self.dataObject.equation.GetDimensionality() == 2:
                                     for i in range(len(self.dataObject.equation.polyfunctionalEquationList)):
                                         functionList.append(i)
-        
+
                                     loopMaxCoeffs = 4
                                     for coeffNumber in range(1, loopMaxCoeffs+1):
                                         xcombolist = self.UniqueCombinations(functionList,coeffNumber)
@@ -348,13 +350,13 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
                                                 temp.append(0) # offset term if one is not already used and enough coefficients
                                                 self.dataObject.equation.polyfunctional2DFlags = temp
                                                 self.AddEquationInfoToLinearAndParallelFittingListsAndCheckOneSecond()
-        
+
                                 else:
                                     for k in range(len(self.dataObject.equation.polyfunctionalEquationList_X)):
-                                        for l in range(len(self.dataObject.equation.polyfunctionalEquationList_Y)):
+                                        for l in range(len(self.dataObject.equation.polyfunctionalEquationList_Y)):  # noqa: E741
                                             if [l,k] not in functionList:
                                                 functionList.append([k,l])
-        
+
                                     loopMaxCoeffs = 2
                                     xcombolist = self.UniqueCombinations(functionList, loopMaxCoeffs)
                                     for k in xcombolist:
@@ -387,13 +389,12 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
                                                 self.dataObject.equation.dataCache = externalDataCache
                                                 self.dataObject.equation.rationalNumeratorFlags = numeratorCombo
                                                 self.dataObject.equation.rationalDenominatorFlags = denominatorCombo
-                                                self.AddEquationInfoToLinearAndParallelFittingListsAndCheckOneSecond()                                       
+                                                self.AddEquationInfoToLinearAndParallelFittingListsAndCheckOneSecond()
 
         self.SaveDictionaryOfItemsToSessionStore('status', {'currentStatus':"Scanned %s Equations : %s OK, %s skipped, %s exceptions" % (self.numberOfEquationsScannedSoFar, len(self.linearFittingList) + len(self.parallelWorkItemsList), self.fit_skip_count, self.fit_exception_count)})
 
 
     def PerformWorkInParallel(self):
-        import time
 
         self.SaveDictionaryOfItemsToSessionStore('status', {'currentStatus':"Preparing to fit equations, one minute please..."})
         self.countOfParallelWorkItemsRun = 0
@@ -409,11 +410,11 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
         # every platform.
         _ctx = multiprocessing.get_context("spawn")
         fittingResultsQueue = _ctx.Queue()
-        
+
         while len(self.parallelWorkItemsList) > 0:
 
             delta = self.GetParallelProcessCount() - len(multiprocessing.active_children())
-            
+
             # increase number of parallel processes?
             granularity = 4
             equationCount = granularity
@@ -421,7 +422,7 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
                 equationCount = 2
             if len(self.parallelWorkItemsList) < (granularity * multiprocessing.cpu_count() * 0.5):
                 equationCount = 1
-                
+
             if delta > 0 and len(self.parallelWorkItemsList) > 0:
                 for i in range(delta):
                     taskList = []
@@ -454,7 +455,7 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
                     else:
                         pass # for debug statements
                     self.parallelFittingResultsByEquationFamilyDictionary[resultValue[1]][1] += 1
-        
+
         # wait for all currently active children to finish
         while multiprocessing.active_children():
             # transfer the last few result to result list
@@ -494,11 +495,11 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
                 else:
                     pass # for debug statements
                 self.parallelFittingResultsByEquationFamilyDictionary[resultValue[1]][1] += 1
-        
+
         # linear fits are very fast - run these in the existing process which saves on interprocess communication overhead
         if self.totalNumberOfSerialWorkItemsToBeRun:
             serialWorker(self, self.linearFittingList, self.functionFinderResultsList, self.dataObject.equation.dataCache)
-            
+
         self.WorkItems_CheckOneSecondSessionUpdates()
         # All parallel workers have drained; clear the indicator so the
         # status page stops showing the count during post-processing phases.
@@ -570,7 +571,7 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
     def CreateUnboundInterfaceForm(self, request):
         dictionaryToReturn = {}
         dictionaryToReturn['dimensionality'] = str(self.dimensionality)
-        
+
         dictionaryToReturn['header_text'] = 'ZunZunNG'
         dictionaryToReturn['subtitle_text'] = str(self.dimensionality) + 'D Function Finder Interface'
         dictionaryToReturn['title_string'] = 'ZunZunNG ' + str(self.dimensionality) + 'D Function Finder Interface'
@@ -582,7 +583,7 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
         else:
             self.unboundForm = zunzun.forms.FunctionFinder_3D()
             self.unboundForm.fields['textDataEditor'].initial += self.extraExampleDataTextForWeightedFitting + self.defaultData3D
-            
+
         # set the form to have either default or session text data
         temp = self.LoadItemFromSessionStore('data', 'textDataEditor_' + str(self.dimensionality) + 'D')
         if temp:
@@ -593,10 +594,10 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
         temp = self.LoadItemFromSessionStore('data', 'weightedFittingChoice')
         if temp:
             self.unboundForm.fields['weightedFittingChoice'].initial = temp
-            
+
         self.unboundForm.weightedFittingPossibleFlag = 1
         dictionaryToReturn['mainForm'] = self.unboundForm
-        
+
         return dictionaryToReturn
 
 
@@ -604,7 +605,7 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
         # make a dimensionality-based bound Django form
         self.boundForm = eval('zunzun.forms.FunctionFinder_' + str(self.dimensionality) + 'D(request.POST)')
         self.boundForm.dimensionality = str(self.dimensionality)
-            
+
 
     def UniqueCombinations(self, items, n):
         if n==0:
@@ -635,11 +636,11 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
 
     def CreateOutputReportsInParallelUsingProcessPool(self):
         pass # function finder *results* page makes these
-        
-        
+
+
     def GenerateListOfOutputReports(self):
         pass # function finder *results* page makes these
 
 
     def CreateReportPDF(self):
-        pass # no PDF file 
+        pass # no PDF file

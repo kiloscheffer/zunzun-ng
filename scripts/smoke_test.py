@@ -361,6 +361,7 @@ def _check_animation_gif(session, base, body, name_prefix, min_frames=2):
     """
     del session, base  # intentionally unused for the on-disk form
     import os
+
     from PIL import Image
 
     # Filenames are zun_<pid>_<ms>_<anchor>_<rank>.gif; anchor sits in the middle.

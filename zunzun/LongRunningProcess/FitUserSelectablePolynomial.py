@@ -1,13 +1,22 @@
-import inspect, time, math, random, multiprocessing, os, sys, copy
+import copy
+import inspect
+import math
+import multiprocessing
+import os
+import random
+import sys
+import time
 
-import numpy, scipy, scipy.stats
+import numpy
+import scipy
+import scipy.stats
+
+import zunzun.formConstants
+import zunzun.forms
 
 from . import FittingBaseClass
-from .StatusMonitoredLongRunningProcessPage import _json_native
 from .child_payload import ChildPayload
-import zunzun.forms
-import zunzun.formConstants
-
+from .StatusMonitoredLongRunningProcessPage import _json_native
 
 
 class FitUserSelectablePolynomial(FittingBaseClass.FittingBaseClass):
@@ -16,7 +25,7 @@ class FitUserSelectablePolynomial(FittingBaseClass.FittingBaseClass):
         super().__init__()
         self.interfaceString = 'zunzun/equation_fit_interface.html'
 
-    
+
     def build_child_payload(self):
         payload = super().build_child_payload()
         payload.extra["xPolynomialOrder"] = self.boundForm.equation.xPolynomialOrder
@@ -40,12 +49,12 @@ class FitUserSelectablePolynomial(FittingBaseClass.FittingBaseClass):
                                                           'yPolynomialOrder':self.dataObject.equation.yPolynomialOrder}))
 
 
-    def TransferFormDataToDataObject(self, request): # return any error in a user-viewable string (self.dataObject.ErrorString)        
+    def TransferFormDataToDataObject(self, request): # return any error in a user-viewable string (self.dataObject.ErrorString)
         s = FittingBaseClass.FittingBaseClass.TransferFormDataToDataObject(self, request)
         self.boundForm.equation.fittingTarget = self.boundForm.cleaned_data['fittingTarget']
         return s
 
-        
+
     def SpecificEquationBoundInterfaceCode(self, request):
         if self.dimensionality == 2:
             self.boundForm['polynomialOrderX2D'].required = True # force form field validation

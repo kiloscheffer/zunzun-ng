@@ -1,14 +1,19 @@
-import inspect, time, math, random, multiprocessing
+import inspect
+import math
+import multiprocessing
+import random
+import time
 
-import numpy, scipy, scipy.stats
-
+import numpy
+import scipy
+import scipy.stats
 from django.template.loader import render_to_string
 
-from . import FittingBaseClass
-from .StatusMonitoredLongRunningProcessPage import _json_native
-from .child_payload import ChildPayload
 import zunzun.forms
 
+from . import FittingBaseClass
+from .child_payload import ChildPayload
+from .StatusMonitoredLongRunningProcessPage import _json_native
 
 
 class FitSpline(FittingBaseClass.FittingBaseClass):
@@ -54,8 +59,8 @@ class FitSpline(FittingBaseClass.FittingBaseClass):
         self.boundForm['splineOrderX'].required = True # force form field validation
         if self.dimensionality == 3:
             self.boundForm['splineOrderY'].required = True # force form field validation
-        
-        
+
+
     def TransferFormDataToDataObject(self, request): # return any error in a user-viewable string (self.dataObject.ErrorString)
         s = FittingBaseClass.FittingBaseClass.TransferFormDataToDataObject(self, request)
 

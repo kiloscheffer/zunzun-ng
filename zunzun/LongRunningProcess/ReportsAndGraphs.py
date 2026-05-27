@@ -1,14 +1,22 @@
-import os, sys, time, math
-from . import MatplotlibGraphs_2D
-import numpy, scipy
-import pyeq3
+import math
+import os
+import sys
+import time
 import uuid
-import settings
-from zunzun import platform_compat
-from ._unique import b36
+
+import numpy
+import pyeq3
+import scipy
 
 # matplotlib animation helpers for ScatterAnimation / SurfaceAnimation
 from matplotlib.animation import FuncAnimation, PillowWriter
+
+import settings
+from zunzun import platform_compat
+
+from . import MatplotlibGraphs_2D
+from ._unique import b36
+
 
 class Report(object):
 

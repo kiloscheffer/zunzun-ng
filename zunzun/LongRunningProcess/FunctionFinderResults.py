@@ -1,15 +1,18 @@
-import os, sys, copy, urllib.request, urllib.parse, urllib.error
+import copy
+import os
+import sys
+import urllib.error
+import urllib.parse
+import urllib.request
 
-import settings
+import pyeq3
 from django.template.loader import render_to_string
 
-from . import FittingBaseClass
-from . import ReportsAndGraphs
-from .child_payload import ChildPayload
-from ._unique import page_artifact_path
-import pyeq3
+import settings
 
-from . import pid_trace
+from . import FittingBaseClass, ReportsAndGraphs, pid_trace
+from ._unique import page_artifact_path
+from .child_payload import ChildPayload
 
 
 class FunctionFinderResults(FittingBaseClass.FittingBaseClass):
@@ -22,8 +25,8 @@ class FunctionFinderResults(FittingBaseClass.FittingBaseClass):
         self.webFormName = 'Function Finder Results'
         self.reniceLevel = 11
         self.maxNumberOfEquationsToDisplay = 40
-    
-    
+
+
     def build_child_payload(self):
         payload = super().build_child_payload()
         # self.rank is set by the view dispatcher (LRP.rank = rank) before
@@ -60,7 +63,7 @@ class FunctionFinderResults(FittingBaseClass.FittingBaseClass):
         IndependentDataName1 = self.LoadItemFromSessionStore('data', 'IndependentDataName1')
         IndependentDataName2 =self.LoadItemFromSessionStore('data', 'IndependentDataName2')
         DependentDataName = self.LoadItemFromSessionStore('data', 'DependentDataName')
-        self.dataObject = self.BaseCreateAndInitializeDataObject(IndependentDataName1, IndependentDataName2, DependentDataName) 
+        self.dataObject = self.BaseCreateAndInitializeDataObject(IndependentDataName1, IndependentDataName2, DependentDataName)
         self.dataObject.commaConversion = self.LoadItemFromSessionStore('data', 'commaConversion')
         self.dataObject.equation = pyeq3.IModel.IModel()
         self.dataObject.equation._dimensionality = self.dimensionality
@@ -102,11 +105,11 @@ class FunctionFinderResults(FittingBaseClass.FittingBaseClass):
                 self.nextSelectorRank = 0
         return ''
 
-        
+
     def RenderOutputHTMLToAFileAndSetStatusRedirect(self):
-        
-        import time # acts strangely if import is at top of file
-        
+
+        import time  # acts strangely if import is at top of file
+
         self.SaveDictionaryOfItemsToSessionStore('status', {'currentStatus':"Generating Output HTML"})
 
         itemsToRender = {}
@@ -124,7 +127,7 @@ class FunctionFinderResults(FittingBaseClass.FittingBaseClass):
         fileLocation = page_artifact_path(self.dataObject.uniqueString, "html")
         open(fileLocation, "w").write(tempString)
         self.SaveDictionaryOfItemsToSessionStore('status', {'redirectToResultsFileOrURL':fileLocation})
-        
+
 
     def SetInitialStatusDataIntoSessionVariables(self, request):
         import time
@@ -140,24 +143,24 @@ class FunctionFinderResults(FittingBaseClass.FittingBaseClass):
     def GenerateListOfOutputReports(self):
 
         pid_trace.pid_trace()
-        
+
         self.textReports = []
         self.graphReports = []
 
         externalDataCache = pyeq3.dataCache() # reuse this to speed up some caching
-        
+
         for i in range(self.numberOfEquationsToDisplay):
-            
+
             listItem = self.functionFinderResultsList[i + self.rank-1]
 
-            reportDataObject = copy.copy(self.dataObject) 
+            reportDataObject = copy.copy(self.dataObject)
 
             # find the equation instance for the incoming dimensionality, equation family name and equation name - 404 if not found
             reportDataObject.equation = eval(listItem[1] + "." + listItem[2] + "('SSQABS', '" + listItem[3] + "')")
 
             if externalDataCache.allDataCacheDictionary == {}: # This should only run for the first equation
                 temp = reportDataObject.textDataEditor
-                
+
                 # comma conversions
                 if reportDataObject.commaConversion == "D": # decimal separator
                     temp = temp.replace(",",".")
@@ -165,7 +168,7 @@ class FunctionFinderResults(FittingBaseClass.FittingBaseClass):
                     temp = temp.replace(",","")
                 else:
                     temp = temp.replace(","," ") # default to the original default conversion
-        
+
                 # replace these characters with spaces for use by float()
                 temp = temp.replace("$"," ")
                 temp = temp.replace("%"," ")
@@ -173,16 +176,16 @@ class FunctionFinderResults(FittingBaseClass.FittingBaseClass):
                 temp = temp.replace(")"," ")
                 temp = temp.replace("{"," ")
                 temp = temp.replace("}"," ")
-        
+
                 temp = temp.replace('\r\n','\n')
                 temp = temp.replace('\r','\n')
-                
+
                 # replace HTML spaces and tabs with spaces
                 temp = temp.replace("&nbsp;"," ")
                 temp = temp.replace("&#9;"," ")
                 temp = temp.replace("&#09;"," ")
                 temp = temp.replace("&#32;"," ")
-                
+
                 pyeq3.dataConvertorService().ConvertAndSortColumnarASCII(temp, reportDataObject.equation, False)
                 externalDataCache = reportDataObject.equation.dataCache
 
@@ -194,32 +197,32 @@ class FunctionFinderResults(FittingBaseClass.FittingBaseClass):
             reportDataObject.equation.rationalDenominatorFlags = listItem[9]
             reportDataObject.equation.fittingTarget = listItem[10]
             reportDataObject.equation.solvedCoefficients = listItem[11]
-             
+
             targetValue = listItem[0]
-            
+
             reportDataObject.equation.dataCache = externalDataCache
             reportDataObject.equation.dataCache.FindOrCreateAllDataCache(reportDataObject.equation)
             externalDataCache = reportDataObject.equation.dataCache
 
-            
+
             # add a bit more extrapolation for the function finder result displays
             reportDataObject.Extrapolation_x = 0.05
             reportDataObject.Extrapolation_y = 0.05
             reportDataObject.Extrapolation_z = 0.05
-    
+
             # needed here for graph boundary calculation
             reportDataObject.graphWidth  = 280
             reportDataObject.graphHeight = 240
-        
+
             # 3D rotation angles
             reportDataObject.altimuth3D = 45.0
             reportDataObject.azimuth3D  = 45.0
-    
+
             reportDataObject.CalculateDataStatistics()
             reportDataObject.CalculateErrorStatistics()
             reportDataObject.CalculateGraphBoundaries()
             reportDataObject.equation.CalculateCoefficientAndFitStatistics()
-    
+
             graphs = []
             # Different graphs for 2D and 3D
             reportDataObject.pngOnlyFlag = True
@@ -236,13 +239,13 @@ class FunctionFinderResults(FittingBaseClass.FittingBaseClass):
                 graph.PrepareForReportOutput()
                 self.graphReports.append(graph)
                 graphs.append(graph.websiteFileLocation)
-    
+
                 graph = ReportsAndGraphs.ContourPlot(reportDataObject)
                 graph.rank = i + self.rank
                 graph.PrepareForReportOutput()
                 graphs.append(graph.websiteFileLocation)
                 self.graphReports.append(graph)
-    
+
             if reportDataObject.equation.fittingTarget[-3:] != "REL":
                 graph = ReportsAndGraphs.AbsoluteErrorVsDependentData_ScatterPlot(reportDataObject)
                 graph.rank = i + self.rank
@@ -255,7 +258,7 @@ class FunctionFinderResults(FittingBaseClass.FittingBaseClass):
                 graph.PrepareForReportOutput()
                 graphs.append(graph.websiteFileLocation)
                 self.graphReports.append(graph)
-    
+
             dataForOneEquation = {}
             splitted = listItem[1].split('.')
             dataForOneEquation['moduleName'] = splitted[-1]
@@ -277,14 +280,14 @@ class FunctionFinderResults(FittingBaseClass.FittingBaseClass):
                 dataForOneEquation['r2Value'] = ''
                 self.RelativeErrorPlotsFlag = True # ok to set many times
             self.equationDataForDjangoTemplate.append(dataForOneEquation)
-        
+
         pid_trace.pid_trace()
 
-        
+
     def GenerateListOfWorkItems(self):
         pass
 
-    
+
     def CreateReportPDF(self):
         pass # no PDF file
 
