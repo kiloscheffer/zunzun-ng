@@ -156,7 +156,8 @@ def test_status_update_400_when_session_missing(client):
 @pytest.mark.django_db
 def test_status_update_400_when_required_keys_missing(client):
     """session_key_status present but the status session has no
-    currentStatus/start_time/timestamp -> stale_session 400.
+    currentStatus/start_time -> stale_session 400. (timestamp used to be
+    required but the view no longer reads it.)
     """
     status_session = _make_status_session()  # empty
     _wire_status_session(client, status_session)

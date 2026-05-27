@@ -337,17 +337,19 @@ _RANK1_LINK = re.compile(r"/Equation/(?P<dim>\d+)/(?P<family>[^/?\"<>]+)/(?P<equ
 
 
 def _check_animation_gif(session, base, body, name_prefix, min_frames=2):
-    """Find a /temp/{name_prefix}*.gif href in body, read that file
+    """Find a /temp/zun_*_{name_prefix}_*.gif href in body, read that file
     directly off disk, verify the bytes load as a GIF with ≥min_frames
     animated frames.
 
     Returns None on success, or an error string on failure.
 
     Used by the 3D scenarios to confirm matplotlib.animation.PillowWriter
-    actually produced a multi-frame animated GIF. The name_prefix is
-    `ScatterAnimation` (for CharacterizeData output) or `SurfaceAnimation`
-    (for fit output); both are constants set on GraphReport subclasses
-    in zunzun/LongRunningProcess/ReportsAndGraphs.py.
+    actually produced a multi-frame animated GIF. The name_prefix is the
+    3-letter uniqueAnchorName — `san` (ScatterAnimation, for CharacterizeData
+    output) or `sua` (SurfaceAnimation, for fit output) — set on GraphReport
+    subclasses in zunzun/LongRunningProcess/ReportsAndGraphs.py. The anchor
+    sits in the middle of the filename per the zun_<pid>_<ms>_<anchor>_<rank>
+    scheme.
 
     Reads off disk (rather than via HTTP) because Django under Waitress
     with DEBUG=False does not serve STATIC_URL paths — that's nginx's
@@ -365,7 +367,7 @@ def _check_animation_gif(session, base, body, name_prefix, min_frames=2):
     pattern = re.compile(r'/temp/(zun_[^"\']*_' + re.escape(name_prefix) + r'_[^"\']*\.gif)')
     match = pattern.search(body)
     if not match:
-        return f"[{name_prefix}] no /temp/{name_prefix}*.gif href found in response body"
+        return f"[{name_prefix}] no /temp/zun_*_{name_prefix}_*.gif href found in response body"
     filename = match.group(1)
     path = os.path.join("temp", filename)
     if not os.path.exists(path):
