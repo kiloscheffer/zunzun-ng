@@ -18,10 +18,16 @@ on:
 
 jobs:
   claude-review:
-    # endsWith on github.actor covers any bot identity (dependabot[bot],
-    # renovate[bot], etc.) without enumeration. Stays correct when
-    # Dependabot synchronizes after a human push.
-    if: ${{ !endsWith(github.actor, '[bot]') }}
+    # Filter on pull_request.user.login (the PR AUTHOR), NOT github.actor.
+    # github.actor is whoever triggered the current run — when a human
+    # clicks "Update branch" or "Rebase and merge" on a Dependabot PR,
+    # github.actor becomes the human and the filter would fail open,
+    # running the Claude review on a bot-authored PR. The action then
+    # refuses (anti-tampering check when the workflow file is in the
+    # diff, anti-loop guard otherwise) and the PR ends up UNSTABLE.
+    # pull_request.user.login is stable as `dependabot[bot]` regardless
+    # of who clicks UI buttons. endsWith covers any bot identity.
+    if: ${{ !endsWith(github.event.pull_request.user.login, '[bot]') }}
 
     runs-on: ubuntu-latest
     permissions:
