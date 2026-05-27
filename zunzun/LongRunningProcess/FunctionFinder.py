@@ -525,7 +525,16 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
     def WorkItems_CheckOneSecondSessionUpdates(self):
         sortedFamilyNameList = sorted(self.parallelFittingResultsByEquationFamilyDictionary.keys())
         if not sortedFamilyNameList:
-            return  # nothing to report yet; helper would write an empty card
+            # All-linear run (no families registered for parallel fitting).
+            # Still call the helper so CheckIfStillUsed fires and the
+            # serial-progress counter is visible to the user.
+            self._oneSecondStatusUpdate(
+                "%s of %s Equations Fitted Linearly" % (
+                    self.countOfSerialWorkItemsRun,
+                    self.totalNumberOfSerialWorkItemsToBeRun,
+                )
+            )
+            return
 
         familyString = '<table>'
         for familyName in sortedFamilyNameList:
