@@ -330,7 +330,10 @@ def StatusUpdateView(request):
     try:
         currentStatus = session_status["currentStatus"]
         startTime = session_status["start_time"]
-    except KeyError:
+    except Exception:
+        # Matches StatusView's defensive bare-except on the same reads:
+        # missing key OR TypeError/AttributeError from a corrupted session
+        # all route to the same graceful 400 the JS layer retries silently.
         return JsonResponse({"error": "stale_session"}, status=400)
 
     session_status["time_of_last_status_check"] = time.time()
