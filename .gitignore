@@ -9,7 +9,9 @@ coverage.xml
 htmlcov/
 
 # Developer/agent settings
+.agents/
 .claude/
+.codex/
 AGENTS.md
 CLAUDE.local.md
 CLAUDE.md

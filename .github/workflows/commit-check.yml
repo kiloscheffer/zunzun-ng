@@ -16,8 +16,12 @@ jobs:
         with:
           fetch-depth: 0
 
-      # Validate commit messages on every PR. The action reads cchk.toml
-      # for the allow-list of types, max-length, etc.
+      # Validate commit messages on every PR — including human follow-up
+      # commits pushed to Dependabot PRs. Dependabot's own subjects are
+      # guaranteed conformant by the `commit-message.prefix` config in
+      # `.github/dependabot.yml` (produces `ci(deps): bump …`), but that
+      # config doesn't constrain humans who push to the same branch later,
+      # so this step has to run for them.
       - name: Validate commit messages
         uses: commit-check/commit-check-action@2239d8980732e84a380552fdd71e1d49e149baf3 # v2.6.1
         with:
@@ -26,20 +30,23 @@ jobs:
           job-summary: true
           pr-comments: true
 
-      # Validate branch name on non-bot PRs. Bot-opened PRs (Dependabot,
-      # Renovate) use prefixes like `dependabot/github_actions/<group>`
-      # that don't match cchk.toml's allow_branch_types; skipping bot
-      # PRs avoids spurious failures.
+      # Validate branch name only on non-bot PRs. Dependabot opens branches
+      # named `dependabot/github_actions/<group>` (and similar for other
+      # ecosystems); those don't match `cchk.toml`'s `allow_branch_types`,
+      # so this step would fail every bot PR.
       #
-      # Field choice: `github.event.pull_request.user.login`, NOT
-      # `github.actor`. `github.actor` is whoever triggered the current
-      # workflow run — when a human clicks "Update branch" on a bot PR,
-      # actor becomes the human and this filter would no longer fire.
-      # `pull_request.user.login` is the PR author, which stays
-      # `dependabot[bot]` regardless of who clicks Update.
+      # Field choice: `github.event.pull_request.user.login`, NOT `github.actor`.
+      # `github.actor` is whoever triggered the *current* workflow run — when a
+      # human clicks "Update branch" on a Dependabot PR, github.actor becomes
+      # the human and the filter no longer fires. `pull_request.user.login` is
+      # the PR author, which stays `dependabot[bot]` regardless of who clicks
+      # Update or pushes follow-up commits. This is a different intent than
+      # `claude-code-review.yml:25` — that workflow correctly uses
+      # `github.actor` because its question is "did a bot push the latest
+      # commit?", not "is this a bot's PR?".
       #
-      # `pr-comments: false` here so the branch step doesn't post a
-      # second PR comment on top of the message step's existing one.
+      # `pr-comments: false` here so the branch step doesn't post a second
+      # PR comment on top of the message step's already-existing one.
       - name: Validate branch name
         if: ${{ !endsWith(github.event.pull_request.user.login, '[bot]') }}
         uses: commit-check/commit-check-action@2239d8980732e84a380552fdd71e1d49e149baf3 # v2.6.1
