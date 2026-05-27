@@ -1,0 +1,160 @@
+"""Tests for FitPool — the per-fit persistent worker pool."""
+
+import os
+import time
+from unittest import mock
+
+import pytest
+
+
+# Module-level worker functions (must be picklable for spawn)
+
+
+def _square(x):
+    return x * x
+
+
+def _raises(x):
+    raise ValueError(f"worker boom on {x}")
+
+
+def _slow(x):
+    time.sleep(0.5)
+    return x
+
+
+def _exit_immediately(x):
+    """Simulate a worker that dies silently (not a Python exception)."""
+    os._exit(1)
+
+
+def test_fit_pool_size_uses_resolve_max_workers():
+    from zunzun.parallel_pool import FitPool
+
+    with FitPool(max_workers=2) as pool:
+        assert pool.max_workers == 2
+
+
+def test_fit_pool_size_defaults_to_resolver(monkeypatch):
+    """No explicit arg → resolver picks (subject to clamps)."""
+    monkeypatch.delenv("ZUNZUN_MAX_WORKERS", raising=False)
+    from zunzun.parallel_pool import FitPool
+
+    with FitPool() as pool:
+        assert pool.max_workers >= 1
+
+
+def test_fit_pool_submit_returns_future_with_result():
+    from zunzun.parallel_pool import FitPool
+
+    with FitPool(max_workers=2) as pool:
+        fut = pool.submit(_square, 5)
+        assert fut.result(timeout=30) == 25
+
+
+def test_fit_pool_submit_many_yields_all_results():
+    from zunzun.parallel_pool import FitPool
+
+    with FitPool(max_workers=2) as pool:
+        results = sorted(pool.submit_many(_square, [1, 2, 3, 4]))
+    assert results == [1, 4, 9, 16]
+
+
+def test_fit_pool_submit_many_calls_progress_callback():
+    from zunzun.parallel_pool import FitPool
+
+    calls = []
+
+    def progress(done, total):
+        calls.append((done, total))
+
+    with FitPool(max_workers=2) as pool:
+        list(pool.submit_many(_square, [1, 2, 3], progress=progress))
+
+    # Progress called once per completion (3 items → 3 calls)
+    assert len(calls) == 3
+    # Final call says all-done
+    assert calls[-1] == (3, 3)
+
+
+def test_fit_pool_submit_many_empty_input_returns_nothing():
+    from zunzun.parallel_pool import FitPool
+
+    with FitPool(max_workers=2) as pool:
+        results = list(pool.submit_many(_square, []))
+    assert results == []
+
+
+def test_fit_pool_propagates_worker_exception():
+    from zunzun.parallel_pool import FitPool
+
+    with FitPool(max_workers=2) as pool:
+        fut = pool.submit(_raises, 7)
+        with pytest.raises(ValueError, match="worker boom on 7"):
+            fut.result(timeout=30)
+
+
+def test_fit_pool_submit_many_propagates_first_exception():
+    from zunzun.parallel_pool import FitPool
+
+    with FitPool(max_workers=2) as pool:
+        with pytest.raises(ValueError, match="worker boom"):
+            list(pool.submit_many(_raises, [1, 2]))
+
+
+def test_fit_pool_shutdown_idempotent():
+    from zunzun.parallel_pool import FitPool
+
+    pool = FitPool(max_workers=2)
+    pool.shutdown(wait=True)
+    pool.shutdown(wait=True)  # second call must not raise
+
+
+def test_fit_pool_shutdown_cancel_futures_stops_pending():
+    from zunzun.parallel_pool import FitPool
+
+    pool = FitPool(max_workers=1)  # one worker forces serialization
+    futures = [pool.submit(_slow, i) for i in range(5)]
+    pool.shutdown(wait=False, cancel_futures=True)
+    # At least the later-submitted futures should be cancelled
+    cancelled = sum(1 for f in futures if f.cancelled())
+    assert cancelled >= 1
+
+
+def test_fit_pool_context_manager_shuts_down():
+    from zunzun.parallel_pool import FitPool
+
+    with FitPool(max_workers=2) as pool:
+        fut = pool.submit(_square, 3)
+        assert fut.result(timeout=30) == 9
+    # After context exit, submit should fail with RuntimeError
+    with pytest.raises(RuntimeError):
+        pool.submit(_square, 4)
+
+
+def test_fit_pool_logs_creation():
+    import logging
+
+    from zunzun.parallel_pool import FitPool
+
+    with mock.patch.object(logging.getLogger("zunzun.parallel_pool"), "info") as mock_info:
+        with FitPool(max_workers=2):
+            pass
+    # At least one INFO call mentioning FitPool + max_workers
+    assert any(
+        "FitPool" in str(call) and "max_workers" in str(call) for call in mock_info.call_args_list
+    )
+
+
+def test_fit_pool_broken_pool_surfaces_exception():
+    """When a worker dies silently (not via raising), the pool surfaces
+    BrokenProcessPool rather than hanging — this is the key advantage over
+    multiprocessing.Pool which would hang in this scenario."""
+    import concurrent.futures.process
+
+    from zunzun.parallel_pool import FitPool
+
+    with FitPool(max_workers=2) as pool:
+        fut = pool.submit(_exit_immediately, 1)
+        with pytest.raises(concurrent.futures.process.BrokenProcessPool):
+            fut.result(timeout=30)
