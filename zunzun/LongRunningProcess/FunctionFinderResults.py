@@ -6,6 +6,7 @@ from django.template.loader import render_to_string
 from . import FittingBaseClass
 from . import ReportsAndGraphs
 from .child_payload import ChildPayload
+from ._unique import page_artifact_path
 import pyeq3
 
 from . import pid_trace
@@ -120,7 +121,7 @@ class FunctionFinderResults(FittingBaseClass.FittingBaseClass):
         itemsToRender['RelativeErrorPlotsFlag'] = self.RelativeErrorPlotsFlag
 
         tempString = render_to_string('zunzun/function_finder_results.html', itemsToRender)
-        fileLocation = os.path.join(settings.TEMP_FILES_DIR, self.dataObject.uniqueString + ".html")
+        fileLocation = page_artifact_path(self.dataObject.uniqueString, "html")
         open(fileLocation, "w").write(tempString)
         self.SaveDictionaryOfItemsToSessionStore('status', {'redirectToResultsFileOrURL':fileLocation})
         

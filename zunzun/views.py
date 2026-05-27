@@ -2,6 +2,7 @@ from django.shortcuts import render
 import django.http  # to raise 404's
 from django.http import HttpResponse
 from django.http import HttpResponseRedirect
+from django.http import JsonResponse
 from django.views.decorators.cache import cache_control
 from django.views.decorators.cache import cache_page
 from django.contrib.sessions.backends.db import SessionStore
@@ -249,21 +250,18 @@ def ConvertSecondsToHMS(seconds):
 
 @cache_control(no_cache=True)
 def StatusView(request):
-    import os, sys, time
-
     try:
         session_status = SessionStore(request.session["session_key_status"])
     except:
         return HttpResponse("I could not read your session data, please try again.")
 
-    # this is done so that the "back" button does not return users to a status page when viewing FF results
+    # Completion handoff: read, clear, serve file body OR HttpResponseRedirect.
+    # Behavior unchanged from the original implementation.
     if "redirectToResultsFileOrURL" in session_status:
         if session_status["redirectToResultsFileOrURL"] != "":
-            # read and reset
             redirect = session_status["redirectToResultsFileOrURL"]
             session_status["redirectToResultsFileOrURL"] = ""
 
-            # sometimes database is momentarily locked, so retry on exception to mitigate
             s = session_status
             save_complete = False
             saveRetries = 0
@@ -272,89 +270,94 @@ def StatusView(request):
                     s.save()
                     save_complete = True
                 except Exception as e:
-                    time.sleep(0.1)  # wait 1/10 second before retry
-                    saveRetries += 1  # increment retry count
-                    if saveRetries > 100:  # 10 per second * 10 seconds
-                        raise e  # re-raise exception from save operation
+                    time.sleep(0.1)
+                    saveRetries += 1
+                    if saveRetries > 100:
+                        raise e
 
             db.connections.close_all()
             close_old_connections()
 
-            # is this a file or a URL
             if redirect.startswith(settings.TEMP_FILES_DIR):
                 s = open(redirect, "r").read()
                 return HttpResponse(s)
-            else:  # URL
+            else:
                 return HttpResponseRedirect(redirect)
 
-    session_status["time_of_last_status_check"] = time.time()
-
-    # sometimes database is momentarily locked, so retry on exception to mitigate
-    s = session_status
-    save_complete = False
-    saveRetries = 0
-    while not save_complete:
-        try:
-            s.save()
-            save_complete = True
-        except Exception as e:
-            time.sleep(0.1)  # wait 1/10 second before retry
-            saveRetries += 1  # increment retry count
-            if saveRetries > 100:  # 10 per second * 10 seconds
-                raise e  # re-raise exception from save operation
-
-    db.connections.close_all()
-    close_old_connections()
-
+    # In-progress branch: render the template. Heartbeat write moved to
+    # StatusUpdateView so there is a single owner of that side effect.
     try:
         currentStatus = session_status["currentStatus"]
         startTime = session_status["start_time"]
-        timeStamp = session_status["timestamp"]
     except:
         return HttpResponse(
             "I could not read your session data, my apologies. This is usually caused by a stale browser cookie. Please delete the ZunZunNG browser cookie and try again."
         )
 
-    # reload every three seconds
-    s = """<html><head><meta HTTP-EQUIV=REFRESH CONTENT="3; URL='/StatusAndResults/'">
-    <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
-    <link rel="shortcut icon" href="/static/favicon.ico" type="image/x-icon">
-    </head><body>"""
-    s += currentStatus
-    s += "<br><br><br><br>"
-    s += "<pre>"
-    s += "Elapsed time: " + ConvertSecondsToHMS(time.time() - startTime) + " (hh:mm:ss)"
-    s += "\n"
-    s += "\n"
-    s += "Current time on server: " + time.asctime(time.localtime(time.time()))[:-5]
-    s += "\n"
-    s += "Time of last update   : " + time.asctime(time.localtime(timeStamp))[:-5]
+    loadavg = platform_compat.get_loadavg()
+    return render(request, "zunzun/status.html", {
+        "title_string": "ZunZunNG - Working on your fit",
+        "header_text": "ZunZunNG",
+        "currentStatus": currentStatus,
+        "elapsed": ConvertSecondsToHMS(time.time() - startTime),
+        "loadavg": list(loadavg),
+        "coreCount": multiprocessing.cpu_count(),
+        "parallelProcessCount": session_status.get("parallelProcessCount", 0),
+    })
+
+
+@cache_control(no_cache=True)
+def StatusUpdateView(request):
+    """JSON polling endpoint for the status page.
+
+    Returns the live status fields (currentStatus, elapsed, loadavg) as JSON.
+    On completion, returns {"completed": True} and intentionally does NOT
+    clear redirectToResultsFileOrURL — that's StatusView's job when the
+    browser follows up.
+    """
+    try:
+        session_status = SessionStore(request.session["session_key_status"])
+    except Exception:
+        # Matches StatusView's defensive bare-except on the same call:
+        # missing request-session key, malformed key, transient DB issue.
+        # JS treats any non-2xx as "wait and retry" so this is graceful.
+        return JsonResponse({"error": "no_session"}, status=400)
+
+    # Completion: report and return immediately. Do NOT clear the key.
+    if session_status.get("redirectToResultsFileOrURL", ""):
+        return JsonResponse({"completed": True})
+
+    try:
+        currentStatus = session_status["currentStatus"]
+        startTime = session_status["start_time"]
+    except KeyError:
+        return JsonResponse({"error": "stale_session"}, status=400)
+
+    session_status["time_of_last_status_check"] = time.time()
+
+    save_complete = False
+    saveRetries = 0
+    while not save_complete:
+        try:
+            session_status.save()
+            save_complete = True
+        except Exception as e:
+            time.sleep(0.1)
+            saveRetries += 1
+            if saveRetries > 100:
+                raise e
+
+    db.connections.close_all()
+    close_old_connections()
 
     loadavg = platform_compat.get_loadavg()
-    s += "\n\n"
-    s += "Server load average for the past 1 minute:   " + str(loadavg[0]) + "\n"
-    s += "Server load average for the past 5 minutes:  " + str(loadavg[1]) + "\n"
-    s += "Server load average for the past 15 minutes: " + str(loadavg[2]) + "\n\n"
-
-    s += "</pre>"
-    coreCount = str(multiprocessing.cpu_count())
-    s += """
-<BR><BR>
-<TABLE>
-<TR><TD align=left>
-Load < %s means the server cores are running with a light load.
-</TD></TR>
-<TR><TD align=left>
-Load = %s means the server cores each average 100%% CPU with a single user.
-</TD></TR>
-<TR><TD align=left>
-Load > %s means the server cores each average 100%% CPU with multiple users.
-</TD></TR>
-</TABLE>
-""" % (coreCount, coreCount, coreCount)
-    s += "</body></html>"
-
-    return HttpResponse(s)
+    return JsonResponse({
+        "completed": False,
+        "currentStatus": currentStatus,
+        "elapsed": ConvertSecondsToHMS(time.time() - startTime),
+        "loadavg": list(loadavg),
+        "parallelProcessCount": session_status.get("parallelProcessCount", 0),
+    })
 
 
 @cache_control(no_cache=True)

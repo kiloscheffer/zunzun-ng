@@ -121,8 +121,12 @@ class StatisticalDistributions(StatusMonitoredLongRunningProcessPage.StatusMonit
             self.pool.join()
             self.pool = None
                 
-        # final save is outside the 'one second updates'
-        self.SaveDictionaryOfItemsToSessionStore('status', {'currentStatus':"Fitted %s of %s Statistical Distributions" % (countOfWorkItemsRun, totalNumberOfWorkItemsToBeRun)})
+        # final save is outside the 'one second updates'. Clearing
+        # parallelProcessCount drops the indicator now that no pool is active.
+        self.SaveDictionaryOfItemsToSessionStore('status', {
+            'currentStatus': "Fitted %s of %s Statistical Distributions" % (countOfWorkItemsRun, totalNumberOfWorkItemsToBeRun),
+            'parallelProcessCount': 0,
+        })
         
         for i in self.completedWorkItemsList:
             
@@ -166,13 +170,9 @@ class StatisticalDistributions(StatusMonitoredLongRunningProcessPage.StatusMonit
         
 
     def WorkItems_CheckOneSecondSessionUpdates(self, countOfWorkItemsRun, totalNumberOfWorkItemsToBeRun):
-        if self.oneSecondTimes != int(time.time()):
-            self.CheckIfStillUsed()
-            processcountString = '<br><br>Currently using 1 process (the server is busy)'
-            if len(multiprocessing.active_children()) > 1:
-                processcountString = '<br><br>Currently using ' + str(len(multiprocessing.active_children())) + ' parallel processes'
-            self.SaveDictionaryOfItemsToSessionStore('status', {'currentStatus':"Fitted %s of %s Statistical Distributions%s" % (countOfWorkItemsRun, totalNumberOfWorkItemsToBeRun, processcountString)})
-            self.oneSecondTimes = int(time.time())
+        self._oneSecondStatusUpdate(
+            "Fitted %s of %s Statistical Distributions" % (countOfWorkItemsRun, totalNumberOfWorkItemsToBeRun)
+        )
             
 
     def SpecificCodeForGeneratingListOfOutputReports(self):

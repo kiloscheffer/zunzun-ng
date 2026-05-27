@@ -2,6 +2,7 @@ import os, sys, inspect
 import settings
 from django.template.loader import render_to_string
 from . import StatusMonitoredLongRunningProcessPage
+from ._unique import page_artifact_path
 import zunzun.formConstants
 import numpy
 import pyeq3
@@ -471,23 +472,14 @@ You must provide any weights you wish to use.
             itemsToRender = {}
             itemsToRender["error0"] = str(sys.exc_info()[0])
             itemsToRender["error1"] = str(sys.exc_info()[1])
-            open(
-                os.path.join(
-                    settings.TEMP_FILES_DIR, self.dataObject.uniqueString + ".html"
-                ),
-                "w",
-            ).write(
+            error_html_path = page_artifact_path(self.dataObject.uniqueString, "html")
+            open(error_html_path, "w").write(
                 render_to_string(
                     "zunzun/exception_while_fitting_an_equation.html", itemsToRender
                 )
             )
             self.SaveDictionaryOfItemsToSessionStore(
-                "status",
-                {
-                    "redirectToResultsFileOrURL": os.path.join(
-                        settings.TEMP_FILES_DIR, self.dataObject.uniqueString + ".html"
-                    )
-                },
+                "status", {"redirectToResultsFileOrURL": error_html_path}
             )
 
     def GetEquationFromNameAndFamily(

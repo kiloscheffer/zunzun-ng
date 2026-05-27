@@ -33,6 +33,7 @@ import zunzun.forms
 from . import DefaultData
 
 from . import pid_trace
+from ._unique import new_unique_string, page_artifact_filename, page_artifact_path, page_artifact_url
 
 def _json_native(value):
     """Recursively coerce numpy types to plain Python primitives.
@@ -244,7 +245,7 @@ You must provide any weights you wish to use.
         try:
             scale = 72.0 / 300.0 # dpi conversion factor for PDF file images
 
-            self.pdfFileName = self.dataObject.uniqueString + ".pdf"
+            self.pdfFileName = page_artifact_filename(self.dataObject.uniqueString, "pdf")
             pageElements = []
 
             styles = reportlab.lib.styles.getSampleStyleSheet()
@@ -398,7 +399,6 @@ You must provide any weights you wish to use.
         dataObject.logLinZ = 'LIN'
 
         settings.TEMP_FILES_DIR = settings.TEMP_FILES_DIR
-        dataObject.WebsiteHTMLLocation = settings.MEDIA_URL
         dataObject.WebsiteImageLocation = settings.MEDIA_URL
 
         dataObject.dimensionality = self.dimensionality
@@ -411,9 +411,9 @@ You must provide any weights you wish to use.
             dataObject.IndependentDataName2 = yName
             dataObject.DependentDataName = zName
 
-        dataObject.uniqueString = 'LRP_' + str(os.getpid()) + '_' + str(time.time()).replace('.', '_')
-        dataObject.physicalStatusFileName = os.path.join(settings.TEMP_FILES_DIR, dataObject.uniqueString + '.html')
-        dataObject.websiteStatusFileName = dataObject.WebsiteHTMLLocation + dataObject.uniqueString + '.html'
+        dataObject.uniqueString = new_unique_string()
+        dataObject.physicalStatusFileName = page_artifact_path(dataObject.uniqueString, 'html')
+        dataObject.websiteStatusFileName = page_artifact_url(dataObject.uniqueString, 'html')
 
         return dataObject
 
@@ -649,17 +649,43 @@ You must provide any weights you wish to use.
             self.pool.close()
             self.pool.join()
             self.pool = None
-            
+            # Clear the parallel-processes indicator now that the pool is
+            # gone; subsequent phases (PDF, stats calc) are single-threaded.
+            self.SaveDictionaryOfItemsToSessionStore('status', {'parallelProcessCount': 0})
+
         pid_trace.delete_pid_trace_file()
 
+    def _oneSecondStatusUpdate(self, currentStatus):
+        """Throttled (≤1Hz) liveness + status write for tight work loops.
+
+        Per second: runs ``CheckIfStillUsed`` to detect abandoned fits,
+        writes the supplied ``currentStatus`` plus the current
+        ``parallelProcessCount`` to the status session, and bumps
+        ``self.oneSecondTimes``. Returns immediately if a second hasn't
+        elapsed since the last call.
+
+        ``parallelProcessCount`` lives as its own session field so the
+        status page renders it next to the elapsed timer instead of
+        wedged into ``currentStatus``. UI hides the indicator when the
+        count is ≤1 (single-thread phases or pool idle).
+
+        Used by ``Reports_CheckOneSecondSessionUpdates`` here, and by
+        the equivalent ``WorkItems_*`` methods on the FunctionFinder and
+        StatisticalDistributions subclasses.
+        """
+        if self.oneSecondTimes == int(time.time()):
+            return
+        self.CheckIfStillUsed()
+        self.SaveDictionaryOfItemsToSessionStore('status', {
+            'currentStatus': currentStatus,
+            'parallelProcessCount': len(multiprocessing.active_children()),
+        })
+        self.oneSecondTimes = int(time.time())
+
     def Reports_CheckOneSecondSessionUpdates(self, countOfReportsRun, totalNumberOfReportsToBeRun):
-        if self.oneSecondTimes != int(time.time()):
-            self.CheckIfStillUsed()
-            processcountString = '<br><br>Currently using 1 process (the server is busy)'
-            if len(multiprocessing.active_children()) > 1:
-                processcountString = '<br><br>Currently using ' + str(len(multiprocessing.active_children())) + ' parallel processes'
-            self.SaveDictionaryOfItemsToSessionStore('status', {'currentStatus':"Created %s of %s Reports and Graphs %s" % (countOfReportsRun, totalNumberOfReportsToBeRun, processcountString)})
-            self.oneSecondTimes = int(time.time())
+        self._oneSecondStatusUpdate(
+            "Created %s of %s Reports and Graphs" % (countOfReportsRun, totalNumberOfReportsToBeRun)
+        )
 
     def CheckIfStillUsed(self):
         import time
@@ -816,7 +842,7 @@ You must provide any weights you wish to use.
         pid_trace.pid_trace()
         
         try:
-            f = open(os.path.join(settings.TEMP_FILES_DIR, self.dataObject.uniqueString + ".html"), "w")
+            f = open(page_artifact_path(self.dataObject.uniqueString, "html"), "w")
             f.write(render_to_string('zunzun/equation_fit_or_characterizer_results.html', itemsToRender))
             f.flush()
             f.close()
@@ -825,7 +851,7 @@ You must provide any weights you wish to use.
             logging.basicConfig(filename = os.path.join(settings.TEMP_FILES_DIR,  str(os.getpid()) + '.log'),level=logging.DEBUG)
             logging.exception('Exception rendering HTML to a file')
             
-        self.SaveDictionaryOfItemsToSessionStore('status', {'redirectToResultsFileOrURL':os.path.join(settings.TEMP_FILES_DIR, self.dataObject.uniqueString + ".html")})
+        self.SaveDictionaryOfItemsToSessionStore('status', {'redirectToResultsFileOrURL': page_artifact_path(self.dataObject.uniqueString, "html")})
         
         pid_trace.delete_pid_trace_file()
 

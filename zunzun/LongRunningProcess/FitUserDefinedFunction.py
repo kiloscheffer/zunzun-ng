@@ -8,6 +8,7 @@ from django.template.loader import render_to_string
 from . import FittingBaseClass
 from . import ReportsAndGraphs
 from .StatusMonitoredLongRunningProcessPage import _json_native
+from ._unique import page_artifact_path
 from .child_payload import ChildPayload
 
 import zunzun.forms
@@ -82,9 +83,10 @@ class FitUserDefinedFunction(FittingBaseClass.FittingBaseClass):
             itemsToRender['error0'] = str(sys.exc_info()[0])
             itemsToRender['error1'] = str(sys.exc_info()[1])
             itemsToRender['extraText'] = 'Please check the text of your User Defined Function.'
-            f = open(os.path.join(settings.TEMP_FILES_DIR, self.dataObject.uniqueString + ".html"), "w")
+            error_html_path = page_artifact_path(self.dataObject.uniqueString, "html")
+            f = open(error_html_path, "w")
             f.write(render_to_string('zunzun/exception_while_fitting_an_equation.html', itemsToRender))
-            self.SaveDictionaryOfItemsToSessionStore('status', {'redirectToResultsFileOrURL':os.path.join(settings.TEMP_FILES_DIR, self.dataObject.uniqueString + ".html")})
+            self.SaveDictionaryOfItemsToSessionStore('status', {'redirectToResultsFileOrURL': error_html_path})
             # Raise SystemExit so the spawned child terminates cleanly without
             # overwriting the redirect already written to the session store.
             # SystemExit is a BaseException, not Exception, so the generic

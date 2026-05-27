@@ -1,0 +1,31 @@
+{% extends "zunzun/generic_page_template.html" %}
+
+{% block title %}
+    ZunZunNG - Working on your fit
+{% endblock %}
+
+{% block additional_javascript %}
+    {% include "zunzun/javascript/StatusPoll.js" %}
+{% endblock %}
+
+{% block body_contents %}
+<div>
+  <h2 class="working-heading"><span class="status-dot" aria-hidden="true"></span>Working on your fit</h2>
+
+  <div class="notice" id="currentStatus">{{ currentStatus }}</div>
+
+  <p>Running for <span id="elapsedTime">{{ elapsed }}</span><span id="parallelProcessInfo">{% if parallelProcessCount > 1 %} · {{ parallelProcessCount }} parallel processes{% endif %}</span></p>
+
+  <h3>Server load</h3>
+  <dl class="server-load">
+    <dt>1 minute</dt>         <dd id="load1">{{ loadavg.0 }}</dd>
+    <dt>5 minutes</dt>        <dd id="load5">{{ loadavg.1 }}</dd>
+    <dt>15 minutes</dt>       <dd id="load15">{{ loadavg.2 }}</dd>
+  </dl>
+
+  <p><small>
+    Load &lt; {{ coreCount }} is light;
+    &ge; {{ coreCount }} means cores are saturated.
+  </small></p>
+</div>
+{% endblock %}

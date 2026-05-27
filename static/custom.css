@@ -534,3 +534,67 @@ footer > div:last-child {
   color: var(--accent-hover);
   border-color: var(--accent-hover);
 }
+
+/* ------------------------------------------------------------------------ */
+/*   STATUS PAGE                                                            */
+/*   Pulsing dot affordance next to the heading while a fit is in progress; */
+/*   status card highlights the live currentStatus message.                 */
+/* ------------------------------------------------------------------------ */
+
+/* Flex layout on the heading gives reliable vertical centering between the
+   dot and the heading text regardless of font metrics. Inline-only
+   vertical-align values (middle, text-top) end up looking high or low at
+   h2 scale because they snap to glyph-metric reference points, not the
+   visual center of the text block. */
+.working-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+}
+
+.status-dot {
+  display: inline-block;
+  width: 0.6em;
+  height: 0.6em;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: status-pulse 2s ease-in-out infinite;
+  flex: 0 0 auto;
+}
+
+@keyframes status-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .status-dot { animation: none; }
+}
+
+/* The LRP writes server-side HTML into currentStatus (rendered inside
+   the simple.css .notice block), sometimes including tables — e.g.
+   FunctionFinder's per-family progress grid. simple.css's default
+   table chrome (borders, padding, zebra) doubles up against the
+   notice background and makes the block much taller than needed.
+   Strip the chrome so the table reads as a flat compact list. */
+.notice table,
+.notice table tr,
+.notice table th,
+.notice table td {
+  background: transparent;
+  border: none;
+}
+
+.notice table {
+  margin: 0;
+}
+
+.notice table th,
+.notice table td {
+  padding: 0.1rem 0.6rem;
+}
+
+.notice table td:first-child,
+.notice table th:first-child {
+  padding-left: 0;
+}

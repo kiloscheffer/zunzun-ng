@@ -1,0 +1,87 @@
+"""Compact, sort-friendly identifier for one LRP child's artifacts.
+
+Replaces the legacy ``'LRP_' + str(pid) + '_' + str(time.time()).replace('.', '_')``
+pattern with a base36-packed form that keeps PID as a debugging breadcrumb
+(correlates with ``{pid}.log``) but compresses the timestamp portion ~3x.
+
+Format: ``zun_<pid_b36_3>_<ms_b36_8>`` — 12-char fixed-width payload.
+
+Per-component artifacts (PNG, SVG, GIF) append ``_{anchor3}_{rank3}``
+where ``anchor3`` is the 3-letter ``uniqueAnchorName`` set in
+``ReportsAndGraphs.py`` and ``rank3`` is a 3-char base36 number
+(covers 0..46,655 — handles FunctionFinder's ~23K ranked equations
+with headroom). Page-level artifacts (PDF, result HTML) use the
+reserved anchor code ``zun`` and the placeholder rank ``000`` so
+every artifact matches the same 5-segment shape. Anchor namespace:
+``zun`` is reserved and MUST NOT be used as a per-component anchor.
+
+Layout choices:
+  - 15-bit PID field (3 base36 chars). Matches Linux default ``pid_max``
+    of 32768 exactly. PIDs on raised-max Linux or Windows >32K are
+    clipped via ``pid & 0x7FFF`` and may alias (rare enough to be useful
+    as a coarse correlation key, not a unique key).
+  - 41-bit ms field (8 base36 chars) measured from the 2026-01-01 UTC
+    epoch. Range ≈ 70 years; saturates at the high end (clamp via
+    ``max(_, 0)``) for the impossible case of a clock before the epoch.
+"""
+
+import os
+import string
+import time
+from datetime import datetime, timezone
+
+import settings
+
+
+_BASE36 = string.digits + string.ascii_lowercase
+_EPOCH_MS = int(datetime(2026, 1, 1, tzinfo=timezone.utc).timestamp() * 1000)
+# = 1_767_225_600_000
+
+# Suffix attached to page-level artifacts (PDF, result HTML). The "zun"
+# anchor code is reserved (see module docstring) and the "000" rank
+# placeholder pads out to the same 5-segment shape as per-component
+# artifacts. Defined once here so a future change to the convention
+# lands in one place rather than 8+ callsites.
+_PAGE_SUFFIX = "_zun_000"
+
+
+def b36(n: int, width: int) -> str:
+    """Format ``n`` as base36, zero-padded to ``width`` characters."""
+    if n <= 0:
+        return "0" * width
+    out = ""
+    while n:
+        n, r = divmod(n, 36)
+        out = _BASE36[r] + out
+    return out.rjust(width, "0")
+
+
+def new_unique_string() -> str:
+    pid_field = os.getpid() & 0x7FFF
+    ms_since_epoch = max(int(time.time() * 1000) - _EPOCH_MS, 0)
+    return "zun_%s_%s" % (b36(pid_field, 3), b36(ms_since_epoch, 8))
+
+
+def page_artifact_filename(unique_string: str, ext: str) -> str:
+    """Bare filename of a page-level artifact (PDF or result HTML).
+
+    Example: ``page_artifact_filename("zun_h5g_05spf7rm", "pdf")``
+    returns ``"zun_h5g_05spf7rm_zun_000.pdf"``.
+
+    Use when the consumer needs the bare name — e.g., setting
+    ``self.pdfFileName`` for later joining with TEMP_FILES_DIR and
+    for embedding in the ``/temp/{{ pdfFileName }}`` download link.
+    For filesystem paths use ``page_artifact_path``; for site URLs
+    use ``page_artifact_url``.
+    """
+    return unique_string + _PAGE_SUFFIX + "." + ext
+
+
+def page_artifact_path(unique_string: str, ext: str) -> str:
+    """Filesystem path of a page-level artifact under ``TEMP_FILES_DIR``."""
+    return os.path.join(settings.TEMP_FILES_DIR, page_artifact_filename(unique_string, ext))
+
+
+def page_artifact_url(unique_string: str, ext: str) -> str:
+    """Site URL of a page-level artifact under ``MEDIA_URL``."""
+    return settings.MEDIA_URL + page_artifact_filename(unique_string, ext)

@@ -500,7 +500,12 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
             serialWorker(self, self.linearFittingList, self.functionFinderResultsList, self.dataObject.equation.dataCache)
             
         self.WorkItems_CheckOneSecondSessionUpdates()
-        self.SaveDictionaryOfItemsToSessionStore('status', {'currentStatus':"%s Total Equations Fitted, combining lists..." % (self.countOfParallelWorkItemsRun + self.countOfSerialWorkItemsRun)})
+        # All parallel workers have drained; clear the indicator so the
+        # status page stops showing the count during post-processing phases.
+        self.SaveDictionaryOfItemsToSessionStore('status', {
+            'currentStatus': "%s Total Equations Fitted, combining lists..." % (self.countOfParallelWorkItemsRun + self.countOfSerialWorkItemsRun),
+            'parallelProcessCount': 0,
+        })
 
         # transfer to result list before sorting
         for i in range(fittingResultsQueue.qsize()):
@@ -518,44 +523,39 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
 
 
     def WorkItems_CheckOneSecondSessionUpdates(self):
-        import time
-        
-        if self.oneSecondTimes != int(time.time()):
-            self.CheckIfStillUsed()
-            processcountString = '<br><br>Currently using 1 process (the server is busy)'
-            if len(multiprocessing.active_children()) > 1:
-                processcountString = '<br><br>Currently using ' + str(len(multiprocessing.active_children())) + ' parallel processes'
-            
-            familyString = ''
-            sortedFamilyNameList = list(self.parallelFittingResultsByEquationFamilyDictionary.keys())
-            if sortedFamilyNameList:
-                familyString += '<table>'
-                sortedFamilyNameList.sort()
-                for familyName in sortedFamilyNameList:
-                    total = self.parallelFittingResultsByEquationFamilyDictionary[familyName][0]
-                    soFar = self.parallelFittingResultsByEquationFamilyDictionary[familyName][1]
-                    if soFar > 0 and total != soFar: # bold the equations where fitting is underway
-                        familyString += '<tr><td><b>%s</b></td><td><b>of</b></td><td><b>%s</b></td><td align="center">%s</td><td>Equations Fitted Non-Linearly</td></tr>' % (soFar, total, familyName.split('.')[-1])
-                    elif total == soFar:
-                        familyString += '<tr><td>%s</td><td>of</td><td>%s</td><td align="center"><b><font color="green">%s</font></b></td><td>Equations Fitted Non-Linearly</td></tr>' % (soFar, total, familyName.split('.')[-1])
-                    else:
-                        familyString += '<tr><td>%s</td><td>of</td><td>%s</td><td align="center">%s</td><td>Equations Fitted Non-Linearly</td></tr>' % (soFar, total, familyName.split('.')[-1])
-                familyString += '</table><br>'
-                if self.countOfSerialWorkItemsRun == 0:
-                    self.SaveDictionaryOfItemsToSessionStore('status', {'currentStatus':familyString + "<b>%s of %s</b> Equations Fitted Non-Linearly<br>%s of %s Equations Fitted Linearly" % (self.countOfParallelWorkItemsRun, self.totalNumberOfParallelWorkItemsToBeRun, self.countOfSerialWorkItemsRun, self.totalNumberOfSerialWorkItemsToBeRun) + processcountString})
-                else:
-                    self.SaveDictionaryOfItemsToSessionStore('status', {'currentStatus':familyString + "%s of %s Equations Fitted Non-Linearly<br><b>%s of %s</b> Equations Fitted Linearly" % (self.countOfParallelWorkItemsRun, self.totalNumberOfParallelWorkItemsToBeRun, self.countOfSerialWorkItemsRun, self.totalNumberOfSerialWorkItemsToBeRun) + processcountString})
-            
-            self.oneSecondTimes = int(time.time())
+        sortedFamilyNameList = sorted(self.parallelFittingResultsByEquationFamilyDictionary.keys())
+        if not sortedFamilyNameList:
+            return  # nothing to report yet; helper would write an empty card
+
+        familyString = '<table>'
+        for familyName in sortedFamilyNameList:
+            total = self.parallelFittingResultsByEquationFamilyDictionary[familyName][0]
+            soFar = self.parallelFittingResultsByEquationFamilyDictionary[familyName][1]
+            if soFar > 0 and total != soFar:  # bold the family currently fitting
+                familyString += '<tr><td><b>%s</b></td><td><b>of</b></td><td><b>%s</b></td><td align="center">%s</td><td>Equations Fitted Non-Linearly</td></tr>' % (soFar, total, familyName.split('.')[-1])
+            elif total == soFar:
+                familyString += '<tr><td>%s</td><td>of</td><td>%s</td><td align="center"><b><font color="green">%s</font></b></td><td>Equations Fitted Non-Linearly</td></tr>' % (soFar, total, familyName.split('.')[-1])
+            else:
+                familyString += '<tr><td>%s</td><td>of</td><td>%s</td><td align="center">%s</td><td>Equations Fitted Non-Linearly</td></tr>' % (soFar, total, familyName.split('.')[-1])
+        familyString += '</table><br>'
+
+        if self.countOfSerialWorkItemsRun == 0:
+            summary = familyString + "<b>%s of %s</b> Equations Fitted Non-Linearly<br>%s of %s Equations Fitted Linearly" % (self.countOfParallelWorkItemsRun, self.totalNumberOfParallelWorkItemsToBeRun, self.countOfSerialWorkItemsRun, self.totalNumberOfSerialWorkItemsToBeRun)
+        else:
+            summary = familyString + "%s of %s Equations Fitted Non-Linearly<br><b>%s of %s</b> Equations Fitted Linearly" % (self.countOfParallelWorkItemsRun, self.totalNumberOfParallelWorkItemsToBeRun, self.countOfSerialWorkItemsRun, self.totalNumberOfSerialWorkItemsToBeRun)
+
+        self._oneSecondStatusUpdate(summary)
 
 
     def WorkItems_CheckOneSecondSessionUpdates_Scanning(self):
-        import time
-        
-        if self.oneSecondTimes != int(time.time()):
-            self.CheckIfStillUsed()
-            self.SaveDictionaryOfItemsToSessionStore('status', {'currentStatus':"Scanned %s Equations : %s OK, %s skipped, %s exceptions" % (self.numberOfEquationsScannedSoFar, len(self.linearFittingList) + len(self.parallelWorkItemsList), self.fit_skip_count, self.fit_exception_count)})
-            self.oneSecondTimes = int(time.time())
+        self._oneSecondStatusUpdate(
+            "Scanned %s Equations : %s OK, %s skipped, %s exceptions" % (
+                self.numberOfEquationsScannedSoFar,
+                len(self.linearFittingList) + len(self.parallelWorkItemsList),
+                self.fit_skip_count,
+                self.fit_exception_count,
+            )
+        )
 
 
     def CreateUnboundInterfaceForm(self, request):
