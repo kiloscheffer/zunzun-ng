@@ -1,0 +1,46 @@
+# Auto-runs /code-review:code-review against every PR (open / sync /
+# ready_for_review / reopened) and posts findings as a PR comment.
+# Operates only on PRs from human authors — bot-actor PRs (Dependabot,
+# Renovate) are skipped because the Claude action's anti-loop guard
+# refuses with "Workflow initiated by non-human actor" and would
+# otherwise show a red check on the PR.
+#
+# Requires the repo secret CLAUDE_CODE_OAUTH_TOKEN (see claude.yml).
+# The agent PR-creation gate hook (per-developer .claude/hooks/
+# gh_pr_create_gate.py) provides similar protection BEFORE the PR
+# opens; this workflow is the post-open backstop visible to reviewers.
+
+name: Claude Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review, reopened]
+
+jobs:
+  claude-review:
+    # endsWith on github.actor covers any bot identity (dependabot[bot],
+    # renovate[bot], etc.) without enumeration. Stays correct when
+    # Dependabot synchronizes after a human push.
+    if: ${{ !endsWith(github.actor, '[bot]') }}
+
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 1
+
+      - name: Run Claude Code Review
+        id: claude-review
+        uses: anthropics/claude-code-action@20c8abf165d5f85ab3fc970db9498436377dc9d1 # v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          plugin_marketplaces: 'https://github.com/anthropics/claude-code.git'
+          plugins: 'code-review@claude-code-plugins'
+          prompt: '/code-review:code-review ${{ github.repository }}/pull/${{ github.event.pull_request.number }}'

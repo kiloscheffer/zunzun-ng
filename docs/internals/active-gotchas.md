@@ -48,3 +48,9 @@ Operational rules-of-thumb — situational notes important enough to keep grep-a
 - `settings.py` ships with empty placeholders for `SECRET_KEY`, `EXCEPTION_EMAIL_ADDRESS`, `FEEDBACK_EMAIL_ADDRESS`, `EMAIL_HOST_USER`, and `EMAIL_HOST_PASSWORD`. Email sending is gated on these being truthy (see `FeedbackView`, the exception handler in `LongRunningProcessView`), so leaving them blank silently disables email rather than crashing.
 - `DEBUG` is toggled automatically by looking for `'runserver'` in `sys.argv` (see `settings.py`), so running under Waitress or WSGI disables debug regardless of env vars.
 - Rate limiting is always in effect (no install-time gating). To disable for local testing, set `RATELIMIT_ENABLE = False` in `settings.py`. When a caller exceeds the rate, `CommonToAllViews` applies a 5-second `time.sleep` — this specifically breaks polling endpoints (`StatusUpdateView` is intentionally not decorated with `@ratelimit` for this reason).
+
+## CI / GitHub Actions
+
+- `claude.yml` and `claude-code-review.yml` both require the repo secret `CLAUDE_CODE_OAUTH_TOKEN` (Settings → Secrets and variables → Actions). Without it the first step of either workflow fails with a clear error; the workflows do no harm otherwise.
+- `claude-code-review.yml` is configured to run on PRs from human authors only — `if: !endsWith(github.actor, '[bot]')`. Dependabot/Renovate PRs are skipped so the Claude action's anti-loop guard doesn't paint them red.
+- `commit-check.yml` reads rules from `cchk.toml` at the repo root. Single source of truth; don't duplicate the allow-lists in prose elsewhere.
