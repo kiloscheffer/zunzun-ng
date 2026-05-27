@@ -1,19 +1,52 @@
-# Claude Code
-# settings.json is team-shared (checked in); only the per-user override is ignored
-.claude/settings.local.json
-# CLAUDE.md is a one-line @AGENTS.md indirection (committed); machine-local
-# agent notes live in CLAUDE.local.md (per-developer, never committed)
-CLAUDE.local.md
+# Build outputs
+__editable__*.pth
+build/
+dist/
 
-# Python bytecode and caches
+# Coverage artifacts
+.coverage
+coverage.xml
+htmlcov/
+
+# Developer/agent settings
+.claude/
+AGENTS.md
+CLAUDE.local.md
+CLAUDE.md
+docs/superpowers/
+
+# Editor scratch
+.idea/
+.vscode/
+*.swp
+*~
+
+# Generated source
+src/dbxignore/_version.py
+
+# OS metadata
+.DS_Store
+desktop.ini
+Thumbs.db
+
+# Python bytecode/eggs
 __pycache__/
-*.py[cod]
-*$py.class
 .mypy_cache/
 .pytest_cache/
+*.dist-info/
+*.egg-info/
+*.py[cod]
+*$py.class
 
-# uv-managed virtual environment (uv.lock IS committed)
+# Tool caches
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.uv/
+
+# Virtual envs
 .venv/
+venv/
 
 # Django / pyeq3 scratch output from forked fit processes.
 # Everything written to temp/ is disposable (PDFs, graphs, animations,
@@ -33,9 +66,3 @@ session_db/db.sqlite3-journal
 
 # Per-fork debug traces (only produced if pid_trace.py early-returns are removed)
 pid_*.trace
-
-# Editor / OS cruft
-.DS_Store
-Thumbs.db
-*.swp
-*~
