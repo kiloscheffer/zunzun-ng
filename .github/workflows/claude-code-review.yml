@@ -18,10 +18,16 @@ on:
 
 jobs:
   claude-review:
-    # endsWith on github.actor covers any bot identity (dependabot[bot],
-    # renovate[bot], etc.) without enumeration. Stays correct when
-    # Dependabot synchronizes after a human push.
-    if: ${{ !endsWith(github.actor, '[bot]') }}
+    # Filter on pull_request.user.login (the PR AUTHOR), NOT github.actor.
+    # github.actor is whoever triggered the current run — when a human
+    # clicks "Update branch" or "Rebase and merge" on a Dependabot PR,
+    # github.actor becomes the human and the filter would fail open,
+    # running the Claude review on a bot-authored PR. The action then
+    # refuses (anti-tampering check when the workflow file is in the
+    # diff, anti-loop guard otherwise) and the PR ends up UNSTABLE.
+    # pull_request.user.login is stable as `dependabot[bot]` regardless
+    # of who clicks UI buttons. endsWith covers any bot identity.
+    if: ${{ !endsWith(github.event.pull_request.user.login, '[bot]') }}
 
     runs-on: ubuntu-latest
     permissions:
@@ -38,7 +44,7 @@ jobs:
 
       - name: Run Claude Code Review
         id: claude-review
-        uses: anthropics/claude-code-action@20c8abf165d5f85ab3fc970db9498436377dc9d1 # v1
+        uses: anthropics/claude-code-action@787c5a0ce96a9a6cfb050ea0c8f4c05f2447c251 # v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           plugin_marketplaces: 'https://github.com/anthropics/claude-code.git'
