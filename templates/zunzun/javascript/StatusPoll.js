@@ -7,9 +7,17 @@
  */
 (function () {
   var POLL_INTERVAL_MS = 2000;
+  var intervalId = null;
+  var inFlight = false;
 
   function applyUpdate(data) {
     if (data.completed === true) {
+      /* Stop polling before navigating so the loop doesn't fire spurious
+       * fetches during the navigation transition and on the next page. */
+      if (intervalId !== null) {
+        clearInterval(intervalId);
+        intervalId = null;
+      }
       window.location.assign('/StatusAndResults/');
       return;
     }
@@ -45,6 +53,12 @@
   }
 
   function poll() {
+    /* In-flight guard: under SQLite contention the heartbeat-write retry
+     * loop on the server can take longer than the poll interval. Skip
+     * the new tick rather than letting fetches overlap (which would
+     * apply DOM updates out of order and double-bump the heartbeat). */
+    if (inFlight) return;
+    inFlight = true;
     fetch('/StatusUpdate/', { credentials: 'same-origin' })
       .then(function (response) {
         if (!response.ok) return;  /* 4xx/5xx: retry next tick */
@@ -53,10 +67,11 @@
       .then(function (data) {
         if (data) applyUpdate(data);
       })
-      .catch(function () { /* network blip: swallow, retry next tick */ });
+      .catch(function () { /* network blip: swallow, retry next tick */ })
+      .finally(function () { inFlight = false; });
   }
 
   /* First poll fires immediately to refresh between initial render and JS load. */
   poll();
-  setInterval(poll, POLL_INTERVAL_MS);
+  intervalId = setInterval(poll, POLL_INTERVAL_MS);
 })();

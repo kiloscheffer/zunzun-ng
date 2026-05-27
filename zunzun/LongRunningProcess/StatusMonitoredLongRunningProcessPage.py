@@ -729,7 +729,8 @@ You must provide any weights you wish to use.
                                                  {'currentStatus':'Initializing',
                                                   'start_time':time.time(),
                                                   'time_of_last_status_check':time.time(),
-                                                  'redirectToResultsFileOrURL':''})
+                                                  'redirectToResultsFileOrURL':'',
+                                                  'parallelProcessCount':0})
 
         self.SaveDictionaryOfItemsToSessionStore('data',
                                                  {'textDataEditor_' + str(self.dimensionality) + 'D':request.POST['textDataEditor'],
