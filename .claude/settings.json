@@ -9,6 +9,15 @@
             "command": "python \"${CLAUDE_PROJECT_DIR}/.claude/hooks/block_runtime_state.py\""
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"${CLAUDE_PROJECT_DIR}/.claude/hooks/gh_pr_create_gate.py\""
+          }
+        ]
       }
     ],
     "PostToolUse": [
