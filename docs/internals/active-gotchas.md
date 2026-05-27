@@ -1,6 +1,6 @@
 # Active gotchas
 
-Operational notes too situational for `AGENTS.md`'s high-level architecture sections. Read the matching section before touching that area. Each bullet captures one rule, one tripping-hazard, or one footgun that has burned someone (or would burn the next person).
+Operational rules-of-thumb — situational notes important enough to keep grep-able, grouped by area of the codebase. Read the matching section before touching that area. Each bullet captures one rule, one tripping-hazard, or one footgun that has burned someone (or would burn the next person).
 
 ## Environment and venv
 
