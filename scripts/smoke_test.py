@@ -361,7 +361,8 @@ def _check_animation_gif(session, base, body, name_prefix, min_frames=2):
     import os
     from PIL import Image
 
-    pattern = re.compile(r'/temp/(' + re.escape(name_prefix) + r'[^"\']*\.gif)')
+    # Filenames are zun_<pid>_<ms>_<anchor>_<rank>.gif; anchor sits in the middle.
+    pattern = re.compile(r'/temp/(zun_[^"\']*_' + re.escape(name_prefix) + r'_[^"\']*\.gif)')
     match = pattern.search(body)
     if not match:
         return f"[{name_prefix}] no /temp/{name_prefix}*.gif href found in response body"
@@ -601,7 +602,7 @@ def run_smoke() -> int:
             if err:
                 errors.append(err)
             else:
-                err = _check_animation_gif(session, base, char3d_body, "ScatterAnimation")
+                err = _check_animation_gif(session, base, char3d_body, "san")
                 if err:
                     errors.append(err)
                 else:
@@ -623,7 +624,7 @@ def run_smoke() -> int:
             if err:
                 errors.append(err)
             else:
-                err = _check_animation_gif(session, base, poly3d_body, "SurfaceAnimation")
+                err = _check_animation_gif(session, base, poly3d_body, "sua")
                 if err:
                     errors.append(err)
                 else:

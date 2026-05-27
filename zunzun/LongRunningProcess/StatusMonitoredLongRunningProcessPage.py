@@ -33,6 +33,7 @@ import zunzun.forms
 from . import DefaultData
 
 from . import pid_trace
+from ._unique import new_unique_string
 
 def _json_native(value):
     """Recursively coerce numpy types to plain Python primitives.
@@ -411,7 +412,7 @@ You must provide any weights you wish to use.
             dataObject.IndependentDataName2 = yName
             dataObject.DependentDataName = zName
 
-        dataObject.uniqueString = 'LRP_' + str(os.getpid()) + '_' + str(time.time()).replace('.', '_')
+        dataObject.uniqueString = new_unique_string()
         dataObject.physicalStatusFileName = os.path.join(settings.TEMP_FILES_DIR, dataObject.uniqueString + '.html')
         dataObject.websiteStatusFileName = dataObject.WebsiteHTMLLocation + dataObject.uniqueString + '.html'
 
