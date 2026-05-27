@@ -1,0 +1,39 @@
+# Local pre-commit hooks. Optional, opt-in per developer:
+#   uv tool install pre-commit
+#   pre-commit install --hook-type commit-msg --hook-type pre-push
+#
+# After that, `git commit` and `git push` run these checks automatically.
+# CI re-runs the equivalent checks via commit-check-action and pytest,
+# so the local install is a convenience, not a merge gate.
+#
+# Two hook families currently configured:
+#   - commit-check: validates Conventional Commits message and
+#     Conventional Branch name against cchk.toml at the repo root.
+#   - mypy: project-wide static type check. Runs in unstrict mode
+#     (no [tool.mypy] config in pyproject.toml on purpose — strict
+#     mode would surface dozens of issues in the 2016-era code that
+#     would block every commit until addressed).
+#
+# Ruff is deliberately NOT configured here. Adopting ruff requires
+# a pyproject.toml [tool.ruff] section plus a first-run cleanup pass
+# across the codebase; that's a follow-up, not a hook addition. See
+# the original recommendation list in CLAUDE.local.md if reactivating
+# this decision.
+
+repos:
+  - repo: https://github.com/commit-check/commit-check
+    rev: v2.6.0
+    hooks:
+      - id: check-message
+        stages: [commit-msg]
+      - id: check-branch
+        stages: [pre-push]
+
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy
+        entry: uv run mypy .
+        language: system
+        types: [python]
+        pass_filenames: false
