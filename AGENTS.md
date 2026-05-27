@@ -41,11 +41,9 @@ uv run python scripts/smoke_test.py
 
 Starts a throwaway Waitress, POSTs a 2D polynomial-quadratic fit, polls for completion, asserts structural markers in the result. Useful after a fresh clone or dep bump. Takes ~1–2 min on Linux, ~3–5 min on Windows.
 
-## Development quirks
+## Operational gotchas
 
-- **`.venv/` must be excluded from cloud-sync clients (Dropbox, OneDrive, iCloud).** uv's default hardlink mode on Windows shares inodes between `.venv/` and the global uv cache (`%LOCALAPPDATA%\uv\cache\`). A sync client watching `.venv/` doubles the storage and breaks the hardlink relationship on cross-machine sync, silently corrupting Python imports (manifests as OS error 396 or hard-to-trace `ImportError`s). With the exclusion in place, no special handling is needed (verified 2026-04-28). If `.venv/` exclusion isn't configured, prefix `uv` commands with `UV_LINK_MODE=copy` as a workaround — at the cost of ~300-500 MB of duplicated packages per venv.
-- **Cold-cache smoke flakiness.** The first smoke run after `rm -rf .venv && uv sync` (especially after a pyeq3 reinstall) can time out on 3D scenarios because spawn workers compile `.pyc` files on first import. Re-running on the warm venv passes. See the 4-worker-cap entry in `BACKLOG.md` for context.
-- **`rm -rf .venv` may fail with "Device or resource busy"** on Windows when transient background processes (Dropbox indexers, Windows Search, etc.) hold handles open momentarily. PowerShell's `Remove-Item .venv -Recurse -Force` uses native Win32 calls and handles these gracefully where bash's `rm -rf` (via MSYS POSIX-emulation) does not. After deletion, `uv sync` rebuilds cleanly. Avoid running pytest + smoke in parallel right after a `uv lock` that changed any source URL — they'll race for cache locks.
+Read [`docs/internals/active-gotchas.md`](docs/internals/active-gotchas.md) before touching the corresponding area. Categories: environment & venv, spawn LRP pattern, sessions & state, templates & URLs, files & directories, filename grammar in `temp/`, FunkLoad legacy, deploy.
 
 ## Dependencies
 
@@ -102,10 +100,9 @@ This is the single most important thing to understand before modifying views or 
 
 Consequences:
 - **The site runs on Linux, macOS, and Windows.** Waitress is the recommended cross-platform WSGI server; see `docs/deployment/`.
-- Platform-specific calls (load average, process priority, zombie reap, shellouts for mogrify/gifsicle/rm) live in `zunzun/platform_compat.py`. Never call `os.getloadavg`, `/proc`, `vmstat`, or `os.popen` directly from view or LRP code — extend `platform_compat` instead.
-- `get_parallel_process_count()` in `platform_compat.py` is platform-aware: fork platforms use ~80 MB per-worker memory estimate and cap at `cpu_count`; spawn platforms use ~750 MB and hard-cap at 4 workers because each spawned Pool worker re-imports numpy/scipy/pyeq3 from scratch.
+- Platform-specific calls (load average, process priority, zombie reap, shellouts for mogrify/gifsicle/rm) live in `zunzun/platform_compat.py`.
 - `CommonToAllViews()` calls `platform_compat.reap_completed_children()` on every request (no-op on Windows, proper cleanup on Unix). `HomePageView` spawns a daemon housekeeping child to clear expired sessions and trim `temp/` when it exceeds `MAX_TEMP_DIR_SIZE_IN_MBYTES` (default 500).
-- **`os.fork()` and `os._exit()` no longer appear in the codebase.** Adding them will break Windows compatibility; prefer `multiprocessing.Process(spawn)` and plain `return` respectively. A `fork-pattern-reviewer` subagent in `.claude/agents/` audits for accidental regressions.
+- Operational rules for this pattern (no direct `os.fork`/`os.getloadavg` calls, the 4-worker spawn cap, the SQLite-retry idiom, etc.) live in `docs/internals/active-gotchas.md`.
 
 ### Three parallel session stores per user
 
@@ -115,9 +112,7 @@ Consequences:
 - `session_key_data` — solved coefficients, equation name/family, etc., consumed later by `EvaluateAtAPointView`.
 - `session_key_functionfinder` — ranked results for `FunctionFinder`.
 
-Session values are stored as JSON-native Python types (floats, strings, lists of floats, nested dicts of primitives) via the default `JSONSerializer`. The helpers `SaveDictionaryOfItemsToSessionStore` / `LoadItemFromSessionStore` in `StatusMonitoredLongRunningProcessPage.py` wrap `session.save()` in a SQLite-lock retry loop and handle the three-store routing (status / data / functionfinder). Callers are responsible for casting numpy values to plain Python primitives at write time — see `_json_native` in that same module.
-
-**SQLite lock retry idiom**: every `session.save()` is wrapped in a `while not save_complete` loop that retries 100× at 10Hz before re-raising. When adding new session writes, copy this pattern — concurrent spawn children fighting for the SQLite session DB will lock it otherwise. Spawn children open fresh DB connections (vs. fork's inherited ones), so lock contention is arguably more relevant post-migration, not less.
+The helpers `SaveDictionaryOfItemsToSessionStore` / `LoadItemFromSessionStore` in `StatusMonitoredLongRunningProcessPage.py` handle the three-store routing (status / data / functionfinder) and the SQLite-lock retry pattern on `save()`. Session values must be JSON-native (the default `JSONSerializer` is used). See `docs/internals/active-gotchas.md` § Sessions and state for the retry idiom and the numpy-casting requirement.
 
 ### ChildPayload contract
 
@@ -151,7 +146,7 @@ StatusMonitoredLongRunningProcessPage   # base: session I/O, PDF canvas, paralle
 
 `commonproblems/` at the project root (lowercase, Unix-conventional dir name) holds a vendored copy of `bitbucket.org/zunzuncode/CommonProblems` (James R. Phillips's "Common Problems" reference site — animated confidence-interval visualizations of curve-fitting failure modes). 53 files: 9 HTML pages, 22 PNG stills, 16 animated GIFs, 2 generation scripts, plus `LICENSE` (BSD-2-clause) and `DEDICATION.txt`. Upstream is dormant since 2020-01; vendoring follows the same pattern as the `pyeq3-ng` companion fork — preserve a snapshot under our umbrella with attribution intact.
 
-Served at `/CommonProblems/` (case-sensitive CapitalCase URL, matching the upstream bitbucket repo's URL) via the `urls.py` static() helper in DEBUG mode and via nginx/IIS in production (see `docs/deployment/`). The URL→directory mapping is lowercase-on-disk, CapitalCase-on-URL: `urls.py`'s static() helper takes a `document_root` pointing at `commonproblems/`, and serves it under the `/CommonProblems/` URL prefix. Internal links inside the vendored content are all relative (`<a href="Outlier_A.html">`), so the content works wherever it's mounted. The bare trailing-slash URL `/CommonProblems/` is explicitly routed to serve `index.html` because Django's `static()` helper doesn't auto-index.
+Served at `/CommonProblems/` via the `urls.py` static() helper in DEBUG mode and via nginx/IIS in production (see `docs/deployment/`). Internal links inside the vendored content are all relative (`<a href="Outlier_A.html">`), so the content works wherever it's mounted. URL-case and bare-slash gotchas live in `docs/internals/active-gotchas.md` § Templates and URLs.
 
 ### `static/` (committed assets) vs `temp/` (runtime outputs)
 
@@ -164,16 +159,14 @@ For Python-side filesystem paths to static assets (e.g., the PDF watermark logo)
 
 ### Coefficient-picker templates (`polyfunctional` / `polyrational` / `polynomial_customization`)
 
-- **Parallel family.** `templates/zunzun/divs/{polyfunctional,polyrational,polynomial_customization}_selection_div.html` share the same scaffolding: `.matrix-layout` CSS grid for 3D (with `.label-y` / `.label-x` axis labels), `.function-matrix` cell styling, `.function-matrix-scroll` horizontal-overflow wrapper, and `<h4>` section labels. When touching one for layout/styling, evaluate whether the change applies to all three.
-- **JS coupling on cells is load-bearing — do not touch without paired JS rewrite.** The coefficient-picker `<td>` cells in the three picker templates have legacy JS dependencies: `id="CPX..."` is read by `JavascriptForFunctionMatrix2D.js` / `JavascriptForFunctionMatrix3D.js` / `JavascriptForRationalMatrix2D.js` / `JavascriptForRationalMatrix3D.js` via `document.all` / `document.layers` pathways, and inline `style="background-color:..."` is read via `.style.backgroundColor` to determine the selected/unselected state. Changing either requires rewriting the matching JS — deferred indefinitely (out of scope for HTML modernization).
+`templates/zunzun/divs/{polyfunctional,polyrational,polynomial_customization}_selection_div.html` share the same scaffolding: `.matrix-layout` CSS grid for 3D (with `.label-y` / `.label-x` axis labels), `.function-matrix` cell styling, `.function-matrix-scroll` horizontal-overflow wrapper, and `<h4>` section labels. When touching one for layout/styling, evaluate whether the change applies to all three.
 
-### `pid_trace.py` is dormant by design
-
-Both functions in `zunzun/LongRunningProcess/pid_trace.py` `return` at the top. The calls scattered through `StatusMonitoredLongRunningProcessPage.py` are debugging hooks that are no-ops in production. To enable per-fork trace files, remove the early `return`s; don't remove the call sites.
+The cells in these templates have a load-bearing JS coupling — see `docs/internals/active-gotchas.md` § Templates and URLs before touching cell `id` or inline `style`.
 
 ## Conventions
 
 - **Feature branches with `--no-ff` merges.** Every non-trivial change goes through a feature branch and merges to main with `--no-ff`, preserving topology in `git log --first-parent`. Recent merge commits on main are templates for the commit-message structure (rationale, scope, verification, references to specs/plans).
+- **Conventional Commits + Conventional Branches.** Commit subjects follow the `type: subject` shape with allowed types `feat`/`fix`/`docs`/`style`/`refactor`/`perf`/`test`/`build`/`ci`/`chore`/`revert`; branch names start with `feature/`/`bugfix/`/`hotfix/`/`release/`/`chore/`/`feat/`/`fix/`. The rules live in `cchk.toml` (single source of truth) and are enforced on every PR by `.github/workflows/commit-check.yml`. Bot PRs (Dependabot, Renovate) skip the branch check because their branch names don't match. The merge subject convention `Merge feat/<branch>` is exempt (it's a merge commit; `allow_merge_commits = true`).
 - **Historical specs and plans freeze their names.** Files under `docs/superpowers/specs/` and `docs/superpowers/plans/` keep their original names through any rename; only the *live surface* (active code, current docs, live identifiers) gets updated. RESOLVED entries in `BACKLOG.md` similarly preserve names that were current at resolution time — those documents describe work done under those names.
 - **Bulk `replace_all` is unsafe when a substring spans live identifiers AND historical filename references.** Use targeted Edit calls instead. Real example: `pyeq3ng → pyeq3-ng` over-substituted into a comment referencing the historical filename `pyeq3ng-odr-port-design.md` (commit `b1936c5`'s sloppy moment, fixed in `2ebff08`).
 - **Agent PR-creation gate.** `gh pr create` is denied by a PreToolUse hook (`.claude/hooks/gh_pr_create_gate.py`) unless a per-HEAD marker exists at `$(git rev-parse --git-common-dir)/.code-review-passed-$(git rev-parse HEAD)`. The gate is invisible to humans (only fires on agent Bash tool calls). To satisfy: run `/code-review` (or `/code-review:code-review`) against the diff vs origin/main, address any Critical findings, `touch` the marker (full 40-char SHA required), then retry `gh pr create`. New commits invalidate the marker.
