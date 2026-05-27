@@ -19,7 +19,7 @@ jobs:
       # Validate commit messages on every PR. The action reads cchk.toml
       # for the allow-list of types, max-length, etc.
       - name: Validate commit messages
-        uses: commit-check/commit-check-action@2239d8980732e84a380552fdd71e1d49e149baf3 # v2.6.1
+        uses: commit-check/commit-check-action@f237ed0085f49444ab5c85bdfa5cdcd490fc09c5 # v2.7.0
         with:
           message: true
           branch: false
@@ -42,7 +42,7 @@ jobs:
       # second PR comment on top of the message step's existing one.
       - name: Validate branch name
         if: ${{ !endsWith(github.event.pull_request.user.login, '[bot]') }}
-        uses: commit-check/commit-check-action@2239d8980732e84a380552fdd71e1d49e149baf3 # v2.6.1
+        uses: commit-check/commit-check-action@f237ed0085f49444ab5c85bdfa5cdcd490fc09c5 # v2.7.0
         with:
           message: false
           branch: true
