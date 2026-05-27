@@ -1,6 +1,9 @@
 # Claude Code
 # settings.json is team-shared (checked in); only the per-user override is ignored
 .claude/settings.local.json
+# CLAUDE.md is a one-line @AGENTS.md indirection (committed); machine-local
+# agent notes live in CLAUDE.local.md (per-developer, never committed)
+CLAUDE.local.md
 
 # Python bytecode and caches
 __pycache__/
