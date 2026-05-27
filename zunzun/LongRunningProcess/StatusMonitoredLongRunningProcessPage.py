@@ -1,19 +1,21 @@
-import os, time, multiprocessing
-from bs4 import BeautifulSoup # don't need everything, it has several components
-
-import settings
-from django import db
-from django.db import close_old_connections
-from django.contrib.sessions.backends.db import SessionStore # pyright: ignore[reportUnusedImport]
-from django.template.loader import render_to_string
+import multiprocessing
+import os
+import time
 
 import reportlab
-import reportlab.platypus
-from reportlab.pdfgen import canvas
-from reportlab.lib.units import inch
 import reportlab.lib.pagesizes
+import reportlab.platypus
+from bs4 import BeautifulSoup  # don't need everything, it has several components
+from django import db
+from django.contrib.sessions.backends.db import SessionStore  # pyright: ignore[reportUnusedImport]
+from django.db import close_old_connections
+from django.template.loader import render_to_string
+from reportlab.lib.units import inch
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.pdfgen import canvas
+
+import settings
 
 # Register the LM Roman math font for ReportLab PDF generation. Loaded
 # once per process at module import — fresh in each spawn child since
@@ -24,16 +26,18 @@ from reportlab.pdfbase.ttfonts import TTFont
 # both files: WOFF2 for browser efficiency, TTF for ReportLab compat.
 pdfmetrics.registerFont(TTFont('LMRoman10', os.path.join(settings.STATIC_FILES_DIR, 'lmroman10-regular.ttf')))
 
-from . import DataObject
-from . import ReportsAndGraphs
+import zunzun.forms
 from zunzun import platform_compat
+
+from . import DataObject, DefaultData, ReportsAndGraphs, pid_trace
+from ._unique import (
+    new_unique_string,
+    page_artifact_filename,
+    page_artifact_path,
+    page_artifact_url,
+)
 from .child_payload import ChildPayload
 
-import zunzun.forms
-from . import DefaultData
-
-from . import pid_trace
-from ._unique import new_unique_string, page_artifact_filename, page_artifact_path, page_artifact_url
 
 def _json_native(value):
     """Recursively coerce numpy types to plain Python primitives.
@@ -60,23 +64,23 @@ def ParallelWorker_CreateReportOutput(inReportObject):
         if inReportObject.dataObject.equation.GetDisplayName() == 'User Defined Function': # User Defined Function will not pickle, see http://support.picloud.com/entries/122330-an-error-i-don-t-understand
             inReportObject.dataObject.equation.userDefinedFunctionText = inReportObject.dataObject.userDefinedFunctionText
             inReportObject.dataObject.equation.ParseAndCompileUserFunctionString(inReportObject.dataObject.equation.userDefinedFunctionText, inReportObject.dataObject.equation.GetDimensionality())
-            
+
         inReportObject.CreateReportOutput()
 
         return [inReportObject.name, inReportObject.stringList, ''] # name for lookup, stringList for data, empty string for no exception
     except:
         import logging
-        
+
         s = '\n'
         for item in dir(inReportObject.dataObject):
-            
+
             if -1 != str(item).find('__'): # internal python objects
                 continue
             if -1 != str(eval('inReportObject.dataObject.' + str(item))).find('bound'): # internal python objects
                 continue
-                
+
             s += str(item) + ': ' + str(eval('inReportObject.dataObject.' + str(item))) + '\n\n'
-            
+
         logging.basicConfig(filename = os.path.join(settings.TEMP_FILES_DIR,  str(os.getpid()) + '.log'),level=logging.DEBUG)
         logging.exception('Exception creating report, inReportObject.dataObject yields:\n\n' + s)
         return [inReportObject.name, 0, 'Exception creating report, see log file']
@@ -93,17 +97,17 @@ def ParallelWorker_CreateCharacterizerOutput(inReportObject):
 
         s = '\n'
         for item in dir(inReportObject.dataObject):
-            
+
             if -1 != str(item).find('__'): # internal python objects
                 continue
             if -1 != str(eval('inReportObject.dataObject.' + str(item))).find('bound'): # internal python objects
                 continue
-                
+
             s += str(item) + ': ' + str(eval('inReportObject.dataObject.' + str(item))) + '\n\n'
-            
+
         logging.basicConfig(filename = os.path.join(settings.TEMP_FILES_DIR,  str(os.getpid()) + '.log'),level=logging.DEBUG)
         logging.exception('Exception creating characterizer, inReportObject.dataObject yields:\n\n' + s)
-        
+
         return [inReportObject.name, 0, 'Exception characterizer output, see log file']
 
 # from http://code.activestate.com/recipes/576832-improved-reportlab-recipe-for-page-x-of-y/
@@ -289,9 +293,9 @@ You must provide any weights you wish to use.
 
                 if report.stringList[0] == '</pre>': # corrects fit statistics not in PDF
                     report.stringList = report.stringList[1:]
-                
+
                 joinedString = str('\n').join(report.stringList)
-                
+
                 if -1 != report.name.find('Coefficients'):
                     joinedString = joinedString.replace('<sup>', '^')
                     joinedString = joinedString.replace('<SUP>', '^')
@@ -348,7 +352,7 @@ You must provide any weights you wish to use.
                             rebuiltText += newLine[100:] + '\n'
                         else:
                             rebuiltText += newLine + '\n'
-                            
+
                 pageElements.append(reportlab.platypus.Preformatted(rebuiltText, styles['SmallCode']))
 
                 pageElements.append(reportlab.platypus.PageBreak())
@@ -386,7 +390,7 @@ You must provide any weights you wish to use.
             import logging
             logging.basicConfig(filename = os.path.join(settings.TEMP_FILES_DIR,  str(os.getpid()) + '.log'),level=logging.DEBUG)
             logging.exception('Exception creating PDF file')
-            
+
             self.pdfFileName = '' # empty string used as a flag
         pid_trace.delete_pid_trace_file()
 
@@ -463,7 +467,7 @@ You must provide any weights you wish to use.
             self.dataObject.Extrapolation_y = self.boundForm.cleaned_data['graphScaleY']
             self.dataObject.Extrapolation_y_min = self.boundForm.cleaned_data['minManualScaleY']
             self.dataObject.Extrapolation_y_max = self.boundForm.cleaned_data['maxManualScaleY']
-            
+
         if self.dataObject.dimensionality > 2:
             pid_trace.pid_trace()
             self.dataObject.animationWidth = int(self.boundForm.cleaned_data['animationSize'].split('x')[0])
@@ -490,12 +494,12 @@ You must provide any weights you wish to use.
 
         pid_trace.pid_trace()
 
-        if self.dataObject.dimensionality == 3:            
+        if self.dataObject.dimensionality == 3:
             self.dataObject.animationWidth = int(self.boundForm.cleaned_data['animationSize'].split('x')[0])
             self.dataObject.animationHeight = int(self.boundForm.cleaned_data['animationSize'].split('x')[1])
             self.dataObject.azimuth3D = float(self.boundForm.cleaned_data['rotationAnglesAzimuth'])
             self.dataObject.altimuth3D = float(self.boundForm.cleaned_data['rotationAnglesAltimuth'])
-            
+
         pid_trace.delete_pid_trace_file()
 
     def SaveDictionaryOfItemsToSessionStore(self, inSessionStoreName, inDictionary):
@@ -607,7 +611,7 @@ You must provide any weights you wish to use.
         modulus = totalNumberOfReportsToBeRun % self.parallelChunkSize
 
         pid_trace.pid_trace()
-        
+
         for i in range(chunks):
             begin += self.parallelChunkSize
             end += self.parallelChunkSize
@@ -694,7 +698,7 @@ You must provide any weights you wish to use.
 
         # if a new process ID is in the session data, another process was started and this process was abandoned
         if self.LoadItemFromSessionStore('status', 'processID') != os.getpid() and self.LoadItemFromSessionStore('status', 'processID') != 0:
-            
+
             time.sleep(1.0)
 
             pid_trace.pid_trace()
@@ -705,7 +709,7 @@ You must provide any weights you wish to use.
                 self.pool = None
             for p in multiprocessing.active_children():
                 p.terminate()
-                
+
             pid_trace.delete_pid_trace_file()
 
         # if the status has not been checked in the past 30 seconds, this process was abandoned
@@ -720,7 +724,7 @@ You must provide any weights you wish to use.
                 self.pool = None
             for p in multiprocessing.active_children():
                 p.terminate()
-                
+
             pid_trace.delete_pid_trace_file()
 
     def SetInitialStatusDataIntoSessionVariables(self, request):
@@ -757,7 +761,7 @@ You must provide any weights you wish to use.
 
     def GenerateListOfOutputReports(self):
         pid_trace.pid_trace()
-        
+
         self.textReports = []
         self.graphReports = []
 
@@ -815,7 +819,7 @@ You must provide any weights you wish to use.
                     fileBytes = os.path.getsize(i.physicalFileLocation)
                 except:
                     fileBytes = 0
-                    
+
                 # from https://stackoverflow.com/questions/14996453/python-libraries-to-calculate-human-readable-filesize-from-bytes
                 suffixes = ['Bytes', 'KBytes', 'MBytes', 'GBytes', 'TBytes', 'PBytes']
                 idx = 0
@@ -824,7 +828,7 @@ You must provide any weights you wish to use.
                     idx += 1
                 f = ('%.2f' % fileBytes).rstrip('0').rstrip('.')
                 i.fileSize = '%s %s' % (f, suffixes[idx])
-                
+
         itemsToRender['graphReports'] = self.graphReports
 
         itemsToRender['pdfFileName'] = self.pdfFileName
@@ -839,9 +843,9 @@ You must provide any weights you wish to use.
             itemsToRender['IndependentDataName1'] = self.dataObject.IndependentDataName1
             itemsToRender['IndependentDataName2'] = self.dataObject.IndependentDataName2
         itemsToRender['loadavg'] = platform_compat.get_loadavg()
-        
+
         pid_trace.pid_trace()
-        
+
         try:
             f = open(page_artifact_path(self.dataObject.uniqueString, "html"), "w")
             f.write(render_to_string('zunzun/equation_fit_or_characterizer_results.html', itemsToRender))
@@ -851,9 +855,9 @@ You must provide any weights you wish to use.
             import logging
             logging.basicConfig(filename = os.path.join(settings.TEMP_FILES_DIR,  str(os.getpid()) + '.log'),level=logging.DEBUG)
             logging.exception('Exception rendering HTML to a file')
-            
+
         self.SaveDictionaryOfItemsToSessionStore('status', {'redirectToResultsFileOrURL': page_artifact_path(self.dataObject.uniqueString, "html")})
-        
+
         pid_trace.delete_pid_trace_file()
 
     def CreateUnboundInterfaceForm(self, request): # OVERRIDDEN in fittingBaseClass

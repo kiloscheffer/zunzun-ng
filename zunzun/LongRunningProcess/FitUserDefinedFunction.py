@@ -1,19 +1,25 @@
-import inspect, time, math, random, multiprocessing, os, sys, copy
+import copy
+import inspect
+import math
+import multiprocessing
+import os
+import random
+import sys
+import time
 
-import numpy, scipy, scipy.stats
-
-import settings
+import numpy
+import pyeq3
+import scipy
+import scipy.stats
 from django.template.loader import render_to_string
 
-from . import FittingBaseClass
-from . import ReportsAndGraphs
-from .StatusMonitoredLongRunningProcessPage import _json_native
+import settings
+import zunzun.forms
+
+from . import FittingBaseClass, ReportsAndGraphs
 from ._unique import page_artifact_path
 from .child_payload import ChildPayload
-
-import zunzun.forms
-import pyeq3
-
+from .StatusMonitoredLongRunningProcessPage import _json_native
 
 
 class FitUserDefinedFunction(FittingBaseClass.FittingBaseClass):
@@ -24,7 +30,7 @@ class FitUserDefinedFunction(FittingBaseClass.FittingBaseClass):
         self.userDefinedFunction = True
         self.reniceLevel = 15
 
-    
+
     def build_child_payload(self):
         payload = super().build_child_payload()
         payload.extra["userDefinedFunctionText"] = self.boundForm.equation.userDefinedFunctionText
@@ -72,7 +78,7 @@ class FitUserDefinedFunction(FittingBaseClass.FittingBaseClass):
         self.boundForm.equation.userDefinedFunctionText = request.POST['udfEditor']
         self.boundForm.equation.ParseAndCompileUserFunctionString(self.boundForm.equation.userDefinedFunctionText, self.dimensionality)
 
-        
+
     def SpecificCodeForGeneratingListOfOutputReports(self):
         self.functionString = 'PrepareForReportOutput'
         self.SaveDictionaryOfItemsToSessionStore('status', {'currentStatus':"Calculating Error Statistics"})

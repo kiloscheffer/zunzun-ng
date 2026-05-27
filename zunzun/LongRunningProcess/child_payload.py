@@ -86,8 +86,9 @@ def _run_fit_child(payload: ChildPayload) -> None:
     try:
         lrp.PerformAllWork()
     except Exception:
-        import settings
         import logging as _logging
+
+        import settings
         log_path = os.path.join(settings.TEMP_FILES_DIR, f"{os.getpid()}.log")
         _logging.basicConfig(filename=log_path, level=_logging.DEBUG)
         _logging.exception("Child exception in _run_fit_child")

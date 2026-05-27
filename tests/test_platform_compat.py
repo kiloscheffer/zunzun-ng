@@ -31,6 +31,7 @@ def test_get_loadavg_unavailable_returns_zero_tuple():
 def test_get_loadavg_logs_warning_once(caplog):
     """The fallback path logs exactly once per process, not once per call."""
     import logging
+
     from zunzun import platform_compat
 
     # Re-arm the lru_cache since earlier tests may have consumed it
@@ -63,8 +64,9 @@ def test_get_parallel_process_count_respects_cpu_cap():
 
 
 def test_get_parallel_process_count_under_high_load():
-    from zunzun import platform_compat
     import multiprocessing
+
+    from zunzun import platform_compat
     cpu = multiprocessing.cpu_count()
     # Simulate extreme load — should throttle to <=3 per spec behavior
     with mock.patch("zunzun.platform_compat.psutil.getloadavg",
@@ -96,8 +98,9 @@ def _noop_child():
 
 
 def test_reap_completed_children_joins_finished_processes():
-    from zunzun import platform_compat
     import multiprocessing
+
+    from zunzun import platform_compat
 
     ctx = multiprocessing.get_context("spawn")
     p = ctx.Process(target=_noop_child, args=())
@@ -112,7 +115,6 @@ def test_reap_completed_children_joins_finished_processes():
 
 def test_run_tool_returns_exit_code_on_success(tmp_path):
     from zunzun import platform_compat
-    import sys
     # Use python itself as a known-available cross-platform binary
     exit_code = platform_compat.run_tool(sys.executable, ["-c", "import sys; sys.exit(0)"])
     assert exit_code == 0
@@ -120,14 +122,12 @@ def test_run_tool_returns_exit_code_on_success(tmp_path):
 
 def test_run_tool_returns_nonzero_on_failure():
     from zunzun import platform_compat
-    import sys
     exit_code = platform_compat.run_tool(sys.executable, ["-c", "import sys; sys.exit(7)"])
     assert exit_code == 7
 
 
 def test_run_tool_redirects_stdout_to_file(tmp_path):
     from zunzun import platform_compat
-    import sys
     out = tmp_path / "out.txt"
     platform_compat.run_tool(
         sys.executable,
@@ -146,7 +146,6 @@ def test_run_tool_raises_on_missing_binary():
 def test_run_tool_accepts_list_binary_prefix(tmp_path):
     """binary can be a list (e.g. ['magick', 'mogrify']) for IM7's subcommand form."""
     from zunzun import platform_compat
-    import sys
     # Use python + "-c" as a fake two-part command prefix
     out = tmp_path / "out.txt"
     platform_compat.run_tool(

@@ -1,11 +1,16 @@
-import os, sys, inspect
-import settings
-from django.template.loader import render_to_string
-from . import StatusMonitoredLongRunningProcessPage
-from ._unique import page_artifact_path
-import zunzun.formConstants
+import inspect
+import os
+import sys
+
 import numpy
 import pyeq3
+from django.template.loader import render_to_string
+
+import settings
+import zunzun.formConstants
+
+from . import StatusMonitoredLongRunningProcessPage
+from ._unique import page_artifact_path
 
 
 class FittingBaseClass(

@@ -1,11 +1,16 @@
-import os, sys
+import math
+import os
+import sys
+
+import matplotlib
 import numpy
-import math, matplotlib
+
 matplotlib.use('Agg') # must be used prior to the next two statements
 import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle
-import scipy, scipy.stats
 import pyeq3
+import scipy
+import scipy.stats
+from matplotlib.patches import Rectangle
 from scipy.stats.distributions import t
 
 
@@ -26,7 +31,7 @@ def DetermineScientificNotationFromString(inData, in_String):
         minVal = numpy.abs(numpy.min(inData))
         maxVal = numpy.abs(numpy.max(inData))
         deltaVal = numpy.abs(maxVal - minVal)
-        
+
         scientificNotation = False
         if (maxVal > 100.0) or (minVal < -100.0) or (deltaVal < .05):
             scientificNotation = True
@@ -38,7 +43,7 @@ def CommonPlottingCode(in_WidthInPixels, in_HeightInPixels, in_XName, in_YName, 
     matplotlib.rcParams['xtick.major.pad'] = 5 + (float(in_HeightInPixels) / 100.0) # minimum + some scaled
     matplotlib.rcParams['xtick.direction'] = 'out' # tick marks outside plot area
     matplotlib.rcParams['ytick.direction'] = 'out' # tick marks outside plot area
-    
+
     matplotlib.rcParams['contour.negative_linestyle'] = 'solid' # only affects contour plots
 
     fig = plt.figure(figsize=(float(in_WidthInPixels ) / 100.0, float(in_HeightInPixels ) / 100.0), dpi=100)
@@ -67,14 +72,14 @@ def CommonPlottingCode(in_WidthInPixels, in_HeightInPixels, in_XName, in_YName, 
     if heightRatioForTextSize > widthRatioForTextSize:
         heightRatioForTextSize = widthRatioForTextSize
     for xlabel_i in ax.get_xticklabels():
-        xlabel_i.set_fontsize(xlabel_i.get_fontsize() * heightRatioForTextSize) 
+        xlabel_i.set_fontsize(xlabel_i.get_fontsize() * heightRatioForTextSize)
     xOffsetText = fig.gca().xaxis.get_offset_text()
-    xOffsetText.set_fontsize(xOffsetText.get_fontsize() * heightRatioForTextSize * 0.9) 
+    xOffsetText.set_fontsize(xOffsetText.get_fontsize() * heightRatioForTextSize * 0.9)
     for ylabel_i in ax.get_yticklabels():
-        ylabel_i.set_fontsize(ylabel_i.get_fontsize() * widthRatioForTextSize) 
+        ylabel_i.set_fontsize(ylabel_i.get_fontsize() * widthRatioForTextSize)
     yOffsetText = fig.gca().yaxis.get_offset_text()
-    yOffsetText.set_fontsize(yOffsetText.get_fontsize() * heightRatioForTextSize * 0.9) 
-    
+    yOffsetText.set_fontsize(yOffsetText.get_fontsize() * heightRatioForTextSize * 0.9)
+
     x_label = ax.set_xlabel(in_XName)
     y_label = ax.set_ylabel(in_YName)
 
@@ -88,7 +93,7 @@ def CommonPlottingCode(in_WidthInPixels, in_HeightInPixels, in_XName, in_YName, 
     textHOffset = 35.0 # pixels
     relativeWidthPos = (fWIP + textWOffset) / fWIP # plus
     relativeHeightPos = (fHIP - textHOffset) / fHIP # minus
-    
+
     # for smallest graphs, do not "text brand" - looks ugly
     if in_WidthInPixels > 320:
         ax.text(relativeWidthPos, relativeHeightPos, 'zunzun-ng',
@@ -98,7 +103,7 @@ def CommonPlottingCode(in_WidthInPixels, in_HeightInPixels, in_XName, in_YName, 
                 verticalalignment='center',
                 rotation='vertical',
                 transform=ax.transAxes)
-    
+
     plt.grid(True) # call this just before returning
 
     return fig, ax
@@ -120,12 +125,12 @@ def HistogramPlot_NoDataObject(in_DataToPlot, in_FileNameAndPath, in_DataName, i
     title = 'Frequency'
     if in_pdfFlag:
         title = 'Normalized Frequency'
-        
+
     fig, ax = CommonPlottingCode(in_WidthInPixels, in_HeightInPixels, in_DataName, title, useOffsetIfNeeded, scientificNotation, False)
-    
+
     # histogram of data
     n, bins, patches = ax.hist(in_DataToPlot, numberOfBins, facecolor=in_FillColor)
-    
+
     # some axis space at the top of the graph
     ylim = ax.get_ylim()
     if ylim[1] == max(n):
@@ -135,9 +140,9 @@ def HistogramPlot_NoDataObject(in_DataToPlot, in_FileNameAndPath, in_DataName, i
     title = 'Frequency'
     if in_pdfFlag:
         title = 'Normalized Frequency'
- 
+
     fig, ax = CommonPlottingCode(in_WidthInPixels, in_HeightInPixels, in_DataName, title, useOffsetIfNeeded, scientificNotation, False)
-    
+
     # histogram of data
     normalized = False
     if in_pdfFlag:
@@ -158,7 +163,7 @@ def HistogramPlot_NoDataObject(in_DataToPlot, in_FileNameAndPath, in_DataName, i
         parms = in_params[:-2]
         pdf = in_distro.pdf(lin, *parms, loc = in_params[-2], scale = in_params[-1])
         ax.plot(lin, pdf)
-    
+
     # some axis space at the top of the graph
     ylim = ax.get_ylim()
     if ylim[1] == max(n):
@@ -195,17 +200,17 @@ def ScatterPlotWithOptionalModel_NoDataObject(in_DataToPlot, in_FileNameAndPath,
 
         xRange = numpy.arange(lowerXbound, upperXbound, (upperXbound - lowerXbound) / (20.0 * float(in_WidthInPixels + in_HeightInPixels))) # make this 'reverse-xy-independent'
         tempDataCache = in_Equation.dataCache
-        
+
         in_Equation.dataCache = pyeq3.dataCache()
         in_Equation.dataCache.allDataCacheDictionary['IndependentData'] = numpy.array([xRange, xRange])
         in_Equation.dataCache.FindOrCreateAllDataCache(in_Equation)
         yRange = in_Equation.CalculateModelPredictions(in_Equation.solvedCoefficients, in_Equation.dataCache.allDataCacheDictionary)
-        
+
         in_Equation.dataCache = tempDataCache
 
     if reverseXY:
         fig, ax = CommonPlottingCode(in_WidthInPixels, in_HeightInPixels, in_DataNameX, in_DataNameY, useOffsetIfNeeded, scientificNotationY, scientificNotationX)
-        
+
         if in_LogY == 'LOG' and in_LogX == 'LOG':
             loglinplot = ax.loglog
         elif in_LogY == 'LIN' and in_LogX == 'LOG':
@@ -214,7 +219,7 @@ def ScatterPlotWithOptionalModel_NoDataObject(in_DataToPlot, in_FileNameAndPath,
             loglinplot = ax.semilogy
         else:
             loglinplot = ax.plot
-        
+
         loglinplot(numpy.array([in_GraphBounds[2], in_GraphBounds[3]]), numpy.array([in_GraphBounds[0], in_GraphBounds[1]]), visible=False)
         loglinplot(in_DataToPlot[1], in_DataToPlot[0], 'o', markersize=3, color='black')
 
@@ -222,10 +227,10 @@ def ScatterPlotWithOptionalModel_NoDataObject(in_DataToPlot, in_FileNameAndPath,
             matplotlib.pyplot.ylim(in_GraphBounds[0], in_GraphBounds[1])
         if (min(in_DataToPlot[1]) < in_GraphBounds[2]) or (max(in_DataToPlot[1]) > in_GraphBounds[3]):
             matplotlib.pyplot.xlim(in_GraphBounds[2], in_GraphBounds[3])
-        
+
     else:
         fig, ax = CommonPlottingCode(in_WidthInPixels, in_HeightInPixels, in_DataNameX, in_DataNameY, useOffsetIfNeeded, scientificNotationX, scientificNotationY)
-        
+
         if in_LogY == 'LOG' and in_LogX == 'LOG':
             loglinplot = ax.loglog
         elif in_LogY == 'LIN' and in_LogX == 'LOG':
@@ -234,10 +239,10 @@ def ScatterPlotWithOptionalModel_NoDataObject(in_DataToPlot, in_FileNameAndPath,
             loglinplot = ax.semilogy
         else:
             loglinplot = ax.plot
-        
+
         loglinplot(numpy.array([in_GraphBounds[0], in_GraphBounds[1]]), numpy.array([in_GraphBounds[2], in_GraphBounds[3]]), visible=False)
         loglinplot(in_DataToPlot[0], in_DataToPlot[1], 'o', markersize=3, color='black')
-                            
+
         if (min(in_DataToPlot[0]) <= in_GraphBounds[0]) or (max(in_DataToPlot[0]) >= in_GraphBounds[1]):
             matplotlib.pyplot.xlim(in_GraphBounds[0], in_GraphBounds[1])
         if (min(in_DataToPlot[1]) <= in_GraphBounds[2]) or (max(in_DataToPlot[1]) >= in_GraphBounds[3]):
@@ -256,30 +261,30 @@ def ScatterPlotWithOptionalModel_NoDataObject(in_DataToPlot, in_FileNameAndPath,
                 # http://www.staff.ncl.ac.uk/tom.holderness/software/pythonlinearfit
                 mean_x = numpy.mean(in_DataToPlot[0])			# mean of x
                 n = in_Equation.nobs		    # number of samples in origional fit
-                
+
                 t_value = scipy.stats.t.ppf(0.975, in_Equation.df_e) # (1.0 - (a/2)) is used for two-sided t-test critical value, here a = 0.05
-                                    
+
                 confs = t_value * numpy.sqrt((in_Equation.sumOfSquaredErrors/in_Equation.df_e)*(1.0/n + (numpy.power((xRange-mean_x),2)/
                                         ((numpy.sum(numpy.power(in_DataToPlot[0],2)))-n*(numpy.power(mean_x,2))))))
                 # get lower and upper confidence limits based on predicted y and confidence intervals
                 upper = yRange + abs(confs)
                 lower = yRange - abs(confs)
-                
+
                 booleanMask &= (numpy.array(yRange) < 1.0E290)
                 booleanMask &= (upper < 1.0E290)
                 booleanMask &= (lower < 1.0E290)
-                
+
                 # color scheme improves visibility on black background lines or points
                 loglinplot(xRange[booleanMask], lower[booleanMask], linestyle='solid', color='white')
                 loglinplot(xRange[booleanMask], upper[booleanMask], linestyle='solid', color='white')
                 loglinplot(xRange[booleanMask], lower[booleanMask], linestyle='dashed', color='blue')
                 loglinplot(xRange[booleanMask], upper[booleanMask], linestyle='dashed', color='blue')
- 
+
     fig.savefig(in_FileNameAndPath[:-3] + 'png', format = 'png')
     if not inPNGOnlyFlag:
         fig.savefig(in_FileNameAndPath[:-3] + 'svg', format = 'svg')
-    plt.close()    
- 
+    plt.close()
+
 
 def ContourPlot_NoDataObject(X, Y, Z, in_DataToPlot, in_FileNameAndPath, in_DataNameX, in_DataNameY, in_WidthInPixels, in_HeightInPixels,
                     in_UseOffsetIfNeeded, in_X_UseScientificNotationIfNeeded, in_Y_UseScientificNotationIfNeeded, inPNGOnlyFlag, in_Rectangle=None):
@@ -301,11 +306,11 @@ def ContourPlot_NoDataObject(X, Y, Z, in_DataToPlot, in_FileNameAndPath, in_Data
     numberOfContourLines = int(math.ceil(math.sqrt(in_WidthInPixels + in_HeightInPixels) / 3.0))
     CS = plt.contour(X, Y, Z, numberOfContourLines, colors='k')
     plt.clabel(CS, fontsize=8, inline=1, fmt='%1.3g') # minimum legible font size
-                
+
     fig.savefig(in_FileNameAndPath[:-3] + 'png', format = 'png')
     if not inPNGOnlyFlag:
         fig.savefig(in_FileNameAndPath[:-3] + 'svg', format = 'svg')
-    plt.close()    
+    plt.close()
 
 
 def ContourPlot(in_DataObject, in_FileNameAndPath):
@@ -344,9 +349,9 @@ def ContourPlot(in_DataObject, in_FileNameAndPath):
     maxZ = max(in_DataObject.DependentDataArray)
 
     X, Y = numpy.meshgrid(xRange, yRange)
-    
+
     boundingRectangle = matplotlib.patches.Rectangle([gxmin, gymin], gxmax - gxmin, gymax - gymin, facecolor=(0.975, 0.975, 0.975), edgecolor=(0.9, 0.9, 0.9))
-    
+
 
     Z = []
     tempDataCache = in_DataObject.equation.dataCache
@@ -354,13 +359,13 @@ def ContourPlot(in_DataObject, in_FileNameAndPath):
         in_DataObject.equation.dataCache = pyeq3.dataCache()
         in_DataObject.equation.dataCache.allDataCacheDictionary['IndependentData'] = numpy.array([X[i], Y[i]])
         in_DataObject.equation.dataCache.FindOrCreateAllDataCache(in_DataObject.equation)
-        Z.append(in_DataObject.equation.CalculateModelPredictions(in_DataObject.equation.solvedCoefficients, in_DataObject.equation.dataCache.allDataCacheDictionary))        
+        Z.append(in_DataObject.equation.CalculateModelPredictions(in_DataObject.equation.solvedCoefficients, in_DataObject.equation.dataCache.allDataCacheDictionary))
     in_DataObject.equation.dataCache = tempDataCache
-        
+
     Z = numpy.array(Z)
     Z = numpy.clip(Z, minZ, maxZ)
     tempData = [in_DataObject.IndependentDataArray[0], in_DataObject.IndependentDataArray[1], in_DataObject.DependentDataArray]
-    
+
     ContourPlot_NoDataObject(X, Y, Z, tempData, in_FileNameAndPath, in_DataObject.IndependentDataName1, in_DataObject.IndependentDataName2,
                                                 in_DataObject.graphWidth, in_DataObject.graphHeight, 'UseOffset_ON', 'ScientificNotation_X_AUTO', 'ScientificNotation_Y_AUTO', in_DataObject.pngOnlyFlag, boundingRectangle)
     plt.close()
@@ -372,7 +377,7 @@ def HistogramPlot(in_DataObject, in_FileNameAndPath, in_DataName, in_DataToPlot,
     if in_pdfFlag:
         distro = getattr(scipy.stats, in_DataObject.fittedStatisticalDistributionsList[in_DataObject.distributionIndex][1]['distributionName']) # convert distro name back into a distribution object
         params = in_DataObject.fittedStatisticalDistributionsList[in_DataObject.distributionIndex][1]['fittedParameters']
-        
+
     HistogramPlot_NoDataObject(in_DataToPlot, in_FileNameAndPath, in_DataName,
                                'lightgrey', in_DataObject.graphWidth, in_DataObject.graphHeight, 'UseOffset_ON',
                                'ScientificNotation_AUTO', in_DataObject.pngOnlyFlag, in_pdfFlag, distro, params)
@@ -380,7 +385,7 @@ def HistogramPlot(in_DataObject, in_FileNameAndPath, in_DataName, in_DataToPlot,
 
 
 def ScatterPlot(in_DataObject, FileName, XAxisName, XAxisData, ScientificNotationX, YAxisName, YAxisData, ScientificNotationY, UseDataObjectGraphRangeOrCalculate, Range1, Range2, in_LogY, in_LogX):
-    
+
     if UseDataObjectGraphRangeOrCalculate: # for data graphs scale with user-supplied values.  For error graphs calculate
         if Range1 == "X":
             gxmin = in_DataObject.gxmin
@@ -391,7 +396,7 @@ def ScatterPlot(in_DataObject, FileName, XAxisName, XAxisData, ScientificNotatio
         if Range1 == "Z":
             gxmin = in_DataObject.gzmin
             gxmax = in_DataObject.gzmax
-            
+
         if Range2 == "X":
             gymin = in_DataObject.gxmin
             gymax = in_DataObject.gxmax
@@ -401,7 +406,7 @@ def ScatterPlot(in_DataObject, FileName, XAxisName, XAxisData, ScientificNotatio
         if Range2 == "Z":
             gymin = in_DataObject.gzmin
             gymax = in_DataObject.gzmax
-            
+
     else: # use 1/20 of delta (error graphs, etc.)
         xmax = max(XAxisData)
         xmin = min(XAxisData)
@@ -428,9 +433,9 @@ def ModelAndScatterPlot(in_DataObject, FileName, XAxisName, YAxisName, ReverseXY
     if ReverseXY:
         reverseXY_string = 'reverseXY_ON'
     else:
-        
+
         reverseXY_string = 'reverseXY_OFF'
-        
+
     gxmin = in_DataObject.gxmin
     gxmax = in_DataObject.gxmax
     gymin = in_DataObject.gymin

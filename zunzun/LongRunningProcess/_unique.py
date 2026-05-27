@@ -40,7 +40,6 @@ from datetime import datetime, timezone
 
 import settings
 
-
 _BASE36 = string.digits + string.ascii_lowercase
 _EPOCH_MS = int(datetime(2026, 1, 1, tzinfo=timezone.utc).timestamp() * 1000)
 # = 1_767_225_600_000

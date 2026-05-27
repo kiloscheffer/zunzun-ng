@@ -17,8 +17,9 @@ def pytest_configure(config):
     django.setup()
 
 
-import pytest
 from unittest.mock import patch
+
+import pytest
 
 
 @pytest.fixture

@@ -10,10 +10,8 @@ uses internally.
 """
 import pickle
 
-import pytest
-
 import pyeq3
-
+import pytest
 
 # ---------------------------------------------------------------------------
 # Module-level fake objects for ChildPayload round-trip tests.
@@ -239,7 +237,9 @@ def test_fit_user_defined_function_payload_round_trips():
 
 
 def test_fit_user_customizable_polynomial_payload_round_trips():
-    from zunzun.LongRunningProcess.FitUserCustomizablePolynomial import FitUserCustomizablePolynomial
+    from zunzun.LongRunningProcess.FitUserCustomizablePolynomial import (
+        FitUserCustomizablePolynomial,
+    )
     lrp = FitUserCustomizablePolynomial()
     _base_lrp_attrs(lrp)
     lrp.boundForm = _FakeBoundForm_CustomPoly()
@@ -274,7 +274,9 @@ def test_fit_user_selectable_polynomial_3d_payload_round_trips():
 
 
 def test_fit_user_selectable_polyfunctional_payload_round_trips():
-    from zunzun.LongRunningProcess.FitUserSelectablePolyfunctional import FitUserSelectablePolyfunctional
+    from zunzun.LongRunningProcess.FitUserSelectablePolyfunctional import (
+        FitUserSelectablePolyfunctional,
+    )
     lrp = FitUserSelectablePolyfunctional()
     _base_lrp_attrs(lrp)
     lrp.boundForm = _FakeBoundForm_Polyfunc()

@@ -1,14 +1,23 @@
-import inspect, time, math, random, multiprocessing, os, sys, copy
+import copy
+import inspect
+import math
+import multiprocessing
+import os
+import random
+import sys
+import time
 
-import numpy, scipy, scipy.stats
+import numpy
+import pyeq3
+import scipy
+import scipy.stats
+
+import zunzun.formConstants
+import zunzun.forms
 
 from . import FittingBaseClass
-from .StatusMonitoredLongRunningProcessPage import _json_native
 from .child_payload import ChildPayload
-import zunzun.forms
-import zunzun.formConstants
-import pyeq3
-
+from .StatusMonitoredLongRunningProcessPage import _json_native
 
 
 class FitUserSelectableRational(FittingBaseClass.FittingBaseClass):
@@ -19,7 +28,7 @@ class FitUserSelectableRational(FittingBaseClass.FittingBaseClass):
         self.reniceLevel = 13
         self.X2DList = pyeq3.PolyFunctions.GenerateListForRationals_2D()
 
-    
+
     def build_child_payload(self):
         payload = super().build_child_payload()
         payload.extra["rationalNumeratorFlags"] = self.boundForm.equation.rationalNumeratorFlags
@@ -41,18 +50,18 @@ class FitUserSelectableRational(FittingBaseClass.FittingBaseClass):
                                                           'rationalDenominatorFlags':self.dataObject.equation.rationalDenominatorFlags}))
 
 
-    def TransferFormDataToDataObject(self, request): # return any error in a user-viewable string (self.dataObject.ErrorString)        
+    def TransferFormDataToDataObject(self, request): # return any error in a user-viewable string (self.dataObject.ErrorString)
         s = FittingBaseClass.FittingBaseClass.TransferFormDataToDataObject(self, request)
         self.boundForm.equation.fittingTarget = self.boundForm.cleaned_data['fittingTarget']
         return s
 
-        
+
     def SpecificEquationBoundInterfaceCode(self, request):
         if self.dimensionality == 2:
             for i in range(len(self.X2DList)):
                 self.boundForm['polyRational_X_N' + str(i)].required = True # force form field validation
                 self.boundForm['polyRational_X_D' + str(i)].required = True # force form field validation
-                
+
             self.boundForm['polyRational_OFFSET'].required = True # force form field validation
             self.boundForm.equation.rationalNumeratorFlags = []
             self.boundForm.equation.rationalDenominatorFlags = []

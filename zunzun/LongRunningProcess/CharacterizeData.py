@@ -1,11 +1,9 @@
 import time
 
-from . import StatusMonitoredLongRunningProcessPage
-from .child_payload import ChildPayload
 import zunzun.forms
-from . import ReportsAndGraphs
 
-from . import pid_trace
+from . import ReportsAndGraphs, StatusMonitoredLongRunningProcessPage, pid_trace
+from .child_payload import ChildPayload
 
 
 class CharacterizeData(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRunningProcessPage):

@@ -1,14 +1,15 @@
-import os, sys
+import os
+import sys
 
+import matplotlib
 import numpy
 import pyeq3
 
-import matplotlib
 matplotlib.use('Agg') # immediately following the "import matplotlib" statement, web only
 
-from mpl_toolkits.mplot3d import Axes3D # 3D apecific
-from matplotlib import cm # to colormap from blue to red
 import matplotlib.pyplot as plt
+from matplotlib import cm  # to colormap from blue to red
+from mpl_toolkits.mplot3d import Axes3D  # 3D apecific
 
 
 def SurfacePlot(dataObject, inFileName):
@@ -21,7 +22,7 @@ def SurfacePlot(dataObject, inFileName):
     xModel = numpy.linspace(min(x_data), max(x_data), 20)
     yModel = numpy.linspace(min(y_data), max(y_data), 20)
     X, Y = numpy.meshgrid(xModel, yModel)
-    
+
     tempcache = dataObject.equation.dataCache # temporarily store cache
     dataObject.equation.dataCache = pyeq3.dataCache()
     dataObject.equation.dataCache.allDataCacheDictionary['IndependentData'] = numpy.array([X, Y])
@@ -36,8 +37,8 @@ def SurfacePlot(dataObject, inFileName):
 
     ax.tick_params(pad=2) # distance between tick marks and tick numeric labels
 
-    ax.view_init(elev=dataObject.altimuth3D, azim=dataObject.azimuth3D)    
-    
+    ax.view_init(elev=dataObject.altimuth3D, azim=dataObject.azimuth3D)
+
     # create a surface plot using the X, Y, Z mesh data created above
     ax.plot_surface(X, Y, Z, rstride=1, cstride=1, cmap=cm.coolwarm, linewidth=1, antialiased=True, alpha=0.75)
     ax.plot_wireframe(X, Y, Z, linewidth=1)
@@ -69,12 +70,12 @@ def ScatterPlot3D(dataObject, inFileName):
 
     ax.tick_params(pad=2) # distance between tick marks and tick numeric labels
 
-    ax.view_init(elev=dataObject.altimuth3D, azim=dataObject.azimuth3D)    
+    ax.view_init(elev=dataObject.altimuth3D, azim=dataObject.azimuth3D)
 
     x_data = dataObject.IndependentDataArray[0]
     y_data = dataObject.IndependentDataArray[1]
     z_data = dataObject.DependentDataArray
-    
+
     if dataObject.dataPointSize3D == 0.0: # auto
         ax.scatter(x_data, y_data, z_data, depthshade=False, color='k')
     else:

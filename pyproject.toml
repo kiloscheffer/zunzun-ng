@@ -81,6 +81,7 @@ dev = [
     # floor declared because the codebase has no specific syntax or
     # feature requirement; uv.lock pins the exact tested version.
     "mypy",
+    "ruff",
     "pytest>=7.0",
     "pytest-django>=4.5",
     "requests>=2.28",  # for scripts/smoke_test.py in later phases
@@ -105,6 +106,59 @@ package = false
 # Upstream pyeq3 has been dormant since 2020-01 and is not a PR
 # target. See docs/superpowers/specs/2026-04-20-pyeq3ng-odr-port-design.md.
 pyeq3 = { git = "https://github.com/kiloscheffer/pyeq3-ng.git", tag = "v1.0.2-ng" }
+
+[tool.ruff]
+# Line length sized to fit the existing codebase without manufactured
+# reflow. 100 chars matches the dbxignore project's choice; the 2016-era
+# source has many long lines that benefit from staying readable at their
+# natural width.
+line-length = 100
+target-version = "py314"
+# Exclude vendored third-party content and runtime scratch.
+exclude = [
+    "commonproblems",   # vendored upstream content (BSD-2-clause attribution)
+    "funkload_tests",   # legacy Py2.7 / pre-uv code (see dev deps note)
+    "temp",             # runtime scratch (.png, .pdf, .html artifacts)
+    "session_db",       # SQLite session store
+]
+
+[tool.ruff.lint]
+# Starter ruleset — fatal / portable categories only. Stricter selections
+# (UP, B, SIM, C4, N) are deferred: the 2016-era code has many places
+# where those checks surface true-positives needing careful per-site fixes
+# rather than autofix sweeps.
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort (import ordering)
+]
+ignore = [
+    "E501",  # line-too-long: cosmetic, handled by formatter
+    "E402",  # module-level import not at top: legacy `import settings`
+             # patterns in zunzun/* deliberately import settings before
+             # touching Django state; refactoring that is out of scope.
+    "F401",  # unused-import: false-positive risk. The codebase uses
+             # eval()-based dynamic name resolution in several places
+             # (StatusMonitoredLongRunningProcessPage.py uses
+             # eval('SessionStore(...)'), forms.py and FittingBaseClass.py
+             # use eval() to resolve equation classes by name from
+             # imported modules). Removing seemingly-unused imports
+             # breaks runtime. Re-enable per-file with # noqa: F401
+             # if/when each module's eval sites are mapped out.
+    "E722",  # bare-except: 60 instances across the codebase, most in
+             # session.save() retry loops and Django request handlers
+             # where the intent is "catch absolutely anything and recover".
+             # Converting to `except Exception:` is mostly safe but each
+             # call site needs review; deferred.
+    "E711",  # `== None` -> `is None`: 20 instances, stylistic only.
+    "E712",  # `== False` / `== True`: 28 instances, but a few are subtly
+             # behavior-dependent (e.g., `arr == False` for numpy arrays
+             # has different semantics than `not arr`). Hand-audit needed.
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["zunzun"]
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "settings"

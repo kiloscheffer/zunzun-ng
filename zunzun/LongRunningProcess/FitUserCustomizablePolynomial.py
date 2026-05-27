@@ -1,23 +1,33 @@
-import inspect, time, math, random, multiprocessing, os, sys, copy
+import copy
+import inspect
+import math
+import multiprocessing
+import os
+import random
+import sys
+import time
 
-import numpy, scipy, scipy.stats
+import numpy
+import pyeq3
+import scipy
+import scipy.stats
+
+import zunzun.formConstants
+import zunzun.forms
 
 from . import FittingBaseClass
-from .StatusMonitoredLongRunningProcessPage import _json_native
 from .child_payload import ChildPayload
-import zunzun.forms
-import zunzun.formConstants
-import pyeq3
+from .StatusMonitoredLongRunningProcessPage import _json_native
 
 
 class FitUserCustomizablePolynomial(FittingBaseClass.FittingBaseClass):
 
     def __init__(self):
-        super().__init__()        
+        super().__init__()
         self.interfaceString = 'zunzun/equation_fit_interface.html'
         self.X2DList = pyeq3.PolyFunctions.GenerateListForCustomPolynomials_2D()
 
-    
+
     def build_child_payload(self):
         payload = super().build_child_payload()
         payload.extra["polynomial2DFlags"] = self.boundForm.equation.polynomial2DFlags
@@ -36,16 +46,16 @@ class FitUserCustomizablePolynomial(FittingBaseClass.FittingBaseClass):
                                                           'polynomial2DFlags':self.dataObject.equation.polynomial2DFlags}))
 
 
-    def TransferFormDataToDataObject(self, request): # return any error in a user-viewable string (self.dataObject.ErrorString)        
+    def TransferFormDataToDataObject(self, request): # return any error in a user-viewable string (self.dataObject.ErrorString)
         s = FittingBaseClass.FittingBaseClass.TransferFormDataToDataObject(self, request)
         self.boundForm.equation.fittingTarget = self.boundForm.cleaned_data['fittingTarget']
         return s
 
-        
+
     def SpecificEquationBoundInterfaceCode(self, request):
         self.boundForm.equation.polynomial2DFlags = []
         self.boundForm.equation.polynomial3DFlags = []
-        
+
         if self.dimensionality == 2:
             for i in range(len(self.X2DList)):
                 self.boundForm['polyFunctional_X' + str(i)].required = True # force form field validation

@@ -1,5 +1,6 @@
 import inspect
-import pyeq3 # type: ignore
+
+import pyeq3  # type: ignore
 
 udfTopText = '''# Enter the text of your function here. Comments begin with a "#". Lines
 # with no text are ignored.

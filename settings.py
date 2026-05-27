@@ -7,6 +7,7 @@ ALLOWED_HOSTS=['*']
 
 # this is for serving static files with the django development server
 import sys
+
 if 'runserver' in sys.argv:
     DEBUG = True
 else:

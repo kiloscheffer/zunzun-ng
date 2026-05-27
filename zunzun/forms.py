@@ -1,8 +1,11 @@
 import sys
+
 import django.forms
-import pyeq3 # type: ignore
-from . import formConstants
 import numpy
+import pyeq3  # type: ignore
+
+from . import formConstants
+
 
 class EvaluateAtAPointForm_2D(django.forms.Form) :
     x = django.forms.FloatField(widget=django.forms.widgets.TextInput(attrs={'size':'15', 'onKeyPress':'return submitenter(this,event)'}), required=True)
@@ -14,7 +17,7 @@ class FeedbackForm(django.forms.Form):
     feedbackText = django.forms.CharField(widget=django.forms.widgets.Textarea(attrs={'rows':'9', 'WRAP':'OFF'}) )
     emailAddress = django.forms.CharField(max_length=75, required=False)
 
-    
+
     def clean_feedbackText(self):
         data = self.cleaned_data['feedbackText']
 
@@ -85,7 +88,7 @@ class UsesDataForm_BaseClass(django.forms.Form) :
                     raise django.forms.ValidationError('One of the lower coefficient bounds you entered was "' + str(self.cleaned_data[fieldName]) + '", and this could not be converted to a number.')
             else:
                 lowerCoefficientBoundsList.append(None)
-    
+
         # if no user-supplied lower coefficient bounds were found, default to an empty list
         lowerCoefficientBoundsCount = 0
         for i in lowerCoefficientBoundsList:
@@ -93,9 +96,9 @@ class UsesDataForm_BaseClass(django.forms.Form) :
                 lowerCoefficientBoundsCount += 1
         if 0 == lowerCoefficientBoundsCount:
             lowerCoefficientBoundsList = []
-            
+
         ############################################
-        
+
         if (upperCoefficientBoundsList != []) and (lowerCoefficientBoundsList != []):
             for i in range(25):
                 if (upperCoefficientBoundsList[i] != None) and (lowerCoefficientBoundsList[i] != None):
@@ -134,7 +137,7 @@ class UsesDataForm_BaseClass(django.forms.Form) :
                 fixedCoefficientCount += 1
         if 0 == fixedCoefficientCount:
             fixedCoefficientList = []
-            
+
         self.cleaned_data['fixedCoefficientList'] = fixedCoefficientList
 
     def LoadAndVerifyEstimatedCoefficients(self):
@@ -160,11 +163,11 @@ class UsesDataForm_BaseClass(django.forms.Form) :
                 estimatedCoefficientCount += 1
         if 0 == estimatedCoefficientCount:
             estimatedCoefficientList = []
-            
+
         self.cleaned_data['estimatedCoefficientList'] = estimatedCoefficientList
 
     def LoadAndVerifyTextData(self):
-        
+
         if "textDataEditor" not in list(self.cleaned_data.keys()):
             raise django.forms.ValidationError('Could not find any text data.  Please enter text data and try again.')
 
@@ -172,7 +175,7 @@ class UsesDataForm_BaseClass(django.forms.Form) :
         temp = str(temp)
         if len(temp) < 2: # no text data at all
             raise django.forms.ValidationError('Could not find sufficient text data.  Please check the text data and try again.')
-        
+
         # form spammers usually leave out non-text-entry fields.
         if 'commaConversion' not in list(self.cleaned_data.keys()):
             raise django.forms.ValidationError('Missing form data, no comma conversion specified.')
@@ -207,7 +210,7 @@ class UsesDataForm_BaseClass(django.forms.Form) :
 
         self.equationBase = pyeq3.IModel.IModel()
         self.equationBase._dimensionality = int(self.dimensionality)
-        
+
         useWeightedFittingFlag = False # default is no weighted fitting
         if "weightedFittingChoice" in list(self.cleaned_data.keys()):
             if self.cleaned_data["weightedFittingChoice"] == "ON":
@@ -215,10 +218,10 @@ class UsesDataForm_BaseClass(django.forms.Form) :
 
         temp = temp.replace('\\r\\n', '\n') # for the pyeq3 readlines() in dataConvertorService()
         pyeq3.dataConvertorService().ConvertAndSortColumnarASCII(temp, self.equationBase, useWeightedFittingFlag)
-        
-        self.cleaned_data['IndependentData'] = self.equationBase.dataCache.allDataCacheDictionary['IndependentData'] 
+
+        self.cleaned_data['IndependentData'] = self.equationBase.dataCache.allDataCacheDictionary['IndependentData']
         if self.dimensionality != '1':
-            self.cleaned_data['DependentData'] = self.equationBase.dataCache.allDataCacheDictionary['DependentData'] 
+            self.cleaned_data['DependentData'] = self.equationBase.dataCache.allDataCacheDictionary['DependentData']
 
         # Data errors go here
         dataLength = len(self.equationBase.dataCache.allDataCacheDictionary['IndependentData'] [0])
@@ -229,7 +232,7 @@ class UsesDataForm_BaseClass(django.forms.Form) :
         if dataLength > 10100:
             raise django.forms.ValidationError("Your data has " + str(dataLength) + " data points, the site is currently limited to 10,000.")
 
-    def LoadandVerifyGraphScales(self):        
+    def LoadandVerifyGraphScales(self):
         if int(self.dimensionality) > 1:
             graphScaleX = float(self.cleaned_data['graphScaleRadioButtonX'])
             minManualScaleX = 0.0
@@ -250,7 +253,7 @@ class UsesDataForm_BaseClass(django.forms.Form) :
             self.cleaned_data['graphScaleX'] = graphScaleX
             self.cleaned_data['minManualScaleX'] = minManualScaleX
             self.cleaned_data['maxManualScaleX'] = maxManualScaleX
-            
+
             graphScaleY = float(self.cleaned_data['graphScaleRadioButtonY'])
             minManualScaleY = 0.0
             maxManualScaleY = 0.0
@@ -270,7 +273,7 @@ class UsesDataForm_BaseClass(django.forms.Form) :
             self.cleaned_data['graphScaleY'] = graphScaleY
             self.cleaned_data['minManualScaleY'] = minManualScaleY
             self.cleaned_data['maxManualScaleY'] = maxManualScaleY
-                
+
         if int(self.dimensionality) > 2:
             graphScaleZ = float(self.cleaned_data['graphScaleRadioButtonZ'])
             minManualScaleZ = 0.0
@@ -327,7 +330,7 @@ class CharacterizeDataForm_2D (CharacterizeDataForm_1D) :
     def clean_dataNameY(self):
         return self.cleaned_data['dataNameY']
 
-        
+
 class CharacterizeDataForm_3D (CharacterizeDataForm_2D) :
     dataPointSize3D = django.forms.ChoiceField( widget=django.forms.widgets.RadioSelect(), choices=formConstants.dataPointSize3D_Choices, initial='9.0' , required=False)
     scientificNotationZ = django.forms.ChoiceField( widget=django.forms.widgets.RadioSelect(), choices=formConstants.scientificNotationChoices, initial='AUTO' )
@@ -342,15 +345,15 @@ class CharacterizeDataForm_3D (CharacterizeDataForm_2D) :
 
     def clean_dataNameZ(self):
         return self.cleaned_data['dataNameZ']
-    
+
     def clean_dataPointSize3D(self):
         try:
             pointSize =  float(self.cleaned_data['dataPointSize3D'])
         except:
             pointSize = 0.0
-            
+
         return pointSize
-    
+
 
 class FunctionFinder (UsesDataForm_BaseClass) :
     fittingTarget = django.forms.ChoiceField( widget=django.forms.widgets.RadioSelect(), choices=formConstants.fittingTargetChoices, initial='SSQABS' )
@@ -396,7 +399,7 @@ class Equation_2D(CharacterizeDataForm_2D) :
         self.__class__.__bases__[0].clean(self)
         if self.equationBase.dataCache.DependentDataContainsZeroFlag  != 0 and self.cleaned_data['fittingTarget'][-3:] == "REL":
             raise django.forms.ValidationError('Your data contains at least one dependent data value of exactly 0.0, a relative fit cannot be performed as divide-by-zero errors would occurr.')
-        
+
         if self.equation.independentData1CannotContainZeroFlag and self.equationBase.dataCache.independentData1ContainsZeroFlag:
             errorString = self.equation.GetDisplayName() + " has the form<BR><BR>\n"
             errorString += '<span class="math">' + self.equation.GetDisplayHTML() + '</span>\n<BR><BR>\n'
@@ -427,16 +430,16 @@ class Equation_2D(CharacterizeDataForm_2D) :
             errorString += "and cannot have both positive and negative values for the first independent variable (X).<BR>\n"
             errorString += "Please check the data.\n"
             raise django.forms.ValidationError(errorString)
-        
+
         if self.equation.splineFlag:
             if '' == self.cleaned_data['splineSmoothness']:
                 raise django.forms.ValidationError('Spline was chosen, but the spline smoothness control entry did not contain a number.')
-                
+
             try:
                 splineSmoothness = float(self.cleaned_data['splineSmoothness'])
             except:
                 raise django.forms.ValidationError(str(sys.exc_info()[1])) # re-raise as validation error
-            
+
             self.cleaned_data['splineSmoothness'] = splineSmoothness
 
         lenDistinctX = len(numpy.unique(self.equationBase.dataCache.allDataCacheDictionary['IndependentData'][0]))
@@ -460,14 +463,14 @@ class Equation_2D(CharacterizeDataForm_2D) :
                 self.equation.ParseAndCompileUserFunctionString(self.equation.userDefinedFunctionText, self.equation.GetDimensionality())
             except:
                 raise django.forms.ValidationError(str(sys.exc_info()[1])) # re-raise as validation error
-                
+
             try: # this will raise an error on incorrect syntax user-defined functions
                 self.equation.safe_dict = {}
                 self.equation.safe_dict['X'] = 1.0  # only for UDF code validation test
                 # define coefficient values before calling eval
                 for i in range(len(self.equation._coefficientDesignators)):
                     self.equation.safe_dict[self.equation._coefficientDesignators[i]] = 1.0 # only for UDF code validation test
- 
+
                 numpySafeTokenList = []
                 for key in list(self.equation.functionDictionary.keys()):
                     numpySafeTokenList += self.equation.functionDictionary[key]
@@ -476,13 +479,16 @@ class Equation_2D(CharacterizeDataForm_2D) :
                 for f in numpySafeTokenList:
                     self.equation.safe_dict[f] = eval('numpy.' + f)
 
-                temp = eval(self.equation.userFunctionCodeObject, globals(), self.equation.safe_dict)
+                # eval() is called for its side effect — if the user-defined
+                # function fails to parse/evaluate, the bare-except below
+                # raises ValidationError. The return value is unused.
+                eval(self.equation.userFunctionCodeObject, globals(), self.equation.safe_dict)
             except:
                 raise django.forms.ValidationError("Could not parse the User Defined Function, please verify function entry. The specific error returned was: " + str(sys.exc_info()[1]))
 
         return self.cleaned_data
 
-        
+
 class Equation_3D (CharacterizeDataForm_3D) :
     fittingTarget = django.forms.ChoiceField( widget=django.forms.widgets.RadioSelect(), choices=formConstants.fittingTargetChoices, initial='SSQABS', required=False)
     polynomialOrderX3D = django.forms.ChoiceField( choices=formConstants.polynomialOrder3DChoices, initial='3', required=False)
@@ -554,7 +560,7 @@ class Equation_3D (CharacterizeDataForm_3D) :
             errorString += "and cannot have both positive and negative values for the first independent variable (X).<BR>\n"
             errorString += "Please check the data.\n"
             raise django.forms.ValidationError(errorString)
-        
+
         if self.equation.independentData2CannotContainBothPositiveAndNegativeFlag and self.equationBase.dataCache.independentData2ContainsPositiveFlag and self.equationBase.dataCache.independentData2ContainsNegativeFlag:
             errorString = self.equation.GetDisplayName() + " has the form<BR><BR>\n"
             errorString += '<span class="math">' + self.equation.GetDisplayHTML() + '</span>\n<BR><BR>\n'
@@ -570,7 +576,7 @@ class Equation_3D (CharacterizeDataForm_3D) :
                 splineSmoothness = float(self.cleaned_data['splineSmoothness'])
             except:
                 raise django.forms.ValidationError(str(sys.exc_info()[1])) # re-raise as validation error
-           
+
             self.cleaned_data['splineSmoothness'] = splineSmoothness
 
         lenDistinctX = len(numpy.unique(self.equationBase.dataCache.allDataCacheDictionary['IndependentData'][0]))
@@ -590,7 +596,7 @@ class Equation_3D (CharacterizeDataForm_3D) :
                 raise django.forms.ValidationError("The selected spline X order has more coefficients than the number of distinct independent X data values, I cannot model the data to this spline.")
             if (int(self.cleaned_data['splineOrderY']) + 1) > lenDistinctY:
                 raise django.forms.ValidationError("The selected spline Y order has more coefficients than the number of distinct independent X data values, I cannot model the data to this spline.")
-                
+
         if self.equation.userDefinedFunctionFlag:
             # convert user's numerical constants containing a comma decimal separator
             self.equation.userDefinedFunctionText = self.cleaned_data["udfEditor"].replace(',', '.')
@@ -600,7 +606,7 @@ class Equation_3D (CharacterizeDataForm_3D) :
                 self.equation.ParseAndCompileUserFunctionString(self.equation.userDefinedFunctionText, self.equation.GetDimensionality())
             except:
                 raise django.forms.ValidationError(str(sys.exc_info()[1])) # re-raise as validation error
-                
+
             try: # this will raise an error on incorrect syntax user-defined functions
                 self.equation.safe_dict = {}
                 self.equation.safe_dict['X'] = 1.0  # only for UDF code validation test
@@ -608,7 +614,7 @@ class Equation_3D (CharacterizeDataForm_3D) :
                 # define coefficient values before calling eval
                 for i in range(len(self.equation._coefficientDesignators)):
                     self.equation.safe_dict[self.equation._coefficientDesignators[i]] = 1.0 # only for UDF code validation test
-                    
+
                 numpySafeTokenList = []
                 for key in list(self.equation.functionDictionary.keys()):
                     numpySafeTokenList += self.equation.functionDictionary[key]
@@ -616,8 +622,11 @@ class Equation_3D (CharacterizeDataForm_3D) :
                     numpySafeTokenList += self.equation.constantsDictionary[key]
                 for f in numpySafeTokenList:
                     self.equation.safe_dict[f] = eval('numpy.' + f)
-                    
-                temp = eval(self.equation.userFunctionCodeObject, globals(), self.equation.safe_dict)
+
+                # eval() is called for its side effect — if the user-defined
+                # function fails to parse/evaluate, the bare-except below
+                # raises ValidationError. The return value is unused.
+                eval(self.equation.userFunctionCodeObject, globals(), self.equation.safe_dict)
             except:
                 raise django.forms.ValidationError("Could not parse the User Defined Function, please verify function entry. The specific error returned was: " + str(sys.exc_info()[1]))
 
