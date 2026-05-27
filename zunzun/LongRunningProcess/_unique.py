@@ -14,8 +14,13 @@ Ranks beyond 1295 produce a longer-than-2 chars suffix — fixed-width
 breaks for those rows but no data is lost. Page-level artifacts (PDF,
 result HTML) use the reserved anchor code ``zun`` and the placeholder
 rank ``00`` so every artifact matches the same 5-segment shape.
-Anchor namespace: ``zun`` is reserved and MUST NOT be used as a
-per-component anchor.
+
+Anchor namespace reservations:
+  - ``zun`` is reserved for page-level artifacts (PDF, result HTML).
+  - Any anchor starting with ``h`` is reserved for parametrized
+    histogram instances (StatisticalDistributionHistogram uses
+    ``h`` + 2-char base36 of distributionIndex; covers idx 0..1295).
+    No other anchor may begin with ``h``.
 
 Layout choices:
   - 20-bit PID field (4 base36 chars). Covers Linux raised-max
