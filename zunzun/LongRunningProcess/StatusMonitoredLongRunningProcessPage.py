@@ -127,8 +127,8 @@ class NumberedCanvas(canvas.Canvas):
 
     def draw_page_number(self, page_count):
         self.setFontSize(7)
-        self.drawString(1*inch, 1*inch, 'https://github.com/kiloscheffer/zunzun-ng')
-        self.drawRightString((8.5 - 1)*inch, 1*inch, "Page %d of %d" % (self._pageNumber, page_count))
+        self.drawString(1*inch, 0.5*inch, 'https://github.com/kiloscheffer/zunzun-ng')
+        self.drawRightString((8.5 - 1)*inch, 0.5*inch, "Page %d of %d" % (self._pageNumber, page_count))
 
 class StatusMonitoredLongRunningProcessPage(object):
 
