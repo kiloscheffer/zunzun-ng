@@ -6,6 +6,13 @@ pattern with a base36-packed form that keeps PID as a debugging breadcrumb
 
 Format: ``zun_<pid_b36_3>_<ms_b36_8>`` — 12-char fixed-width payload.
 
+Per-component artifacts (PNG, SVG, GIF) append ``_{anchor3}_{rank2}``
+where ``anchor3`` is the 3-letter ``uniqueAnchorName`` set in
+``ReportsAndGraphs.py``. Page-level artifacts (PDF, result HTML) use
+the reserved anchor code ``zun`` and the placeholder rank ``00`` so
+every artifact matches the same 5-segment shape. Anchor namespace:
+``zun`` is reserved and MUST NOT be used as a per-component anchor.
+
 Layout choices:
   - 15-bit PID field (3 base36 chars). Matches Linux default ``pid_max``
     of 32768 exactly. PIDs on raised-max Linux or Windows >32K are
