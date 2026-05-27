@@ -500,7 +500,12 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
             serialWorker(self, self.linearFittingList, self.functionFinderResultsList, self.dataObject.equation.dataCache)
             
         self.WorkItems_CheckOneSecondSessionUpdates()
-        self.SaveDictionaryOfItemsToSessionStore('status', {'currentStatus':"%s Total Equations Fitted, combining lists..." % (self.countOfParallelWorkItemsRun + self.countOfSerialWorkItemsRun)})
+        # All parallel workers have drained; clear the indicator so the
+        # status page stops showing the count during post-processing phases.
+        self.SaveDictionaryOfItemsToSessionStore('status', {
+            'currentStatus': "%s Total Equations Fitted, combining lists..." % (self.countOfParallelWorkItemsRun + self.countOfSerialWorkItemsRun),
+            'parallelProcessCount': 0,
+        })
 
         # transfer to result list before sorting
         for i in range(fittingResultsQueue.qsize()):
@@ -519,13 +524,10 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
 
     def WorkItems_CheckOneSecondSessionUpdates(self):
         import time
-        
+
         if self.oneSecondTimes != int(time.time()):
             self.CheckIfStillUsed()
-            processcountString = '<br><br>Currently using 1 process (the server is busy)'
-            if len(multiprocessing.active_children()) > 1:
-                processcountString = '<br><br>Currently using ' + str(len(multiprocessing.active_children())) + ' parallel processes'
-            
+
             familyString = ''
             sortedFamilyNameList = list(self.parallelFittingResultsByEquationFamilyDictionary.keys())
             if sortedFamilyNameList:
@@ -541,11 +543,19 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
                     else:
                         familyString += '<tr><td>%s</td><td>of</td><td>%s</td><td align="center">%s</td><td>Equations Fitted Non-Linearly</td></tr>' % (soFar, total, familyName.split('.')[-1])
                 familyString += '</table><br>'
+                # parallelProcessCount is written as its own session field
+                # so the status page can render the "N parallel processes"
+                # indicator next to the elapsed timer rather than inside
+                # currentStatus.
                 if self.countOfSerialWorkItemsRun == 0:
-                    self.SaveDictionaryOfItemsToSessionStore('status', {'currentStatus':familyString + "<b>%s of %s</b> Equations Fitted Non-Linearly<br>%s of %s Equations Fitted Linearly" % (self.countOfParallelWorkItemsRun, self.totalNumberOfParallelWorkItemsToBeRun, self.countOfSerialWorkItemsRun, self.totalNumberOfSerialWorkItemsToBeRun) + processcountString})
+                    summary = familyString + "<b>%s of %s</b> Equations Fitted Non-Linearly<br>%s of %s Equations Fitted Linearly" % (self.countOfParallelWorkItemsRun, self.totalNumberOfParallelWorkItemsToBeRun, self.countOfSerialWorkItemsRun, self.totalNumberOfSerialWorkItemsToBeRun)
                 else:
-                    self.SaveDictionaryOfItemsToSessionStore('status', {'currentStatus':familyString + "%s of %s Equations Fitted Non-Linearly<br><b>%s of %s</b> Equations Fitted Linearly" % (self.countOfParallelWorkItemsRun, self.totalNumberOfParallelWorkItemsToBeRun, self.countOfSerialWorkItemsRun, self.totalNumberOfSerialWorkItemsToBeRun) + processcountString})
-            
+                    summary = familyString + "%s of %s Equations Fitted Non-Linearly<br><b>%s of %s</b> Equations Fitted Linearly" % (self.countOfParallelWorkItemsRun, self.totalNumberOfParallelWorkItemsToBeRun, self.countOfSerialWorkItemsRun, self.totalNumberOfSerialWorkItemsToBeRun)
+                self.SaveDictionaryOfItemsToSessionStore('status', {
+                    'currentStatus': summary,
+                    'parallelProcessCount': len(multiprocessing.active_children()),
+                })
+
             self.oneSecondTimes = int(time.time())
 
 
