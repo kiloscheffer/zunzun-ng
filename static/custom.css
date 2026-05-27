@@ -558,13 +558,13 @@ footer > div:last-child {
   height: 0.6em;
   border-radius: 50%;
   background: var(--accent);
-  animation: status-pulse 1.4s ease-in-out infinite;
+  animation: status-pulse 2s ease-in-out infinite;
   flex: 0 0 auto;
 }
 
 @keyframes status-pulse {
   0%, 100% { opacity: 1; }
-  50%      { opacity: 0.3; }
+  50%      { opacity: 0.1; }
 }
 
 @media (prefers-reduced-motion: reduce) {
