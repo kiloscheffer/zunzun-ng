@@ -53,50 +53,37 @@ def get_loadavg() -> tuple[float, float, float]:
 def get_parallel_process_count(cpu_cap: int | None = None) -> int:
     """Return the number of worker processes to use for parallel fitting.
 
-    Throttles based on available memory and CPU load, matching the
-    behavior of the original StatusMonitoredLongRunningProcessPage.GetParallelProcessCount()
-    but driven by psutil instead of /proc/loadavg and vmstat.
+    Resolution order for the per-fit worker cap:
+      1. ``cpu_cap`` argument (legacy override, mostly used in tests).
+      2. ``ZUNZUN_MAX_WORKERS`` env var (delegated to
+         ``zunzun.parallel_pool.resolve_max_workers``).
+      3. ``settings.MAX_PARALLEL_WORKERS``.
+      4. Auto-detect: ``min(cpu_count, available_RAM_KiB / 200_000)``.
 
-    Heuristic:
-    - Estimate per-worker memory based on start method (fork ≈ 80 MB
-      via copy-on-write; spawn ≈ 750 MB because each worker re-imports
-      numpy/scipy/pyeq3 from scratch).
-    - Ceiling at available memory / per-worker estimate.
-    - Cap at min(cpu_cap, cpu_count). On platforms that use spawn by
-      default (Windows, macOS), hard-cap at 4 to keep total VM usage
-      tractable even on high-core machines with modest RAM.
-    - Reduce under high load.
-    - Floor at 1.
+    Then throttles down under high system load (load1 > cpu_count + 0.5/1.0/1.5
+    knocks the count down to 3/2/1 respectively).
+
+    Returns at least 1. The 4-worker hard cap on spawn platforms that
+    previously lived here was removed when persistent worker pools made
+    the per-chunk spawn cost a non-issue.
     """
-    import sys
+    # Late import to avoid circular dependency (parallel_pool imports nothing
+    # from platform_compat at module scope, but be explicit).
+    from zunzun.parallel_pool import resolve_max_workers
 
     cpu_count = multiprocessing.cpu_count()
 
-    # Pick the default multiprocessing start method for this platform.
-    # "fork" on Linux (cheap), "spawn" on Windows + macOS (expensive).
-    default_start = multiprocessing.get_start_method(allow_none=False)
-    uses_spawn = default_start != "fork"
+    n = resolve_max_workers(explicit=cpu_cap)
 
-    # Per-worker memory cost scales dramatically with the start method.
-    per_worker_kib = 750_000 if uses_spawn else 80_000
-
-    # On spawn platforms, hard-cap at 4 workers by default — the memory
-    # math alone can permit more, but pagefile pressure and process-startup
-    # overhead make high worker counts counterproductive. Callers that
-    # really want more can pass cpu_cap explicitly.
-    platform_ceiling = 4 if uses_spawn else cpu_count
-
-    if cpu_cap is None:
-        effective_cap = min(platform_ceiling, cpu_count)
-    else:
-        effective_cap = min(cpu_cap, cpu_count)
-
+    # Cross-check against the historical mem-estimate path for callers
+    # that bypass resolve_max_workers (e.g., explicit cpu_cap might be
+    # generous). 200_000 KiB ≈ 200 MB per worker is the conservative
+    # observed-ceiling on Python 3.14 + numpy 2.4 + scipy 1.17 (down from
+    # the original 750_000 KiB pessimistic estimate that drove the 4-cap).
     mem = psutil.virtual_memory()
     mem_kib_available = mem.available / 1024.0
-    n = int(mem_kib_available / per_worker_kib)
-
-    n = min(n, effective_cap)
-    n = max(n, 1)
+    mem_ceiling = max(1, int(mem_kib_available / 200_000))
+    n = min(n, mem_ceiling)
 
     load1, _, _ = get_loadavg()
     if load1 > (cpu_count + 1.5) and n > 1:
@@ -106,7 +93,7 @@ def get_parallel_process_count(cpu_cap: int | None = None) -> int:
     elif load1 > (cpu_count + 0.5) and n > 3:
         n = 3
 
-    return n
+    return max(1, n)
 
 
 def reap_completed_children() -> None:
