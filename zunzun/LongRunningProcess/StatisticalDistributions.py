@@ -159,8 +159,15 @@ class StatisticalDistributions(
                     },
                 )
                 # Only clear processID/dispatched_at if this child still
-                # owns them — avoid clobbering a concurrent fit's tracking.
-                if self.LoadItemFromSessionStore("status", "processID") == os.getpid():
+                # owns BOTH (pid AND dispatch slot). Dual check avoids
+                # clobbering a newer fit's dispatched_at when its parent
+                # SetInitial has refreshed the slot without touching
+                # processID.
+                if self.LoadItemFromSessionStore(
+                    "status", "processID"
+                ) == os.getpid() and self.LoadItemFromSessionStore(
+                    "status", "dispatched_at"
+                ) == getattr(self, "dispatched_at", None):
                     self.SaveDictionaryOfItemsToSessionStore(
                         "status", {"processID": 0, "dispatched_at": 0}
                     )

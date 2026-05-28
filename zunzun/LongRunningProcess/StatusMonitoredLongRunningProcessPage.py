@@ -276,6 +276,14 @@ You must provide any weights you wish to use.
         self.dataObject = payload.data_object
         self.inEquationName = payload.extra.get("inEquationName", "")
         self.inEquationFamilyName = payload.extra.get("inEquationFamilyName", "")
+        # Carry the dispatch identity into the child so the various
+        # processID/dispatched_at clear sites can do an ownership check
+        # against `session.dispatched_at == self.dispatched_at` before
+        # clobbering the latter — a newer fit's SetInitial in the parent
+        # can overwrite the session's dispatched_at while leaving an
+        # older child's processID intact, and the old check
+        # (pid-only) would then clear the newer fit's dispatch markers.
+        self.dispatched_at = payload.dispatch_id
 
     def PerformWorkInParallel(self):
         pass
@@ -778,12 +786,17 @@ You must provide any weights you wish to use.
             # Clear processID AND dispatched_at IFF this child still
             # owns them. When ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER=True
             # (default), a second fit in the same session may have
-            # overwritten processID with its own pid while we were
-            # rendering. Unconditionally clearing would clobber the
-            # replacement fit's tracking and confuse the status page +
-            # per-user gate. Read-then-conditional-write: clear only if
-            # processID still matches our own pid.
-            if self.LoadItemFromSessionStore("status", "processID") == os.getpid():
+            # overwritten dispatched_at with its own value while we were
+            # rendering (its SetInitial runs in the parent and refreshes
+            # dispatched_at without touching processID). A pid-only check
+            # would then clobber the replacement fit's dispatch markers.
+            # Dual check on pid AND dispatched_at preserves the newer
+            # fit's tracking.
+            if self.LoadItemFromSessionStore(
+                "status", "processID"
+            ) == os.getpid() and self.LoadItemFromSessionStore(
+                "status", "dispatched_at"
+            ) == getattr(self, "dispatched_at", None):
                 self.SaveDictionaryOfItemsToSessionStore(
                     "status", {"processID": 0, "dispatched_at": 0}
                 )
@@ -907,8 +920,15 @@ You must provide any weights you wish to use.
                 },
             )
             # Only clear processID/dispatched_at if this child still
-            # owns them — avoid clobbering a concurrent fit's tracking.
-            if self.LoadItemFromSessionStore("status", "processID") == os.getpid():
+            # owns BOTH (pid AND dispatch slot). A pid-only check would
+            # clobber a concurrent newer fit's dispatched_at, since the
+            # newer fit's parent SetInitial refreshes dispatched_at
+            # without touching processID.
+            if self.LoadItemFromSessionStore(
+                "status", "processID"
+            ) == os.getpid() and self.LoadItemFromSessionStore(
+                "status", "dispatched_at"
+            ) == getattr(self, "dispatched_at", None):
                 self.SaveDictionaryOfItemsToSessionStore(
                     "status", {"processID": 0, "dispatched_at": 0}
                 )

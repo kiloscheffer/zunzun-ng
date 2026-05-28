@@ -454,10 +454,19 @@ You must provide any weights you wish to use.
                 "status", {"redirectToResultsFileOrURL": error_html_path}
             )
             # Clear the per-user gate trackers so the user's next fit
-            # isn't blocked by the 300s active-window. Matches the
-            # pattern used in CreateOutputReportsInParallelUsingProcessPool's
-            # BrokenProcessPool handler.
-            if self.LoadItemFromSessionStore("status", "processID") == os.getpid():
+            # isn't blocked by the 300s active-window. Dual condition:
+            # we must own BOTH the pid AND the dispatch slot. The pid
+            # check alone is unsafe because a newer fit's SetInitial in
+            # the parent overwrites session.dispatched_at without
+            # touching processID — an older child clearing both would
+            # then clobber the newer fit's dispatch markers and either
+            # make it look idle to the gate or fail _run_fit_child's
+            # ownership check.
+            if self.LoadItemFromSessionStore(
+                "status", "processID"
+            ) == os.getpid() and self.LoadItemFromSessionStore(
+                "status", "dispatched_at"
+            ) == getattr(self, "dispatched_at", None):
                 self.SaveDictionaryOfItemsToSessionStore(
                     "status", {"processID": 0, "dispatched_at": 0}
                 )

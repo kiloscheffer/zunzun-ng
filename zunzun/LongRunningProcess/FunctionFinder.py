@@ -641,8 +641,14 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
                                 "parallelProcessCount": 0,
                             },
                         )
-                        # Conditional pid/dispatched_at clear (concurrent-fit safety)
-                        if self.LoadItemFromSessionStore("status", "processID") == os.getpid():
+                        # Conditional pid AND dispatched_at clear
+                        # (concurrent-fit safety). Dual check avoids
+                        # clobbering a newer fit's dispatch_id.
+                        if self.LoadItemFromSessionStore(
+                            "status", "processID"
+                        ) == os.getpid() and self.LoadItemFromSessionStore(
+                            "status", "dispatched_at"
+                        ) == getattr(self, "dispatched_at", None):
                             self.SaveDictionaryOfItemsToSessionStore(
                                 "status", {"processID": 0, "dispatched_at": 0}
                             )
@@ -673,7 +679,11 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
                                     "parallelProcessCount": 0,
                                 },
                             )
-                            if self.LoadItemFromSessionStore("status", "processID") == os.getpid():
+                            if self.LoadItemFromSessionStore(
+                                "status", "processID"
+                            ) == os.getpid() and self.LoadItemFromSessionStore(
+                                "status", "dispatched_at"
+                            ) == getattr(self, "dispatched_at", None):
                                 self.SaveDictionaryOfItemsToSessionStore(
                                     "status", {"processID": 0, "dispatched_at": 0}
                                 )

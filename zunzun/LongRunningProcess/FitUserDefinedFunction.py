@@ -123,13 +123,16 @@ class FitUserDefinedFunction(FittingBaseClass.FittingBaseClass):
             # bypasses _run_fit_child's exception handler (which catches
             # Exception, not BaseException), so its ownership-verified
             # gate-clear at the end of the except branch never runs.
-            # PerformAllWork's finally now clears only processID (so
-            # _run_fit_child can do the dispatch_id ownership check on
-            # other failure paths), which means without this explicit
-            # clear, dispatched_at stays set and the per-user gate
-            # (views.py is_pending check) blocks an immediate retry
-            # for up to 60s after the user sees this terminal error.
-            if self.LoadItemFromSessionStore("status", "processID") == os.getpid():
+            # Dual condition (pid AND dispatched_at must both match)
+            # avoids clobbering a concurrent newer fit's dispatch
+            # markers — a newer fit's SetInitial overwrites session
+            # dispatched_at without touching processID, and a pid-only
+            # check would then erase the newer fit's tracking.
+            if self.LoadItemFromSessionStore(
+                "status", "processID"
+            ) == os.getpid() and self.LoadItemFromSessionStore(
+                "status", "dispatched_at"
+            ) == getattr(self, "dispatched_at", None):
                 self.SaveDictionaryOfItemsToSessionStore(
                     "status", {"processID": 0, "dispatched_at": 0}
                 )
