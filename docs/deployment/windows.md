@@ -157,10 +157,12 @@ Services.msc              # GUI alternative
 
 ### Pagefile sizing — important
 
-Each spawned Pool worker commits ~750 MB of virtual memory (re-imports
-numpy + scipy + pyeq3 + OpenBLAS thread workspace from scratch). A
-single fit uses up to 5 such processes. Multi-user concurrent fits can
-push total committed memory well past physical RAM.
+Each spawned worker uses ~140 MB RSS as of 2026-05-28 (Python 3.14 +
+numpy 2.4 + scipy 1.17 with the persistent `FitPool` and single-threaded
+BLAS — `OMP/OPENBLAS/MKL_NUM_THREADS=1` injected by `FitPool.__init__`).
+A single fit auto-detects worker count as `min(cpu_count, available_RAM
+/ 200 MB)` — on a 22-core 32 GB box that's 22 workers, total ~3-4 GB RSS
+during the parallel phase. Multi-user concurrent fits multiply this.
 
 **Set the pagefile to 2–3× physical RAM** via System Properties →
 Advanced → Performance → Virtual memory. Default system-managed

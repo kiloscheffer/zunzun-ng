@@ -34,7 +34,7 @@ Three reasons it ended up the default after the cross-platform migration:
 
 ZunZunNG runs natively on Linux, macOS, and Windows as of the April 2026 migration. A few things to know before sizing a production box:
 
-- **Fit memory footprint scales with worker count.** Each pyeq3 Pool worker under Windows/macOS spawn is a full Python process (~750 MB committed VM) because the start method re-imports numpy/scipy/pyeq3 from scratch. On Linux fork, workers are ~50 MB. `platform_compat.get_parallel_process_count` caps at 4 workers on spawn platforms by default to keep the math tractable.
+- **Fit memory footprint scales with worker count.** Each pyeq3 worker under Windows/macOS spawn is a full Python process (~140 MB RSS, measured 2026-05-28 on Python 3.14 + numpy 2.4 + scipy 1.17 with the persistent `FitPool` and single-threaded BLAS). Per-fit worker count is auto-detected as `min(cpu_count, available_RAM_KiB / 200_000)` by `zunzun.parallel_pool.resolve_max_workers`. Override via the `ZUNZUN_MAX_WORKERS` env var or `settings.MAX_PARALLEL_WORKERS`. On a low-RAM box, `ZUNZUN_MAX_WORKERS=4` is a safe emergency throttle.
 - **Windows needs a generous pagefile.** On a 16 GB box with the default system-managed pagefile, a single concurrent fit is fine, but a few concurrent users can exhaust virtual memory. Size pagefile at 2–3× physical RAM for production, and/or exclude `.venv/` from Defender real-time scanning (see [`windows.md`](windows.md)).
 - **Fit runtime on Windows is 2–3× longer than Linux for the same fit.** Spawn per-worker import overhead. If you need Linux-like performance, deploy on Linux.
 
