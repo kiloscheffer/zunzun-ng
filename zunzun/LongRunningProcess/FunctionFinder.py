@@ -1,9 +1,9 @@
+import concurrent.futures
+import concurrent.futures.process
 import copy
 import inspect
 import math
-import multiprocessing
 import os
-import queue
 import random
 import sys
 import time
@@ -17,7 +17,7 @@ import zunzun.forms
 
 from . import ReportsAndGraphs, StatusMonitoredLongRunningProcessPage, pid_trace
 from .child_payload import ChildPayload
-from .StatusMonitoredLongRunningProcessPage import _json_native
+from .StatusMonitoredLongRunningProcessPage import _ReportsPipelineAborted, _json_native
 
 externalDataCache = pyeq3.dataCache()
 
@@ -107,20 +107,6 @@ def serialWorker(obj, inputList, outputList, dataCache):
                 level=logging.DEBUG,
             )
             logging.exception("serialWorker exception")
-
-
-def parallelWorker(inputList, outputQueue, dataCache):
-    for i in range(len(inputList)):
-        try:
-            outputQueue.put(parallelWorkFunction(inputList[i], dataCache))
-        except:
-            import logging
-
-            logging.basicConfig(
-                filename=os.path.join(settings.TEMP_FILES_DIR, str(os.getpid()) + ".log"),
-                level=logging.DEBUG,
-            )
-            logging.exception("parallelWorker exception")
 
 
 class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRunningProcessPage):
@@ -573,47 +559,77 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
         self.countOfSerialWorkItemsRun = 0
         self.totalNumberOfParallelWorkItemsToBeRun = len(self.parallelWorkItemsList)
         self.totalNumberOfSerialWorkItemsToBeRun = len(self.linearFittingList)
-        self.parallelWorkItemsList.reverse()
 
-        # Use explicit spawn context for both the Queue and the Processes
-        # below, matching the pattern established in views.LongRunningProcessView
-        # and views.HomePageView. Queues and Processes created from the same
-        # context communicate cleanly across the parent/child boundary on
-        # every platform.
-        _ctx = multiprocessing.get_context("spawn")
-        fittingResultsQueue = _ctx.Queue()
+        # Submit all non-linear fits to the persistent pool (created by the
+        # base class PerformAllWork). The shared dataCache is passed as the
+        # second argument to parallelWorkFunction because spawn workers cannot
+        # inherit module-level state from the parent.
+        dataCache = self.dataObject.equation.dataCache
 
-        while len(self.parallelWorkItemsList) > 0:
-            delta = self.GetParallelProcessCount() - len(multiprocessing.active_children())
+        if self.parallelWorkItemsList:
+            futures = {
+                self.fit_pool.submit(parallelWorkFunction, item, dataCache): item
+                for item in self.parallelWorkItemsList
+            }
 
-            # increase number of parallel processes?
-            granularity = 4
-            equationCount = granularity
-            if len(self.parallelWorkItemsList) < (granularity * multiprocessing.cpu_count() * 1.5):
-                equationCount = 2
-            if len(self.parallelWorkItemsList) < (granularity * multiprocessing.cpu_count() * 0.5):
-                equationCount = 1
-
-            if delta > 0 and len(self.parallelWorkItemsList) > 0:
-                for i in range(delta):
-                    taskList = []
-                    while len(self.parallelWorkItemsList) > 0 and len(taskList) < equationCount:
-                        taskList.append(self.parallelWorkItemsList.pop())
-                    p = _ctx.Process(
-                        target=parallelWorker,
-                        args=(taskList, fittingResultsQueue, self.dataObject.equation.dataCache),
+            while futures:
+                try:
+                    done, _ = concurrent.futures.wait(
+                        futures,
+                        timeout=1.0,
+                        return_when=concurrent.futures.FIRST_COMPLETED,
                     )
-                    p.start()
+                except concurrent.futures.process.BrokenProcessPool:
+                    import logging
 
-            self.WorkItems_CheckOneSecondSessionUpdates()
-            time.sleep(1.0)  # sleep for 1 second
+                    logging.basicConfig(
+                        filename=os.path.join(settings.TEMP_FILES_DIR, f"{os.getpid()}.log"),
+                        level=logging.DEBUG,
+                    )
+                    logging.exception(
+                        "BrokenProcessPool in FunctionFinder.PerformWorkInParallel"
+                    )
+                    self.SaveDictionaryOfItemsToSessionStore(
+                        "status",
+                        {
+                            "currentStatus": "An internal error occurred during equation "
+                            "fitting. Please try again or contact the administrator.",
+                            "parallelProcessCount": 0,
+                        },
+                    )
+                    raise _ReportsPipelineAborted()
 
-            # transfer intermediate results to result list
-            # without this processes would not start properly
-            qsize = fittingResultsQueue.qsize()
-            if qsize:
-                for i in range(qsize):
-                    resultValue = fittingResultsQueue.get()
+                for fut in done:
+                    try:
+                        resultValue = fut.result()
+                    except concurrent.futures.process.BrokenProcessPool:
+                        # Same handling as the wait() catch above.
+                        import logging
+
+                        logging.basicConfig(
+                            filename=os.path.join(settings.TEMP_FILES_DIR, f"{os.getpid()}.log"),
+                            level=logging.DEBUG,
+                        )
+                        logging.exception(
+                            "BrokenProcessPool surfaced via .result() in FunctionFinder"
+                        )
+                        self.SaveDictionaryOfItemsToSessionStore(
+                            "status",
+                            {
+                                "currentStatus": "An internal error occurred during equation "
+                                "fitting. Please try again or contact the administrator.",
+                                "parallelProcessCount": 0,
+                            },
+                        )
+                        raise _ReportsPipelineAborted()
+                    except Exception:
+                        # parallelWorkFunction is supposed to catch its own
+                        # exceptions and return [None, mod, cls, ext], but an
+                        # unexpected escape shouldn't kill the loop.
+                        self.fit_exception_count += 1
+                        del futures[fut]
+                        continue
+
                     if resultValue[0]:
                         if len(self.functionFinderResultsList) < self.maxFFResultsListSize:
                             self.functionFinderResultsList.append(resultValue)
@@ -623,51 +639,13 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
                                 self.bestFFResultTracker = self.functionFinderResultsList[-1][0]
                                 self.functionFinderResultsList[-1] = resultValue
                         self.countOfParallelWorkItemsRun += 1
-                    else:
-                        pass  # for debug statements
                     self.parallelFittingResultsByEquationFamilyDictionary[resultValue[1]][1] += 1
+                    del futures[fut]
 
-        # wait for all currently active children to finish
-        while multiprocessing.active_children():
-            # transfer the last few result to result list
-            qsize = fittingResultsQueue.qsize()
-            if qsize:
-                for i in range(qsize):
-                    resultValue = fittingResultsQueue.get()
-                    if resultValue[0]:
-                        if len(self.functionFinderResultsList) < self.maxFFResultsListSize:
-                            self.functionFinderResultsList.append(resultValue)
-                        else:
-                            self.functionFinderResultsList.sort()
-                            if self.functionFinderResultsList[-1][0] < self.bestFFResultTracker:
-                                self.bestFFResultTracker = self.functionFinderResultsList[-1][0]
-                                self.functionFinderResultsList[-1] = resultValue
-                        self.countOfParallelWorkItemsRun += 1
-                    else:
-                        pass  # for debug statements
-                    self.parallelFittingResultsByEquationFamilyDictionary[resultValue[1]][1] += 1
-            self.WorkItems_CheckOneSecondSessionUpdates()
-            time.sleep(1.0)
+                self.WorkItems_CheckOneSecondSessionUpdates()
 
-        # transfer the last few result to result list
-        qsize = fittingResultsQueue.qsize()
-        if qsize:
-            for i in range(qsize):
-                resultValue = fittingResultsQueue.get()
-                if resultValue[0]:
-                    if len(self.functionFinderResultsList) < self.maxFFResultsListSize:
-                        self.functionFinderResultsList.append(resultValue)
-                    else:
-                        self.functionFinderResultsList.sort()
-                        if self.functionFinderResultsList[-1][0] < self.bestFFResultTracker:
-                            self.bestFFResultTracker = self.functionFinderResultsList[-1][0]
-                            self.functionFinderResultsList[-1] = resultValue
-                    self.countOfParallelWorkItemsRun += 1
-                else:
-                    pass  # for debug statements
-                self.parallelFittingResultsByEquationFamilyDictionary[resultValue[1]][1] += 1
-
-        # linear fits are very fast - run these in the existing process which saves on interprocess communication overhead
+        # Linear fits are very fast — run these in the existing process which
+        # saves on interprocess communication overhead.
         if self.totalNumberOfSerialWorkItemsToBeRun:
             serialWorker(
                 self,
@@ -677,8 +655,8 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
             )
 
         self.WorkItems_CheckOneSecondSessionUpdates()
-        # All parallel workers have drained; clear the indicator so the
-        # status page stops showing the count during post-processing phases.
+        # All parallel workers have drained; clear the indicator so the status
+        # page stops showing the count during post-processing phases.
         self.SaveDictionaryOfItemsToSessionStore(
             "status",
             {
@@ -687,12 +665,6 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
                 "parallelProcessCount": 0,
             },
         )
-
-        # transfer to result list before sorting
-        for i in range(fittingResultsQueue.qsize()):
-            resultValue = fittingResultsQueue.get()
-            if resultValue:
-                self.functionFinderResultsList.append(resultValue)
 
         # final status update is outside the 'one second updates'
         self.SaveDictionaryOfItemsToSessionStore(
