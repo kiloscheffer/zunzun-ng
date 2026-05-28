@@ -119,6 +119,20 @@ class FitUserDefinedFunction(FittingBaseClass.FittingBaseClass):
             self.SaveDictionaryOfItemsToSessionStore(
                 "status", {"redirectToResultsFileOrURL": error_html_path}
             )
+            # Clear the per-user gate before terminating. SystemExit
+            # bypasses _run_fit_child's exception handler (which catches
+            # Exception, not BaseException), so its ownership-verified
+            # gate-clear at the end of the except branch never runs.
+            # PerformAllWork's finally now clears only processID (so
+            # _run_fit_child can do the dispatch_id ownership check on
+            # other failure paths), which means without this explicit
+            # clear, dispatched_at stays set and the per-user gate
+            # (views.py is_pending check) blocks an immediate retry
+            # for up to 60s after the user sees this terminal error.
+            if self.LoadItemFromSessionStore("status", "processID") == os.getpid():
+                self.SaveDictionaryOfItemsToSessionStore(
+                    "status", {"processID": 0, "dispatched_at": 0}
+                )
             # Raise SystemExit so the spawned child terminates cleanly without
             # overwriting the redirect already written to the session store.
             # SystemExit is a BaseException, not Exception, so the generic
