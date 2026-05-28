@@ -80,15 +80,20 @@ def _run_fit_child(payload: ChildPayload) -> None:
     module = importlib.import_module(module_path)
     lrp_class = getattr(module, class_name)
 
-    # Reconstruct the LRP. The subclass is responsible for populating
-    # itself from the payload via apply_child_payload(). Both the
-    # hydration call AND PerformAllWork live inside the try so that a
-    # failure in either path still produces a terminal redirect — the
-    # base apply_child_payload sets session_key_status as its first
-    # action, so by the time any subclass-specific hydration runs the
-    # session keys are already on the instance and SaveDictionaryOfItemsToSessionStore
-    # in the except branch can succeed.
+    # Reconstruct the LRP. Both hydration AND PerformAllWork live
+    # inside the try so failures in either path still produce a
+    # terminal redirect. Set the session keys directly from payload
+    # BEFORE calling apply_child_payload — the except-branch's
+    # SaveDictionaryOfItemsToSessionStore depends on session_key_status
+    # being on the instance, and we cannot rely on subclass overrides
+    # always calling super().apply_child_payload() before their own
+    # logic (the base apply_child_payload sets these keys, but a
+    # subclass that validates payload.extra first would raise before
+    # super() ran, leaving session_key_status unset).
     lrp = lrp_class()
+    lrp.session_key_status = payload.session_key_status
+    lrp.session_key_data = payload.session_key_data
+    lrp.session_key_functionfinder = payload.session_key_functionfinder
 
     try:
         lrp.apply_child_payload(payload)
@@ -96,8 +101,9 @@ def _run_fit_child(payload: ChildPayload) -> None:
     except Exception:
         import logging as _logging
 
-        import settings
         from django.template.loader import render_to_string
+
+        import settings
 
         log_path = os.path.join(settings.TEMP_FILES_DIR, f"{os.getpid()}.log")
         _logging.basicConfig(filename=log_path, level=_logging.DEBUG)
@@ -107,9 +113,13 @@ def _run_fit_child(payload: ChildPayload) -> None:
         # Without this, StatusUpdateView keeps reporting completed=False
         # forever because no redirectToResultsFileOrURL is ever set, and
         # the user is stuck on the status page until the session expires.
-        error_html_path = os.path.join(
-            settings.TEMP_FILES_DIR, f"error_{os.getpid()}.html"
-        )
+        # Mirrors the three-layer fallback in
+        # RenderOutputHTMLToAFileAndSetStatusRedirect: try the Django
+        # template first, fall back to a hardcoded HTML string if
+        # render_to_string raises (template loader broken). The hardcoded
+        # fallback only fails if disk itself is unwritable.
+        error_html_path = os.path.join(settings.TEMP_FILES_DIR, f"error_{os.getpid()}.html")
+        write_succeeded = False
         try:
             with open(error_html_path, "w", encoding="utf-8") as f:
                 f.write(
@@ -121,14 +131,30 @@ def _run_fit_child(payload: ChildPayload) -> None:
                         },
                     )
                 )
-            lrp.SaveDictionaryOfItemsToSessionStore(
-                "status",
-                {
-                    "currentStatus": "An unknown exception has occurred, and an email with "
-                    "details has been sent to the site administrator.",
-                    "redirectToResultsFileOrURL": error_html_path,
-                },
-            )
+            write_succeeded = True
+        except Exception:
+            _logging.exception("Failed to render generic_error.html; trying static fallback")
+            try:
+                with open(error_html_path, "w", encoding="utf-8") as f:
+                    f.write(
+                        "<html><head><title>ZunZunNG - Error</title></head>"
+                        "<body><h2>Error</h2>"
+                        "<p>An unknown exception occurred while processing your "
+                        "request. The site administrator has been notified.</p>"
+                        "</body></html>"
+                    )
+                write_succeeded = True
+            except Exception:
+                _logging.exception("Also failed to write static fallback HTML")
+
+        try:
+            payload_dict = {
+                "currentStatus": "An unknown exception has occurred, and an email with "
+                "details has been sent to the site administrator."
+            }
+            if write_succeeded:
+                payload_dict["redirectToResultsFileOrURL"] = error_html_path
+            lrp.SaveDictionaryOfItemsToSessionStore("status", payload_dict)
         except Exception:
             _logging.exception("Also failed to write terminal error status after child exception")
     finally:

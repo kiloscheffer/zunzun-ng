@@ -69,8 +69,8 @@ def _build_fake_lrp_module(perform_side_effect=None, apply_side_effect=None):
 
 
 def _run_fit_child_with_fake_lrp(tmp_path, monkeypatch, fake_module):
-    from zunzun.LongRunningProcess import child_payload as cp
     import settings
+    from zunzun.LongRunningProcess import child_payload as cp
 
     monkeypatch.setattr(settings, "TEMP_FILES_DIR", str(tmp_path))
     monkeypatch.setattr(cp.importlib, "import_module", lambda _path: fake_module)
