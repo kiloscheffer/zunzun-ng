@@ -1,3 +1,4 @@
+import concurrent.futures.process
 import multiprocessing
 import os
 import time
@@ -32,6 +33,7 @@ import zunzun.forms
 from zunzun import platform_compat
 
 from . import DataObject, DefaultData, ReportsAndGraphs, pid_trace
+from ..parallel_pool import FitPool
 from ._unique import (
     new_unique_string,
     page_artifact_filename,
@@ -197,6 +199,7 @@ class StatusMonitoredLongRunningProcessPage(object):
         self.evaluationForm = None
 
         self.pool = None
+        self.fit_pool = None  # type: ignore[var-annotated]
 
         self.characterizerOutputTrueOrReportOutputFalse = False
         self.evaluateAtAPointFormNeeded = True
@@ -730,105 +733,109 @@ You must provide any weights you wish to use.
     def PerformAllWork(self):
         pid_trace.pid_trace()
 
-        self.SaveDictionaryOfItemsToSessionStore("status", {"processID": os.getpid()})
+        self.fit_pool = FitPool()
+        try:
+            self.SaveDictionaryOfItemsToSessionStore("status", {"processID": os.getpid()})
 
-        pid_trace.pid_trace()
+            pid_trace.pid_trace()
 
-        self.GenerateListOfWorkItems()
+            self.GenerateListOfWorkItems()
 
-        pid_trace.pid_trace()
+            pid_trace.pid_trace()
 
-        self.PerformWorkInParallel()
+            self.PerformWorkInParallel()
 
-        pid_trace.pid_trace()
+            pid_trace.pid_trace()
 
-        self.GenerateListOfOutputReports()
+            self.GenerateListOfOutputReports()
 
-        pid_trace.pid_trace()
+            pid_trace.pid_trace()
 
-        self.CreateOutputReportsInParallelUsingProcessPool()
+            self.CreateOutputReportsInParallelUsingProcessPool()
 
-        self.CreateReportPDF()
+            self.CreateReportPDF()
 
-        pid_trace.pid_trace()
+            pid_trace.pid_trace()
 
-        self.RenderOutputHTMLToAFileAndSetStatusRedirect()
+            self.RenderOutputHTMLToAFileAndSetStatusRedirect()
 
-        pid_trace.delete_pid_trace_file()
+            pid_trace.delete_pid_trace_file()
+        finally:
+            if self.fit_pool is not None:
+                self.fit_pool.shutdown(wait=True)
+                self.fit_pool = None
 
     def CreateOutputReportsInParallelUsingProcessPool(self):
         pid_trace.pid_trace()
 
         self.SaveDictionaryOfItemsToSessionStore("status", {"currentStatus": "Running All Reports"})
 
-        countOfReportsRun = 0
         reportsToBeRunInParallel = self.graphReports + self.textReports
         totalNumberOfReportsToBeRun = len(reportsToBeRunInParallel)
 
-        begin = -self.parallelChunkSize
-        end = 0
-        indices = []
+        if totalNumberOfReportsToBeRun == 0:
+            self.SaveDictionaryOfItemsToSessionStore("status", {"parallelProcessCount": 0})
+            pid_trace.delete_pid_trace_file()
+            return
 
-        chunks = totalNumberOfReportsToBeRun // self.parallelChunkSize
-        modulus = totalNumberOfReportsToBeRun % self.parallelChunkSize
+        # Pre-flight: User Defined Function pickle workaround. The compiled
+        # function code object is not picklable; null it out before submit
+        # so spawn workers receive a transportable shape.
+        for item in reportsToBeRunInParallel:
+            try:
+                item.dataObject.equation.modelRelativeError
+            except AttributeError:
+                item.dataObject.equation.modelRelativeError = None
+            if (
+                not self.characterizerOutputTrueOrReportOutputFalse
+                and item.dataObject.equation.GetDisplayName() == "User Defined Function"
+            ):
+                item.dataObject.userDefinedFunctionText = (
+                    item.dataObject.equation.userDefinedFunctionText
+                )
+                item.dataObject.equation.userFunctionCodeObject = None
+                item.dataObject.equation.safe_dict = None
 
-        pid_trace.pid_trace()
+        worker_fn = (
+            ParallelWorker_CreateCharacterizerOutput
+            if self.characterizerOutputTrueOrReportOutputFalse
+            else ParallelWorker_CreateReportOutput
+        )
 
-        for i in range(chunks):
-            begin += self.parallelChunkSize
-            end += self.parallelChunkSize
-            indices.append([begin, end])
+        countOfReportsRun = 0
 
-        if modulus:
-            indices.append([end, end + 1 + modulus])
+        def _progress(done: int, _total: int) -> None:
+            nonlocal countOfReportsRun
+            countOfReportsRun = done
+            self.Reports_CheckOneSecondSessionUpdates(countOfReportsRun, totalNumberOfReportsToBeRun)
 
-        pid_trace.pid_trace()
-
-        for i in indices:
-            parallelChunkResultsList = []
-
-            self.pool = multiprocessing.Pool(self.GetParallelProcessCount())
-            for item in reportsToBeRunInParallel[i[0] : i[1]]:
-                try:
-                    item.dataObject.equation.modelRelativeError
-                except:
-                    item.dataObject.equation.modelRelativeError = None
-                if self.characterizerOutputTrueOrReportOutputFalse:
-                    parallelChunkResultsList.append(
-                        self.pool.apply_async(ParallelWorker_CreateCharacterizerOutput, (item,))
-                    )
-                else:
-                    if (
-                        item.dataObject.equation.GetDisplayName() == "User Defined Function"
-                    ):  # User Defined Function will not pickle, see http://support.picloud.com/entries/122330-an-error-i-don-t-understand, regenerate in the parallel pool
-                        item.dataObject.userDefinedFunctionText = (
-                            item.dataObject.equation.userDefinedFunctionText
-                        )
-                        item.dataObject.equation.userFunctionCodeObject = None
-                        item.dataObject.equation.safe_dict = None
-                    parallelChunkResultsList.append(
-                        self.pool.apply_async(ParallelWorker_CreateReportOutput, (item,))
-                    )
-
-            for r in parallelChunkResultsList:
-                returnedValue = r.get()
-                for report in reportsToBeRunInParallel[i[0] : i[1]]:
+        try:
+            for returnedValue in self.fit_pool.submit_many(
+                worker_fn, reportsToBeRunInParallel, progress=_progress
+            ):
+                for report in reportsToBeRunInParallel:
                     if report.name == returnedValue[0]:
                         if returnedValue[2]:  # exception during parallel processing
                             report.exception = True
                         report.stringList = returnedValue[1]
-                countOfReportsRun += 1
-                self.Reports_CheckOneSecondSessionUpdates(
-                    countOfReportsRun, totalNumberOfReportsToBeRun
-                )
+                        break
+        except concurrent.futures.process.BrokenProcessPool:
+            import logging
 
-            self.pool.close()
-            self.pool.join()
-            self.pool = None
-            # Clear the parallel-processes indicator now that the pool is
-            # gone; subsequent phases (PDF, stats calc) are single-threaded.
-            self.SaveDictionaryOfItemsToSessionStore("status", {"parallelProcessCount": 0})
+            logging.basicConfig(
+                filename=os.path.join(settings.TEMP_FILES_DIR, f"{os.getpid()}.log"),
+                level=logging.DEBUG,
+            )
+            logging.exception("BrokenProcessPool in CreateOutputReportsInParallelUsingProcessPool")
+            self.SaveDictionaryOfItemsToSessionStore(
+                "status",
+                {
+                    "currentStatus": "An internal error occurred during report generation. "
+                    "Please try again or contact the administrator."
+                },
+            )
 
+        self.SaveDictionaryOfItemsToSessionStore("status", {"parallelProcessCount": 0})
         pid_trace.delete_pid_trace_file()
 
     def _oneSecondStatusUpdate(self, currentStatus):
@@ -869,7 +876,7 @@ You must provide any weights you wish to use.
     def CheckIfStillUsed(self):
         import time
 
-        if self.LoadItemFromSessionStore("status", "processID") == None:
+        if self.LoadItemFromSessionStore("status", "processID") is None:
             return
 
         # if a new process ID is in the session data, another process was started and this process was abandoned
@@ -881,12 +888,13 @@ You must provide any weights you wish to use.
 
             pid_trace.pid_trace()
 
+            if self.fit_pool is not None:
+                self.fit_pool.shutdown(wait=False, cancel_futures=True)
+                self.fit_pool = None
             if self.pool:
                 self.pool.close()
                 self.pool.join()
                 self.pool = None
-            for p in multiprocessing.active_children():
-                p.terminate()
 
             pid_trace.delete_pid_trace_file()
 
@@ -897,12 +905,13 @@ You must provide any weights you wish to use.
             pid_trace.pid_trace()
 
             time.sleep(1.0)
+            if self.fit_pool is not None:
+                self.fit_pool.shutdown(wait=False, cancel_futures=True)
+                self.fit_pool = None
             if self.pool:
                 self.pool.close()
                 self.pool.join()
                 self.pool = None
-            for p in multiprocessing.active_children():
-                p.terminate()
 
             pid_trace.delete_pid_trace_file()
 
