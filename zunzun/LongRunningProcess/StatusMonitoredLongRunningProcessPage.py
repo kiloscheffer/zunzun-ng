@@ -742,6 +742,35 @@ You must provide any weights you wish to use.
 
         return returnItem
 
+    def _write_terminal_error_html(self, error_message):
+        """Render a generic error page to the dataObject's artifact path
+        and return that path on success, else None.
+
+        Used by the abort sites that raise _ReportsPipelineAborted
+        (BrokenProcessPool, FunctionFinder/StatisticalDistributions
+        pool failures). Without a terminal artifact + redirect, those
+        paths only update currentStatus, and since PerformAllWork's
+        `except _ReportsPipelineAborted: pass` doesn't propagate to
+        _run_fit_child, the polling UI stays stuck forever.
+
+        Returns None on disk-write failure rather than raising — the
+        caller can choose to skip publishing the redirect in that case.
+        """
+        try:
+            error_html_path = page_artifact_path(self.dataObject.uniqueString, "html")
+            with open(error_html_path, "w", encoding="utf-8") as f:
+                f.write(render_to_string("zunzun/generic_error.html", {"error": error_message}))
+            return error_html_path
+        except Exception:
+            import logging
+
+            logging.basicConfig(
+                filename=os.path.join(settings.TEMP_FILES_DIR, f"{os.getpid()}.log"),
+                level=logging.DEBUG,
+            )
+            logging.exception("Failed to write terminal error HTML")
+            return None
+
     def _we_own_status_slot(self):
         """True iff this child still owns the shared status session.
 
@@ -752,16 +781,28 @@ You must provide any weights you wish to use.
         an older child clearing the slot on a pid-only match would
         clobber the newer fit's tracking.
 
+        Returns True on session-read failure (transient SQLite error,
+        etc.) to match the legacy defensive default in _run_fit_child.
+        Letting a read hiccup return False would suppress the SUCCESS
+        redirect at RenderOutputHTMLToAFileAndSetStatusRedirect, and
+        the result page already on disk would be replaced by a generic
+        error redirect from _run_fit_child's exception fallback.
+        Erring towards "we own" matches the existing trade-off: rare
+        wrong-slot writes versus rare success-suppression.
+
         Used to gate every shared-session write on failure/abort
         paths. Sites that called inline `if processID == os.getpid()
         and dispatched_at == self.dispatched_at:` should call this
         helper instead — see commit history for the 7 sites that drift
         otherwise.
         """
-        return (
-            self.LoadItemFromSessionStore("status", "processID") == os.getpid()
-            and self.LoadItemFromSessionStore("status", "dispatched_at") == self.dispatched_at
-        )
+        try:
+            return (
+                self.LoadItemFromSessionStore("status", "processID") == os.getpid()
+                and self.LoadItemFromSessionStore("status", "dispatched_at") == self.dispatched_at
+            )
+        except Exception:
+            return True
 
     def PerformAllWork(self):
         pid_trace.pid_trace()
@@ -927,20 +968,26 @@ You must provide any weights you wish to use.
                 level=logging.DEBUG,
             )
             logging.exception("BrokenProcessPool in CreateOutputReportsInParallelUsingProcessPool")
-            # Gate currentStatus + gate-clear on dispatch ownership.
-            # If a newer fit took over the slot, our generic-error
-            # status would clobber the newer fit's running display.
+            # Publish a terminal redirect alongside the status update.
+            # Without this, PerformAllWork's `except _ReportsPipelineAborted: pass`
+            # swallows the abort and never propagates to _run_fit_child,
+            # so the polling UI stays stuck on the error currentStatus
+            # message but never completes.
+            error_message = (
+                "An internal error occurred during report generation. "
+                "Please try again or contact the administrator."
+            )
+            error_html_path = self._write_terminal_error_html(error_message)
             if self._we_own_status_slot():
-                self.SaveDictionaryOfItemsToSessionStore(
-                    "status",
-                    {
-                        "currentStatus": "An internal error occurred during report generation. "
-                        "Please try again or contact the administrator.",
-                        "parallelProcessCount": 0,
-                        "processID": 0,
-                        "dispatched_at": 0,
-                    },
-                )
+                terminal_payload = {
+                    "currentStatus": error_message,
+                    "parallelProcessCount": 0,
+                    "processID": 0,
+                    "dispatched_at": 0,
+                }
+                if error_html_path:
+                    terminal_payload["redirectToResultsFileOrURL"] = error_html_path
+                self.SaveDictionaryOfItemsToSessionStore("status", terminal_payload)
             pid_trace.delete_pid_trace_file()
             raise _ReportsPipelineAborted()
 

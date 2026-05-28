@@ -149,20 +149,22 @@ class StatisticalDistributions(
                     level=logging.DEBUG,
                 )
                 logging.exception("BrokenProcessPool in StatisticalDistributions")
-                # Gate currentStatus + gate-clear on dispatch ownership.
-                # If a newer fit took over the slot, our generic-error
-                # status would override the newer fit's running display.
+                # Publish terminal redirect alongside status.
+                error_message = (
+                    "An internal error occurred during statistical "
+                    "distribution fitting. Please try again or contact the administrator."
+                )
+                error_html_path = self._write_terminal_error_html(error_message)
                 if self._we_own_status_slot():
-                    self.SaveDictionaryOfItemsToSessionStore(
-                        "status",
-                        {
-                            "currentStatus": "An internal error occurred during statistical "
-                            "distribution fitting. Please try again or contact the administrator.",
-                            "parallelProcessCount": 0,
-                            "processID": 0,
-                            "dispatched_at": 0,
-                        },
-                    )
+                    terminal_payload = {
+                        "currentStatus": error_message,
+                        "parallelProcessCount": 0,
+                        "processID": 0,
+                        "dispatched_at": 0,
+                    }
+                    if error_html_path:
+                        terminal_payload["redirectToResultsFileOrURL"] = error_html_path
+                    self.SaveDictionaryOfItemsToSessionStore("status", terminal_payload)
                 pid_trace.delete_pid_trace_file()
                 raise _ReportsPipelineAborted()
 
