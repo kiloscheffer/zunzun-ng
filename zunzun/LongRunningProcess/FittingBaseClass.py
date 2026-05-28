@@ -450,25 +450,25 @@ You must provide any weights you wish to use.
                         "zunzun/exception_while_fitting_an_equation.html", itemsToRender
                     )
                 )
-            self.SaveDictionaryOfItemsToSessionStore(
-                "status", {"redirectToResultsFileOrURL": error_html_path}
-            )
-            # Clear the per-user gate trackers so the user's next fit
-            # isn't blocked by the 300s active-window. Dual condition:
-            # we must own BOTH the pid AND the dispatch slot. The pid
-            # check alone is unsafe because a newer fit's SetInitial in
-            # the parent overwrites session.dispatched_at without
-            # touching processID — an older child clearing both would
-            # then clobber the newer fit's dispatch markers and either
-            # make it look idle to the gate or fail _run_fit_child's
-            # ownership check.
+            # Gate the session write itself on ownership, not just the
+            # gate clear below. If a newer fit has taken over this
+            # status slot (its parent SetInitial refreshed dispatched_at
+            # while leaving our processID intact), publishing our error
+            # redirect would clobber the newer fit's polling and make
+            # it appear completed with our error page. The pid+dispatch
+            # check decides whether we are still the active dispatch.
             if self.LoadItemFromSessionStore(
                 "status", "processID"
             ) == os.getpid() and self.LoadItemFromSessionStore(
                 "status", "dispatched_at"
             ) == getattr(self, "dispatched_at", None):
                 self.SaveDictionaryOfItemsToSessionStore(
-                    "status", {"processID": 0, "dispatched_at": 0}
+                    "status",
+                    {
+                        "redirectToResultsFileOrURL": error_html_path,
+                        "processID": 0,
+                        "dispatched_at": 0,
+                    },
                 )
             # Without this raise, PerformAllWork continues into
             # PerformWorkInParallel / report generation on an unsolved

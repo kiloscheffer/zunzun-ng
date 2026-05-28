@@ -116,25 +116,25 @@ class FitUserDefinedFunction(FittingBaseClass.FittingBaseClass):
                         "zunzun/exception_while_fitting_an_equation.html", itemsToRender
                     )
                 )
-            self.SaveDictionaryOfItemsToSessionStore(
-                "status", {"redirectToResultsFileOrURL": error_html_path}
-            )
-            # Clear the per-user gate before terminating. SystemExit
-            # bypasses _run_fit_child's exception handler (which catches
-            # Exception, not BaseException), so its ownership-verified
-            # gate-clear at the end of the except branch never runs.
-            # Dual condition (pid AND dispatched_at must both match)
-            # avoids clobbering a concurrent newer fit's dispatch
-            # markers — a newer fit's SetInitial overwrites session
-            # dispatched_at without touching processID, and a pid-only
-            # check would then erase the newer fit's tracking.
+            # Gate the redirect write AND the gate-clear on dispatch
+            # ownership. If a newer fit has taken over the slot, the
+            # error redirect we'd publish would clobber the newer fit's
+            # polling — StatusUpdateView would then mark the newer fit
+            # completed with our UDF error page. SystemExit bypasses
+            # _run_fit_child's ownership-verified handler, so this is
+            # the only place where the check can happen for this path.
             if self.LoadItemFromSessionStore(
                 "status", "processID"
             ) == os.getpid() and self.LoadItemFromSessionStore(
                 "status", "dispatched_at"
             ) == getattr(self, "dispatched_at", None):
                 self.SaveDictionaryOfItemsToSessionStore(
-                    "status", {"processID": 0, "dispatched_at": 0}
+                    "status",
+                    {
+                        "redirectToResultsFileOrURL": error_html_path,
+                        "processID": 0,
+                        "dispatched_at": 0,
+                    },
                 )
             # Raise SystemExit so the spawned child terminates cleanly without
             # overwriting the redirect already written to the session store.

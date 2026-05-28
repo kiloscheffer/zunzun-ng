@@ -633,24 +633,24 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
                         logging.exception(
                             "BrokenProcessPool in FunctionFinder.PerformWorkInParallel"
                         )
-                        self.SaveDictionaryOfItemsToSessionStore(
-                            "status",
-                            {
-                                "currentStatus": "An internal error occurred during equation "
-                                "fitting. Please try again or contact the administrator.",
-                                "parallelProcessCount": 0,
-                            },
-                        )
-                        # Conditional pid AND dispatched_at clear
-                        # (concurrent-fit safety). Dual check avoids
-                        # clobbering a newer fit's dispatch_id.
+                        # Gate currentStatus write AND gate-clear on
+                        # dispatch ownership. If a newer fit took over,
+                        # our generic-error status would override its
+                        # running status display.
                         if self.LoadItemFromSessionStore(
                             "status", "processID"
                         ) == os.getpid() and self.LoadItemFromSessionStore(
                             "status", "dispatched_at"
                         ) == getattr(self, "dispatched_at", None):
                             self.SaveDictionaryOfItemsToSessionStore(
-                                "status", {"processID": 0, "dispatched_at": 0}
+                                "status",
+                                {
+                                    "currentStatus": "An internal error occurred during equation "
+                                    "fitting. Please try again or contact the administrator.",
+                                    "parallelProcessCount": 0,
+                                    "processID": 0,
+                                    "dispatched_at": 0,
+                                },
                             )
                         pid_trace.delete_pid_trace_file()
                         raise _ReportsPipelineAborted()
@@ -671,21 +671,22 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
                             logging.exception(
                                 "BrokenProcessPool surfaced via .result() in FunctionFinder"
                             )
-                            self.SaveDictionaryOfItemsToSessionStore(
-                                "status",
-                                {
-                                    "currentStatus": "An internal error occurred during equation "
-                                    "fitting. Please try again or contact the administrator.",
-                                    "parallelProcessCount": 0,
-                                },
-                            )
+                            # Gate currentStatus + gate-clear on
+                            # dispatch ownership.
                             if self.LoadItemFromSessionStore(
                                 "status", "processID"
                             ) == os.getpid() and self.LoadItemFromSessionStore(
                                 "status", "dispatched_at"
                             ) == getattr(self, "dispatched_at", None):
                                 self.SaveDictionaryOfItemsToSessionStore(
-                                    "status", {"processID": 0, "dispatched_at": 0}
+                                    "status",
+                                    {
+                                        "currentStatus": "An internal error occurred during equation "
+                                        "fitting. Please try again or contact the administrator.",
+                                        "parallelProcessCount": 0,
+                                        "processID": 0,
+                                        "dispatched_at": 0,
+                                    },
                                 )
                             pid_trace.delete_pid_trace_file()
                             raise _ReportsPipelineAborted()

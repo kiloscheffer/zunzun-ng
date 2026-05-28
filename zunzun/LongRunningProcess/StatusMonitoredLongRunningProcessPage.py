@@ -910,27 +910,23 @@ You must provide any weights you wish to use.
                 level=logging.DEBUG,
             )
             logging.exception("BrokenProcessPool in CreateOutputReportsInParallelUsingProcessPool")
-            # User-visible error message is always written.
-            self.SaveDictionaryOfItemsToSessionStore(
-                "status",
-                {
-                    "currentStatus": "An internal error occurred during report generation. "
-                    "Please try again or contact the administrator.",
-                    "parallelProcessCount": 0,
-                },
-            )
-            # Only clear processID/dispatched_at if this child still
-            # owns BOTH (pid AND dispatch slot). A pid-only check would
-            # clobber a concurrent newer fit's dispatched_at, since the
-            # newer fit's parent SetInitial refreshes dispatched_at
-            # without touching processID.
+            # Gate currentStatus + gate-clear on dispatch ownership.
+            # If a newer fit took over the slot, our generic-error
+            # status would clobber the newer fit's running display.
             if self.LoadItemFromSessionStore(
                 "status", "processID"
             ) == os.getpid() and self.LoadItemFromSessionStore(
                 "status", "dispatched_at"
             ) == getattr(self, "dispatched_at", None):
                 self.SaveDictionaryOfItemsToSessionStore(
-                    "status", {"processID": 0, "dispatched_at": 0}
+                    "status",
+                    {
+                        "currentStatus": "An internal error occurred during report generation. "
+                        "Please try again or contact the administrator.",
+                        "parallelProcessCount": 0,
+                        "processID": 0,
+                        "dispatched_at": 0,
+                    },
                 )
             pid_trace.delete_pid_trace_file()
             raise _ReportsPipelineAborted()

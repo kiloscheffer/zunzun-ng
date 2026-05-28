@@ -149,27 +149,23 @@ class StatisticalDistributions(
                     level=logging.DEBUG,
                 )
                 logging.exception("BrokenProcessPool in StatisticalDistributions")
-                # User-visible error message is always written.
-                self.SaveDictionaryOfItemsToSessionStore(
-                    "status",
-                    {
-                        "currentStatus": "An internal error occurred during statistical "
-                        "distribution fitting. Please try again or contact the administrator.",
-                        "parallelProcessCount": 0,
-                    },
-                )
-                # Only clear processID/dispatched_at if this child still
-                # owns BOTH (pid AND dispatch slot). Dual check avoids
-                # clobbering a newer fit's dispatched_at when its parent
-                # SetInitial has refreshed the slot without touching
-                # processID.
+                # Gate currentStatus + gate-clear on dispatch ownership.
+                # If a newer fit took over the slot, our generic-error
+                # status would override the newer fit's running display.
                 if self.LoadItemFromSessionStore(
                     "status", "processID"
                 ) == os.getpid() and self.LoadItemFromSessionStore(
                     "status", "dispatched_at"
                 ) == getattr(self, "dispatched_at", None):
                     self.SaveDictionaryOfItemsToSessionStore(
-                        "status", {"processID": 0, "dispatched_at": 0}
+                        "status",
+                        {
+                            "currentStatus": "An internal error occurred during statistical "
+                            "distribution fitting. Please try again or contact the administrator.",
+                            "parallelProcessCount": 0,
+                            "processID": 0,
+                            "dispatched_at": 0,
+                        },
                     )
                 pid_trace.delete_pid_trace_file()
                 raise _ReportsPipelineAborted()
