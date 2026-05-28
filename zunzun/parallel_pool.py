@@ -94,13 +94,21 @@ class FitPool:
     """
 
     def __init__(self, max_workers: int | None = None) -> None:
-        # Route through platform_compat.get_parallel_process_count so the
-        # pool inherits load-avg throttling (load1 > cpu_count+0.5/1.0/1.5
-        # → 3/2/1 workers) in addition to env/settings/auto-detect. Late
-        # import to avoid a parallel_pool ↔ platform_compat cycle.
-        from zunzun import platform_compat
+        if max_workers is not None and max_workers > 0:
+            # Explicit value: respect it exactly. resolve_max_workers
+            # applies env/settings/auto-detect chain and hardware clamps
+            # but does NOT apply the load-avg throttle (since the caller
+            # already constrained N intentionally — double-clamping under
+            # load would silently override their choice).
+            self.max_workers = resolve_max_workers(max_workers)
+        else:
+            # Auto-detect: route through platform_compat.get_parallel_process_count
+            # which calls resolve_max_workers AND adds the load1 > cpu_count+0.5/1.0/1.5
+            # → 3/2/1 throttling. Late import to avoid the
+            # parallel_pool ↔ platform_compat circular dependency.
+            from zunzun import platform_compat
 
-        self.max_workers = platform_compat.get_parallel_process_count(cpu_cap=max_workers)
+            self.max_workers = platform_compat.get_parallel_process_count()
 
         # Force single-threaded BLAS in spawn workers to prevent the OpenBLAS
         # thread-pool init memory bomb. Each numpy/scipy import allocates a

@@ -152,6 +152,8 @@ class StatisticalDistributions(
                         "currentStatus": "An internal error occurred during statistical "
                         "distribution fitting. Please try again or contact the administrator.",
                         "parallelProcessCount": 0,
+                        "processID": 0,
+                        "dispatched_at": 0,
                     },
                 )
                 pid_trace.delete_pid_trace_file()

@@ -862,6 +862,8 @@ You must provide any weights you wish to use.
                     "currentStatus": "An internal error occurred during report generation. "
                     "Please try again or contact the administrator.",
                     "parallelProcessCount": 0,
+                    "processID": 0,
+                    "dispatched_at": 0,
                 },
             )
             pid_trace.delete_pid_trace_file()

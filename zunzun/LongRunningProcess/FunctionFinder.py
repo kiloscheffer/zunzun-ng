@@ -566,6 +566,13 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
         # inherit module-level state from the parent.
         dataCache = self.dataObject.equation.dataCache
 
+        # TODO: dataCache is re-pickled for every submitted item, which is
+        # O(N) IPC overhead for FunctionFinder runs with many equations
+        # and nontrivial input data. Consider using
+        # ProcessPoolExecutor(initializer=...) to install dataCache as
+        # worker-side global state once per worker, then submit only
+        # (item,) tuples. Requires extending FitPool to expose the pool's
+        # initializer slot OR adding a "broadcast args" mechanism. Deferred.
         if self.parallelWorkItemsList:
             futures = {
                 self.fit_pool.submit(parallelWorkFunction, item, dataCache): item
@@ -593,6 +600,8 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
                             "currentStatus": "An internal error occurred during equation "
                             "fitting. Please try again or contact the administrator.",
                             "parallelProcessCount": 0,
+                            "processID": 0,
+                            "dispatched_at": 0,
                         },
                     )
                     raise _ReportsPipelineAborted()
@@ -617,6 +626,8 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
                                 "currentStatus": "An internal error occurred during equation "
                                 "fitting. Please try again or contact the administrator.",
                                 "parallelProcessCount": 0,
+                                "processID": 0,
+                                "dispatched_at": 0,
                             },
                         )
                         raise _ReportsPipelineAborted()
