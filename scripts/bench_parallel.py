@@ -117,11 +117,11 @@ def _bench_spawn_fresh(n: int, max_concurrent: int) -> tuple[float, list[float]]
             submitted += 1
         time.sleep(0.05)
         still_alive: list[BaseProcess] = []
-        for p in in_flight:
-            if p.is_alive():
-                still_alive.append(p)
+        for existing in in_flight:
+            if existing.is_alive():
+                still_alive.append(existing)
             else:
-                p.join()
+                existing.join()
         in_flight = still_alive
         while not q.empty():
             results.append(q.get())
