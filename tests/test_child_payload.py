@@ -44,37 +44,37 @@ def test_child_payload_has_required_fields():
     }
 
 
-def test_run_fit_child_writes_terminal_redirect_on_exception(tmp_path, monkeypatch):
-    """An uncaught exception inside PerformAllWork must produce a terminal
-    artifact AND set redirectToResultsFileOrURL so the polling UI completes.
-    Without this, StatusUpdateView returns completed=False forever and the
-    user is stuck on the status page until the session expires.
+def _build_fake_lrp_module(perform_side_effect=None, apply_side_effect=None):
+    """Helper: construct a fake module exposing a FakeLRP class whose
+    apply_child_payload and PerformAllWork can be wired to raise.
+    Records every SaveDictionaryOfItemsToSessionStore call in `saves`.
     """
-    from zunzun.LongRunningProcess import child_payload as cp
-
-    # Point TEMP_FILES_DIR at the test's tmp_path so the error HTML and
-    # log file don't pollute real temp/.
-    import settings
-
-    monkeypatch.setattr(settings, "TEMP_FILES_DIR", str(tmp_path))
-
     saves = []
 
     class FakeLRP:
         def PerformAllWork(self):
-            raise RuntimeError("simulated child failure")
+            if perform_side_effect is not None:
+                raise perform_side_effect
 
         def apply_child_payload(self, _payload):
-            pass
+            if apply_side_effect is not None:
+                raise apply_side_effect
 
         def SaveDictionaryOfItemsToSessionStore(self, store, payload):
             saves.append((store, payload))
 
     fake_module = mock.Mock()
     fake_module.FakeLRP = FakeLRP
+    return fake_module, saves
 
+
+def _run_fit_child_with_fake_lrp(tmp_path, monkeypatch, fake_module):
+    from zunzun.LongRunningProcess import child_payload as cp
+    import settings
+
+    monkeypatch.setattr(settings, "TEMP_FILES_DIR", str(tmp_path))
     monkeypatch.setattr(cp.importlib, "import_module", lambda _path: fake_module)
-    monkeypatch.setattr(cp, "time", mock.Mock())  # skip the 1-second post-work sleep
+    monkeypatch.setattr(cp, "time", mock.Mock())  # skip the post-work sleep
 
     payload = cp.ChildPayload(
         lrp_class_path="fake.module.FakeLRP",
@@ -86,16 +86,45 @@ def test_run_fit_child_writes_terminal_redirect_on_exception(tmp_path, monkeypat
         data_object=None,
         equation=None,
     )
-
     cp._run_fit_child(payload)
 
-    # The exception handler must write both currentStatus AND redirect.
+
+def test_run_fit_child_writes_terminal_redirect_on_perform_all_work_exception(
+    tmp_path, monkeypatch
+):
+    """An uncaught exception inside PerformAllWork must produce a terminal
+    artifact AND set redirectToResultsFileOrURL so the polling UI completes.
+    """
+    import os
+
+    fake_module, saves = _build_fake_lrp_module(
+        perform_side_effect=RuntimeError("simulated child failure")
+    )
+    _run_fit_child_with_fake_lrp(tmp_path, monkeypatch, fake_module)
+
     redirect_writes = [p for s, p in saves if s == "status" and "redirectToResultsFileOrURL" in p]
     assert len(redirect_writes) == 1
     redirect_path = redirect_writes[0]["redirectToResultsFileOrURL"]
-    # File should have been written so StatusView can serve it.
+    assert os.path.exists(redirect_path)
+    assert "currentStatus" in redirect_writes[0]
+
+
+def test_run_fit_child_writes_terminal_redirect_on_apply_child_payload_exception(
+    tmp_path, monkeypatch
+):
+    """Hydration failures (apply_child_payload raises) must also produce a
+    terminal redirect — same bug class as PerformAllWork exceptions. Without
+    coverage of this path, a subclass forgetting to populate payload.extra
+    leaves the polling UI stuck forever.
+    """
     import os
 
-    assert os.path.exists(redirect_path)
-    # The same write also carries the user-visible status text.
+    fake_module, saves = _build_fake_lrp_module(
+        apply_side_effect=KeyError("payload.extra['missing_field']")
+    )
+    _run_fit_child_with_fake_lrp(tmp_path, monkeypatch, fake_module)
+
+    redirect_writes = [p for s, p in saves if s == "status" and "redirectToResultsFileOrURL" in p]
+    assert len(redirect_writes) == 1
+    assert os.path.exists(redirect_writes[0]["redirectToResultsFileOrURL"])
     assert "currentStatus" in redirect_writes[0]

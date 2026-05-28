@@ -1145,6 +1145,13 @@ You must provide any weights you wish to use.
         pid_trace.pid_trace()
 
         result_html_path = page_artifact_path(self.dataObject.uniqueString, "html")
+
+        # File write and session save are intentionally separate try
+        # blocks. Earlier this lived in one combined try, but a session
+        # save failure (SQLite lock-retry budget exhausted) would then
+        # enter the except branch and re-open result_html_path in 'w'
+        # mode, truncating the just-written valid results file.
+        write_succeeded = False
         try:
             with open(result_html_path, "w", encoding="utf-8") as f:
                 f.write(
@@ -1152,13 +1159,7 @@ You must provide any weights you wish to use.
                         "zunzun/equation_fit_or_characterizer_results.html", itemsToRender
                     )
                 )
-            # Only set the redirect after a successful write. Previously
-            # this ran unconditionally, so a render or write failure left
-            # the session pointing at a missing/partial file and
-            # StatusView would 500 when it tried to open it.
-            self.SaveDictionaryOfItemsToSessionStore(
-                "status", {"redirectToResultsFileOrURL": result_html_path}
-            )
+            write_succeeded = True
         except Exception:
             import logging
 
@@ -1168,31 +1169,56 @@ You must provide any weights you wish to use.
             )
             logging.exception("Exception rendering HTML to a file")
 
-            # Best-effort terminal error: try writing a tiny generic
-            # error page to the same path so the polling UI completes.
-            # If that also fails (disk full, permission denied), fall
-            # back to a status-text update — polling will at least show
-            # the error message even though the page never finalizes.
+            # Fallback 1: render the project's generic error template.
+            # Most common failure mode (template change in the success
+            # results template) doesn't affect this one.
             try:
                 with open(result_html_path, "w", encoding="utf-8") as f:
                     f.write(
                         render_to_string(
                             "zunzun/generic_error.html",
-                            {"error": "An internal error occurred while generating the results page."},
+                            {
+                                "error": "An internal error occurred while generating "
+                                "the results page."
+                            },
                         )
                     )
-                self.SaveDictionaryOfItemsToSessionStore(
-                    "status", {"redirectToResultsFileOrURL": result_html_path}
-                )
+                write_succeeded = True
             except Exception:
-                logging.exception("Also failed to write generic error HTML")
-                self.SaveDictionaryOfItemsToSessionStore(
-                    "status",
-                    {
-                        "currentStatus": "An internal error occurred while generating the "
-                        "results page. Please try again or contact the administrator."
-                    },
-                )
+                logging.exception("Also failed to write generic error HTML; trying static fallback")
+
+                # Fallback 2: a hardcoded HTML string that does not
+                # depend on Django templates at all. Only fails if
+                # disk itself is unwritable. Guarantees the polling
+                # UI terminates whenever the disk works.
+                try:
+                    with open(result_html_path, "w", encoding="utf-8") as f:
+                        f.write(
+                            "<html><head><title>ZunZunNG - Error</title></head>"
+                            "<body><h2>Error</h2>"
+                            "<p>An internal error occurred while generating the results "
+                            "page. Please try again or contact the administrator.</p>"
+                            "</body></html>"
+                        )
+                    write_succeeded = True
+                except Exception:
+                    logging.exception("Also failed to write static fallback HTML")
+
+        if write_succeeded:
+            self.SaveDictionaryOfItemsToSessionStore(
+                "status", {"redirectToResultsFileOrURL": result_html_path}
+            )
+        else:
+            # Disk is unwritable; we cannot deliver a terminal page.
+            # Update status text so polling at least surfaces the error,
+            # even though the page will not finalize.
+            self.SaveDictionaryOfItemsToSessionStore(
+                "status",
+                {
+                    "currentStatus": "An internal error occurred while generating the "
+                    "results page. Please try again or contact the administrator."
+                },
+            )
 
         pid_trace.delete_pid_trace_file()
 

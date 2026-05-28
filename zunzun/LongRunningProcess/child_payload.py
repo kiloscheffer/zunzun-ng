@@ -81,11 +81,17 @@ def _run_fit_child(payload: ChildPayload) -> None:
     lrp_class = getattr(module, class_name)
 
     # Reconstruct the LRP. The subclass is responsible for populating
-    # itself from the payload via apply_child_payload().
+    # itself from the payload via apply_child_payload(). Both the
+    # hydration call AND PerformAllWork live inside the try so that a
+    # failure in either path still produces a terminal redirect — the
+    # base apply_child_payload sets session_key_status as its first
+    # action, so by the time any subclass-specific hydration runs the
+    # session keys are already on the instance and SaveDictionaryOfItemsToSessionStore
+    # in the except branch can succeed.
     lrp = lrp_class()
-    lrp.apply_child_payload(payload)
 
     try:
+        lrp.apply_child_payload(payload)
         lrp.PerformAllWork()
     except Exception:
         import logging as _logging
