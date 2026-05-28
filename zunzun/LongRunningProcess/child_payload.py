@@ -46,6 +46,20 @@ class ChildPayload:
     renice_level: int
     data_object: Any
     equation: Any
+    # dispatch_id is the unique identifier for THIS dispatch — the
+    # parent stamps it into both the payload AND the session in
+    # SetInitialStatusDataIntoSessionVariables. The exception handler
+    # in _run_fit_child compares its payload's value against the
+    # current session value to detect "a newer fit replaced me",
+    # avoiding races where an older failing child publishes its
+    # terminal redirect into a newer fit's shared status session.
+    # Currently the value is float seconds (time.time()) for
+    # convenience — microsecond resolution is unique enough that two
+    # consecutive dispatches will never collide given Python overhead.
+    # Stored as float and compared with equality; 0.0 means "no
+    # dispatch identifier was stamped" (legacy / FunctionFinderResults
+    # paths that haven't been updated).
+    dispatch_id: float = 0.0
     extra: dict[str, Any] = field(default_factory=dict)
 
 
@@ -149,28 +163,48 @@ def _run_fit_child(payload: ChildPayload) -> None:
 
         try:
             # Single ownership check gates BOTH the terminal-redirect
-            # write AND the per-user gate clear. With
-            # ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER=True (default),
-            # multiple POSTs reuse session_key_status; a newer fit's
-            # SetInitialStatusDataIntoSessionVariables clears the redirect
-            # and resets dispatched_at BEFORE its child has written its
-            # own processID. If our (older) child reaches this handler
-            # in that window, we'd see "no existing redirect" and write
-            # our error into the shared status session, completing the
-            # newer fit's polling with our older error. Reading processID
-            # once and gating both writes on ownership avoids this.
+            # write AND the per-user gate clear. Uses dispatch_id (a
+            # timestamp stamped by the parent's
+            # SetInitialStatusDataIntoSessionVariables into both the
+            # payload and the session) as the dispatch identity.
             #
-            # Safe-to-act cases:
-            #   - processID is None  → first-fit session, never written
-            #   - processID is 0     → previous fit cleared cleanly
-            #   - processID == ours  → we own the slot
-            # Anything else means a concurrent newer fit claimed it.
-            try:
-                current_pid = lrp.LoadItemFromSessionStore("status", "processID")
-            except Exception:
-                _logging.exception("Could not read processID; assuming we-own-slot")
-                current_pid = None
-            we_own_slot = current_pid in (None, 0) or current_pid == os.getpid()
+            # With ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER=True (default),
+            # multiple POSTs reuse session_key_status. A naïve processID
+            # check is racy because:
+            #   - A newer fit's SetInitial clears the redirect AND
+            #     overwrites dispatched_at, but does NOT touch the older
+            #     child's processID. So the older child's pid-equality
+            #     check would still match and it would publish its
+            #     terminal redirect into the newer fit's shared session.
+            #   - Conversely, during the window between a newer parent's
+            #     SetInitial and its child's first processID write, the
+            #     session can show an older child's pid even though the
+            #     dispatch has moved on.
+            #
+            # Comparing dispatch_id resolves both: each dispatch has a
+            # unique microsecond-precision timestamp. session.dispatched_at
+            # holds the current dispatch's value; payload.dispatch_id
+            # holds OUR dispatch's value. Equality means "we are still
+            # the current dispatch."
+            #
+            # Backward-compat: payload.dispatch_id == 0.0 means the
+            # payload was built before this contract existed (no current
+            # code paths). Fall back to the older pid-based check.
+            we_own_slot = False
+            if payload.dispatch_id != 0.0:
+                try:
+                    current_dispatch = lrp.LoadItemFromSessionStore("status", "dispatched_at")
+                except Exception:
+                    _logging.exception("Could not read session dispatched_at; assuming we-own-slot")
+                    current_dispatch = payload.dispatch_id
+                we_own_slot = current_dispatch == payload.dispatch_id
+            else:
+                try:
+                    current_pid = lrp.LoadItemFromSessionStore("status", "processID")
+                except Exception:
+                    _logging.exception("Could not read processID; assuming we-own-slot")
+                    current_pid = None
+                we_own_slot = current_pid in (None, 0) or current_pid == os.getpid()
 
             if not we_own_slot:
                 _logging.info(

@@ -237,6 +237,13 @@ You must provide any weights you wish to use.
             renice_level=self.reniceLevel,
             data_object=getattr(self, "dataObject", None),
             equation=None,  # overridden by fit subclasses
+            # Stamped by SetInitialStatusDataIntoSessionVariables (run
+            # in the parent moments before this build). The child uses
+            # it as a dispatch identity to detect "newer fit replaced me"
+            # races in its terminal-error handler. getattr fallback to
+            # 0.0 covers paths that don't run SetInitial (none in current
+            # tree, but defensive).
+            dispatch_id=getattr(self, "dispatched_at", 0.0),
             extra={
                 # inEquationName / inEquationFamilyName are set by
                 # views.LongRunningProcessView (parent) from URL path
@@ -998,6 +1005,12 @@ You must provide any weights you wish to use.
 
     def SetInitialStatusDataIntoSessionVariables(self, request):
         pid_trace.pid_trace()
+        # Compute the dispatch timestamp ONCE and store on self so
+        # build_child_payload can stamp the same value into the payload.
+        # The child uses payload.dispatch_id == session.dispatched_at as
+        # an ownership identifier to detect "newer fit replaced me" races
+        # in its terminal-error handler.
+        self.dispatched_at = time.time()
         self.SaveDictionaryOfItemsToSessionStore(
             "status",
             {
@@ -1006,7 +1019,7 @@ You must provide any weights you wish to use.
                 "time_of_last_status_check": time.time(),
                 "redirectToResultsFileOrURL": "",
                 "parallelProcessCount": 0,
-                "dispatched_at": time.time(),
+                "dispatched_at": self.dispatched_at,
             },
         )
 

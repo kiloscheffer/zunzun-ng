@@ -150,6 +150,11 @@ class FunctionFinderResults(FittingBaseClass.FittingBaseClass):
         import time
 
         pid_trace.pid_trace()
+        # Stamp dispatched_at so build_child_payload can plumb it as
+        # dispatch_id — matches the base SetInitialStatusDataIntoSessionVariables
+        # contract so _run_fit_child's ownership check works for the
+        # FunctionFinderResults code path too.
+        self.dispatched_at = time.time()
         self.SaveDictionaryOfItemsToSessionStore(
             "status",
             {
@@ -157,6 +162,7 @@ class FunctionFinderResults(FittingBaseClass.FittingBaseClass):
                 "start_time": time.time(),
                 "time_of_last_status_check": time.time(),
                 "redirectToResultsFileOrURL": "",
+                "dispatched_at": self.dispatched_at,
             },
         )
         pid_trace.delete_pid_trace_file()

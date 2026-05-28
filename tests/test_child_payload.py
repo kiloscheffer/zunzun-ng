@@ -40,6 +40,7 @@ def test_child_payload_has_required_fields():
         "renice_level",
         "data_object",
         "equation",
+        "dispatch_id",
         "extra",
     }
 
