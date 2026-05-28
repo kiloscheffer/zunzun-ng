@@ -704,9 +704,7 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
         # stale dispatched_at that defeats the per-user gate for ~60s.
         # Only clear if this child still owns the pid (concurrent-fit safety).
         if self.LoadItemFromSessionStore("status", "processID") == os.getpid():
-            self.SaveDictionaryOfItemsToSessionStore(
-                "status", {"processID": 0, "dispatched_at": 0}
-            )
+            self.SaveDictionaryOfItemsToSessionStore("status", {"processID": 0, "dispatched_at": 0})
 
     def WorkItems_CheckOneSecondSessionUpdates(self):
         sortedFamilyNameList = sorted(self.parallelFittingResultsByEquationFamilyDictionary.keys())
