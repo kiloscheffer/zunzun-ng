@@ -858,13 +858,16 @@ You must provide any weights you wish to use.
             )
 
         # Pre-build a name → report dict so per-result lookup is O(1)
-        # instead of an O(N) scan. Reports have unique names within
-        # one fit (see ReportsAndGraphs.FittingReportsDict construction);
-        # if duplicates ever appear, the dict keeps the LAST one
-        # registered (matches the legacy "first match wins" behavior
-        # because we keep adding all reports, last one for each name
-        # ends up in the dict — same effect for unique names).
-        report_by_name = {r.name: r for r in reportsToBeRunInParallel}
+        # instead of an O(N) scan. Reports are usually unique by name
+        # within one fit (see ReportsAndGraphs.FittingReportsDict);
+        # FunctionFinderResults can append multiple instances of the
+        # same plot class with identical class-level names when
+        # numberOfEquationsToDisplay > 1. setdefault preserves the
+        # legacy linear-scan-with-break semantics (first occurrence
+        # wins) rather than the dict-comprehension last-wins default.
+        report_by_name: dict = {}
+        for r in reportsToBeRunInParallel:
+            report_by_name.setdefault(r.name, r)
 
         try:
             for returnedValue in self.fit_pool.submit_many(
@@ -957,6 +960,10 @@ You must provide any weights you wish to use.
             if self.fit_pool is not None:
                 self.fit_pool.shutdown(wait=False, cancel_futures=True)
                 self.fit_pool = None
+            # FunctionFinder's per-fit sub-pool, if present
+            if getattr(self, "ff_pool", None) is not None:
+                self.ff_pool.shutdown(wait=False, cancel_futures=True)
+                self.ff_pool = None
             # shutdown(cancel_futures=True) only cancels PENDING futures;
             # workers currently executing a long pyeq3 fit continue until
             # their task completes. Terminate them immediately so an
@@ -976,6 +983,10 @@ You must provide any weights you wish to use.
             if self.fit_pool is not None:
                 self.fit_pool.shutdown(wait=False, cancel_futures=True)
                 self.fit_pool = None
+            # FunctionFinder's per-fit sub-pool, if present
+            if getattr(self, "ff_pool", None) is not None:
+                self.ff_pool.shutdown(wait=False, cancel_futures=True)
+                self.ff_pool = None
             # shutdown(cancel_futures=True) only cancels PENDING futures;
             # workers currently executing a long pyeq3 fit continue until
             # their task completes. Terminate them immediately so an
