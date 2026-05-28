@@ -148,54 +148,69 @@ def _run_fit_child(payload: ChildPayload) -> None:
                 _logging.exception("Also failed to write static fallback HTML")
 
         try:
-            # Don't overwrite a redirect an earlier successful stage
-            # already saved. PerformAllWork can succeed all the way
-            # through RenderOutputHTMLToAFileAndSetStatusRedirect (which
-            # sets the success redirect) and THEN raise in the
-            # processID-cleanup at line 779 if that LoadItemFromSessionStore
-            # hits a transient SQLite error. Without this guard we'd
-            # clobber the success-results redirect with our error page
-            # even though the result HTML is on disk and ready to serve.
-            existing_redirect = ""
-            try:
-                existing_redirect = (
-                    lrp.LoadItemFromSessionStore("status", "redirectToResultsFileOrURL") or ""
-                )
-            except Exception:
-                _logging.exception("Could not read existing redirect; assuming none")
-
-            if not existing_redirect:
-                payload_dict = {
-                    "currentStatus": "An unknown exception has occurred, and an email with "
-                    "details has been sent to the site administrator."
-                }
-                if write_succeeded:
-                    payload_dict["redirectToResultsFileOrURL"] = error_html_path
-                lrp.SaveDictionaryOfItemsToSessionStore("status", payload_dict)
-            else:
-                _logging.info(
-                    "Exception after redirect already set; preserving existing: %s",
-                    existing_redirect,
-                )
-
-            # Clear the per-user gate so the user can immediately retry.
-            # Safe-to-clear cases:
-            #   - processID is None   → first-fit session, never written
-            #   - processID is 0      → previous fit cleared cleanly
-            #   - processID == ours   → we own the slot (PerformAllWork
-            #                           wrote it before failing)
-            # Don't clear if some OTHER pid owns it — that means a
-            # concurrent fit under ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER=True
-            # claimed the slot, and clobbering its tracking would confuse
-            # the gate and the status page.
+            # Single ownership check gates BOTH the terminal-redirect
+            # write AND the per-user gate clear. With
+            # ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER=True (default),
+            # multiple POSTs reuse session_key_status; a newer fit's
+            # SetInitialStatusDataIntoSessionVariables clears the redirect
+            # and resets dispatched_at BEFORE its child has written its
+            # own processID. If our (older) child reaches this handler
+            # in that window, we'd see "no existing redirect" and write
+            # our error into the shared status session, completing the
+            # newer fit's polling with our older error. Reading processID
+            # once and gating both writes on ownership avoids this.
+            #
+            # Safe-to-act cases:
+            #   - processID is None  → first-fit session, never written
+            #   - processID is 0     → previous fit cleared cleanly
+            #   - processID == ours  → we own the slot
+            # Anything else means a concurrent newer fit claimed it.
             try:
                 current_pid = lrp.LoadItemFromSessionStore("status", "processID")
-                if current_pid in (None, 0) or current_pid == os.getpid():
+            except Exception:
+                _logging.exception("Could not read processID; assuming we-own-slot")
+                current_pid = None
+            we_own_slot = current_pid in (None, 0) or current_pid == os.getpid()
+
+            if not we_own_slot:
+                _logging.info(
+                    "Child exception; newer fit pid=%s owns slot; leaving session alone",
+                    current_pid,
+                )
+            else:
+                # Don't overwrite a redirect an earlier successful stage
+                # already saved (e.g., RenderOutputHTML succeeded then
+                # the processID-cleanup at line 779 raised).
+                existing_redirect = ""
+                try:
+                    existing_redirect = (
+                        lrp.LoadItemFromSessionStore("status", "redirectToResultsFileOrURL") or ""
+                    )
+                except Exception:
+                    _logging.exception("Could not read existing redirect; assuming none")
+
+                if not existing_redirect:
+                    payload_dict = {
+                        "currentStatus": "An unknown exception has occurred, and an email with "
+                        "details has been sent to the site administrator."
+                    }
+                    if write_succeeded:
+                        payload_dict["redirectToResultsFileOrURL"] = error_html_path
+                    lrp.SaveDictionaryOfItemsToSessionStore("status", payload_dict)
+                else:
+                    _logging.info(
+                        "Exception after redirect already set; preserving existing: %s",
+                        existing_redirect,
+                    )
+
+                # Clear the per-user gate so the user can immediately
+                # retry. Ownership was already verified above.
+                try:
                     lrp.SaveDictionaryOfItemsToSessionStore(
                         "status", {"processID": 0, "dispatched_at": 0}
                     )
-            except Exception:
-                _logging.exception("Could not conditionally clear per-user gate")
+                except Exception:
+                    _logging.exception("Could not clear per-user gate")
         except Exception:
             _logging.exception("Also failed to write terminal error status after child exception")
     finally:
