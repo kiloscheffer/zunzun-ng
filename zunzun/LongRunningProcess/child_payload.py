@@ -148,26 +148,49 @@ def _run_fit_child(payload: ChildPayload) -> None:
                 _logging.exception("Also failed to write static fallback HTML")
 
         try:
-            payload_dict = {
-                "currentStatus": "An unknown exception has occurred, and an email with "
-                "details has been sent to the site administrator."
-            }
-            if write_succeeded:
-                payload_dict["redirectToResultsFileOrURL"] = error_html_path
-            lrp.SaveDictionaryOfItemsToSessionStore("status", payload_dict)
-
-            # Clear the per-user gate so the user can immediately retry,
-            # BUT only if no concurrent fit owns the slot. Our child
-            # never wrote processID (PerformAllWork at line 735 is where
-            # that happens, and we never reached it), so processID != 0
-            # means a concurrent fit under
-            # ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER=True has claimed
-            # the slot — unconditionally clearing would clobber its
-            # tracking and confuse the gate. Matches the conditional
-            # pattern in PerformAllWork's success and finally paths,
-            # adapted to our never-wrote-pid case.
+            # Don't overwrite a redirect an earlier successful stage
+            # already saved. PerformAllWork can succeed all the way
+            # through RenderOutputHTMLToAFileAndSetStatusRedirect (which
+            # sets the success redirect) and THEN raise in the
+            # processID-cleanup at line 779 if that LoadItemFromSessionStore
+            # hits a transient SQLite error. Without this guard we'd
+            # clobber the success-results redirect with our error page
+            # even though the result HTML is on disk and ready to serve.
+            existing_redirect = ""
             try:
-                if lrp.LoadItemFromSessionStore("status", "processID") == 0:
+                existing_redirect = (
+                    lrp.LoadItemFromSessionStore("status", "redirectToResultsFileOrURL") or ""
+                )
+            except Exception:
+                _logging.exception("Could not read existing redirect; assuming none")
+
+            if not existing_redirect:
+                payload_dict = {
+                    "currentStatus": "An unknown exception has occurred, and an email with "
+                    "details has been sent to the site administrator."
+                }
+                if write_succeeded:
+                    payload_dict["redirectToResultsFileOrURL"] = error_html_path
+                lrp.SaveDictionaryOfItemsToSessionStore("status", payload_dict)
+            else:
+                _logging.info(
+                    "Exception after redirect already set; preserving existing: %s",
+                    existing_redirect,
+                )
+
+            # Clear the per-user gate so the user can immediately retry.
+            # Safe-to-clear cases:
+            #   - processID is None   → first-fit session, never written
+            #   - processID is 0      → previous fit cleared cleanly
+            #   - processID == ours   → we own the slot (PerformAllWork
+            #                           wrote it before failing)
+            # Don't clear if some OTHER pid owns it — that means a
+            # concurrent fit under ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER=True
+            # claimed the slot, and clobbering its tracking would confuse
+            # the gate and the status page.
+            try:
+                current_pid = lrp.LoadItemFromSessionStore("status", "processID")
+                if current_pid in (None, 0) or current_pid == os.getpid():
                     lrp.SaveDictionaryOfItemsToSessionStore(
                         "status", {"processID": 0, "dispatched_at": 0}
                     )
