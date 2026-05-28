@@ -32,8 +32,8 @@ pdfmetrics.registerFont(
 import zunzun.forms
 from zunzun import platform_compat
 
-from . import DataObject, DefaultData, ReportsAndGraphs, pid_trace
 from ..parallel_pool import FitPool
+from . import DataObject, DefaultData, ReportsAndGraphs, pid_trace
 from ._unique import (
     new_unique_string,
     page_artifact_filename,
@@ -830,7 +830,9 @@ You must provide any weights you wish to use.
         def _progress(done: int, _total: int) -> None:
             nonlocal countOfReportsRun
             countOfReportsRun = done
-            self.Reports_CheckOneSecondSessionUpdates(countOfReportsRun, totalNumberOfReportsToBeRun)
+            self.Reports_CheckOneSecondSessionUpdates(
+                countOfReportsRun, totalNumberOfReportsToBeRun
+            )
 
         try:
             for returnedValue in self.fit_pool.submit_many(

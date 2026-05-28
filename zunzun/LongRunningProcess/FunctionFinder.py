@@ -17,7 +17,7 @@ import zunzun.forms
 
 from . import ReportsAndGraphs, StatusMonitoredLongRunningProcessPage, pid_trace
 from .child_payload import ChildPayload
-from .StatusMonitoredLongRunningProcessPage import _ReportsPipelineAborted, _json_native
+from .StatusMonitoredLongRunningProcessPage import _json_native, _ReportsPipelineAborted
 
 externalDataCache = pyeq3.dataCache()
 
@@ -586,9 +586,7 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
                         filename=os.path.join(settings.TEMP_FILES_DIR, f"{os.getpid()}.log"),
                         level=logging.DEBUG,
                     )
-                    logging.exception(
-                        "BrokenProcessPool in FunctionFinder.PerformWorkInParallel"
-                    )
+                    logging.exception("BrokenProcessPool in FunctionFinder.PerformWorkInParallel")
                     self.SaveDictionaryOfItemsToSessionStore(
                         "status",
                         {

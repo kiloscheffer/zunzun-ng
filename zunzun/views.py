@@ -446,9 +446,8 @@ def LongRunningProcessView(
     # processID with a recent status-check timestamp (<60s ago). Check happens
     # BEFORE form validation so the user gets a fast "in progress" response
     # rather than being routed through form processing first.
-    if (
-        request.method == "POST"
-        and not getattr(settings, "ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER", True)
+    if request.method == "POST" and not getattr(
+        settings, "ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER", True
     ):
         try:
             running_status = SessionStore(LRP.session_key_status)

@@ -110,12 +110,12 @@ def test_per_worker_memory_estimate_is_200kib_not_750kib():
     """The per-worker mem estimate in get_parallel_process_count divides
     available RAM to compute the ceiling. Modern Python 3.14 + numpy 2.4
     workers use ~140 MB each; we use 200 MB as a conservative budget."""
-    from zunzun import platform_compat
-
     # Read the source to confirm the constant — fragile but explicit.
     # 200_000 KiB ≈ 200 MB. We accept either the literal int or a
     # variable-named constant referencing 200_000.
     import inspect
+
+    from zunzun import platform_compat
 
     src = inspect.getsource(platform_compat.get_parallel_process_count)
     assert "200_000" in src, "Expected per-worker mem estimate of 200_000 KiB in source"

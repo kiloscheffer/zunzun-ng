@@ -19,16 +19,19 @@ def test_perform_all_work_aborts_pipeline_on_reports_failure():
     lrp = StatusMonitoredLongRunningProcessPage()
 
     # Stub out methods that PerformAllWork calls
-    with mock.patch.object(lrp, "SaveDictionaryOfItemsToSessionStore"), \
-         mock.patch.object(lrp, "GenerateListOfWorkItems"), \
-         mock.patch.object(lrp, "PerformWorkInParallel"), \
-         mock.patch.object(lrp, "GenerateListOfOutputReports"), \
-         mock.patch.object(
-             lrp, "CreateOutputReportsInParallelUsingProcessPool",
-             side_effect=_ReportsPipelineAborted(),
-         ), \
-         mock.patch.object(lrp, "CreateReportPDF") as mock_pdf, \
-         mock.patch.object(lrp, "RenderOutputHTMLToAFileAndSetStatusRedirect") as mock_html:
+    with (
+        mock.patch.object(lrp, "SaveDictionaryOfItemsToSessionStore"),
+        mock.patch.object(lrp, "GenerateListOfWorkItems"),
+        mock.patch.object(lrp, "PerformWorkInParallel"),
+        mock.patch.object(lrp, "GenerateListOfOutputReports"),
+        mock.patch.object(
+            lrp,
+            "CreateOutputReportsInParallelUsingProcessPool",
+            side_effect=_ReportsPipelineAborted(),
+        ),
+        mock.patch.object(lrp, "CreateReportPDF") as mock_pdf,
+        mock.patch.object(lrp, "RenderOutputHTMLToAFileAndSetStatusRedirect") as mock_html,
+    ):
         # Should not raise — sentinel is caught by PerformAllWork
         lrp.PerformAllWork()
 
