@@ -118,10 +118,15 @@ class StatisticalDistributions(
             data_x = self.dataObject.IndependentDataArray[0]
 
             def _progress(done: int, _total: int) -> None:
-                # Status fires on every completion; countOfWorkItemsRun bumps
-                # only for fittable distributions inside the loop below.
+                # Status reflects "tasks the pool has finished" (the `done`
+                # arg passed by submit_many), NOT the outer-scope
+                # countOfWorkItemsRun which is incremented after yield —
+                # the old behavior trailed by one and stalled entirely
+                # when many distributions returned falsy. The final
+                # post-loop status write outside this loop still reports
+                # the precise fittable-distribution count.
                 self.WorkItems_CheckOneSecondSessionUpdates(
-                    countOfWorkItemsRun, totalNumberOfWorkItemsToBeRun
+                    done, totalNumberOfWorkItemsToBeRun
                 )
 
             try:

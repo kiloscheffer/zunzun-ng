@@ -663,6 +663,14 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
                                     "status", {"processID": 0, "dispatched_at": 0}
                                 )
                             raise _ReportsPipelineAborted()
+                        except concurrent.futures.CancelledError:
+                            # Pool was shut down via cancel_futures=True
+                            # (CheckIfStillUsed abandoned-fit detection, or
+                            # an early-abort path). Stop draining futures so
+                            # the post-loop status writes don't clobber the
+                            # abandoned-fit state with a normal "X equations
+                            # fitted" message.
+                            return
                         except Exception:
                             self.fit_exception_count += 1
                             del futures[fut]

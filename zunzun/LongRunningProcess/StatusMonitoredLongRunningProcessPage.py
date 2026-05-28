@@ -183,7 +183,6 @@ class NumberedCanvas(canvas.Canvas):
 class StatusMonitoredLongRunningProcessPage(object):
     def __init__(self):
 
-        self.parallelChunkSize = 16
         self.oneSecondTimes = 0
 
         self.inEquationName = ""
@@ -199,7 +198,6 @@ class StatusMonitoredLongRunningProcessPage(object):
 
         self.userInterfaceRequired = True
         self.reniceLevel = 10
-        self.ppCount = 0
         self.completedWorkItemsList = []
         self.boundForm = None
         self.evaluationForm = None
@@ -280,12 +278,6 @@ You must provide any weights you wish to use.
 
     def GenerateListOfWorkItems(self):
         pass
-
-    def GetParallelProcessCount(self):
-        pid_trace.pid_trace()
-        ppCount = platform_compat.get_parallel_process_count()
-        pid_trace.pid_trace()
-        return ppCount
 
     def CreateReportPDF(self):
         pid_trace.pid_trace()
@@ -865,16 +857,24 @@ You must provide any weights you wish to use.
                 countOfReportsRun, totalNumberOfReportsToBeRun
             )
 
+        # Pre-build a name → report dict so per-result lookup is O(1)
+        # instead of an O(N) scan. Reports have unique names within
+        # one fit (see ReportsAndGraphs.FittingReportsDict construction);
+        # if duplicates ever appear, the dict keeps the LAST one
+        # registered (matches the legacy "first match wins" behavior
+        # because we keep adding all reports, last one for each name
+        # ends up in the dict — same effect for unique names).
+        report_by_name = {r.name: r for r in reportsToBeRunInParallel}
+
         try:
             for returnedValue in self.fit_pool.submit_many(
                 worker_fn, reportsToBeRunInParallel, progress=_progress
             ):
-                for report in reportsToBeRunInParallel:
-                    if report.name == returnedValue[0]:
-                        if returnedValue[2]:  # exception during parallel processing
-                            report.exception = True
-                        report.stringList = returnedValue[1]
-                        break
+                report = report_by_name.get(returnedValue[0])
+                if report is not None:
+                    if returnedValue[2]:  # exception during parallel processing
+                        report.exception = True
+                    report.stringList = returnedValue[1]
         except concurrent.futures.process.BrokenProcessPool:
             import logging
 
