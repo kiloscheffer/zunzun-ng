@@ -91,21 +91,40 @@ def _run_fit_child(payload: ChildPayload) -> None:
         import logging as _logging
 
         import settings
+        from django.template.loader import render_to_string
 
         log_path = os.path.join(settings.TEMP_FILES_DIR, f"{os.getpid()}.log")
         _logging.basicConfig(filename=log_path, level=_logging.DEBUG)
         _logging.exception("Child exception in _run_fit_child")
 
+        # Write a terminal error artifact so the polling UI completes.
+        # Without this, StatusUpdateView keeps reporting completed=False
+        # forever because no redirectToResultsFileOrURL is ever set, and
+        # the user is stuck on the status page until the session expires.
+        error_html_path = os.path.join(
+            settings.TEMP_FILES_DIR, f"error_{os.getpid()}.html"
+        )
         try:
+            with open(error_html_path, "w", encoding="utf-8") as f:
+                f.write(
+                    render_to_string(
+                        "zunzun/generic_error.html",
+                        {
+                            "error": "An unknown exception occurred while processing your "
+                            "request. The site administrator has been notified."
+                        },
+                    )
+                )
             lrp.SaveDictionaryOfItemsToSessionStore(
                 "status",
                 {
                     "currentStatus": "An unknown exception has occurred, and an email with "
-                    "details has been sent to the site administrator."
+                    "details has been sent to the site administrator.",
+                    "redirectToResultsFileOrURL": error_html_path,
                 },
             )
         except Exception:
-            _logging.exception("Also failed to write status after child exception")
+            _logging.exception("Also failed to write terminal error status after child exception")
     finally:
         time.sleep(1.0)  # match the existing post-work sleep
         # Child returns (implicit); multiprocessing handles exit code.

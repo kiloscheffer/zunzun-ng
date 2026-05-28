@@ -11,6 +11,7 @@ import zunzun.formConstants
 
 from . import StatusMonitoredLongRunningProcessPage
 from ._unique import page_artifact_path
+from .StatusMonitoredLongRunningProcessPage import _ReportsPipelineAborted
 
 
 class FittingBaseClass(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRunningProcessPage):
@@ -442,6 +443,20 @@ You must provide any weights you wish to use.
             self.SaveDictionaryOfItemsToSessionStore(
                 "status", {"redirectToResultsFileOrURL": error_html_path}
             )
+            # Clear the per-user gate trackers so the user's next fit
+            # isn't blocked by the 300s active-window. Matches the
+            # pattern used in CreateOutputReportsInParallelUsingProcessPool's
+            # BrokenProcessPool handler.
+            if self.LoadItemFromSessionStore("status", "processID") == os.getpid():
+                self.SaveDictionaryOfItemsToSessionStore(
+                    "status", {"processID": 0, "dispatched_at": 0}
+                )
+            # Without this raise, PerformAllWork continues into
+            # PerformWorkInParallel / report generation on an unsolved
+            # equation, and RenderOutputHTMLToAFileAndSetStatusRedirect
+            # at the end of the pipeline unconditionally overwrites the
+            # error redirect with a path to a (broken) results page.
+            raise _ReportsPipelineAborted()
 
     def GetEquationFromNameAndFamily(
         self,

@@ -1144,14 +1144,22 @@ You must provide any weights you wish to use.
 
         pid_trace.pid_trace()
 
+        result_html_path = page_artifact_path(self.dataObject.uniqueString, "html")
         try:
-            f = open(page_artifact_path(self.dataObject.uniqueString, "html"), "w")
-            f.write(
-                render_to_string("zunzun/equation_fit_or_characterizer_results.html", itemsToRender)
+            with open(result_html_path, "w", encoding="utf-8") as f:
+                f.write(
+                    render_to_string(
+                        "zunzun/equation_fit_or_characterizer_results.html", itemsToRender
+                    )
+                )
+            # Only set the redirect after a successful write. Previously
+            # this ran unconditionally, so a render or write failure left
+            # the session pointing at a missing/partial file and
+            # StatusView would 500 when it tried to open it.
+            self.SaveDictionaryOfItemsToSessionStore(
+                "status", {"redirectToResultsFileOrURL": result_html_path}
             )
-            f.flush()
-            f.close()
-        except:
+        except Exception:
             import logging
 
             logging.basicConfig(
@@ -1160,14 +1168,31 @@ You must provide any weights you wish to use.
             )
             logging.exception("Exception rendering HTML to a file")
 
-        self.SaveDictionaryOfItemsToSessionStore(
-            "status",
-            {
-                "redirectToResultsFileOrURL": page_artifact_path(
-                    self.dataObject.uniqueString, "html"
+            # Best-effort terminal error: try writing a tiny generic
+            # error page to the same path so the polling UI completes.
+            # If that also fails (disk full, permission denied), fall
+            # back to a status-text update — polling will at least show
+            # the error message even though the page never finalizes.
+            try:
+                with open(result_html_path, "w", encoding="utf-8") as f:
+                    f.write(
+                        render_to_string(
+                            "zunzun/generic_error.html",
+                            {"error": "An internal error occurred while generating the results page."},
+                        )
+                    )
+                self.SaveDictionaryOfItemsToSessionStore(
+                    "status", {"redirectToResultsFileOrURL": result_html_path}
                 )
-            },
-        )
+            except Exception:
+                logging.exception("Also failed to write generic error HTML")
+                self.SaveDictionaryOfItemsToSessionStore(
+                    "status",
+                    {
+                        "currentStatus": "An internal error occurred while generating the "
+                        "results page. Please try again or contact the administrator."
+                    },
+                )
 
         pid_trace.delete_pid_trace_file()
 
