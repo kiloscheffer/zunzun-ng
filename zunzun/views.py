@@ -440,6 +440,29 @@ def LongRunningProcessView(
         request.session["session_key_status"] = s.session_key
     LRP.session_key_status = request.session["session_key_status"]
 
+    # Per-user "one fit at a time" cap. When ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER
+    # is False (recommended for public deployments), reject a second fit POST
+    # from the same session if the user's status session shows an active
+    # processID with a recent status-check timestamp (<60s ago). Check happens
+    # BEFORE form validation so the user gets a fast "in progress" response
+    # rather than being routed through form processing first.
+    if (
+        request.method == "POST"
+        and not getattr(settings, "ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER", True)
+    ):
+        try:
+            running_status = SessionStore(LRP.session_key_status)
+            running_pid = running_status.get("processID", 0)
+            last_check = running_status.get("time_of_last_status_check", 0)
+            if running_pid and (time.time() - last_check) < 60:
+                return HttpResponse(
+                    "A fit is already in progress for your session. "
+                    "Please wait for it to complete or "
+                    "<a href='/StatusAndResults/'>view its status</a>."
+                )
+        except Exception:
+            pass  # session read failure → fall through and allow new fit
+
     if "session_key_data" not in list(request.session.keys()):
         # sometimes database is momentarily locked, so retry on exception to mitigate
         s = SessionStore()
