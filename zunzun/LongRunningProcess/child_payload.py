@@ -150,20 +150,29 @@ def _run_fit_child(payload: ChildPayload) -> None:
         try:
             payload_dict = {
                 "currentStatus": "An unknown exception has occurred, and an email with "
-                "details has been sent to the site administrator.",
-                # Clear the per-user gate so the user can immediately
-                # retry after seeing the error page. processID was never
-                # written on this path (PerformAllWork at line 735 is
-                # where it would be set) and dispatched_at was set by
-                # the parent before spawning — clearing both makes the
-                # gate at views.LongRunningProcessView release immediately
-                # rather than blocking for the 60s pending-window.
-                "processID": 0,
-                "dispatched_at": 0,
+                "details has been sent to the site administrator."
             }
             if write_succeeded:
                 payload_dict["redirectToResultsFileOrURL"] = error_html_path
             lrp.SaveDictionaryOfItemsToSessionStore("status", payload_dict)
+
+            # Clear the per-user gate so the user can immediately retry,
+            # BUT only if no concurrent fit owns the slot. Our child
+            # never wrote processID (PerformAllWork at line 735 is where
+            # that happens, and we never reached it), so processID != 0
+            # means a concurrent fit under
+            # ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER=True has claimed
+            # the slot — unconditionally clearing would clobber its
+            # tracking and confuse the gate. Matches the conditional
+            # pattern in PerformAllWork's success and finally paths,
+            # adapted to our never-wrote-pid case.
+            try:
+                if lrp.LoadItemFromSessionStore("status", "processID") == 0:
+                    lrp.SaveDictionaryOfItemsToSessionStore(
+                        "status", {"processID": 0, "dispatched_at": 0}
+                    )
+            except Exception:
+                _logging.exception("Could not conditionally clear per-user gate")
         except Exception:
             _logging.exception("Also failed to write terminal error status after child exception")
     finally:

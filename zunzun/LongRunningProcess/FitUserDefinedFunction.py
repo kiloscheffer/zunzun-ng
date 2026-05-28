@@ -105,10 +105,17 @@ class FitUserDefinedFunction(FittingBaseClass.FittingBaseClass):
             itemsToRender["error1"] = str(sys.exc_info()[1])
             itemsToRender["extraText"] = "Please check the text of your User Defined Function."
             error_html_path = page_artifact_path(self.dataObject.uniqueString, "html")
-            f = open(error_html_path, "w")
-            f.write(
-                render_to_string("zunzun/exception_while_fitting_an_equation.html", itemsToRender)
-            )
+            # encoding="utf-8" matches StatusView's reader and the other
+            # terminal-redirect writers. Without it, Windows defaulted
+            # to cp1252 and non-ASCII content in a UDF traceback would
+            # be re-decoded incorrectly by StatusView. The previous open()
+            # also leaked the file handle (no close, no with-block).
+            with open(error_html_path, "w", encoding="utf-8") as f:
+                f.write(
+                    render_to_string(
+                        "zunzun/exception_while_fitting_an_equation.html", itemsToRender
+                    )
+                )
             self.SaveDictionaryOfItemsToSessionStore(
                 "status", {"redirectToResultsFileOrURL": error_html_path}
             )

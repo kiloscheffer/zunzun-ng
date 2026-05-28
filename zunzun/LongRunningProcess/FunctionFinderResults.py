@@ -140,7 +140,8 @@ class FunctionFinderResults(FittingBaseClass.FittingBaseClass):
 
         tempString = render_to_string("zunzun/function_finder_results.html", itemsToRender)
         fileLocation = page_artifact_path(self.dataObject.uniqueString, "html")
-        open(fileLocation, "w").write(tempString)
+        with open(fileLocation, "w", encoding="utf-8") as f:
+            f.write(tempString)
         self.SaveDictionaryOfItemsToSessionStore(
             "status", {"redirectToResultsFileOrURL": fileLocation}
         )
