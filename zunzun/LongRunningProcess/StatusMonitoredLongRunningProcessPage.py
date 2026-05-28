@@ -802,6 +802,22 @@ You must provide any weights you wish to use.
             if self.fit_pool is not None:
                 self.fit_pool.shutdown(wait=True)
                 self.fit_pool = None
+            # Catch-all clear: if any unhandled exception (e.g., a PDF
+            # render bug, an scipy/numpy crash, a session-store DB error)
+            # escapes the try AND isn't _ReportsPipelineAborted, the
+            # success-path and abort-site clears never ran. Without this
+            # finally clear, processID/dispatched_at stay set in the
+            # session and the per-user gate keeps blocking retries until
+            # StatusUpdateView stops refreshing time_of_last_status_check
+            # AND the 300s active-window expires. Conditional on still
+            # owning the pid avoids clobbering a concurrent fit.
+            try:
+                if self.LoadItemFromSessionStore("status", "processID") == os.getpid():
+                    self.SaveDictionaryOfItemsToSessionStore(
+                        "status", {"processID": 0, "dispatched_at": 0}
+                    )
+            except Exception:
+                pass  # finally cleanup must not raise
 
     def CreateOutputReportsInParallelUsingProcessPool(self):
         pid_trace.pid_trace()
