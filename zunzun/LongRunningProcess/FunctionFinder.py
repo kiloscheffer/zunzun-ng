@@ -15,22 +15,35 @@ import settings
 import zunzun.formConstants
 import zunzun.forms
 
+from ..parallel_pool import FitPool
 from . import ReportsAndGraphs, StatusMonitoredLongRunningProcessPage, pid_trace
 from .child_payload import ChildPayload
 from .StatusMonitoredLongRunningProcessPage import _json_native, _ReportsPipelineAborted
 
 externalDataCache = pyeq3.dataCache()
 
+# Per-worker dataCache, installed by FitPool's initializer when
+# FunctionFinder spawns its sub-pool. The initializer assigns the
+# dataCache once at worker startup; parallelWorkFunction reads it
+# from this module-level global instead of receiving it via every
+# submit() call (which would pickle the cache O(N) times per fit).
+_worker_data_cache = None
 
-def parallelWorkFunction(inParameterList, dataCache):
+
+def _install_worker_data_cache(dataCache):
+    """FitPool initializer: install dataCache in worker-global state."""
+    global _worker_data_cache
+    _worker_data_cache = dataCache
+
+
+def parallelWorkFunction(inParameterList):
     """Worker-side fit of a single equation against shared data.
 
-    `dataCache` is passed explicitly rather than read from a module-level
-    global because this function is invoked inside spawned child
-    processes. Fork children inherit module-level state from the parent;
-    spawn children re-import the module from scratch and see a fresh
-    empty dataCache. Passing it in args ensures the child receives the
-    populated version through multiprocessing's pickle handoff.
+    dataCache is read from the module-level ``_worker_data_cache``,
+    installed once per worker by FitPool's initializer
+    (``_install_worker_data_cache``). This avoids pickling the full
+    cache on every submit, which is O(N) IPC overhead for fits with
+    many equations and nontrivial input data.
     """
     try:
         j = eval(
@@ -43,7 +56,7 @@ def parallelWorkFunction(inParameterList, dataCache):
             + inParameterList[2]
             + "')"
         )
-        j.dataCache = dataCache
+        j.dataCache = _worker_data_cache
         j.polyfunctional2DFlags = inParameterList[3]
         j.polyfunctional3DFlags = inParameterList[4]
         j.xPolynomialOrder = inParameterList[5]
@@ -91,9 +104,16 @@ def parallelWorkFunction(inParameterList, dataCache):
 
 
 def serialWorker(obj, inputList, outputList, dataCache):
+    # Install dataCache in parent-process module state so the shared
+    # parallelWorkFunction (which now reads from _worker_data_cache
+    # rather than taking dataCache as an argument) finds it here too.
+    # Parent and spawn workers share the same module name but distinct
+    # module-state instances — this assignment only affects the parent.
+    global _worker_data_cache
+    _worker_data_cache = dataCache
     for i in range(len(inputList)):
         try:
-            result = parallelWorkFunction(inputList[i], dataCache)
+            result = parallelWorkFunction(inputList[i])
             if result[0]:
                 outputList.append(result)
                 obj.countOfSerialWorkItemsRun += 1
@@ -560,62 +580,34 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
         self.totalNumberOfParallelWorkItemsToBeRun = len(self.parallelWorkItemsList)
         self.totalNumberOfSerialWorkItemsToBeRun = len(self.linearFittingList)
 
-        # Submit all non-linear fits to the persistent pool (created by the
-        # base class PerformAllWork). The shared dataCache is passed as the
-        # second argument to parallelWorkFunction because spawn workers cannot
-        # inherit module-level state from the parent.
         dataCache = self.dataObject.equation.dataCache
 
-        # TODO: dataCache is re-pickled for every submitted item, which is
-        # O(N) IPC overhead for FunctionFinder runs with many equations
-        # and nontrivial input data. Consider using
-        # ProcessPoolExecutor(initializer=...) to install dataCache as
-        # worker-side global state once per worker, then submit only
-        # (item,) tuples. Requires extending FitPool to expose the pool's
-        # initializer slot OR adding a "broadcast args" mechanism. Deferred.
         if self.parallelWorkItemsList:
-            futures = {
-                self.fit_pool.submit(parallelWorkFunction, item, dataCache): item
-                for item in self.parallelWorkItemsList
-            }
+            # FunctionFinder uses its OWN FitPool (not the shared
+            # self.fit_pool) so the dataCache can be installed in
+            # worker-global state via the initializer, avoiding O(N)
+            # per-task pickling. The reports/distributions phases keep
+            # using self.fit_pool. Worker startup cost (~1-2s for one
+            # extra round of spawn imports) is more than recovered by
+            # eliminating per-equation cache serialization.
+            ff_pool = FitPool(
+                initializer=_install_worker_data_cache,
+                initargs=(dataCache,),
+            )
+            try:
+                futures = {
+                    ff_pool.submit(parallelWorkFunction, item): item
+                    for item in self.parallelWorkItemsList
+                }
 
-            while futures:
-                try:
-                    done, _ = concurrent.futures.wait(
-                        futures,
-                        timeout=1.0,
-                        return_when=concurrent.futures.FIRST_COMPLETED,
-                    )
-                except concurrent.futures.process.BrokenProcessPool:
-                    import logging
-
-                    logging.basicConfig(
-                        filename=os.path.join(settings.TEMP_FILES_DIR, f"{os.getpid()}.log"),
-                        level=logging.DEBUG,
-                    )
-                    logging.exception("BrokenProcessPool in FunctionFinder.PerformWorkInParallel")
-                    # User-visible error message is always written.
-                    self.SaveDictionaryOfItemsToSessionStore(
-                        "status",
-                        {
-                            "currentStatus": "An internal error occurred during equation "
-                            "fitting. Please try again or contact the administrator.",
-                            "parallelProcessCount": 0,
-                        },
-                    )
-                    # Only clear processID/dispatched_at if this child still
-                    # owns them — avoid clobbering a concurrent fit's tracking.
-                    if self.LoadItemFromSessionStore("status", "processID") == os.getpid():
-                        self.SaveDictionaryOfItemsToSessionStore(
-                            "status", {"processID": 0, "dispatched_at": 0}
-                        )
-                    raise _ReportsPipelineAborted()
-
-                for fut in done:
+                while futures:
                     try:
-                        resultValue = fut.result()
+                        done, _ = concurrent.futures.wait(
+                            futures,
+                            timeout=1.0,
+                            return_when=concurrent.futures.FIRST_COMPLETED,
+                        )
                     except concurrent.futures.process.BrokenProcessPool:
-                        # Same handling as the wait() catch above.
                         import logging
 
                         logging.basicConfig(
@@ -623,9 +615,8 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
                             level=logging.DEBUG,
                         )
                         logging.exception(
-                            "BrokenProcessPool surfaced via .result() in FunctionFinder"
+                            "BrokenProcessPool in FunctionFinder.PerformWorkInParallel"
                         )
-                        # User-visible error message is always written.
                         self.SaveDictionaryOfItemsToSessionStore(
                             "status",
                             {
@@ -634,34 +625,71 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
                                 "parallelProcessCount": 0,
                             },
                         )
-                        # Only clear processID/dispatched_at if this child still
-                        # owns them — avoid clobbering a concurrent fit's tracking.
+                        # Conditional pid/dispatched_at clear (concurrent-fit safety)
                         if self.LoadItemFromSessionStore("status", "processID") == os.getpid():
                             self.SaveDictionaryOfItemsToSessionStore(
                                 "status", {"processID": 0, "dispatched_at": 0}
                             )
                         raise _ReportsPipelineAborted()
-                    except Exception:
-                        # parallelWorkFunction is supposed to catch its own
-                        # exceptions and return [None, mod, cls, ext], but an
-                        # unexpected escape shouldn't kill the loop.
-                        self.fit_exception_count += 1
+
+                    for fut in done:
+                        try:
+                            resultValue = fut.result()
+                        except concurrent.futures.process.BrokenProcessPool:
+                            import logging
+
+                            logging.basicConfig(
+                                filename=os.path.join(
+                                    settings.TEMP_FILES_DIR, f"{os.getpid()}.log"
+                                ),
+                                level=logging.DEBUG,
+                            )
+                            logging.exception(
+                                "BrokenProcessPool surfaced via .result() in FunctionFinder"
+                            )
+                            self.SaveDictionaryOfItemsToSessionStore(
+                                "status",
+                                {
+                                    "currentStatus": "An internal error occurred during equation "
+                                    "fitting. Please try again or contact the administrator.",
+                                    "parallelProcessCount": 0,
+                                },
+                            )
+                            if self.LoadItemFromSessionStore("status", "processID") == os.getpid():
+                                self.SaveDictionaryOfItemsToSessionStore(
+                                    "status", {"processID": 0, "dispatched_at": 0}
+                                )
+                            raise _ReportsPipelineAborted()
+                        except concurrent.futures.CancelledError:
+                            # Pool was shut down via cancel_futures=True
+                            # (CheckIfStillUsed abandoned-fit detection, or
+                            # an early-abort path). Stop draining futures so
+                            # the post-loop status writes don't clobber the
+                            # abandoned-fit state with a normal "X equations
+                            # fitted" message.
+                            return
+                        except Exception:
+                            self.fit_exception_count += 1
+                            del futures[fut]
+                            continue
+
+                        if resultValue[0]:
+                            if len(self.functionFinderResultsList) < self.maxFFResultsListSize:
+                                self.functionFinderResultsList.append(resultValue)
+                            else:
+                                self.functionFinderResultsList.sort()
+                                if self.functionFinderResultsList[-1][0] < self.bestFFResultTracker:
+                                    self.bestFFResultTracker = self.functionFinderResultsList[-1][0]
+                                    self.functionFinderResultsList[-1] = resultValue
+                            self.countOfParallelWorkItemsRun += 1
+                        self.parallelFittingResultsByEquationFamilyDictionary[resultValue[1]][
+                            1
+                        ] += 1
                         del futures[fut]
-                        continue
 
-                    if resultValue[0]:
-                        if len(self.functionFinderResultsList) < self.maxFFResultsListSize:
-                            self.functionFinderResultsList.append(resultValue)
-                        else:
-                            self.functionFinderResultsList.sort()
-                            if self.functionFinderResultsList[-1][0] < self.bestFFResultTracker:
-                                self.bestFFResultTracker = self.functionFinderResultsList[-1][0]
-                                self.functionFinderResultsList[-1] = resultValue
-                        self.countOfParallelWorkItemsRun += 1
-                    self.parallelFittingResultsByEquationFamilyDictionary[resultValue[1]][1] += 1
-                    del futures[fut]
-
-                self.WorkItems_CheckOneSecondSessionUpdates()
+                    self.WorkItems_CheckOneSecondSessionUpdates()
+            finally:
+                ff_pool.shutdown(wait=True)
 
         # Linear fits are very fast — run these in the existing process which
         # saves on interprocess communication overhead.
