@@ -36,6 +36,8 @@ modernization, which `BACKLOG` captures more honestly.
 > "3D broken on Windows" but were unrelated in code and symptom.
 >
 > Historical investigation notes below, preserved for reference.
+>
+> **2026-05-28 addendum.** The `multiprocessing.Pool.apply_async().get()` hang described in the historical notes below — where a silent worker death would block the parent indefinitely — is now structurally fixed by the parallel-perf refactor (spec: `docs/superpowers/specs/2026-05-28-parallel-perf-design.md`). `CreateOutputReportsInParallelUsingProcessPool` was ported to `concurrent.futures.ProcessPoolExecutor`, which raises `BrokenProcessPool` on worker death instead of hanging. The `polynomial_quadratic_3D` scenario runs as part of the default smoke suite (`scripts/smoke_test.py`) and passes on the 22-core Windows acceptance run.
 
 **Symptom (original, now understood to be measurement artifact).**
 When `scripts/smoke_test.py` runs a 3D polynomial-quadratic fit
@@ -490,7 +492,9 @@ them in the same commit would make the rebrand unreviewable. A
 dedicated `nailing-zunzunng-branding` branch with its own spec is
 the right shape for this.
 
-## Investigate lifting the 4-worker cap on spawn platforms
+## ~~Investigate lifting the 4-worker cap on spawn platforms~~ RESOLVED 2026-05-28
+
+> **Resolved 2026-05-28** by `docs/superpowers/specs/2026-05-28-parallel-perf-design.md` (spec) and `docs/superpowers/plans/2026-05-28-parallel-perf.md` (12-task implementation plan). The hardcoded `platform_ceiling = 4 if uses_spawn else cpu_count` is gone; the per-fit worker count is now resolved by `ZUNZUN_MAX_WORKERS` env > `settings.MAX_PARALLEL_WORKERS` > auto-detect `min(cpu_count, available_RAM / 200 MB)`. Empirical 22-core Windows acceptance run (2026-05-28) confirmed full-core utilization without OpenBLAS memory contention — the `FitPool` sets `OMP_NUM_THREADS / OPENBLAS_NUM_THREADS / MKL_NUM_THREADS=1` in spawn workers to prevent the BLAS thread-pool init bomb. Per-worker RSS measured at ~140 MB (vs. the 750 MB pessimistic estimate that motivated the cap). FunctionFinder 2D large scenario: 39.3 s wall time, 4,137 MB peak total RSS (12.9% of 31 GB). See spec §13 for the full acceptance numbers.
 
 **Symptom / constraint.** `platform_compat.get_parallel_process_count`
 hard-caps at 4 workers on spawn platforms (Windows, macOS). On

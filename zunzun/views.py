@@ -440,6 +440,50 @@ def LongRunningProcessView(
         request.session["session_key_status"] = s.session_key
     LRP.session_key_status = request.session["session_key_status"]
 
+    # Per-user "one fit at a time" cap. When ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER
+    # is False (recommended for public deployments), reject a second fit POST
+    # from the same session if the user's status session shows an active
+    # processID with a recent status-check timestamp (<60s ago). Check happens
+    # BEFORE form validation so the user gets a fast "in progress" response
+    # rather than being routed through form processing first.
+    if request.method == "POST" and not getattr(
+        settings, "ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER", True
+    ):
+        try:
+            running_status = SessionStore(LRP.session_key_status)
+            running_pid = running_status.get("processID", 0)
+            last_check = running_status.get("time_of_last_status_check", 0)
+            dispatched_at = running_status.get("dispatched_at", 0)
+            now = time.time()
+            # Block if EITHER:
+            #  - a child has written processID and its heartbeat is fresh
+            #    (within 300s — matches CheckIfStillUsed's abandoned-fit
+            #    threshold so the gate stays consistent: if the system
+            #    considers a fit alive, the cap blocks; once the system
+            #    considers it abandoned, the cap allows replacement). A
+            #    shorter 60s window would let a user close the status tab
+            #    and bypass the cap for the next 240s while the child is
+            #    still running, defeating the one-fit-at-a-time guarantee.
+            #  - a fit was just dispatched (dispatched_at recent) but the
+            #    child hasn't yet written processID — the race window
+            #    between the parent's SetInitialStatusDataIntoSessionVariables
+            #    call and the child's first PerformAllWork status write
+            #    (~50-500ms). dispatched_at is cleared on successful
+            #    completion (PerformAllWork end-of-try), so this doesn't
+            #    falsely block fits that completed in <60s. The pending
+            #    window stays at 60s — it debounces double-clicks, not
+            #    long-running fits.
+            is_active = running_pid and (now - last_check) < 300
+            is_pending = (now - dispatched_at) < 60 and not running_pid
+            if is_active or is_pending:
+                return HttpResponse(
+                    "A fit is already in progress for your session. "
+                    "Please wait for it to complete or "
+                    "<a href='/StatusAndResults/'>view its status</a>."
+                )
+        except Exception:
+            pass  # session read failure → fall through and allow new fit
+
     if "session_key_data" not in list(request.session.keys()):
         # sometimes database is momentarily locked, so retry on exception to mitigate
         s = SessionStore()

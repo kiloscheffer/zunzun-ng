@@ -83,6 +83,44 @@ def test_get_parallel_process_count_under_high_load():
         assert n <= 3
 
 
+def test_get_parallel_process_count_no_longer_caps_at_4_on_spawn_platform(monkeypatch):
+    """Regression sentinel: the 4-cap is removed.
+
+    On a spawn platform with adequate RAM and many cores, the resolver
+    should return more than 4 workers when neither env nor settings
+    explicitly cap it.
+    """
+    monkeypatch.delenv("ZUNZUN_MAX_WORKERS", raising=False)
+    import multiprocessing
+
+    from zunzun import platform_compat
+
+    # Only meaningful on boxes with >4 cores. Skip otherwise.
+    if multiprocessing.cpu_count() <= 4:
+        pytest.skip("test requires a multi-core machine (>4 cores) to be meaningful")
+
+    # Mock psutil to report plenty of free RAM
+    fake_vmem = mock.MagicMock(available=64 * 1024 * 1024 * 1024)  # 64 GB
+    with mock.patch("zunzun.platform_compat.psutil.virtual_memory", return_value=fake_vmem):
+        n = platform_compat.get_parallel_process_count()
+        assert n > 4, f"expected >4 workers on a high-core box with 64GB RAM, got {n}"
+
+
+def test_per_worker_memory_estimate_is_200kib_not_750kib():
+    """The per-worker mem estimate in get_parallel_process_count divides
+    available RAM to compute the ceiling. Modern Python 3.14 + numpy 2.4
+    workers use ~140 MB each; we use 200 MB as a conservative budget."""
+    # Read the source to confirm the constant — fragile but explicit.
+    # 200_000 KiB ≈ 200 MB. We accept either the literal int or a
+    # variable-named constant referencing 200_000.
+    import inspect
+
+    from zunzun import platform_compat
+
+    src = inspect.getsource(platform_compat.get_parallel_process_count)
+    assert "200_000" in src, "Expected per-worker mem estimate of 200_000 KiB in source"
+
+
 def test_set_process_niceness_calls_psutil():
     from zunzun import platform_compat
 
