@@ -125,9 +125,7 @@ class StatisticalDistributions(
                 # when many distributions returned falsy. The final
                 # post-loop status write outside this loop still reports
                 # the precise fittable-distribution count.
-                self.WorkItems_CheckOneSecondSessionUpdates(
-                    done, totalNumberOfWorkItemsToBeRun
-                )
+                self.WorkItems_CheckOneSecondSessionUpdates(done, totalNumberOfWorkItemsToBeRun)
 
             try:
                 for returnedValue in self.fit_pool.submit_many(

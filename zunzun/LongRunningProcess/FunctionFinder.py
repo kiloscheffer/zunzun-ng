@@ -15,10 +15,10 @@ import settings
 import zunzun.formConstants
 import zunzun.forms
 
+from ..parallel_pool import FitPool
 from . import ReportsAndGraphs, StatusMonitoredLongRunningProcessPage, pid_trace
 from .child_payload import ChildPayload
 from .StatusMonitoredLongRunningProcessPage import _json_native, _ReportsPipelineAborted
-from ..parallel_pool import FitPool
 
 externalDataCache = pyeq3.dataCache()
 
@@ -655,10 +655,7 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
                                     "parallelProcessCount": 0,
                                 },
                             )
-                            if (
-                                self.LoadItemFromSessionStore("status", "processID")
-                                == os.getpid()
-                            ):
+                            if self.LoadItemFromSessionStore("status", "processID") == os.getpid():
                                 self.SaveDictionaryOfItemsToSessionStore(
                                     "status", {"processID": 0, "dispatched_at": 0}
                                 )
@@ -681,13 +678,8 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
                                 self.functionFinderResultsList.append(resultValue)
                             else:
                                 self.functionFinderResultsList.sort()
-                                if (
-                                    self.functionFinderResultsList[-1][0]
-                                    < self.bestFFResultTracker
-                                ):
-                                    self.bestFFResultTracker = self.functionFinderResultsList[-1][
-                                        0
-                                    ]
+                                if self.functionFinderResultsList[-1][0] < self.bestFFResultTracker:
+                                    self.bestFFResultTracker = self.functionFinderResultsList[-1][0]
                                     self.functionFinderResultsList[-1] = resultValue
                             self.countOfParallelWorkItemsRun += 1
                         self.parallelFittingResultsByEquationFamilyDictionary[resultValue[1]][
