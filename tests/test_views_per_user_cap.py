@@ -85,3 +85,32 @@ def test_concurrent_fit_allowed_when_stale_processID(client, mocked_process_star
         )
         # Stale → should proceed past the per-user gate
         assert b"already in progress" not in response.content
+
+
+@pytest.mark.django_db
+def test_concurrent_fit_allowed_after_clean_completion(client, mocked_process_start):
+    """ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER=False — after a fit completes
+    cleanly, processID should have been reset to 0 by PerformAllWork's exit
+    path. The next POST must not be blocked."""
+    from django.contrib.sessions.backends.db import SessionStore
+
+    with mock.patch("settings.ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER", False, create=True):
+        client.get("/")
+        # Simulate the state AFTER a successful fit: processID was set during
+        # the fit then explicitly reset to 0 in PerformAllWork's tail.
+        # time_of_last_status_check is still recent (final JS poll).
+        s = SessionStore()
+        s["processID"] = 0  # cleared by base PerformAllWork on success
+        s["time_of_last_status_check"] = time.time()  # final poll was just now
+        s.save()
+        session = client.session
+        session["session_key_status"] = s.session_key
+        session["cookie_test"] = 1
+        session.save()
+
+        response = client.post(
+            "/FitEquation__F__/2/Polynomial/Linear%20Polynomial/",
+            data={"IndependentData": "1 2 3", "DependentData": "1 2 3"},
+        )
+        # No active fit (processID=0) → gate must NOT trigger
+        assert b"already in progress" not in response.content

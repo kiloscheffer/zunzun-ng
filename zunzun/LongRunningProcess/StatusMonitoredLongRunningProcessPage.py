@@ -764,6 +764,16 @@ You must provide any weights you wish to use.
 
             self.RenderOutputHTMLToAFileAndSetStatusRedirect()
 
+            # Clear processID so the per-user "one fit at a time" gate
+            # (views.LongRunningProcessView) doesn't falsely block this
+            # user's next fit. processID is intentionally NOT cleared on
+            # _ReportsPipelineAborted (caught below) or other exceptions:
+            # leaving the failed child PID lets abandoned-fit detection
+            # correlate the failure. FunctionFinder.PerformWorkInParallel
+            # also writes processID:0 at its own end (a no-op overlap with
+            # this write but harmless and historical).
+            self.SaveDictionaryOfItemsToSessionStore("status", {"processID": 0})
+
             pid_trace.delete_pid_trace_file()
         except _ReportsPipelineAborted:
             # The reports phase wrote its own user-visible status message;
