@@ -776,9 +776,7 @@ You must provide any weights you wish to use.
             # FunctionFinder.PerformWorkInParallel also writes processID:0
             # at its own end (a no-op overlap with this write but harmless
             # and historical).
-            self.SaveDictionaryOfItemsToSessionStore(
-                "status", {"processID": 0, "dispatched_at": 0}
-            )
+            self.SaveDictionaryOfItemsToSessionStore("status", {"processID": 0, "dispatched_at": 0})
 
             pid_trace.delete_pid_trace_file()
         except _ReportsPipelineAborted:
