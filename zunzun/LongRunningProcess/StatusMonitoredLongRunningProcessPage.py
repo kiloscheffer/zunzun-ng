@@ -204,7 +204,6 @@ class StatusMonitoredLongRunningProcessPage(object):
         self.boundForm = None
         self.evaluationForm = None
 
-        self.pool = None
         self.fit_pool = None  # type: ignore[var-annotated]
 
         self.characterizerOutputTrueOrReportOutputFalse = False
@@ -908,13 +907,6 @@ You must provide any weights you wish to use.
             if self.fit_pool is not None:
                 self.fit_pool.shutdown(wait=False, cancel_futures=True)
                 self.fit_pool = None
-            # Legacy multiprocessing.Pool path is still used by
-            # StatisticalDistributions until Task 5 migrates it; keep
-            # this branch live alongside the FitPool shutdown above.
-            if self.pool:
-                self.pool.close()
-                self.pool.join()
-                self.pool = None
 
             pid_trace.delete_pid_trace_file()
 
@@ -928,10 +920,6 @@ You must provide any weights you wish to use.
             if self.fit_pool is not None:
                 self.fit_pool.shutdown(wait=False, cancel_futures=True)
                 self.fit_pool = None
-            if self.pool:
-                self.pool.close()
-                self.pool.join()
-                self.pool = None
 
             pid_trace.delete_pid_trace_file()
 
