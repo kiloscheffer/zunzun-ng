@@ -203,3 +203,49 @@ def test_fit_pool_treats_empty_string_blas_env_as_unset(monkeypatch):
 
     with FitPool(max_workers=2):
         assert os.environ.get("OMP_NUM_THREADS") == "1"
+
+
+# Module-level worker functions for initializer tests (must be picklable for spawn)
+
+
+def _set_worker_marker(value):
+    """Test initializer: store a marker in module-level state."""
+    import zunzun.parallel_pool as pp
+
+    pp._test_worker_marker = value
+
+
+def _read_worker_marker(_unused):
+    """Worker task: read whatever the initializer stashed."""
+    import zunzun.parallel_pool as pp
+
+    return getattr(pp, "_test_worker_marker", None)
+
+
+def test_fit_pool_initializer_installs_per_worker_state():
+    """FitPool can pass initializer/initargs through to ProcessPoolExecutor.
+    The initializer runs once per worker; subsequent tasks read whatever
+    the initializer stashed in module-level state."""
+    from zunzun.parallel_pool import FitPool
+
+    with FitPool(
+        max_workers=2,
+        initializer=_set_worker_marker,
+        initargs=("sentinel-value",),
+    ) as pool:
+        results = list(pool.submit_many(_read_worker_marker, [1, 2, 3, 4]))
+
+    # All four tasks should observe the marker that the initializer installed
+    assert all(r == "sentinel-value" for r in results), results
+
+
+def test_fit_pool_initializer_defaults_to_none():
+    """Backward compatibility: callers that don't pass initializer get the
+    legacy behavior (no initializer, plain executor)."""
+    from zunzun.parallel_pool import FitPool
+
+    with FitPool(max_workers=2) as pool:
+        # If no initializer, _test_worker_marker is not set in workers
+        results = list(pool.submit_many(_read_worker_marker, [1, 2]))
+
+    assert all(r is None for r in results), results

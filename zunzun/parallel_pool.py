@@ -93,7 +93,20 @@ class FitPool:
                 self.fit_pool.shutdown(wait=True)
     """
 
-    def __init__(self, max_workers: int | None = None) -> None:
+    def __init__(
+        self,
+        max_workers: int | None = None,
+        initializer: Callable[..., Any] | None = None,
+        initargs: tuple[Any, ...] = (),
+    ) -> None:
+        """Create a FitPool.
+
+        ``initializer`` and ``initargs`` are passed through to
+        ``ProcessPoolExecutor``. The initializer callable runs ONCE per
+        worker at startup, before any submitted task — the standard
+        pattern for installing per-worker shared state (e.g., a large
+        read-only data structure) without pickling it on every submit.
+        """
         if max_workers is not None and max_workers > 0:
             # Explicit value: respect it exactly. resolve_max_workers
             # applies env/settings/auto-detect chain and hardware clamps
@@ -133,6 +146,8 @@ class FitPool:
         self._executor = concurrent.futures.ProcessPoolExecutor(
             max_workers=self.max_workers,
             mp_context=ctx,
+            initializer=initializer,
+            initargs=initargs,
         )
         self._shutdown = False
         _logger.info(
