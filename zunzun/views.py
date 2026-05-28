@@ -267,7 +267,13 @@ def StatusView(request):
             close_old_connections()
 
             if redirect.startswith(settings.TEMP_FILES_DIR):
-                s = open(redirect, "r").read()
+                # encoding="utf-8" matches the writer in
+                # RenderOutputHTMLToAFileAndSetStatusRedirect and
+                # _run_fit_child's terminal-error fallback. Without it,
+                # the default locale encoding (cp1252 on Windows) would
+                # mis-decode any non-ASCII byte in the result HTML.
+                with open(redirect, "r", encoding="utf-8") as f:
+                    s = f.read()
                 return HttpResponse(s)
             else:
                 return HttpResponseRedirect(redirect)

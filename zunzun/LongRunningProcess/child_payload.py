@@ -150,7 +150,16 @@ def _run_fit_child(payload: ChildPayload) -> None:
         try:
             payload_dict = {
                 "currentStatus": "An unknown exception has occurred, and an email with "
-                "details has been sent to the site administrator."
+                "details has been sent to the site administrator.",
+                # Clear the per-user gate so the user can immediately
+                # retry after seeing the error page. processID was never
+                # written on this path (PerformAllWork at line 735 is
+                # where it would be set) and dispatched_at was set by
+                # the parent before spawning — clearing both makes the
+                # gate at views.LongRunningProcessView release immediately
+                # rather than blocking for the 60s pending-window.
+                "processID": 0,
+                "dispatched_at": 0,
             }
             if write_succeeded:
                 payload_dict["redirectToResultsFileOrURL"] = error_html_path
