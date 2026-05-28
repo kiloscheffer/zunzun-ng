@@ -453,7 +453,17 @@ def LongRunningProcessView(
             running_status = SessionStore(LRP.session_key_status)
             running_pid = running_status.get("processID", 0)
             last_check = running_status.get("time_of_last_status_check", 0)
-            if running_pid and (time.time() - last_check) < 60:
+            start_time = running_status.get("start_time", 0)
+            now = time.time()
+            # Block if EITHER:
+            #  - a child has written processID and its heartbeat is fresh, OR
+            #  - a fit was just dispatched (start_time recent) but the child
+            #    hasn't yet written processID — the race window between the
+            #    parent's SetInitialStatusDataIntoSessionVariables call and
+            #    the child's first PerformAllWork status write (~50-500ms).
+            is_active = running_pid and (now - last_check) < 60
+            is_pending = (now - start_time) < 60 and not running_pid
+            if is_active or is_pending:
                 return HttpResponse(
                     "A fit is already in progress for your session. "
                     "Please wait for it to complete or "

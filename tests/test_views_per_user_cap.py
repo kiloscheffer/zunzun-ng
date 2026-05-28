@@ -114,3 +114,36 @@ def test_concurrent_fit_allowed_after_clean_completion(client, mocked_process_st
         )
         # No active fit (processID=0) → gate must NOT trigger
         assert b"already in progress" not in response.content
+
+
+@pytest.mark.django_db
+def test_concurrent_fit_refused_in_pending_window_before_child_writes_pid(client):
+    """ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER=False — between
+    SetInitialStatusDataIntoSessionVariables (which writes start_time
+    and time_of_last_status_check but NOT processID) and the child's
+    first PerformAllWork status write (which writes processID), the
+    status session has a fresh heartbeat but processID=0. A rapid
+    double-submit in this window must still be refused."""
+    from django.contrib.sessions.backends.db import SessionStore
+
+    with mock.patch("settings.ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER", False, create=True):
+        client.get("/")
+        # Simulate the pending window: start_time and last_check are fresh
+        # (parent just dispatched a fit), but processID is still 0 (child
+        # hasn't yet written its PID).
+        s = SessionStore()
+        s["start_time"] = time.time()
+        s["time_of_last_status_check"] = time.time()
+        # processID intentionally NOT set (defaults to absent / 0)
+        s.save()
+        session = client.session
+        session["session_key_status"] = s.session_key
+        session["cookie_test"] = 1
+        session.save()
+
+        response = client.post(
+            "/FitEquation__F__/2/Polynomial/Linear%20Polynomial/",
+            data={"IndependentData": "1 2 3", "DependentData": "1 2 3"},
+        )
+        # Pending state → gate must block
+        assert b"already in progress" in response.content
