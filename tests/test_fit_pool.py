@@ -192,3 +192,15 @@ def test_fit_pool_respects_existing_blas_thread_env(monkeypatch):
         assert os.environ.get("OMP_NUM_THREADS") == "4"
         # Unset vars still get defaulted
         assert os.environ.get("OPENBLAS_NUM_THREADS") == "1"
+
+
+def test_fit_pool_treats_empty_string_blas_env_as_unset(monkeypatch):
+    """An empty-string OMP_NUM_THREADS (which OpenBLAS treats as 'unset, use
+    cpu_count') must be replaced with '1', not preserved. setdefault would
+    incorrectly preserve it."""
+    monkeypatch.setenv("OMP_NUM_THREADS", "")
+
+    from zunzun.parallel_pool import FitPool
+
+    with FitPool(max_workers=2):
+        assert os.environ.get("OMP_NUM_THREADS") == "1"

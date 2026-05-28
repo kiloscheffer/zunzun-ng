@@ -43,6 +43,12 @@ from ._unique import (
 from .child_payload import ChildPayload
 
 
+class _ReportsPipelineAborted(Exception):
+    """Sentinel raised when a parallel phase failure must abort the rest of
+    PerformAllWork (PDF generation, HTML rendering, redirect). Caught only
+    by PerformAllWork itself; never propagates further."""
+
+
 def _json_native(value):
     """Recursively coerce numpy types to plain Python primitives.
 
@@ -760,6 +766,14 @@ You must provide any weights you wish to use.
             self.RenderOutputHTMLToAFileAndSetStatusRedirect()
 
             pid_trace.delete_pid_trace_file()
+        except _ReportsPipelineAborted:
+            # The reports phase wrote its own user-visible status message;
+            # do not run CreateReportPDF or RenderOutputHTML (which would
+            # overwrite that status and produce a broken redirect to an
+            # empty results page). The finally block still tears down the
+            # pool. The status page will continue polling and show the
+            # error indefinitely until the user navigates away.
+            pass
         finally:
             if self.fit_pool is not None:
                 self.fit_pool.shutdown(wait=True)
@@ -831,9 +845,12 @@ You must provide any weights you wish to use.
                 "status",
                 {
                     "currentStatus": "An internal error occurred during report generation. "
-                    "Please try again or contact the administrator."
+                    "Please try again or contact the administrator.",
+                    "parallelProcessCount": 0,
                 },
             )
+            pid_trace.delete_pid_trace_file()
+            raise _ReportsPipelineAborted()
 
         self.SaveDictionaryOfItemsToSessionStore("status", {"parallelProcessCount": 0})
         pid_trace.delete_pid_trace_file()
@@ -891,6 +908,9 @@ You must provide any weights you wish to use.
             if self.fit_pool is not None:
                 self.fit_pool.shutdown(wait=False, cancel_futures=True)
                 self.fit_pool = None
+            # Legacy multiprocessing.Pool path is still used by
+            # StatisticalDistributions until Task 5 migrates it; keep
+            # this branch live alongside the FitPool shutdown above.
             if self.pool:
                 self.pool.close()
                 self.pool.join()
