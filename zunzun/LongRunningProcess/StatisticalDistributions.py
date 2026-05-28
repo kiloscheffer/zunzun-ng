@@ -146,16 +146,21 @@ class StatisticalDistributions(
                     level=logging.DEBUG,
                 )
                 logging.exception("BrokenProcessPool in StatisticalDistributions")
+                # User-visible error message is always written.
                 self.SaveDictionaryOfItemsToSessionStore(
                     "status",
                     {
                         "currentStatus": "An internal error occurred during statistical "
                         "distribution fitting. Please try again or contact the administrator.",
                         "parallelProcessCount": 0,
-                        "processID": 0,
-                        "dispatched_at": 0,
                     },
                 )
+                # Only clear processID/dispatched_at if this child still
+                # owns them — avoid clobbering a concurrent fit's tracking.
+                if self.LoadItemFromSessionStore("status", "processID") == os.getpid():
+                    self.SaveDictionaryOfItemsToSessionStore(
+                        "status", {"processID": 0, "dispatched_at": 0}
+                    )
                 pid_trace.delete_pid_trace_file()
                 raise _ReportsPipelineAborted()
 

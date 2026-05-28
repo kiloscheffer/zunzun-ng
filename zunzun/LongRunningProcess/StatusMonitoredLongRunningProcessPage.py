@@ -776,7 +776,18 @@ You must provide any weights you wish to use.
             # FunctionFinder.PerformWorkInParallel also writes processID:0
             # at its own end (a no-op overlap with this write but harmless
             # and historical).
-            self.SaveDictionaryOfItemsToSessionStore("status", {"processID": 0, "dispatched_at": 0})
+            # Clear processID AND dispatched_at IFF this child still
+            # owns them. When ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER=True
+            # (default), a second fit in the same session may have
+            # overwritten processID with its own pid while we were
+            # rendering. Unconditionally clearing would clobber the
+            # replacement fit's tracking and confuse the status page +
+            # per-user gate. Read-then-conditional-write: clear only if
+            # processID still matches our own pid.
+            if self.LoadItemFromSessionStore("status", "processID") == os.getpid():
+                self.SaveDictionaryOfItemsToSessionStore(
+                    "status", {"processID": 0, "dispatched_at": 0}
+                )
 
             pid_trace.delete_pid_trace_file()
         except _ReportsPipelineAborted:
@@ -856,16 +867,21 @@ You must provide any weights you wish to use.
                 level=logging.DEBUG,
             )
             logging.exception("BrokenProcessPool in CreateOutputReportsInParallelUsingProcessPool")
+            # User-visible error message is always written.
             self.SaveDictionaryOfItemsToSessionStore(
                 "status",
                 {
                     "currentStatus": "An internal error occurred during report generation. "
                     "Please try again or contact the administrator.",
                     "parallelProcessCount": 0,
-                    "processID": 0,
-                    "dispatched_at": 0,
                 },
             )
+            # Only clear processID/dispatched_at if this child still
+            # owns them — avoid clobbering a concurrent fit's tracking.
+            if self.LoadItemFromSessionStore("status", "processID") == os.getpid():
+                self.SaveDictionaryOfItemsToSessionStore(
+                    "status", {"processID": 0, "dispatched_at": 0}
+                )
             pid_trace.delete_pid_trace_file()
             raise _ReportsPipelineAborted()
 
