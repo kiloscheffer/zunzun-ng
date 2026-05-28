@@ -16,6 +16,7 @@ import concurrent.futures
 import logging
 import multiprocessing
 import os
+import sys
 from typing import Any, Callable, Iterable, Iterator
 
 import psutil
@@ -40,6 +41,12 @@ def resolve_max_workers(explicit: int | None = None) -> int:
     mem_kib_available = psutil.virtual_memory().available / 1024.0
     ram_budget = max(1, int(mem_kib_available / 200_000))
     hardware_ceiling = max(1, min(cpu_count, ram_budget))
+
+    # Windows ProcessPoolExecutor raises ValueError if max_workers > 61
+    # (the wait-handle limit on Windows). Clamp before any resolution layer
+    # so env/settings/auto-detect can't exceed it on big Windows boxes.
+    if sys.platform == "win32":
+        hardware_ceiling = min(hardware_ceiling, 61)
 
     if explicit is not None and explicit > 0:
         return max(1, min(explicit, hardware_ceiling))
@@ -87,7 +94,13 @@ class FitPool:
     """
 
     def __init__(self, max_workers: int | None = None) -> None:
-        self.max_workers = resolve_max_workers(max_workers)
+        # Route through platform_compat.get_parallel_process_count so the
+        # pool inherits load-avg throttling (load1 > cpu_count+0.5/1.0/1.5
+        # → 3/2/1 workers) in addition to env/settings/auto-detect. Late
+        # import to avoid a parallel_pool ↔ platform_compat cycle.
+        from zunzun import platform_compat
+
+        self.max_workers = platform_compat.get_parallel_process_count(cpu_cap=max_workers)
 
         # Force single-threaded BLAS in spawn workers to prevent the OpenBLAS
         # thread-pool init memory bomb. Each numpy/scipy import allocates a

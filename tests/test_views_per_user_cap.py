@@ -133,6 +133,7 @@ def test_concurrent_fit_refused_in_pending_window_before_child_writes_pid(client
         # hasn't yet written its PID).
         s = SessionStore()
         s["start_time"] = time.time()
+        s["dispatched_at"] = time.time()  # gate now checks dispatched_at
         s["time_of_last_status_check"] = time.time()
         # processID intentionally NOT set (defaults to absent / 0)
         s.save()
@@ -147,3 +148,34 @@ def test_concurrent_fit_refused_in_pending_window_before_child_writes_pid(client
         )
         # Pending state → gate must block
         assert b"already in progress" in response.content
+
+
+@pytest.mark.django_db
+def test_concurrent_fit_allowed_after_fast_completion(client, mocked_process_start):
+    """ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER=False — a fit that completes
+    in <60s clears dispatched_at and processID. The user's immediate next
+    POST must NOT be blocked even though start_time is still recent."""
+    from django.contrib.sessions.backends.db import SessionStore
+
+    with mock.patch("settings.ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER", False, create=True):
+        client.get("/")
+        # Simulate state immediately after a fast successful fit:
+        # processID and dispatched_at both cleared, but start_time still
+        # holds the fit's start (a recent value).
+        s = SessionStore()
+        s["start_time"] = time.time() - 30  # fit started 30s ago
+        s["time_of_last_status_check"] = time.time() - 5  # final poll 5s ago
+        s["processID"] = 0  # cleared by PerformAllWork on success
+        s["dispatched_at"] = 0  # cleared by PerformAllWork on success
+        s.save()
+        session = client.session
+        session["session_key_status"] = s.session_key
+        session["cookie_test"] = 1
+        session.save()
+
+        response = client.post(
+            "/FitEquation__F__/2/Polynomial/Linear%20Polynomial/",
+            data={"IndependentData": "1 2 3", "DependentData": "1 2 3"},
+        )
+        # Completed fit → both pending and active checks must NOT trigger
+        assert b"already in progress" not in response.content

@@ -764,15 +764,21 @@ You must provide any weights you wish to use.
 
             self.RenderOutputHTMLToAFileAndSetStatusRedirect()
 
-            # Clear processID so the per-user "one fit at a time" gate
-            # (views.LongRunningProcessView) doesn't falsely block this
-            # user's next fit. processID is intentionally NOT cleared on
-            # _ReportsPipelineAborted (caught below) or other exceptions:
-            # leaving the failed child PID lets abandoned-fit detection
-            # correlate the failure. FunctionFinder.PerformWorkInParallel
-            # also writes processID:0 at its own end (a no-op overlap with
-            # this write but harmless and historical).
-            self.SaveDictionaryOfItemsToSessionStore("status", {"processID": 0})
+            # Clear processID AND dispatched_at so the per-user gate
+            # (views.LongRunningProcessView) doesn't block this user's
+            # next fit. Both are intentionally NOT cleared on
+            # _ReportsPipelineAborted or other exception paths: leaving
+            # the dispatch markers lets abandoned-fit detection in
+            # CheckIfStillUsed correlate the failed PID, and lets the
+            # gate's 60s pending window debounce rapid retries after a
+            # crash. start_time is left intact because the status
+            # template uses it for elapsed-time display.
+            # FunctionFinder.PerformWorkInParallel also writes processID:0
+            # at its own end (a no-op overlap with this write but harmless
+            # and historical).
+            self.SaveDictionaryOfItemsToSessionStore(
+                "status", {"processID": 0, "dispatched_at": 0}
+            )
 
             pid_trace.delete_pid_trace_file()
         except _ReportsPipelineAborted:
@@ -919,6 +925,12 @@ You must provide any weights you wish to use.
             if self.fit_pool is not None:
                 self.fit_pool.shutdown(wait=False, cancel_futures=True)
                 self.fit_pool = None
+            # shutdown(cancel_futures=True) only cancels PENDING futures;
+            # workers currently executing a long pyeq3 fit continue until
+            # their task completes. Terminate them immediately so an
+            # abandoned fit doesn't keep consuming CPU/RAM.
+            for p in multiprocessing.active_children():
+                p.terminate()
 
             pid_trace.delete_pid_trace_file()
 
@@ -932,6 +944,12 @@ You must provide any weights you wish to use.
             if self.fit_pool is not None:
                 self.fit_pool.shutdown(wait=False, cancel_futures=True)
                 self.fit_pool = None
+            # shutdown(cancel_futures=True) only cancels PENDING futures;
+            # workers currently executing a long pyeq3 fit continue until
+            # their task completes. Terminate them immediately so an
+            # abandoned fit doesn't keep consuming CPU/RAM.
+            for p in multiprocessing.active_children():
+                p.terminate()
 
             pid_trace.delete_pid_trace_file()
 
@@ -945,6 +963,7 @@ You must provide any weights you wish to use.
                 "time_of_last_status_check": time.time(),
                 "redirectToResultsFileOrURL": "",
                 "parallelProcessCount": 0,
+                "dispatched_at": time.time(),
             },
         )
 
