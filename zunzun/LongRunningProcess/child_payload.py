@@ -208,8 +208,7 @@ def _run_fit_child(payload: ChildPayload) -> None:
 
             if not we_own_slot:
                 _logging.info(
-                    "Child exception; newer fit pid=%s owns slot; leaving session alone",
-                    current_pid,
+                    "Child exception; newer dispatch owns the slot; leaving session alone"
                 )
             else:
                 # Don't overwrite a redirect an earlier successful stage
@@ -223,28 +222,26 @@ def _run_fit_child(payload: ChildPayload) -> None:
                 except Exception:
                     _logging.exception("Could not read existing redirect; assuming none")
 
+                # Bundle redirect/status + gate-clear into ONE atomic
+                # SaveDictionaryOfItemsToSessionStore call. Previous
+                # code did two separate saves with a race window in
+                # between, during which a newer fit could write its
+                # own processID/dispatched_at — the second clear save
+                # would then wipe the newer fit's tracking.
+                payload_dict: dict[str, Any] = {"processID": 0, "dispatched_at": 0}
                 if not existing_redirect:
-                    payload_dict = {
-                        "currentStatus": "An unknown exception has occurred, and an email with "
+                    payload_dict["currentStatus"] = (
+                        "An unknown exception has occurred, and an email with "
                         "details has been sent to the site administrator."
-                    }
+                    )
                     if write_succeeded:
                         payload_dict["redirectToResultsFileOrURL"] = error_html_path
-                    lrp.SaveDictionaryOfItemsToSessionStore("status", payload_dict)
                 else:
                     _logging.info(
                         "Exception after redirect already set; preserving existing: %s",
                         existing_redirect,
                     )
-
-                # Clear the per-user gate so the user can immediately
-                # retry. Ownership was already verified above.
-                try:
-                    lrp.SaveDictionaryOfItemsToSessionStore(
-                        "status", {"processID": 0, "dispatched_at": 0}
-                    )
-                except Exception:
-                    _logging.exception("Could not clear per-user gate")
+                lrp.SaveDictionaryOfItemsToSessionStore("status", payload_dict)
         except Exception:
             _logging.exception("Also failed to write terminal error status after child exception")
     finally:
