@@ -696,15 +696,14 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
 
         self.functionFinderResultsList.sort()  # uses the default sort on list element zero
 
-        # done fitting, don't block on process ID now - see SMLRPP.CheckIfStillUsed()
-        # Clear BOTH processID and dispatched_at atomically: if we clear only
-        # processID, the base PerformAllWork's end-of-success cleanup (which is
-        # also gated on processID == os.getpid()) will skip clearing
-        # dispatched_at because we just nulled the precondition — leaving a
-        # stale dispatched_at that defeats the per-user gate for ~60s.
-        # Only clear if this child still owns the pid (concurrent-fit safety).
-        if self.LoadItemFromSessionStore("status", "processID") == os.getpid():
-            self.SaveDictionaryOfItemsToSessionStore("status", {"processID": 0, "dispatched_at": 0})
+        # The legacy code cleared processID here to bypass CheckIfStillUsed
+        # during the chunked-pool report phase. With the FitPool refactor,
+        # CheckIfStillUsed correctly compares processID against os.getpid()
+        # (no teardown when they match), and the base PerformAllWork's
+        # end-of-success cleanup clears processID + dispatched_at together
+        # AFTER RenderOutputHTMLToAFileAndSetStatusRedirect. Clearing here
+        # would prematurely allow a second concurrent fit to be accepted
+        # during the (small but real) post-PerformWorkInParallel window.
 
     def WorkItems_CheckOneSecondSessionUpdates(self):
         sortedFamilyNameList = sorted(self.parallelFittingResultsByEquationFamilyDictionary.keys())

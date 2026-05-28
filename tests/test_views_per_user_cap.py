@@ -65,14 +65,15 @@ def test_concurrent_fit_refused_when_flag_false_and_recent_fit(client):
 @pytest.mark.django_db
 def test_concurrent_fit_allowed_when_stale_processID(client, mocked_process_start):
     """ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER=False — but the previous fit
-    is stale (last status check >60s ago) → allow."""
+    is stale (last status check >300s ago, matching CheckIfStillUsed's
+    abandoned-fit threshold) → allow."""
     from django.contrib.sessions.backends.db import SessionStore
 
     with mock.patch("settings.ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER", False, create=True):
         client.get("/")
         s = SessionStore()
         s["processID"] = 12345
-        s["time_of_last_status_check"] = time.time() - 120  # 2 minutes ago
+        s["time_of_last_status_check"] = time.time() - 400  # ~7 minutes ago (> 300s threshold)
         s.save()
         session = client.session
         session["session_key_status"] = s.session_key
