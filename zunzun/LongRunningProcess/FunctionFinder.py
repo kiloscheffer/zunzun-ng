@@ -56,6 +56,15 @@ def parallelWorkFunction(inParameterList):
             + inParameterList[2]
             + "')"
         )
+        # _worker_data_cache is installed by _install_worker_data_cache
+        # (FitPool initializer) in spawn workers, and by serialWorker in
+        # the parent process. If neither has run, fail loudly rather than
+        # silently producing a [None, ...] result that climbs fit_exception_count.
+        if _worker_data_cache is None:
+            raise RuntimeError(
+                "parallelWorkFunction called before _worker_data_cache was "
+                "installed; pool initializer or serialWorker must run first"
+            )
         j.dataCache = _worker_data_cache
         j.polyfunctional2DFlags = inParameterList[3]
         j.polyfunctional3DFlags = inParameterList[4]
@@ -104,13 +113,12 @@ def parallelWorkFunction(inParameterList):
 
 
 def serialWorker(obj, inputList, outputList, dataCache):
-    # Install dataCache in parent-process module state so the shared
-    # parallelWorkFunction (which now reads from _worker_data_cache
-    # rather than taking dataCache as an argument) finds it here too.
-    # Parent and spawn workers share the same module name but distinct
-    # module-state instances — this assignment only affects the parent.
-    global _worker_data_cache
-    _worker_data_cache = dataCache
+    # Install dataCache in parent-process module state via the same
+    # initializer the spawn workers use. Single source of truth for the
+    # install pattern — parent and spawn workers share the module name
+    # but distinct module-state instances, and the assignment only
+    # affects whichever process is calling.
+    _install_worker_data_cache(dataCache)
     for i in range(len(inputList)):
         try:
             result = parallelWorkFunction(inputList[i])
@@ -134,6 +142,8 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
         super().__init__()
         self.interfaceString = "zunzun/function_finder_interface.html"
         self.reniceLevel = 19
+
+        self.ff_pool = None  # set in PerformWorkInParallel; cleared in finally
 
         self.equationName = None
         self.dictionaryOf_BothGoodAndBadCacheData_Flags = {}
@@ -590,13 +600,18 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
             # using self.fit_pool. Worker startup cost (~1-2s for one
             # extra round of spawn imports) is more than recovered by
             # eliminating per-equation cache serialization.
-            ff_pool = FitPool(
+            self.ff_pool = FitPool(
                 initializer=_install_worker_data_cache,
                 initargs=(dataCache,),
             )
+            ff_pool_error = False
             try:
+                # `futures` is a set, not a dict — the parallelWorkItem
+                # tuple itself is never read after submit (the drain loop
+                # only consumes fut.result()), so retaining N item refs in
+                # a dict value was O(N) wasted memory.
                 futures = {
-                    ff_pool.submit(parallelWorkFunction, item): item
+                    self.ff_pool.submit(parallelWorkFunction, item)
                     for item in self.parallelWorkItemsList
                 }
 
@@ -608,6 +623,7 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
                             return_when=concurrent.futures.FIRST_COMPLETED,
                         )
                     except concurrent.futures.process.BrokenProcessPool:
+                        ff_pool_error = True
                         import logging
 
                         logging.basicConfig(
@@ -630,12 +646,14 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
                             self.SaveDictionaryOfItemsToSessionStore(
                                 "status", {"processID": 0, "dispatched_at": 0}
                             )
+                        pid_trace.delete_pid_trace_file()
                         raise _ReportsPipelineAborted()
 
                     for fut in done:
                         try:
                             resultValue = fut.result()
                         except concurrent.futures.process.BrokenProcessPool:
+                            ff_pool_error = True
                             import logging
 
                             logging.basicConfig(
@@ -659,18 +677,20 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
                                 self.SaveDictionaryOfItemsToSessionStore(
                                     "status", {"processID": 0, "dispatched_at": 0}
                                 )
+                            pid_trace.delete_pid_trace_file()
                             raise _ReportsPipelineAborted()
                         except concurrent.futures.CancelledError:
                             # Pool was shut down via cancel_futures=True
-                            # (CheckIfStillUsed abandoned-fit detection, or
-                            # an early-abort path). Stop draining futures so
-                            # the post-loop status writes don't clobber the
-                            # abandoned-fit state with a normal "X equations
-                            # fitted" message.
-                            return
+                            # (CheckIfStillUsed abandoned-fit detection now
+                            # cancels self.ff_pool explicitly — see
+                            # CheckIfStillUsed). Raise _ReportsPipelineAborted
+                            # (not return) so base PerformAllWork skips
+                            # RenderOutputHTML and doesn't write a redirect
+                            # to an empty results page.
+                            raise _ReportsPipelineAborted()
                         except Exception:
                             self.fit_exception_count += 1
-                            del futures[fut]
+                            futures.discard(fut)
                             continue
 
                         if resultValue[0]:
@@ -685,11 +705,26 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
                         self.parallelFittingResultsByEquationFamilyDictionary[resultValue[1]][
                             1
                         ] += 1
-                        del futures[fut]
+                        futures.discard(fut)
 
                     self.WorkItems_CheckOneSecondSessionUpdates()
             finally:
-                ff_pool.shutdown(wait=True)
+                if self.ff_pool is not None:
+                    # On error, cancel pending and don't wait for in-flight
+                    # workers (they may be running multi-minute pyeq3 fits
+                    # the user will never see the result of). On success,
+                    # wait=True for clean teardown.
+                    if ff_pool_error:
+                        self.ff_pool.shutdown(wait=False, cancel_futures=True)
+                    else:
+                        self.ff_pool.shutdown(wait=True)
+                    self.ff_pool = None
+                # Reset the parent-process module global so the dataCache
+                # ref is releasable through the rest of PerformAllWork
+                # (PDF gen, HTML render, redirect). serialWorker (if it
+                # runs again later) reinstalls it.
+                global _worker_data_cache
+                _worker_data_cache = None
 
         # Linear fits are very fast — run these in the existing process which
         # saves on interprocess communication overhead.

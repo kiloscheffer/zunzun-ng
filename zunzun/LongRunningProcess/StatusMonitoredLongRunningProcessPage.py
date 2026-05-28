@@ -957,6 +957,10 @@ You must provide any weights you wish to use.
             if self.fit_pool is not None:
                 self.fit_pool.shutdown(wait=False, cancel_futures=True)
                 self.fit_pool = None
+            # FunctionFinder's per-fit sub-pool, if present
+            if getattr(self, "ff_pool", None) is not None:
+                self.ff_pool.shutdown(wait=False, cancel_futures=True)
+                self.ff_pool = None
             # shutdown(cancel_futures=True) only cancels PENDING futures;
             # workers currently executing a long pyeq3 fit continue until
             # their task completes. Terminate them immediately so an
@@ -976,6 +980,10 @@ You must provide any weights you wish to use.
             if self.fit_pool is not None:
                 self.fit_pool.shutdown(wait=False, cancel_futures=True)
                 self.fit_pool = None
+            # FunctionFinder's per-fit sub-pool, if present
+            if getattr(self, "ff_pool", None) is not None:
+                self.ff_pool.shutdown(wait=False, cancel_futures=True)
+                self.ff_pool = None
             # shutdown(cancel_futures=True) only cancels PENDING futures;
             # workers currently executing a long pyeq3 fit continue until
             # their task completes. Terminate them immediately so an
