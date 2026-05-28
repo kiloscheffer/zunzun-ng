@@ -180,6 +180,27 @@ _FF_EXPECTED_MARKERS = [
     "Rank 1",
 ]
 
+# Larger FunctionFinder 2D scenario for the parallel-perf acceptance run.
+# BioScience + Exponential STANDARD families with smoothnessControl=5
+# typically yield ~80-200 nonlinear-fittable equations — enough work to
+# meaningfully exercise the persistent FitPool's worker reuse across many
+# task chunks. Used by the --scenario=function-finder-2D-large opt-in
+# (default smoke runs the smaller _FF_2D_FIELDS scenario).
+_FF_2D_LARGE_FIELDS = {
+    "commaConversion": "I",
+    "dataNameX": "X Data",
+    "dataNameY": "Y Data",
+    "smoothnessControl2D": "5",
+    "smoothnessExactOrMax": "M",
+    "equationFamilyInclusion": ["BioScience", "Exponential"],
+    "extendedEquationTypes": ["STANDARD"],
+    "fittingTarget": "SSQABS",
+    "logLinX": "LIN",
+    "logLinY": "LIN",
+    "logLinZ": "LIN",
+    "textDataEditor": _DATA_2D_FF,
+}
+
 _CHAR_2D_FIELDS = {
     "commaConversion": "I",
     "dataNameX": "X Data",
@@ -507,7 +528,7 @@ def _run_ff_detail_scenario(
     return _check_markers(name, body, _POLY_EXPECTED_MARKERS)
 
 
-def run_smoke() -> int:
+def run_smoke(scenario: str = "default") -> int:
     port = _find_free_port()
     base = f"http://127.0.0.1:{port}"
     proc = subprocess.Popen(["waitress-serve", f"--listen=127.0.0.1:{port}", "wsgi:application"])
@@ -520,6 +541,40 @@ def run_smoke() -> int:
         session.get(base + "/")  # establish session cookie
 
         errors = []
+
+        # Opt-in scenarios for the parallel-perf acceptance run. The
+        # 'default' value runs the full historical smoke sequence (~14
+        # scenarios) which already includes a smaller function_finder_2D
+        # scenario. Specific scenarios run ONLY that scenario in isolation.
+        if scenario == "function-finder-2D-large":
+            try:
+                print("[function-finder-2D-large] starting")
+                t_start = time.time()
+                err = _run_scenario(
+                    session,
+                    base,
+                    "function-finder-2D-large",
+                    base + "/FunctionFinder__F__/2/",
+                    _FF_2D_LARGE_FIELDS,
+                    _FF_EXPECTED_MARKERS,
+                    timeout_s=900,
+                )
+                wall = time.time() - t_start
+                if err:
+                    errors.append(err)
+                else:
+                    print(f"[function-finder-2D-large] OK in {wall:.1f}s")
+            except Exception as e:
+                errors.append(f"[function-finder-2D-large] exception: {e!r}")
+
+            # Skip the rest of the default sequence in this mode
+            if errors:
+                print("SMOKE FAILED:")
+                for err in errors:
+                    print(f"  {err}")
+                return 1
+            print("SMOKE OK: function-finder-2D-large scenario passed")
+            return 0
 
         # Scenario 1: direct polynomial-quadratic fit
         err = _run_scenario(
@@ -739,4 +794,19 @@ def run_smoke() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(run_smoke())
+    import argparse
+
+    parser = argparse.ArgumentParser(description="ZunZunNG smoke test")
+    parser.add_argument(
+        "--scenario",
+        choices=["default", "function-finder-2D-large"],
+        default="default",
+        help=(
+            "Which smoke scenarios to run. 'default' runs the full ~14-scenario "
+            "sequence (most regressions). 'function-finder-2D-large' runs ONLY "
+            "the larger FunctionFinder scenario in isolation, useful for "
+            "parallel-perf acceptance runs."
+        ),
+    )
+    args = parser.parse_args()
+    sys.exit(run_smoke(scenario=args.scenario))
