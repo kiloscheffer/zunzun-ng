@@ -104,3 +104,19 @@ MEDIA_URL = "/temp/"
 TEMP_FILES_DIR = os.path.join(ROOT_PATH, "temp")
 MEDIA_ROOT = TEMP_FILES_DIR
 MAX_TEMP_DIR_SIZE_IN_MBYTES = 500  # default 500 megabytes maximum
+
+# Maximum worker processes a single fit may use concurrently. Used by the
+# per-fit FitPool inside the LRP child. Resolution order:
+#   1. ZUNZUN_MAX_WORKERS env var (must be positive int).
+#   2. MAX_PARALLEL_WORKERS below (must be positive int).
+#   3. Auto-detect min(cpu_count, available_RAM_KiB / 200_000).
+# Result is always clamped to the hardware ceiling. Set None to disable
+# this layer of override and rely on env-var-or-auto-detect.
+MAX_PARALLEL_WORKERS = None
+
+# If True (default — convenient for local single-user development), one
+# user can launch multiple fits concurrently. If False (recommended for
+# public-facing deployments), a second fit POST from the same session is
+# refused with a "fit in progress" HTML response while the first is still
+# running.
+ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER = True
