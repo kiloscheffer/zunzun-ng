@@ -1,7 +1,7 @@
+import concurrent.futures.process
 import inspect
 import io
 import math
-import multiprocessing
 import os
 import random
 import sys
@@ -12,10 +12,12 @@ import pyeq3
 import scipy
 import scipy.stats
 
+import settings
 import zunzun.forms
 
 from . import ReportsAndGraphs, StatusMonitoredLongRunningProcessPage, pid_trace
 from .child_payload import ChildPayload
+from .StatusMonitoredLongRunningProcessPage import _ReportsPipelineAborted
 
 
 def parallelWorkFunction(distributionName, data, sortCriteriaName):
@@ -105,21 +107,6 @@ class StatisticalDistributions(
         countOfWorkItemsRun = 0
         totalNumberOfWorkItemsToBeRun = len(self.parallelWorkItemsList)
 
-        begin = -self.parallelChunkSize
-        end = 0
-        indices = []
-
-        chunks = totalNumberOfWorkItemsToBeRun // self.parallelChunkSize
-        modulus = totalNumberOfWorkItemsToBeRun % self.parallelChunkSize
-
-        for i in range(chunks):
-            begin += self.parallelChunkSize
-            end += self.parallelChunkSize
-            indices.append([begin, end])
-
-        if modulus:
-            indices.append([end, end + 1 + modulus])
-
         # sort order here
         calculateCriteriaForUseInListSorting = "nnlf"
         if "AIC" == self.dataObject.statisticalDistributionsSortBy:
@@ -127,35 +114,48 @@ class StatisticalDistributions(
         if "AICc_BA" == self.dataObject.statisticalDistributionsSortBy:
             calculateCriteriaForUseInListSorting = "AICc_BA"
 
-        for i in indices:
-            parallelChunkResultsList = []
-            self.pool = multiprocessing.Pool(self.GetParallelProcessCount())
+        if self.parallelWorkItemsList:
+            data_x = self.dataObject.IndependentDataArray[0]
 
-            for item in self.parallelWorkItemsList[i[0] : i[1]]:
-                parallelChunkResultsList.append(
-                    self.pool.apply_async(
-                        parallelWorkFunction,
-                        (
-                            item,
-                            self.dataObject.IndependentDataArray[0],
-                            calculateCriteriaForUseInListSorting,
-                        ),
-                    )
-                )
-
-            for r in parallelChunkResultsList:
-                returnedValue = r.get()
-                if not returnedValue:
-                    continue
-                countOfWorkItemsRun += 1
-                self.completedWorkItemsList.append(returnedValue)
+            def _progress(done: int, _total: int) -> None:
+                # Status fires on every completion; countOfWorkItemsRun bumps
+                # only for fittable distributions inside the loop below.
                 self.WorkItems_CheckOneSecondSessionUpdates(
                     countOfWorkItemsRun, totalNumberOfWorkItemsToBeRun
                 )
 
-            self.pool.close()
-            self.pool.join()
-            self.pool = None
+            try:
+                for returnedValue in self.fit_pool.submit_many(
+                    parallelWorkFunction,
+                    self.parallelWorkItemsList,
+                    data_x,
+                    calculateCriteriaForUseInListSorting,
+                    progress=_progress,
+                ):
+                    if not returnedValue:
+                        # Distribution couldn't be fit (returned 0/None).
+                        # Skip — matches legacy `if not returnedValue: continue`.
+                        continue
+                    countOfWorkItemsRun += 1
+                    self.completedWorkItemsList.append(returnedValue)
+            except concurrent.futures.process.BrokenProcessPool:
+                import logging
+
+                logging.basicConfig(
+                    filename=os.path.join(settings.TEMP_FILES_DIR, f"{os.getpid()}.log"),
+                    level=logging.DEBUG,
+                )
+                logging.exception("BrokenProcessPool in StatisticalDistributions")
+                self.SaveDictionaryOfItemsToSessionStore(
+                    "status",
+                    {
+                        "currentStatus": "An internal error occurred during statistical "
+                        "distribution fitting. Please try again or contact the administrator.",
+                        "parallelProcessCount": 0,
+                    },
+                )
+                pid_trace.delete_pid_trace_file()
+                raise _ReportsPipelineAborted()
 
         # final save is outside the 'one second updates'. Clearing
         # parallelProcessCount drops the indicator now that no pool is active.
