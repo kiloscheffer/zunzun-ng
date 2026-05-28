@@ -152,11 +152,7 @@ class StatisticalDistributions(
                 # Gate currentStatus + gate-clear on dispatch ownership.
                 # If a newer fit took over the slot, our generic-error
                 # status would override the newer fit's running display.
-                if self.LoadItemFromSessionStore(
-                    "status", "processID"
-                ) == os.getpid() and self.LoadItemFromSessionStore(
-                    "status", "dispatched_at"
-                ) == getattr(self, "dispatched_at", None):
+                if self._we_own_status_slot():
                     self.SaveDictionaryOfItemsToSessionStore(
                         "status",
                         {

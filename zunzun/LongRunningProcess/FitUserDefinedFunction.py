@@ -123,11 +123,7 @@ class FitUserDefinedFunction(FittingBaseClass.FittingBaseClass):
             # completed with our UDF error page. SystemExit bypasses
             # _run_fit_child's ownership-verified handler, so this is
             # the only place where the check can happen for this path.
-            if self.LoadItemFromSessionStore(
-                "status", "processID"
-            ) == os.getpid() and self.LoadItemFromSessionStore(
-                "status", "dispatched_at"
-            ) == getattr(self, "dispatched_at", None):
+            if self._we_own_status_slot():
                 self.SaveDictionaryOfItemsToSessionStore(
                     "status",
                     {

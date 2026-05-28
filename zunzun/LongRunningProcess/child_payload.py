@@ -197,7 +197,20 @@ def _run_fit_child(payload: ChildPayload) -> None:
                 except Exception:
                     _logging.exception("Could not read session dispatched_at; assuming we-own-slot")
                     current_dispatch = payload.dispatch_id
-                we_own_slot = current_dispatch == payload.dispatch_id
+                # current_dispatch in (None, 0, 0.0) means no dispatch
+                # is currently claiming the slot — either session expired
+                # mid-fit and was re-created, or PerformAllWork's finally
+                # already cleared it. Treat as "we own" so the terminal
+                # redirect still publishes; if a NEWER dispatch claimed
+                # the slot, current_dispatch would be a positive float
+                # different from ours and the check below would correctly
+                # mark us not-owners. Mirrors the legacy pid-fallback
+                # below which treats current_pid in (None, 0) as owned.
+                we_own_slot = current_dispatch == payload.dispatch_id or current_dispatch in (
+                    None,
+                    0,
+                    0.0,
+                )
             else:
                 try:
                     current_pid = lrp.LoadItemFromSessionStore("status", "processID")

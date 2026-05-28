@@ -637,11 +637,7 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
                         # dispatch ownership. If a newer fit took over,
                         # our generic-error status would override its
                         # running status display.
-                        if self.LoadItemFromSessionStore(
-                            "status", "processID"
-                        ) == os.getpid() and self.LoadItemFromSessionStore(
-                            "status", "dispatched_at"
-                        ) == getattr(self, "dispatched_at", None):
+                        if self._we_own_status_slot():
                             self.SaveDictionaryOfItemsToSessionStore(
                                 "status",
                                 {
@@ -673,11 +669,7 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
                             )
                             # Gate currentStatus + gate-clear on
                             # dispatch ownership.
-                            if self.LoadItemFromSessionStore(
-                                "status", "processID"
-                            ) == os.getpid() and self.LoadItemFromSessionStore(
-                                "status", "dispatched_at"
-                            ) == getattr(self, "dispatched_at", None):
+                            if self._we_own_status_slot():
                                 self.SaveDictionaryOfItemsToSessionStore(
                                     "status",
                                     {

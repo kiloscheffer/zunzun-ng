@@ -457,11 +457,7 @@ You must provide any weights you wish to use.
             # redirect would clobber the newer fit's polling and make
             # it appear completed with our error page. The pid+dispatch
             # check decides whether we are still the active dispatch.
-            if self.LoadItemFromSessionStore(
-                "status", "processID"
-            ) == os.getpid() and self.LoadItemFromSessionStore(
-                "status", "dispatched_at"
-            ) == getattr(self, "dispatched_at", None):
+            if self._we_own_status_slot():
                 self.SaveDictionaryOfItemsToSessionStore(
                     "status",
                     {

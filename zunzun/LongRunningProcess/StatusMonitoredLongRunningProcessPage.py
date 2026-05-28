@@ -742,6 +742,27 @@ You must provide any weights you wish to use.
 
         return returnItem
 
+    def _we_own_status_slot(self):
+        """True iff this child still owns the shared status session.
+
+        Dual identity check: both `processID` AND `dispatched_at` must
+        match our own. processID alone is insufficient because a newer
+        fit's SetInitialStatusDataIntoSessionVariables in the parent
+        overwrites session.dispatched_at without touching processID;
+        an older child clearing the slot on a pid-only match would
+        clobber the newer fit's tracking.
+
+        Used to gate every shared-session write on failure/abort
+        paths. Sites that called inline `if processID == os.getpid()
+        and dispatched_at == self.dispatched_at:` should call this
+        helper instead — see commit history for the 7 sites that drift
+        otherwise.
+        """
+        return (
+            self.LoadItemFromSessionStore("status", "processID") == os.getpid()
+            and self.LoadItemFromSessionStore("status", "dispatched_at") == self.dispatched_at
+        )
+
     def PerformAllWork(self):
         pid_trace.pid_trace()
 
@@ -792,11 +813,7 @@ You must provide any weights you wish to use.
             # would then clobber the replacement fit's dispatch markers.
             # Dual check on pid AND dispatched_at preserves the newer
             # fit's tracking.
-            if self.LoadItemFromSessionStore(
-                "status", "processID"
-            ) == os.getpid() and self.LoadItemFromSessionStore(
-                "status", "dispatched_at"
-            ) == getattr(self, "dispatched_at", None):
+            if self._we_own_status_slot():
                 self.SaveDictionaryOfItemsToSessionStore(
                     "status", {"processID": 0, "dispatched_at": 0}
                 )
@@ -913,11 +930,7 @@ You must provide any weights you wish to use.
             # Gate currentStatus + gate-clear on dispatch ownership.
             # If a newer fit took over the slot, our generic-error
             # status would clobber the newer fit's running display.
-            if self.LoadItemFromSessionStore(
-                "status", "processID"
-            ) == os.getpid() and self.LoadItemFromSessionStore(
-                "status", "dispatched_at"
-            ) == getattr(self, "dispatched_at", None):
+            if self._we_own_status_slot():
                 self.SaveDictionaryOfItemsToSessionStore(
                     "status",
                     {
@@ -1237,7 +1250,20 @@ You must provide any weights you wish to use.
                 except Exception:
                     logging.exception("Also failed to write static fallback HTML")
 
-        if write_succeeded:
+        # Gate the success-terminal session write on dispatch ownership
+        # (same contract as every failure-path write). Without this, an
+        # older fit that's still in RenderOutputHTML while a newer fit's
+        # SetInitial overwrites session.dispatched_at would publish its
+        # results-page redirect into the newer fit's shared session —
+        # StatusUpdateView would mark the newer fit completed with the
+        # older fit's results page. The PerformAllWork success-path
+        # gate-clear later happens AFTER this method returns, so we
+        # need the check here at the actual write site. If we don't
+        # own the slot, the file we wrote to disk is harmless and the
+        # newer fit's outcome drives the polling UI.
+        if not self._we_own_status_slot():
+            pass  # newer dispatch owns slot; leave shared session alone
+        elif write_succeeded:
             self.SaveDictionaryOfItemsToSessionStore(
                 "status", {"redirectToResultsFileOrURL": result_html_path}
             )
