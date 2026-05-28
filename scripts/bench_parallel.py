@@ -36,11 +36,11 @@ import os
 import sys
 import threading
 import time
+from multiprocessing.process import BaseProcess
 from typing import Callable
 
 import numpy
 import psutil
-
 
 N_FITS = 16
 N_WORKERS = 8
@@ -105,7 +105,7 @@ def _bench_spawn_fresh(n: int, max_concurrent: int) -> tuple[float, list[float]]
     q = ctx.Queue()
     t0 = time.perf_counter()
 
-    in_flight: list[multiprocessing.Process] = []
+    in_flight: list[BaseProcess] = []
     submitted = 0
     results: list[float] = []
 
@@ -116,7 +116,7 @@ def _bench_spawn_fresh(n: int, max_concurrent: int) -> tuple[float, list[float]]
             in_flight.append(p)
             submitted += 1
         time.sleep(0.05)
-        still_alive: list[multiprocessing.Process] = []
+        still_alive: list[BaseProcess] = []
         for p in in_flight:
             if p.is_alive():
                 still_alive.append(p)
@@ -158,7 +158,7 @@ def _peak_rss_during(fn: Callable[[], tuple[float, list[float]]]) -> tuple[float
                 for child in parent.children(recursive=True):
                     try:
                         rss += child.memory_info().rss
-                    except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    except psutil.NoSuchProcess, psutil.AccessDenied:
                         pass
                 if rss > peak_rss:
                     peak_rss = rss
