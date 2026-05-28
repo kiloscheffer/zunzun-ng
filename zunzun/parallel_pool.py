@@ -88,6 +88,22 @@ class FitPool:
 
     def __init__(self, max_workers: int | None = None) -> None:
         self.max_workers = resolve_max_workers(max_workers)
+
+        # Force single-threaded BLAS in spawn workers to prevent the OpenBLAS
+        # thread-pool init memory bomb. Each numpy/scipy import allocates a
+        # BLAS thread pool sized to cpu_count; on a 22-core box with N workers
+        # initializing concurrently, that's N×22 thread stacks racing for
+        # memory, which crashes OpenBLAS with "Memory allocation still failed
+        # after 10 retries". Setting these env vars to "1" before the executor
+        # spawns means each worker inherits them and uses single-threaded BLAS.
+        # setdefault preserves an explicit user override (e.g. someone running
+        # a single large-matrix fit with ZUNZUN_MAX_WORKERS=1 and OMP_NUM_THREADS=8).
+        # For pyeq3's actual workload (small arrays, Python-loop-heavy DE), BLAS
+        # threading provides essentially zero per-fit benefit; parallelism comes
+        # from worker count, not from BLAS threads.
+        for _var in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"):
+            os.environ.setdefault(_var, "1")
+
         ctx = multiprocessing.get_context("spawn")
         self._executor = concurrent.futures.ProcessPoolExecutor(
             max_workers=self.max_workers,

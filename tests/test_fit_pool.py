@@ -161,3 +161,34 @@ def test_fit_pool_broken_pool_surfaces_exception():
         fut = pool.submit(_exit_immediately, 1)
         with pytest.raises(concurrent.futures.process.BrokenProcessPool):
             fut.result(timeout=30)
+
+
+def test_fit_pool_sets_blas_thread_env_when_unset(monkeypatch):
+    """FitPool defaults BLAS thread vars to 1 so spawn workers don't blow up
+    their thread pools on big-core machines. The setdefault pattern means
+    these are set when not already configured."""
+    monkeypatch.delenv("OMP_NUM_THREADS", raising=False)
+    monkeypatch.delenv("OPENBLAS_NUM_THREADS", raising=False)
+    monkeypatch.delenv("MKL_NUM_THREADS", raising=False)
+
+    from zunzun.parallel_pool import FitPool
+
+    with FitPool(max_workers=2):
+        assert os.environ.get("OMP_NUM_THREADS") == "1"
+        assert os.environ.get("OPENBLAS_NUM_THREADS") == "1"
+        assert os.environ.get("MKL_NUM_THREADS") == "1"
+
+
+def test_fit_pool_respects_existing_blas_thread_env(monkeypatch):
+    """If a user has explicitly set OMP_NUM_THREADS (e.g., to tune for a
+    large-matrix single fit), FitPool must not override it."""
+    monkeypatch.setenv("OMP_NUM_THREADS", "4")
+    monkeypatch.delenv("OPENBLAS_NUM_THREADS", raising=False)
+
+    from zunzun.parallel_pool import FitPool
+
+    with FitPool(max_workers=2):
+        # User's explicit value preserved
+        assert os.environ.get("OMP_NUM_THREADS") == "4"
+        # Unset vars still get defaulted
+        assert os.environ.get("OPENBLAS_NUM_THREADS") == "1"
