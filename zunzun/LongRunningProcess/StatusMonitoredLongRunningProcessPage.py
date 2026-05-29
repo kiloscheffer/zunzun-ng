@@ -1386,37 +1386,17 @@ You must provide any weights you wish to use.
                 except Exception:
                     logging.exception("Also failed to write static fallback HTML")
 
-        # Gate the success-terminal session write on dispatch ownership
-        # (same contract as every failure-path write). Without this, an
-        # older fit that's still in RenderOutputHTML while a newer fit's
-        # SetInitial overwrites session.dispatched_at would publish its
-        # results-page redirect into the newer fit's shared session —
-        # StatusUpdateView would mark the newer fit completed with the
-        # older fit's results page. The PerformAllWork success-path
-        # gate-clear later happens AFTER this method returns, so we
-        # need the check here at the actual write site. If we don't
-        # own the slot, the file we wrote to disk is harmless and the
-        # newer fit's outcome drives the polling UI.
+        # Re-check ownership at the actual redirect-write site —
+        # narrows the TOCTOU window between the entry gate at the top
+        # of this method and now (a newer fit's SetInitial could land
+        # in between). Suppression is silent: the entry-gate already
+        # logs when ownership is False at entry, and this late flip
+        # is a vanishingly-narrow race we cannot eliminate without
+        # splitting the session blob (see BACKLOG entry).
         if not self._we_own_status_slot():
-            # Log the suppression so postmortems can tell "correctly
-            # newer-fit-owned" from "false-negative ownership read"
-            # (the latter shouldn't happen — `_we_own_status_slot`
-            # defaults True on read failure — but a code change there
-            # could subtly invert it).
-            import logging
+            return
 
-            logging.basicConfig(
-                filename=os.path.join(settings.TEMP_FILES_DIR, f"{os.getpid()}.log"),
-                level=logging.DEBUG,
-            )
-            logging.info(
-                "RenderOutputHTML: ownership check returned False; "
-                "suppressing success-redirect publish. self.dispatched_at=%s "
-                "write_succeeded=%s",
-                self.dispatched_at,
-                write_succeeded,
-            )
-        elif write_succeeded:
+        if write_succeeded:
             self.SaveDictionaryOfItemsToSessionStore(
                 "status", {"redirectToResultsFileOrURL": result_html_path}
             )

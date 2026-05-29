@@ -1319,7 +1319,7 @@ codebase patterns not introduced by this PR:
    are similarly exposed — `CheckIfStillUsed`, the per-user gate
    checks in `views.py`, etc.
 
-2. **`logging.basicConfig` is re-called at 17 sites in the LRP
+2. **`logging.basicConfig` is re-called at 20+ sites in the LRP
    tree.** Each site does
    `logging.basicConfig(filename=os.path.join(TEMP_FILES_DIR, f"{pid}.log"), level=DEBUG)`
    before its `logging.exception(...)` calls. Python's
