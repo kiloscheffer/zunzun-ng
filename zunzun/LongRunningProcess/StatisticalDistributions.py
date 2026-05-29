@@ -81,14 +81,12 @@ class StatisticalDistributions(
 
     def GenerateListOfWorkItems(self):
 
-        self.SaveDictionaryOfItemsToSessionStore("status", {"currentStatus": "Sorting Data"})
+        self.update_status(current_status="Sorting Data")
 
         # required for special beta distribution data max/min case
         self.dataObject.IndependentDataArray[0].sort()
 
-        self.SaveDictionaryOfItemsToSessionStore(
-            "status", {"currentStatus": "Generating List Of Work Items"}
-        )
+        self.update_status(current_status="Generating List Of Work Items")
         for item in inspect.getmembers(
             scipy.stats
         ):  # weibull max and min are duplicates of Frechet distributions
@@ -146,12 +144,11 @@ class StatisticalDistributions(
                     "An internal error occurred during statistical "
                     "distribution fitting. Please try again or contact the administrator."
                 )
-                self._publish_terminal_error(
-                    html_path=self._write_terminal_error_html(error_message),
-                    status_dict={
-                        "currentStatus": error_message,
-                        "parallelProcessCount": 0,
-                    },
+                self.update_status(
+                    redirect_to_results=self._write_terminal_error_html(error_message) or "",
+                    process_id=0,
+                    current_status=error_message,
+                    parallel_count=0,
                 )
                 raise _ReportsPipelineAborted()
 
@@ -160,14 +157,11 @@ class StatisticalDistributions(
         # Format clarifies the success-vs-total distinction so the count
         # doesn't appear to jump backward from the mid-progress 'X of Y'
         # display (which uses 'tasks the pool finished' for X).
-        self.SaveDictionaryOfItemsToSessionStore(
-            "status",
-            {
-                "currentStatus": "Fitted %s of %s Statistical Distributions "
-                "(remainder could not be fit to the data)"
-                % (countOfWorkItemsRun, totalNumberOfWorkItemsToBeRun),
-                "parallelProcessCount": 0,
-            },
+        self.update_status(
+            current_status="Fitted %s of %s Statistical Distributions "
+            "(remainder could not be fit to the data)"
+            % (countOfWorkItemsRun, totalNumberOfWorkItemsToBeRun),
+            parallel_count=0,
         )
 
         for i in self.completedWorkItemsList:
@@ -224,9 +218,7 @@ class StatisticalDistributions(
     def SpecificCodeForGeneratingListOfOutputReports(self):
 
         self.functionString = "PrepareForCharacterizerOutput"
-        self.SaveDictionaryOfItemsToSessionStore(
-            "status", {"currentStatus": "Generating Report Objects"}
-        )
+        self.update_status(current_status="Generating Report Objects")
         self.dataObject.fittedStatisticalDistributionsList = self.completedWorkItemsList
         self.ReportsAndGraphsCategoryDict = ReportsAndGraphs.StatisticalDistributionReportsDict(
             self.dataObject

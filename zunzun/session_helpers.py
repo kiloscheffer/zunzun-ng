@@ -71,11 +71,9 @@ def load_with_retry(
     ``DatabaseError`` / ``InterfaceError`` from the SQLite backend
     trigger a retry. Other exceptions propagate.
 
-    Pairs with the defensive "default to we-own-slot on read failure"
-    in ``StatusMonitoredLongRunningProcessPage._we_own_status_slot``:
-    that helper's catch is now a last-resort net, since the underlying
-    load retries before raising. The defensive default still matters
-    for the rare exhausted-retries case.
+    Used by the ``data`` / ``functionfinder`` session stores (the
+    ``status`` store moved to the ``LRPStatus`` ORM row, which relies on
+    SQLite ``busy_timeout`` rather than this retry loop).
     """
     from django.db import DatabaseError, InterfaceError
 

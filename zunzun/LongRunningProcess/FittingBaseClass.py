@@ -428,7 +428,7 @@ You must provide any weights you wish to use.
 
     def GenerateListOfWorkItems(self):
 
-        self.SaveDictionaryOfItemsToSessionStore("status", {"currentStatus": "Fitting Data"})
+        self.update_status(current_status="Fitting Data")
 
         try:
             self.dataObject.equation.Solve()
@@ -451,15 +451,13 @@ You must provide any weights you wish to use.
                     )
                 )
             # Publish the Solve-specific error template (already rendered
-            # above) via the base helper, which ownership-gates the
-            # write and bundles redirect + gate-clear atomically.
-            self._publish_terminal_error(html_path=error_html_path)
+            # above) directly to this dispatch's row, clearing the gate.
+            self.update_status(redirect_to_results=error_html_path or "", process_id=0)
             # Without this raise, PerformAllWork continues into
             # PerformWorkInParallel / report generation on an unsolved
             # equation, and RenderOutputHTMLToAFileAndSetStatusRedirect
             # would overwrite the error redirect with a path to a
-            # (broken) results page (its own ownership gate matches
-            # our own dispatch).
+            # (broken) results page.
             raise _ReportsPipelineAborted()
 
     def GetEquationFromNameAndFamily(

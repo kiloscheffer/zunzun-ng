@@ -119,22 +119,7 @@ class FunctionFinderResults(FittingBaseClass.FittingBaseClass):
 
         import time  # acts strangely if import is at top of file
 
-        # Entry-gate: bail before any shared-session write if a newer
-        # dispatch owns the slot. See `_we_own_status_slot` docstring.
-        if not self._we_own_status_slot():
-            import logging
-
-            logging.info(
-                "%s.RenderOutputHTML: newer dispatch owns slot; "
-                "skipping shared-session writes (self.dispatched_at=%s)",
-                type(self).__name__,
-                self.dispatched_at,
-            )
-            return
-
-        self.SaveDictionaryOfItemsToSessionStore(
-            "status", {"currentStatus": "Generating Output HTML"}
-        )
+        self.update_status(current_status="Generating Output HTML")
 
         itemsToRender = {}
         itemsToRender["dimensionality"] = str(self.dataObject.dimensionality)
@@ -155,31 +140,14 @@ class FunctionFinderResults(FittingBaseClass.FittingBaseClass):
         fileLocation = page_artifact_path(self.dataObject.uniqueString, "html")
         with open(fileLocation, "w", encoding="utf-8") as f:
             f.write(tempString)
-        # TOCTOU re-check before redirect publish; silent (entry-gate logs).
-        if self._we_own_status_slot():
-            self.SaveDictionaryOfItemsToSessionStore(
-                "status", {"redirectToResultsFileOrURL": fileLocation}
-            )
+        self.update_status(redirect_to_results=fileLocation)
 
     def SetInitialStatusDataIntoSessionVariables(self, request):
-        import time
-
-        # Stamp dispatched_at so build_child_payload can plumb it as
-        # dispatch_id — matches the base SetInitialStatusDataIntoSessionVariables
-        # contract so _run_fit_child's ownership check works for the
-        # FunctionFinderResults code path too.
-        self.dispatched_at = time.time()
-        self.SaveDictionaryOfItemsToSessionStore(
-            "status",
-            {
-                "currentStatus": "Initializing Reports and Graphs",
-                "start_time": time.time(),
-                "time_of_last_status_check": time.time(),
-                "redirectToResultsFileOrURL": "",
-                "parallelProcessCount": 0,
-                "dispatched_at": self.dispatched_at,
-            },
-        )
+        # The status row is created by the parent (views.LongRunningProcessView)
+        # before the child spawns, so there is no status write here. This
+        # override exists only to suppress the base implementation's 'data'
+        # blob write, which the FunctionFinderResults code path does not need.
+        pass
 
     def GenerateListOfOutputReports(self):
 

@@ -238,46 +238,36 @@ def ConvertSecondsToHMS(seconds):
 
 @cache_control(no_cache=True)
 def StatusView(request):
-    try:
-        session_status = SessionStore(request.session["session_key_status"])
-    except:
+    from zunzun.models import LRPStatus
+
+    row = LRPStatus.objects.filter(pk=request.session.get("lrp_status_pk")).first()
+    if row is None:
         return HttpResponse("I could not read your session data, please try again.")
 
     # Completion handoff: read, clear, serve file body OR HttpResponseRedirect.
-    # Behavior unchanged from the original implementation.
-    if "redirectToResultsFileOrURL" in session_status:
-        if session_status["redirectToResultsFileOrURL"] != "":
-            redirect = session_status["redirectToResultsFileOrURL"]
-            session_status["redirectToResultsFileOrURL"] = ""
+    # Behavior unchanged from the original implementation (only the backing
+    # store moved from the session blob to the LRPStatus row).
+    if row.redirect_to_results:
+        redirect = row.redirect_to_results
+        LRPStatus.objects.filter(pk=row.pk).update(redirect_to_results="")
 
-            s = session_status
-            save_with_retry(s)
+        db.connections.close_all()
+        close_old_connections()
 
-            db.connections.close_all()
-            close_old_connections()
-
-            if redirect.startswith(settings.TEMP_FILES_DIR):
-                # encoding="utf-8" matches the writer in
-                # RenderOutputHTMLToAFileAndSetStatusRedirect and
-                # _run_fit_child's terminal-error fallback. Without it,
-                # the default locale encoding (cp1252 on Windows) would
-                # mis-decode any non-ASCII byte in the result HTML.
-                with open(redirect, "r", encoding="utf-8") as f:
-                    s = f.read()
-                return HttpResponse(s)
-            else:
-                return HttpResponseRedirect(redirect)
+        if redirect.startswith(settings.TEMP_FILES_DIR):
+            # encoding="utf-8" matches the writer in
+            # RenderOutputHTMLToAFileAndSetStatusRedirect and
+            # _run_fit_child's terminal-error fallback. Without it,
+            # the default locale encoding (cp1252 on Windows) would
+            # mis-decode any non-ASCII byte in the result HTML.
+            with open(redirect, "r", encoding="utf-8") as f:
+                s = f.read()
+            return HttpResponse(s)
+        else:
+            return HttpResponseRedirect(redirect)
 
     # In-progress branch: render the template. Heartbeat write moved to
     # StatusUpdateView so there is a single owner of that side effect.
-    try:
-        currentStatus = session_status["currentStatus"]
-        startTime = session_status["start_time"]
-    except:
-        return HttpResponse(
-            "I could not read your session data, my apologies. This is usually caused by a stale browser cookie. Please delete the ZunZunNG browser cookie and try again."
-        )
-
     loadavg = platform_compat.get_loadavg()
     return render(
         request,
@@ -285,11 +275,11 @@ def StatusView(request):
         {
             "title_string": "ZunZunNG - Working on your fit",
             "header_text": "ZunZunNG",
-            "currentStatus": currentStatus,
-            "elapsed": ConvertSecondsToHMS(time.time() - startTime),
+            "currentStatus": row.current_status,
+            "elapsed": ConvertSecondsToHMS(time.time() - row.start_time),
             "loadavg": list(loadavg),
             "coreCount": multiprocessing.cpu_count(),
-            "parallelProcessCount": session_status.get("parallelProcessCount", 0),
+            "parallelProcessCount": row.parallel_count,
         },
     )
 
@@ -300,33 +290,25 @@ def StatusUpdateView(request):
 
     Returns the live status fields (currentStatus, elapsed, loadavg) as JSON.
     On completion, returns {"completed": True} and intentionally does NOT
-    clear redirectToResultsFileOrURL — that's StatusView's job when the
-    browser follows up.
+    clear redirect_to_results — that's StatusView's job when the browser
+    follows up.
     """
-    try:
-        session_status = SessionStore(request.session["session_key_status"])
-    except Exception:
-        # Matches StatusView's defensive bare-except on the same call:
-        # missing request-session key, malformed key, transient DB issue.
-        # JS treats any non-2xx as "wait and retry" so this is graceful.
-        return JsonResponse({"error": "no_session"}, status=400)
+    from zunzun.models import LRPStatus
 
-    # Completion: report and return immediately. Do NOT clear the key.
-    if session_status.get("redirectToResultsFileOrURL", ""):
-        return JsonResponse({"completed": True})
-
-    try:
-        currentStatus = session_status["currentStatus"]
-        startTime = session_status["start_time"]
-    except Exception:
-        # Matches StatusView's defensive bare-except on the same reads:
-        # missing key OR TypeError/AttributeError from a corrupted session
-        # all route to the same graceful 400 the JS layer retries silently.
+    row = LRPStatus.objects.filter(pk=request.session.get("lrp_status_pk")).first()
+    if row is None:
+        # Matches StatusView's defensive handling: missing pk, expired
+        # session, or never dispatched. JS treats any non-2xx as "wait and
+        # retry" so this is graceful.
         return JsonResponse({"error": "stale_session"}, status=400)
 
-    session_status["time_of_last_status_check"] = time.time()
+    # Completion: report and return immediately. Do NOT clear the redirect.
+    if row.redirect_to_results:
+        return JsonResponse({"completed": True})
 
-    save_with_retry(session_status)
+    # Heartbeat write: single owner of last_status_check (the per-user gate
+    # and CheckIfStillUsed read it for liveness).
+    LRPStatus.objects.filter(pk=row.pk).update(last_status_check=time.time())
 
     db.connections.close_all()
     close_old_connections()
@@ -335,10 +317,10 @@ def StatusUpdateView(request):
     return JsonResponse(
         {
             "completed": False,
-            "currentStatus": currentStatus,
-            "elapsed": ConvertSecondsToHMS(time.time() - startTime),
+            "currentStatus": row.current_status,
+            "elapsed": ConvertSecondsToHMS(time.time() - row.start_time),
             "loadavg": list(loadavg),
-            "parallelProcessCount": session_status.get("parallelProcessCount", 0),
+            "parallelProcessCount": row.parallel_count,
         }
     )
 
@@ -403,52 +385,46 @@ def LongRunningProcessView(
     LRP.inEquationFamilyName = urllib.parse.unquote(inEquationFamilyName)
     LRP.dimensionality = int(inDimensionality)
 
-    if "session_key_status" not in list(request.session.keys()):
-        # sometimes database is momentarily locked, so retry on exception to mitigate
-        s = SessionStore()
-        save_with_retry(s)  # re-raise exception from save operation
-
-        db.connections.close_all()
-        close_old_connections()
-
-        request.session["session_key_status"] = s.session_key
-    LRP.session_key_status = request.session["session_key_status"]
-
     # Per-user "one fit at a time" cap. When ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER
     # is False (recommended for public deployments), reject a second fit POST
-    # from the same session if the user's status session shows an active
-    # processID with a recent status-check timestamp (<60s ago). Check happens
-    # BEFORE form validation so the user gets a fast "in progress" response
-    # rather than being routed through form processing first.
+    # from the same session if the user's PRIOR LRPStatus row shows an active
+    # process_id with a recent status-check heartbeat. Check happens BEFORE
+    # form validation so the user gets a fast "in progress" response rather
+    # than being routed through form processing first. This reads the pk set
+    # by a PRIOR dispatch — it must run BEFORE the create-row block below
+    # overwrites request.session['lrp_status_pk'].
     if request.method == "POST" and not getattr(
         settings, "ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER", True
     ):
         try:
-            running_status = SessionStore(LRP.session_key_status)
-            running_pid = running_status.get("processID", 0)
-            last_check = running_status.get("time_of_last_status_check", 0)
-            dispatched_at = running_status.get("dispatched_at", 0)
+            from zunzun.models import LRPStatus
+
+            row = LRPStatus.objects.filter(pk=request.session.get("lrp_status_pk")).first()
             now = time.time()
             # Block if EITHER:
-            #  - a child has written processID and its heartbeat is fresh
+            #  - a child has written process_id and its heartbeat is fresh
             #    (within 300s — matches CheckIfStillUsed's abandoned-fit
             #    threshold so the gate stays consistent: if the system
             #    considers a fit alive, the cap blocks; once the system
-            #    considers it abandoned, the cap allows replacement). A
-            #    shorter 60s window would let a user close the status tab
-            #    and bypass the cap for the next 240s while the child is
-            #    still running, defeating the one-fit-at-a-time guarantee.
-            #  - a fit was just dispatched (dispatched_at recent) but the
-            #    child hasn't yet written processID — the race window
-            #    between the parent's SetInitialStatusDataIntoSessionVariables
-            #    call and the child's first PerformAllWork status write
-            #    (~50-500ms). dispatched_at is cleared on successful
-            #    completion (PerformAllWork end-of-try), so this doesn't
-            #    falsely block fits that completed in <60s. The pending
-            #    window stays at 60s — it debounces double-clicks, not
-            #    long-running fits.
-            is_active = running_pid and (now - last_check) < 300
-            is_pending = (now - dispatched_at) < 60 and not running_pid
+            #    considers it abandoned, the cap allows replacement).
+            #  - a fit was just dispatched (start_time recent) but the child
+            #    hasn't yet written process_id — the race window between the
+            #    parent creating the row and the child's first PerformAllWork
+            #    status write (~50-500ms). start_time covers the pending
+            #    window that the dispatch-id float used to cover. A completed
+            #    fit (redirect_to_results set) is excluded: start_time is NOT
+            #    cleared on completion, so a fast (<60s) fit would otherwise
+            #    falsely register as pending and block the next POST — the
+            #    terminal redirect is the "no longer in progress" signal the
+            #    old dispatched_at=0 clear used to provide.
+            # Missing row → no active fit → allow.
+            is_active = bool(row) and row.process_id and (now - row.last_status_check) < 300
+            is_pending = (
+                bool(row)
+                and (now - row.start_time) < 60
+                and not row.process_id
+                and not row.redirect_to_results
+            )
             if is_active or is_pending:
                 return HttpResponse(
                     "A fit is already in progress for your session. "
@@ -456,7 +432,7 @@ def LongRunningProcessView(
                     "<a href='/StatusAndResults/'>view its status</a>."
                 )
         except Exception:
-            pass  # session read failure → fall through and allow new fit
+            pass  # row read failure → fall through and allow new fit
 
     if "session_key_data" not in list(request.session.keys()):
         # sometimes database is momentarily locked, so retry on exception to mitigate
@@ -518,6 +494,20 @@ def LongRunningProcessView(
         errorString = LRP.CheckDataForZeroAndPositiveAndNegative()
         if errorString:
             return render(request, "zunzun/generic_error.html", {"error": errorString})
+
+    # Per-dispatch status row. Delete the user's prior row first (it's
+    # already unreferenced once we overwrite the pointer below), then create
+    # a fresh row and point the session at it. The child writes only this
+    # row, so there is no shared cell to race on. Autocommit makes the row
+    # durable before multiprocessing.Process.start() spawns the child.
+    from zunzun.models import LRPStatus
+
+    old_pk = request.session.get("lrp_status_pk")
+    if old_pk:
+        LRPStatus.objects.filter(pk=old_pk).delete()
+    status_row = LRPStatus.objects.create(start_time=time.time(), current_status="Initializing")
+    request.session["lrp_status_pk"] = status_row.pk
+    LRP.status_row_pk = status_row.pk
 
     LRP.SetInitialStatusDataIntoSessionVariables(request)
 

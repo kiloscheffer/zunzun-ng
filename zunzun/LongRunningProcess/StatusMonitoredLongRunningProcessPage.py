@@ -201,20 +201,18 @@ You must provide any weights you wish to use.
         """
         return ChildPayload(
             lrp_class_path=f"{self.__class__.__module__}.{self.__class__.__name__}",
-            session_key_status=self.session_key_status,
             session_key_data=self.session_key_data,
             session_key_functionfinder=getattr(self, "session_key_functionfinder", ""),
             dimensionality=self.dimensionality,
             renice_level=self.reniceLevel,
             data_object=getattr(self, "dataObject", None),
             equation=None,  # overridden by fit subclasses
-            # Stamped by SetInitialStatusDataIntoSessionVariables (run
-            # in the parent moments before this build). The child uses
-            # it as a dispatch identity to detect "newer fit replaced me"
-            # races in its terminal-error handler. getattr fallback to
-            # 0.0 covers paths that don't run SetInitial (none in current
-            # tree, but defensive).
-            dispatch_id=getattr(self, "dispatched_at", 0.0),
+            # The LRPStatus row pk this dispatch writes to. The parent
+            # (views.LongRunningProcessView) creates the row and sets
+            # self.status_row_pk before this build runs; the getattr
+            # fallback to 0 is defensive (an update against pk=0 matches
+            # zero rows, harmless).
+            status_row_pk=getattr(self, "status_row_pk", 0),
             extra={
                 # inEquationName / inEquationFamilyName are set by
                 # views.LongRunningProcessView (parent) from URL path
@@ -239,7 +237,6 @@ You must provide any weights you wish to use.
         Default implementation restores the common fields. Subclasses
         override to populate fit-specific state from payload.extra.
         """
-        self.session_key_status = payload.session_key_status
         self.session_key_data = payload.session_key_data
         self.session_key_functionfinder = payload.session_key_functionfinder
         self.dimensionality = payload.dimensionality
@@ -247,14 +244,11 @@ You must provide any weights you wish to use.
         self.dataObject = payload.data_object
         self.inEquationName = payload.extra.get("inEquationName", "")
         self.inEquationFamilyName = payload.extra.get("inEquationFamilyName", "")
-        # Carry the dispatch identity into the child so the various
-        # processID/dispatched_at clear sites can do an ownership check
-        # against `session.dispatched_at == self.dispatched_at` before
-        # clobbering the latter — a newer fit's SetInitial in the parent
-        # can overwrite the session's dispatched_at while leaving an
-        # older child's processID intact, and the old check
-        # (pid-only) would then clear the newer fit's dispatch markers.
-        self.dispatched_at = payload.dispatch_id
+        # The LRPStatus row pk this dispatch writes to. _run_fit_child
+        # also sets this directly from the payload before
+        # apply_child_payload runs (same value, harmless redundancy,
+        # mirrors how session_key_* are set in both places).
+        self.status_row_pk = payload.status_row_pk
 
     def PerformWorkInParallel(self):
         pass
@@ -267,9 +261,7 @@ You must provide any weights you wish to use.
 
     def CreateReportPDF(self):
 
-        self.SaveDictionaryOfItemsToSessionStore(
-            "status", {"currentStatus": "Creating PDF Output File"}
-        )
+        self.update_status(current_status="Creating PDF Output File")
         try:
             scale = 72.0 / 300.0  # dpi conversion factor for PDF file images
 
@@ -648,9 +640,6 @@ You must provide any weights you wish to use.
             session[i] = item
             _logger.debug(str(i) + " saved to session")
 
-        if inSessionStoreName == "status":
-            session["timestamp"] = time.time()
-
         save_with_retry(session)
 
         db.connections.close_all()
@@ -743,87 +732,11 @@ You must provide any weights you wish to use.
             logging.exception("Also failed to write static fallback HTML")
             return None
 
-    def _publish_terminal_error(self, *, html_path, status_dict=None):
-        """Ownership-gated bundled terminal write: redirect + gate-clear
-        in a single SaveDictionaryOfItemsToSessionStore call.
-
-        Called by the abort sites after they've prepared their terminal
-        HTML (either via _write_terminal_error_html for generic errors,
-        or by rendering exception_while_fitting_an_equation.html for
-        Solve/UDF failures). Bundles `processID: 0` and
-        `dispatched_at: 0` automatically; the caller passes any
-        additional keys (currentStatus, parallelProcessCount, etc.)
-        via `status_dict`.
-
-        If _we_own_status_slot() returns False, a newer dispatch has
-        taken over and we leave the shared session alone — the file
-        on disk is harmless. If html_path is None (disk-truly-unwritable
-        case from _write_terminal_error_html), the redirect key is
-        omitted but the gate-clear still ships so the next retry isn't
-        gate-blocked.
-        """
-        if not self._we_own_status_slot():
-            return
-        payload = dict(status_dict or {})
-        payload.setdefault("processID", 0)
-        payload.setdefault("dispatched_at", 0)
-        if html_path:
-            payload["redirectToResultsFileOrURL"] = html_path
-        self.SaveDictionaryOfItemsToSessionStore("status", payload)
-
-    def _we_own_status_slot(self):
-        """True iff this child still owns the shared status session.
-
-        Dual identity check: both `processID` AND `dispatched_at` must
-        match our own. processID alone is insufficient because a newer
-        fit's SetInitialStatusDataIntoSessionVariables in the parent
-        overwrites session.dispatched_at without touching processID;
-        an older child clearing the slot on a pid-only match would
-        clobber the newer fit's tracking.
-
-        On transient session-read failure (Django's session backend
-        wraps a SQLite read, which can raise OperationalError under
-        lock contention or InterfaceError after close_old_connections),
-        returns True. Letting a read hiccup return False would suppress
-        the success redirect at RenderOutputHTMLToAFileAndSetStatusRedirect
-        and re-introduce the stuck-poll bug this PR was built to fix.
-        The fall-through is logged so postmortems can distinguish
-        "correctly newer-fit-owned" from "ownership read failed."
-
-        Used to gate every shared-session write — both failure/abort
-        paths AND the success-redirect publish in
-        RenderOutputHTMLToAFileAndSetStatusRedirect (overridden in
-        FunctionFinder and FunctionFinderResults). AttributeError on
-        self.dispatched_at (subclass that bypassed apply_child_payload)
-        is NOT swallowed — that's a contract violation, not a transient
-        read failure, and should propagate.
-        """
-        # Common transient-read exception classes from Django's session
-        # backend wrapping SQLite. Imported locally to avoid pulling
-        # them into module scope just for the except clause.
-        from django.db import DatabaseError, InterfaceError
-
-        try:
-            return (
-                self.LoadItemFromSessionStore("status", "processID") == os.getpid()
-                and self.LoadItemFromSessionStore("status", "dispatched_at") == self.dispatched_at
-            )
-        except DatabaseError, InterfaceError:
-            import logging
-
-            logging.exception(
-                "Ownership check session read failed; defaulting we-own=True "
-                "(self.dispatched_at=%s os.getpid()=%s)",
-                getattr(self, "dispatched_at", "<unset>"),
-                os.getpid(),
-            )
-            return True
-
     def PerformAllWork(self):
 
         self.fit_pool = FitPool()
         try:
-            self.SaveDictionaryOfItemsToSessionStore("status", {"processID": os.getpid()})
+            self.update_status(process_id=os.getpid())
 
             self.GenerateListOfWorkItems()
 
@@ -837,24 +750,17 @@ You must provide any weights you wish to use.
 
             self.RenderOutputHTMLToAFileAndSetStatusRedirect()
 
-            # Clear processID AND dispatched_at so the per-user gate
+            # Clear process_id so the per-user gate
             # (views.LongRunningProcessView) doesn't block this user's
-            # next fit. The dual ownership check (_we_own_status_slot)
-            # ensures we don't clobber a replacement fit's tracking
-            # when ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER=True. Note:
-            # every _ReportsPipelineAborted call site now bundles its
-            # own dispatch-cleared status write before raising — this
-            # success-path clear is symmetrical for the no-error case.
+            # next fit. This dispatch owns its own row, so no ownership
+            # check is needed — the write only ever touches our row.
             # start_time is left intact because the status template
             # uses it for elapsed-time display.
-            if self._we_own_status_slot():
-                self.SaveDictionaryOfItemsToSessionStore(
-                    "status", {"processID": 0, "dispatched_at": 0}
-                )
+            self.update_status(process_id=0)
 
         except _ReportsPipelineAborted:
             # The reports phase wrote its own user-visible status AND
-            # terminal redirect (via _publish_terminal_error /
+            # terminal redirect (via update_status /
             # _write_terminal_error_html); do not run CreateReportPDF
             # or RenderOutputHTML, which would overwrite that redirect
             # with a path to an empty results page. The finally block
@@ -867,34 +773,27 @@ You must provide any weights you wish to use.
                 self.fit_pool = None
             # Catch-all clear for unhandled exceptions that escape the
             # try AND aren't _ReportsPipelineAborted (PDF render bug,
-            # scipy/numpy crash, session-store DB error). Clears ONLY
-            # processID — NOT dispatched_at — because _run_fit_child's
-            # except-branch ownership check uses session.dispatched_at
-            # vs payload.dispatch_id to decide whether to publish a
-            # terminal redirect. Wiping dispatched_at here would make
-            # the ownership check see a mismatch on its OWN dispatch's
-            # failure (our payload.dispatch_id != session 0), skip the
-            # redirect write, and leave the polling UI stuck.
-            # _run_fit_child's gate-clear step clears dispatched_at
-            # after the ownership-verified redirect write, so the gate
-            # is still released for the next user retry.
-            # Conditional on still owning the pid avoids clobbering a
-            # concurrent fit's tracking.
+            # scipy/numpy crash, DB error). Clears process_id so the
+            # per-user gate is released for the next retry. This dispatch
+            # owns its own row, so the unconditional update only touches
+            # our row (a superseding dispatch deleted it → zero rows).
+            # _run_fit_child's except-branch handles the terminal
+            # redirect separately when the exception is an Exception (not
+            # _ReportsPipelineAborted, which is handled above).
             try:
-                if self.LoadItemFromSessionStore("status", "processID") == os.getpid():
-                    self.SaveDictionaryOfItemsToSessionStore("status", {"processID": 0})
+                self.update_status(process_id=0)
             except Exception:
                 pass  # finally cleanup must not raise
 
     def CreateOutputReportsInParallelUsingProcessPool(self):
 
-        self.SaveDictionaryOfItemsToSessionStore("status", {"currentStatus": "Running All Reports"})
+        self.update_status(current_status="Running All Reports")
 
         reportsToBeRunInParallel = self.graphReports + self.textReports
         totalNumberOfReportsToBeRun = len(reportsToBeRunInParallel)
 
         if totalNumberOfReportsToBeRun == 0:
-            self.SaveDictionaryOfItemsToSessionStore("status", {"parallelProcessCount": 0})
+            self.update_status(parallel_count=0)
             return
 
         # Pre-flight: User Defined Function pickle workaround. The compiled
@@ -955,24 +854,23 @@ You must provide any weights you wish to use.
             import logging
 
             logging.exception("BrokenProcessPool in CreateOutputReportsInParallelUsingProcessPool")
-            # Publish terminal redirect + status text in one
-            # ownership-gated atomic write so the polling UI completes
-            # — PerformAllWork's `except _ReportsPipelineAborted: pass`
-            # swallows the abort without propagating to _run_fit_child.
+            # Publish terminal redirect + status text directly to this
+            # dispatch's row so the polling UI completes — PerformAllWork's
+            # `except _ReportsPipelineAborted: pass` swallows the abort
+            # without propagating to _run_fit_child.
             error_message = (
                 "An internal error occurred during report generation. "
                 "Please try again or contact the administrator."
             )
-            self._publish_terminal_error(
-                html_path=self._write_terminal_error_html(error_message),
-                status_dict={
-                    "currentStatus": error_message,
-                    "parallelProcessCount": 0,
-                },
+            self.update_status(
+                redirect_to_results=self._write_terminal_error_html(error_message) or "",
+                process_id=0,
+                current_status=error_message,
+                parallel_count=0,
             )
             raise _ReportsPipelineAborted()
 
-        self.SaveDictionaryOfItemsToSessionStore("status", {"parallelProcessCount": 0})
+        self.update_status(parallel_count=0)
 
     def _oneSecondStatusUpdate(self, currentStatus):
         """Throttled (≤1Hz) liveness + status write for tight work loops.
@@ -995,12 +893,9 @@ You must provide any weights you wish to use.
         if self.oneSecondTimes == int(time.time()):
             return
         self.CheckIfStillUsed()
-        self.SaveDictionaryOfItemsToSessionStore(
-            "status",
-            {
-                "currentStatus": currentStatus,
-                "parallelProcessCount": len(multiprocessing.active_children()),
-            },
+        self.update_status(
+            current_status=currentStatus,
+            parallel_count=len(multiprocessing.active_children()),
         )
         self.oneSecondTimes = int(time.time())
 
@@ -1012,14 +907,13 @@ You must provide any weights you wish to use.
     def CheckIfStillUsed(self):
         import time
 
-        if self.LoadItemFromSessionStore("status", "processID") is None:
+        running_pid = self.get_status("process_id")
+        # No row (missing/superseded) → nothing to police; bail.
+        if running_pid is None:
             return
 
-        # if a new process ID is in the session data, another process was started and this process was abandoned
-        if (
-            self.LoadItemFromSessionStore("status", "processID") != os.getpid()
-            and self.LoadItemFromSessionStore("status", "processID") != 0
-        ):
+        # if a new process ID is in the row, another process was started and this process was abandoned
+        if running_pid != os.getpid() and running_pid != 0:
             time.sleep(1.0)
 
             if self.fit_pool is not None:
@@ -1036,10 +930,15 @@ You must provide any weights you wish to use.
             for p in multiprocessing.active_children():
                 p.terminate()
 
-        # if the status has not been checked in the past 30 seconds, this process was abandoned
-        if (
-            time.time() - self.LoadItemFromSessionStore("status", "time_of_last_status_check")
-        ) > 300:
+        # if the status has not been checked in the past 300 seconds, this process was abandoned.
+        # last_status_check is the StatusUpdateView heartbeat; it is 0.0
+        # until the first poll, so fall back to start_time (the dispatch
+        # time the parent stamped on the row) for never-polled fits —
+        # otherwise a fit would self-terminate before its first poll.
+        last_check = self.get_status("last_status_check") or 0.0
+        if not last_check:
+            last_check = self.get_status("start_time") or time.time()
+        if (time.time() - last_check) > 300:
             time.sleep(1.0)
             if self.fit_pool is not None:
                 self.fit_pool.shutdown(wait=False, cancel_futures=True)
@@ -1056,24 +955,9 @@ You must provide any weights you wish to use.
                 p.terminate()
 
     def SetInitialStatusDataIntoSessionVariables(self, request):
-        # Compute the dispatch timestamp ONCE and store on self so
-        # build_child_payload can stamp the same value into the payload.
-        # The child uses payload.dispatch_id == session.dispatched_at as
-        # an ownership identifier to detect "newer fit replaced me" races
-        # in its terminal-error handler.
-        self.dispatched_at = time.time()
-        self.SaveDictionaryOfItemsToSessionStore(
-            "status",
-            {
-                "currentStatus": "Initializing",
-                "start_time": time.time(),
-                "time_of_last_status_check": time.time(),
-                "redirectToResultsFileOrURL": "",
-                "parallelProcessCount": 0,
-                "dispatched_at": self.dispatched_at,
-            },
-        )
-
+        # The status row is created by the parent (views.LongRunningProcessView)
+        # before the child spawns, so there is no status write here — only
+        # the 'data' blob the later EvaluateAtAPointView reads.
         self.SaveDictionaryOfItemsToSessionStore(
             "data",
             {
@@ -1088,19 +972,13 @@ You must provide any weights you wish to use.
     def SpecificCodeForGeneratingListOfOutputReports(self):
 
         self.functionString = "PrepareForReportOutput"
-        self.SaveDictionaryOfItemsToSessionStore(
-            "status", {"currentStatus": "Calculating Error Statistics"}
-        )
+        self.update_status(current_status="Calculating Error Statistics")
         self.dataObject.CalculateErrorStatistics()
 
-        self.SaveDictionaryOfItemsToSessionStore(
-            "status", {"currentStatus": "Calculating Parameter Statistics"}
-        )
+        self.update_status(current_status="Calculating Parameter Statistics")
         self.dataObject.equation.CalculateCoefficientAndFitStatistics()
 
-        self.SaveDictionaryOfItemsToSessionStore(
-            "status", {"currentStatus": "Generating Report Objects"}
-        )
+        self.update_status(current_status="Generating Report Objects")
         self.ReportsAndGraphsCategoryDict = ReportsAndGraphs.FittingReportsDict(self.dataObject)
 
     def GenerateListOfOutputReports(self):
@@ -1109,32 +987,24 @@ You must provide any weights you wish to use.
         self.graphReports = []
 
         # calculate data statistics and graph boundaries
-        self.SaveDictionaryOfItemsToSessionStore(
-            "status", {"currentStatus": "Calculating Data Statistics"}
-        )
+        self.update_status(current_status="Calculating Data Statistics")
         self.dataObject.CalculateDataStatistics()
 
         if self.dataObject.dimensionality > 1:
-            self.SaveDictionaryOfItemsToSessionStore(
-                "status", {"currentStatus": "Calculating Graph Boundaries"}
-            )
+            self.update_status(current_status="Calculating Graph Boundaries")
             self.dataObject.CalculateGraphBoundaries()
 
         self.SpecificCodeForGeneratingListOfOutputReports()
 
         # generate required text reports
-        self.SaveDictionaryOfItemsToSessionStore(
-            "status", {"currentStatus": "Generating List Of Text Reports"}
-        )
+        self.update_status(current_status="Generating List Of Text Reports")
         for i in self.ReportsAndGraphsCategoryDict["Text Reports"]:
             exec("i." + self.functionString + "()")
             if i.name != "":
                 self.textReports.append(i)
 
         # select required graph reports
-        self.SaveDictionaryOfItemsToSessionStore(
-            "status", {"currentStatus": "Generating List Of Graphical Reports"}
-        )
+        self.update_status(current_status="Generating List Of Graphical Reports")
         for i in self.ReportsAndGraphsCategoryDict["Graph Reports"]:
             exec("i." + self.functionString + "()")
             if i.name != "":
@@ -1142,26 +1012,9 @@ You must provide any weights you wish to use.
 
     def RenderOutputHTMLToAFileAndSetStatusRedirect(self):
 
-        # Entry-gate: bail before any shared-session write if a newer
-        # dispatch owns the slot. See `_we_own_status_slot` docstring
-        # for the contract; the post-render disk artifact, if any,
-        # would be unreferenced and is fine to skip.
-        if not self._we_own_status_slot():
-            import logging
-
-            logging.info(
-                "%s.RenderOutputHTML: newer dispatch owns slot; "
-                "skipping shared-session writes (self.dispatched_at=%s)",
-                type(self).__name__,
-                self.dispatched_at,
-            )
-            return
-
         self.SaveSpecificDataToSessionStore()
 
-        self.SaveDictionaryOfItemsToSessionStore(
-            "status", {"currentStatus": "Generating Output HTML"}
-        )
+        self.update_status(current_status="Generating Output HTML")
 
         itemsToRender = {}
 
@@ -1265,24 +1118,15 @@ You must provide any weights you wish to use.
                 except Exception:
                     logging.exception("Also failed to write static fallback HTML")
 
-        # TOCTOU re-check before redirect publish; silent (entry-gate logs).
-        if not self._we_own_status_slot():
-            return
-
         if write_succeeded:
-            self.SaveDictionaryOfItemsToSessionStore(
-                "status", {"redirectToResultsFileOrURL": result_html_path}
-            )
+            self.update_status(redirect_to_results=result_html_path)
         else:
             # Disk is unwritable; we cannot deliver a terminal page.
             # Update status text so polling at least surfaces the error,
             # even though the page will not finalize.
-            self.SaveDictionaryOfItemsToSessionStore(
-                "status",
-                {
-                    "currentStatus": "An internal error occurred while generating the "
-                    "results page. Please try again or contact the administrator."
-                },
+            self.update_status(
+                current_status="An internal error occurred while generating the "
+                "results page. Please try again or contact the administrator."
             )
 
     def CreateUnboundInterfaceForm(self, request):  # OVERRIDDEN in fittingBaseClass
