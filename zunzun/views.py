@@ -505,7 +505,20 @@ def LongRunningProcessView(
     old_pk = request.session.get("lrp_status_pk")
     if old_pk:
         LRPStatus.objects.filter(pk=old_pk).delete()
-    status_row = LRPStatus.objects.create(start_time=time.time(), current_status="Initializing")
+    # Stamp last_status_check at dispatch (not only at the first poll) so the
+    # per-user "one fit at a time" gate's is_active check — process_id set AND
+    # (now - last_status_check) < 300 — holds for 300s even if the client never
+    # polls (closed tab / script). Without this, last_status_check would stay
+    # 0.0 until StatusUpdateView's first heartbeat, and a non-polling client
+    # could bypass the cap ~0.5s after the child writes process_id. Restores
+    # the old SetInitialStatusDataIntoSessionVariables semantics where dispatch
+    # time doubled as the first heartbeat.
+    now = time.time()
+    status_row = LRPStatus.objects.create(
+        start_time=now,
+        last_status_check=now,
+        current_status="Initializing",
+    )
     request.session["lrp_status_pk"] = status_row.pk
     LRP.status_row_pk = status_row.pk
 

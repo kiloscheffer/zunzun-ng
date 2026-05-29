@@ -57,6 +57,102 @@ def test_concurrent_fit_refused_when_flag_false_and_recent_fit(client):
 
 
 @pytest.mark.django_db
+def test_concurrent_fit_refused_for_active_fit_without_polling(client):
+    """ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER=False — regression guard for
+    the non-polling client. Production stamps last_status_check at dispatch
+    (LongRunningProcessView creates the row with last_status_check=now), so
+    once the child writes process_id, is_active = process_id and
+    (now - last_status_check) < 300 stays True for 300s even if the client
+    NEVER polls (closed tab / script). Without the dispatch-time stamp,
+    last_status_check would be 0.0, (now - 0.0) would exceed 300, and a
+    second POST would slip through ~0.5s after dispatch.
+
+    Models the steady state ~2 minutes into a running fit with no polling:
+    start_time and last_status_check both at dispatch time (well past the
+    60s pending window, well within the 300s active window), process_id set.
+    """
+    with mock.patch("settings.ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER", False, create=True):
+        client.get("/")
+        dispatch_time = time.time() - 120  # 2 min ago; never polled since
+        _plant_status_row(
+            client,
+            process_id=54321,
+            start_time=dispatch_time,
+            last_status_check=dispatch_time,
+        )
+
+        response = client.post(
+            "/FitEquation__F__/2/Polynomial/Linear%20Polynomial/",
+            data={"IndependentData": "1 2 3", "DependentData": "1 2 3"},
+        )
+        # Active fit, no polling → is_active must still hold → REFUSED
+        assert b"already in progress" in response.content
+
+
+# Complete, valid 2D polynomial-quadratic form payload — enough for
+# LongRunningProcessView to validate the form, transfer data, create the
+# LRPStatus row, and reach the dispatch redirect. Mirrors the smoke test's
+# _POLY_QUAD_FIELDS so the dispatch path is genuinely exercised.
+_VALID_2D_QUAD_FIELDS = {
+    "commaConversion": "I",
+    "graphSize": "320x240",
+    "animationSize": "0x0",
+    "scientificNotationX": "AUTO",
+    "scientificNotationY": "AUTO",
+    "dataNameX": "X Data",
+    "dataNameY": "Y Data",
+    "graphScaleRadioButtonX": "0.050",
+    "graphScaleRadioButtonY": "0.050",
+    "logLinX": "LIN",
+    "logLinY": "LIN",
+    "logLinZ": "LIN",
+    "fittingTarget": "SSQABS",
+    "textDataEditor": "1 1\n2 4\n3 9\n4 16\n5 25\n6 36\n",
+}
+
+
+@pytest.mark.django_db
+def test_dispatch_stamps_last_status_check_at_creation(client, mocked_process_start):
+    """Regression guard for the actual one-line views.py fix: the dispatch
+    path (LongRunningProcessView) must create the LRPStatus row with
+    last_status_check stamped at dispatch, not left at the 0.0 default.
+
+    This is what makes the per-user is_active check
+    (process_id and (now - last_status_check) < 300) hold for 300s without
+    polling. If the stamp regresses, last_status_check stays 0.0 and the
+    cap leaks for non-polling clients ~0.5s after the child writes
+    process_id. Drives a real (mocked-spawn) successful POST and inspects
+    the row the view created.
+    """
+    from zunzun.models import LRPStatus
+
+    client.get("/")  # bootstrap session + cookie_test
+    session = client.session
+    session["cookie_test"] = 1
+    session.save()
+
+    before = time.time()
+    response = client.post(
+        "/FitEquation__F__/2/Polynomial/2nd%20Order%20(Quadratic)/",
+        data=_VALID_2D_QUAD_FIELDS,
+        HTTP_HOST="testserver",  # view builds the redirect from request.META["HTTP_HOST"]
+    )
+    after = time.time()
+    # A valid POST dispatches (redirect to the status page).
+    assert response.status_code in (301, 302), (
+        f"expected dispatch redirect, got {response.status_code}: {response.content[:300]!r}"
+    )
+
+    pk = client.session["lrp_status_pk"]
+    row = LRPStatus.objects.get(pk=pk)
+    # last_status_check must be stamped at dispatch (≈ start_time), NOT 0.0.
+    assert row.last_status_check != 0.0
+    assert before <= row.last_status_check <= after
+    # And it tracks start_time (both stamped from the same `now`).
+    assert row.last_status_check == row.start_time
+
+
+@pytest.mark.django_db
 def test_concurrent_fit_allowed_when_stale_process_id(client, mocked_process_start):
     """ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER=False — but the previous fit
     is stale (last status check >300s ago, matching CheckIfStillUsed's

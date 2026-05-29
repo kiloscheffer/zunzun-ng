@@ -876,15 +876,15 @@ You must provide any weights you wish to use.
         """Throttled (≤1Hz) liveness + status write for tight work loops.
 
         Per second: runs ``CheckIfStillUsed`` to detect abandoned fits,
-        writes the supplied ``currentStatus`` plus the current
-        ``parallelProcessCount`` to the status session, and bumps
-        ``self.oneSecondTimes``. Returns immediately if a second hasn't
-        elapsed since the last call.
+        writes the supplied ``current_status`` plus the current
+        ``parallel_count`` to this dispatch's LRPStatus row (via
+        ``update_status``), and bumps ``self.oneSecondTimes``. Returns
+        immediately if a second hasn't elapsed since the last call.
 
-        ``parallelProcessCount`` lives as its own session field so the
-        status page renders it next to the elapsed timer instead of
-        wedged into ``currentStatus``. UI hides the indicator when the
-        count is ≤1 (single-thread phases or pool idle).
+        ``parallel_count`` is its own LRPStatus field so the status page
+        renders it next to the elapsed timer instead of wedged into
+        ``current_status``. UI hides the indicator when the count is ≤1
+        (single-thread phases or pool idle).
 
         Used by ``Reports_CheckOneSecondSessionUpdates`` here, and by
         the equivalent ``WorkItems_*`` methods on the FunctionFinder and
