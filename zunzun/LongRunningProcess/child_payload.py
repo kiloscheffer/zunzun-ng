@@ -34,6 +34,8 @@ class ChildPayload:
     data_object: the existing DataObject attr-bag; already picklable.
     equation: pyeq3 equation instance (picklability verified in
       tests/test_pickle_spike.py).
+    status_row_pk: pk of the LRPStatus row this dispatch writes to
+      (0 = unset). See the field comment below for the lifecycle.
     extra: subclass-specific fields. Each Fit* subclass extends this
       dict with its flags (spline order, polynomial flags, etc.).
     """
@@ -164,8 +166,8 @@ def _run_fit_child(payload: ChildPayload) -> None:
 
         # Write a terminal error artifact so the polling UI completes.
         # Without this, StatusUpdateView keeps reporting completed=False
-        # forever because no redirectToResultsFileOrURL is ever set, and
-        # the user is stuck on the status page until the session expires.
+        # forever because no redirect_to_results is ever set, and the user
+        # is stuck on the status page until the session expires.
         # Mirrors the three-layer fallback in
         # RenderOutputHTMLToAFileAndSetStatusRedirect: try the Django
         # template first, fall back to a hardcoded HTML string if
@@ -223,8 +225,8 @@ def _run_fit_child(payload: ChildPayload) -> None:
             if not already_completed:
                 update_fields["redirect_to_results"] = error_html_path if write_succeeded else ""
                 update_fields["current_status"] = (
-                    "An unknown exception has occurred, and an email with "
-                    "details has been sent to the site administrator."
+                    "An unknown exception has occurred. Please try again or "
+                    "contact the site administrator."
                 )
             LRPStatus.objects.filter(pk=payload.status_row_pk).update(**update_fields)
         except Exception:

@@ -222,3 +222,40 @@ def test_all_broken_process_pool_sites_use_terminal_helpers():
     for src in sources:
         assert "update_status" in src
         assert "_write_terminal_error_html" in src
+
+
+def test_all_success_terminal_writes_set_completed():
+    """Structural guard: every SUCCESS terminal write (the RenderOutputHTML
+    redirect publish on the base + the two FunctionFinder variants) sets
+    completed=True.
+
+    The per-user gate's is_pending check keys on `completed` (NOT
+    redirect_to_results, which StatusView clears on serve). If a future edit
+    drops `completed=True` from one of these success paths, a fast fit the
+    user views within 60s would re-enter the pending window and falsely block
+    the next POST — exactly the regression the completed flag exists to fix.
+    These methods write a redirect from the parent/child success path and are
+    never exercised end-to-end in the unit suite (smoke covers the live
+    pipeline), so a source-level guard is the cheapest non-flaky protection.
+    """
+    import inspect
+
+    from zunzun.LongRunningProcess import (
+        FunctionFinder,
+        FunctionFinderResults,
+        StatusMonitoredLongRunningProcessPage,
+    )
+
+    sources = [
+        inspect.getsource(
+            StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRunningProcessPage.RenderOutputHTMLToAFileAndSetStatusRedirect
+        ),
+        inspect.getsource(
+            FunctionFinder.FunctionFinder.RenderOutputHTMLToAFileAndSetStatusRedirect
+        ),
+        inspect.getsource(
+            FunctionFinderResults.FunctionFinderResults.RenderOutputHTMLToAFileAndSetStatusRedirect
+        ),
+    ]
+    for src in sources:
+        assert "completed=True" in src

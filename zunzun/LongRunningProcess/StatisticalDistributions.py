@@ -154,7 +154,7 @@ class StatisticalDistributions(
                 raise _ReportsPipelineAborted()
 
         # final save is outside the 'one second updates'. Clearing
-        # parallelProcessCount drops the indicator now that no pool is active.
+        # parallel_count drops the indicator now that no pool is active.
         # Format clarifies the success-vs-total distinction so the count
         # doesn't appear to jump backward from the mid-progress 'X of Y'
         # display (which uses 'tasks the pool finished' for X).

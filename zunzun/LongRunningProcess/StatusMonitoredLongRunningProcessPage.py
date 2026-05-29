@@ -878,10 +878,11 @@ You must provide any weights you wish to use.
         """Throttled (≤1Hz) liveness + status write for tight work loops.
 
         Per second: runs ``CheckIfStillUsed`` to detect abandoned fits,
-        writes the supplied ``current_status`` plus the current
-        ``parallel_count`` to this dispatch's LRPStatus row (via
-        ``update_status``), and bumps ``self.oneSecondTimes``. Returns
-        immediately if a second hasn't elapsed since the last call.
+        writes the supplied ``currentStatus`` (into the row's
+        ``current_status`` field) plus the current ``parallel_count`` to
+        this dispatch's LRPStatus row (via ``update_status``), and bumps
+        ``self.oneSecondTimes``. Returns immediately if a second hasn't
+        elapsed since the last call.
 
         ``parallel_count`` is its own LRPStatus field so the status page
         renders it next to the elapsed timer instead of wedged into
@@ -910,7 +911,12 @@ You must provide any weights you wish to use.
         import time
 
         running_pid = self.get_status("process_id")
-        # No row (missing/superseded) → nothing to police; bail.
+        # A None process_id means the row is gone — a newer dispatch
+        # superseded this one and deleted the row (delete-prior-row in
+        # LongRunningProcessView). There's nothing to police: the
+        # superseded fit's own PerformAllWork finishes (or aborts) on its
+        # own, and update_status against the deleted pk is a no-op. Early
+        # return without teardown is correct.
         if running_pid is None:
             return
 
@@ -933,10 +939,13 @@ You must provide any weights you wish to use.
                 p.terminate()
 
         # if the status has not been checked in the past 300 seconds, this process was abandoned.
-        # last_status_check is the StatusUpdateView heartbeat; it is 0.0
-        # until the first poll, so fall back to start_time (the dispatch
-        # time the parent stamped on the row) for never-polled fits —
-        # otherwise a fit would self-terminate before its first poll.
+        # last_status_check is the StatusUpdateView heartbeat. The parent
+        # stamps it = start_time at dispatch (LongRunningProcessView), so in
+        # normal operation it is never 0.0 here. The start_time fallback
+        # below is belt-and-suspenders for the should-not-occur case where
+        # the row somehow has last_status_check=0.0 (e.g. a row created
+        # outside the view path); without it such a fit would self-terminate
+        # before its first poll.
         last_check = self.get_status("last_status_check") or 0.0
         if not last_check:
             last_check = self.get_status("start_time") or time.time()

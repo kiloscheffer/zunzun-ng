@@ -1473,6 +1473,58 @@ the blob→row cutover and closing the ownership race; it preserved the
 existing (main) completion-signal behavior. Tightening the
 completion signal onto `completed` is separable polish.
 
+## Model LRPStatus lifecycle as an explicit state field
+
+**Symptom / exposure.** Type-design observation from the comprehensive PR
+review of the LRP-status-table branch (`feat/lrp-status-table`, PR #21,
+2026-05-30). `LRPStatus` is an anemic model: it has no behavior, and the
+fit lifecycle (initializing → running → terminal) is not represented
+directly — it's *reconstructed* from loose, individually-mutable fields
+(`process_id`, `completed`, `redirect_to_results`, `last_status_check`).
+The per-user gate in `LongRunningProcessView` derives `is_active` /
+`is_pending` by combining 3–4 of these fields with two time windows, and
+terminal consistency (`process_id=0` + `completed=True`, plus a redirect
+or status text) is hand-maintained across ~8 write sites (PerformAllWork
+success + finally, the base/FunctionFinder/StatisticalDistributions
+BrokenProcessPool handlers, FittingBaseClass + FitUserDefinedFunction
+Solve/stat-failure terminals, `_run_fit_child`'s except handler, and the
+three success-path `RenderOutputHTML` redirect writes). Each new terminal
+site has to remember the full tuple; the
+`test_all_broken_process_pool_sites_use_terminal_helpers` /
+`test_all_success_terminal_writes_set_completed` structural guards exist
+precisely because the invariant is enforced by convention, not by type.
+
+**Recommended improvement (deferred).** Add a Django `TextChoices`
+`state` field (`INITIALIZING` / `RUNNING` / `TERMINAL`, default
+`INITIALIZING`) and 2–3 transition methods on the model —
+`mark_running(pid)`, `mark_terminal(redirect="")` (and the gate reads
+`row.state` directly). The transition methods become the single place
+that sets the field tuple correctly, replacing the derived `completed`
+flag and the scattered `process_id=0, completed=True` pairs. The gate's
+`is_active` / `is_pending` collapse to `state == RUNNING` (+ heartbeat
+window) and `state == INITIALIZING` (+ pending window). This is an
+**additive migration** (a new column + a data-free default), so it
+doesn't churn the schema history. Not an idealized rewrite — the current
+field-based design works, is covered by the gate/terminal tests, and
+ships green (147 unit + 14 smoke); this is separable type-design polish,
+sequence it with or after the "Make LRPStatus completion signal uniform"
+entry above (they touch the same fields).
+
+**Behavior change to revisit (concurrent-fit config).** Under
+`ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER=True`, a new dispatch now
+deletes the prior dispatch's row (delete-prior-row in
+`LongRunningProcessView`). An older fit that is still running when a newer
+one is dispatched therefore has its row removed out from under it, so
+`CheckIfStillUsed` reads `process_id is None` and no longer reaps it — the
+older fit just runs to completion on its own. This is arguably *correct*
+for an allow-concurrent config (independent fits should each finish), but
+it is a behavior change from `main`, where the shared status slot let a
+newer fit's `processID` signal the older child to tear down. Revisit if
+concurrent-fit resource use (an abandoned older fit consuming CPU/RAM
+until it finishes) becomes a concern — e.g. keep superseded rows briefly
+with a `superseded` state instead of hard-deleting, so `CheckIfStillUsed`
+can still reap them.
+
 ## ~~Replace eval() with getattr() in LRP session helpers~~ RESOLVED 2026-05-29
 
 > **Resolution.** Replaced the four `eval()` calls in

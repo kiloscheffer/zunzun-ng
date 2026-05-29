@@ -313,8 +313,9 @@ def StatusUpdateView(request):
     if row.redirect_to_results:
         return JsonResponse({"completed": True})
 
-    # Heartbeat write: single owner of last_status_check (the per-user gate
-    # and CheckIfStillUsed read it for liveness).
+    # Heartbeat write: the only RECURRING writer of last_status_check (it is
+    # also stamped once at dispatch in LongRunningProcessView). The per-user
+    # gate and CheckIfStillUsed read it for liveness.
     LRPStatus.objects.filter(pk=row.pk).update(last_status_check=time.time())
 
     db.connections.close_all()
