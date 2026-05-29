@@ -1186,7 +1186,27 @@ focused PR after the current branch ships, so the diff is bounded
 to "swap blob for table" without the in-flight race-condition fixes
 muddying the picture.
 
-## Replace eval() with getattr() in LRP session helpers
+## ~~Replace eval() with getattr() in LRP session helpers~~ RESOLVED 2026-05-29
+
+> **Resolution.** Replaced the four `eval()` calls in
+> `SaveDictionaryOfItemsToSessionStore` and `LoadItemFromSessionStore`
+> with `getattr(self, "session_" + name)` and
+> `SessionStore(getattr(self, "session_key_" + name))` respectively.
+> Also dropped the now-stale
+> `# pyright: ignore[reportUnusedImport]` on the `SessionStore`
+> import — that workaround was only needed while the symbol was
+> referenced via an `eval()` string. Pytest 133/133 green. Did not
+> add the optional parametrized-over-three-names test the entry
+> suggested — `getattr(self, "session_" + name)` is semantically
+> identical for any valid attribute name by Python guarantee, and
+> the existing roundtrip test on `"status"` plus visual inspection
+> covers the substitution.
+>
+> **Out of scope of this PR**, eight other `eval()` calls remain in
+> the same file — tracked separately in the new "Replace remaining
+> eval() calls in StatusMonitoredLongRunningProcessPage" entry below.
+>
+> Historical notes below, preserved for reference.
 
 **Symptom / exposure.** `StatusMonitoredLongRunningProcessPage.py`'s
 session helpers use `eval()` to construct attribute lookups by name:
@@ -1218,6 +1238,79 @@ focused commit when convenient.
 3. Add a test verifying all three store names still resolve. Tests
    under `tests/test_session_roundtrip.py` already exercise the
    round-trip; verify they still pass with the substitution.
+
+**Not in scope of any current branch.** Pure refactor; no behavior
+change. Worth a small focused commit when convenient.
+
+## Replace remaining eval() calls in StatusMonitoredLongRunningProcessPage
+
+**Symptom / exposure.** After the session-helper `eval()` cleanup
+landed (resolved entry above), eight `eval()` calls remain in
+`StatusMonitoredLongRunningProcessPage.py`. They fall into three
+patterns, each mechanically replaceable:
+
+1. **Dynamic attribute reads on `inReportObject.dataObject` (4 sites,
+   lines 101, 106, 138, 143).** Inside two near-identical loops over
+   `dir(inReportObject.dataObject)`:
+
+   ```python
+   if -1 != str(eval("inReportObject.dataObject." + str(item))).find("bound"):
+       continue
+   s += str(item) + ": " + str(eval("inReportObject.dataObject." + str(item))) + "\n\n"
+   ```
+
+   Direct replacement: `getattr(inReportObject.dataObject, item)`. The
+   two loops are themselves a duplicated block that could be factored
+   into a single helper; doing so removes 2 of the 4 sites for free.
+
+2. **Form-class instantiation by dimensionality (3 sites, lines 1315,
+   1420, 1450).** Each picks a Django form class by name:
+
+   ```python
+   itemsToRender["EvaluateAtAPointForm"] = eval(
+       "zunzun.forms.EvaluateAtAPointForm_" + str(self.dimensionality) + "D()"
+   )
+   self.unboundForm = eval(
+       "zunzun.forms.CharacterizeDataForm_" + str(self.dimensionality) + "D()"
+   )
+   self.boundForm = eval(
+       "zunzun.forms.CharacterizeDataForm_" + str(self.dimensionality) + "D(request.POST)"
+   )
+   ```
+
+   Replacement: `getattr(zunzun.forms, name)(...)` where name is the
+   concatenated string. The forms module defines a fixed set of
+   `*_2D` / `*_3D` classes — no injection vector, just dynamic dispatch.
+
+3. **Dynamic attribute read on self by dimensionality (1 site, line
+   1433).** `eval("self.defaultData" + str(self.dimensionality) + "D")`
+   selects between `self.defaultData2D` and `self.defaultData3D`.
+   Replacement: `getattr(self, "defaultData" + str(self.dimensionality) + "D")`.
+
+**Why it's worth fixing.** Same reasoning as the resolved
+session-helper entry above: mechanical, low-risk, removes code-review
+red flags. Doing all eight in one focused commit collapses the
+"eval() in StatusMonitoredLongRunningProcessPage.py" surface to zero.
+
+**Where to pick up.**
+
+1. Apply the three patterns above. Line numbers will shift slightly
+   between now and pickup; grep for `eval\\(` in the file and verify
+   exactly eight matches remain to scope the work.
+2. The two `dataObject`-dir-loop blocks (around lines 96-110 and
+   132-145) are near-duplicates and a candidate for factoring
+   into a single helper (e.g.,
+   `_dataObject_summary_text(inReportObject)`); leave that to a
+   judgment call by the author — pure substitution without
+   refactor is fine if scope creep is a concern.
+3. `zunzun/forms.py` should be inspected to confirm the
+   `EvaluateAtAPointForm_2D` / `EvaluateAtAPointForm_3D` and
+   `CharacterizeDataForm_2D` / `CharacterizeDataForm_3D` symbols
+   are all bound at import time (they should be — they're
+   class definitions).
+4. Verification: existing pytest suite covers the dispatch
+   indirectly (form-bound views are exercised by smoke); a clean
+   pytest + smoke pass is sufficient.
 
 **Not in scope of any current branch.** Pure refactor; no behavior
 change. Worth a small focused commit when convenient.
