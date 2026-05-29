@@ -15,7 +15,6 @@ import scipy.stats
 import zunzun.forms
 
 from . import FittingBaseClass
-from .StatusMonitoredLongRunningProcessPage import _json_native
 
 _logger = logging.getLogger(__name__)
 
@@ -28,17 +27,15 @@ class FitOneEquation(FittingBaseClass.FittingBaseClass):
     def SaveSpecificDataToSessionStore(self):
         self.SaveDictionaryOfItemsToSessionStore(
             "data",
-            _json_native(
-                {
-                    "dimensionality": self.dimensionality,
-                    "equationName": self.inEquationName,
-                    "equationFamilyName": self.inEquationFamilyName,
-                    "solvedCoefficients": self.dataObject.equation.solvedCoefficients,
-                    "fittingTarget": self.dataObject.equation.fittingTarget,
-                    "logLinX": self.dataObject.logLinX,
-                    "logLinY": self.dataObject.logLinY,
-                }
-            ),
+            {
+                "dimensionality": self.dimensionality,
+                "equationName": self.inEquationName,
+                "equationFamilyName": self.inEquationFamilyName,
+                "solvedCoefficients": self.dataObject.equation.solvedCoefficients,
+                "fittingTarget": self.dataObject.equation.fittingTarget,
+                "logLinX": self.dataObject.logLinX,
+                "logLinY": self.dataObject.logLinY,
+            },
         )
 
     def TransferFormDataToDataObject(

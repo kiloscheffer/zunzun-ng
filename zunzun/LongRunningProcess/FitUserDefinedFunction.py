@@ -19,7 +19,6 @@ import zunzun.forms
 from . import FittingBaseClass, ReportsAndGraphs
 from ._unique import page_artifact_path
 from .child_payload import ChildPayload
-from .StatusMonitoredLongRunningProcessPage import _json_native
 
 
 class FitUserDefinedFunction(FittingBaseClass.FittingBaseClass):
@@ -53,17 +52,15 @@ class FitUserDefinedFunction(FittingBaseClass.FittingBaseClass):
     def SaveSpecificDataToSessionStore(self):
         self.SaveDictionaryOfItemsToSessionStore(
             "data",
-            _json_native(
-                {
-                    "dimensionality": self.dimensionality,
-                    "equationName": self.inEquationName,
-                    "equationFamilyName": self.inEquationFamilyName,
-                    "solvedCoefficients": self.dataObject.equation.solvedCoefficients,
-                    "udfEditor_"
-                    + str(self.dimensionality)
-                    + "D": self.dataObject.equation.userDefinedFunctionText,
-                }
-            ),
+            {
+                "dimensionality": self.dimensionality,
+                "equationName": self.inEquationName,
+                "equationFamilyName": self.inEquationFamilyName,
+                "solvedCoefficients": self.dataObject.equation.solvedCoefficients,
+                "udfEditor_"
+                + str(self.dimensionality)
+                + "D": self.dataObject.equation.userDefinedFunctionText,
+            },
         )
 
     def TransferFormDataToDataObject(

@@ -17,7 +17,6 @@ import zunzun.forms
 
 from . import FittingBaseClass
 from .child_payload import ChildPayload
-from .StatusMonitoredLongRunningProcessPage import _json_native
 
 
 class FitUserCustomizablePolynomial(FittingBaseClass.FittingBaseClass):
@@ -38,16 +37,14 @@ class FitUserCustomizablePolynomial(FittingBaseClass.FittingBaseClass):
     def SaveSpecificDataToSessionStore(self):
         self.SaveDictionaryOfItemsToSessionStore(
             "data",
-            _json_native(
-                {
-                    "dimensionality": self.dimensionality,
-                    "equationName": self.inEquationName,
-                    "equationFamilyName": self.inEquationFamilyName,
-                    "solvedCoefficients": self.dataObject.equation.solvedCoefficients,
-                    "fittingTarget": self.dataObject.equation.fittingTarget,
-                    "polynomial2DFlags": self.dataObject.equation.polynomial2DFlags,
-                }
-            ),
+            {
+                "dimensionality": self.dimensionality,
+                "equationName": self.inEquationName,
+                "equationFamilyName": self.inEquationFamilyName,
+                "solvedCoefficients": self.dataObject.equation.solvedCoefficients,
+                "fittingTarget": self.dataObject.equation.fittingTarget,
+                "polynomial2DFlags": self.dataObject.equation.polynomial2DFlags,
+            },
         )
 
     def TransferFormDataToDataObject(

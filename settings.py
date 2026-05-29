@@ -23,6 +23,13 @@ FEEDBACK_EMAIL_ADDRESS = ""  # for any user feedback
 SESSION_COOKIE_NAME = "sessionid"
 SESSION_COOKIE_AGE = 60 * 60 * 24 * 5  # 60 seconds * 60 minutes * 24 hours * 5 days
 
+# numpy-aware session serializer. pyeq3 produces numpy scalars / arrays
+# (coefficient arrays, ranking tuples) that Django's default JSONSerializer
+# cannot encode. NumpySessionSerializer coerces them at session.save() time
+# so LRP save sites don't each have to remember an explicit cast. See
+# zunzun/session_helpers.py.
+SESSION_SERIALIZER = "zunzun.session_helpers.NumpySessionSerializer"
+
 EMAIL_USE_TLS = True  # assuming gmail
 EMAIL_PORT = 587  # assuming gmail
 EMAIL_HOST = "smtp.gmail.com"  # assuming gmail

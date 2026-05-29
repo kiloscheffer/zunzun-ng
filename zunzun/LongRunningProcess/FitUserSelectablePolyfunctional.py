@@ -17,7 +17,6 @@ import zunzun.forms
 
 from . import FittingBaseClass
 from .child_payload import ChildPayload
-from .StatusMonitoredLongRunningProcessPage import _json_native
 
 
 class FitUserSelectablePolyfunctional(FittingBaseClass.FittingBaseClass):
@@ -42,17 +41,15 @@ class FitUserSelectablePolyfunctional(FittingBaseClass.FittingBaseClass):
     def SaveSpecificDataToSessionStore(self):
         self.SaveDictionaryOfItemsToSessionStore(
             "data",
-            _json_native(
-                {
-                    "dimensionality": self.dimensionality,
-                    "equationName": self.inEquationName,
-                    "equationFamilyName": self.inEquationFamilyName,
-                    "solvedCoefficients": self.dataObject.equation.solvedCoefficients,
-                    "fittingTarget": self.dataObject.equation.fittingTarget,
-                    "polyfunctional2DFlags": self.dataObject.equation.polyfunctional2DFlags,
-                    "polyfunctional3DFlags": self.dataObject.equation.polyfunctional3DFlags,
-                }
-            ),
+            {
+                "dimensionality": self.dimensionality,
+                "equationName": self.inEquationName,
+                "equationFamilyName": self.inEquationFamilyName,
+                "solvedCoefficients": self.dataObject.equation.solvedCoefficients,
+                "fittingTarget": self.dataObject.equation.fittingTarget,
+                "polyfunctional2DFlags": self.dataObject.equation.polyfunctional2DFlags,
+                "polyfunctional3DFlags": self.dataObject.equation.polyfunctional3DFlags,
+            },
         )
 
     def TransferFormDataToDataObject(

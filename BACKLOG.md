@@ -646,7 +646,49 @@ Centralizing the retry into a single helper:
 **Not in scope of any current branch.** Pure refactor; no behavior
 change. Worth a small focused commit when convenient.
 
-## Auto-coerce numpy values via custom JSONEncoder
+## ~~Auto-coerce numpy values via custom JSONEncoder~~ RESOLVED 2026-05-29
+
+> **Resolution.** Added `NumpyJSONEncoder` and `NumpySessionSerializer`
+> to `zunzun/session_helpers.py`, and set
+> `SESSION_SERIALIZER = "zunzun.session_helpers.NumpySessionSerializer"`
+> in `settings.py`. numpy coercion now happens automatically at
+> `session.save()` time, so the 10 `_json_native(...)` wrapper calls
+> across the LRP subclass tree were removed and the `_json_native`
+> helper itself deleted from `StatusMonitoredLongRunningProcessPage`.
+>
+> **Encoder is leaner than `_json_native` was.** `_json_native`
+> recursively walked dicts / lists / tuples. The encoder only needs
+> the two leaf cases `json` can't handle natively — `numpy.ndarray`
+> (`.tolist()`) and `numpy.generic` (`.item()`) — because `json.dumps`
+> already recurses into containers and only calls `default()` on
+> unencodable leaves. Note `numpy.float64` is a subclass of `float`
+> and serializes natively (never reaches `default()`), which is why
+> the old explicit `.item()` cast on it was never load-bearing.
+>
+> **Sites changed:** 8 Fit* subclasses (`FitOneEquation`, `FitSpline`,
+> `FitUserCustomizablePolynomial`, `FitUserDefinedFunction`,
+> `FitUserSelectablePolyfunctional`, `FitUserSelectablePolynomial`,
+> `FitUserSelectableRational`) + `FunctionFinder` (×2 calls). Each
+> `_json_native({...})` wrapper became a bare dict literal; the
+> `from .StatusMonitoredLongRunningProcessPage import _json_native`
+> imports were dropped (FunctionFinder kept `_ReportsPipelineAborted`).
+> Stale comment in `views.py` updated.
+>
+> **Tests:** added `test_numpy_serializer_roundtrips_numpy_values`
+> (direct serializer dumps/loads over scalar + 1D/2D array + nested
+> dict + tck-style tuple) and
+> `test_lrp_save_load_roundtrips_numpy_via_serializer` (end-to-end
+> save → SQLite → fresh-SessionStore reload, proving the global
+> `SESSION_SERIALIZER` wiring fires). Pytest 135/135.
+>
+> **Why the global wiring is safe:** numpy coercion is a strict
+> superset of default behavior — it only activates for numpy leaves,
+> which never appear in non-LRP sessions (main request session stores
+> session keys + cookie flags). `NumpySessionSerializer.dumps` matches
+> Django's stock `JSONSerializer.dumps` byte-for-byte except the
+> `cls=` encoder, so existing session blobs stay compatible.
+>
+> Historical notes below, preserved for reference.
 
 **Symptom / exposure.** Django's default `JSONSerializer` (the session
 backend's serializer since the JSON-native session migration) doesn't

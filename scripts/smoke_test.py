@@ -20,8 +20,8 @@ Scenarios
 9. **feedback_form** — GET form + POST reply.
 10. **invalid_form_post** — malformed data → error template.
 11. **spline_2D** — 2D cubic spline fit with smoothness=1.0, chained into
-    an `/EvaluateAtAPoint/` POST to verify the `_json_native`-mangled
-    `scipySpline` round-trips through the session.
+    an `/EvaluateAtAPoint/` POST to verify the serializer-coerced
+    `scipySpline` tck round-trips through the session.
 12. **udf_2D** — 2D User Defined Function fit with formula `a + b*X`,
     chained into an `/EvaluateAtAPoint/` POST to verify
     `solvedCoefficients` round-trips through the session.
@@ -725,9 +725,10 @@ def run_smoke(scenario: str = "default") -> int:
 
         # spline_2D + round-trip through EvaluateAtAPointView. The
         # round-trip is the real target — FitSpline stores scipySpline as a
-        # tuple of ndarrays which _json_native converts to [list, list, int]
-        # before session write. EvaluateAtAPointView at views.py:98 loads
-        # this verbatim and scipy's splev/BSpline path consumes it.
+        # tuple of ndarrays which NumpySessionSerializer coerces to
+        # [list, list, int] at session-write time. EvaluateAtAPointView at
+        # views.py:98 loads this verbatim and scipy's splev/BSpline path
+        # consumes it.
         err = _run_scenario(
             session,
             base,
@@ -753,8 +754,8 @@ def run_smoke(scenario: str = "default") -> int:
                 print("[evaluate_at_a_point_spline] OK")
 
         # udf_2D + round-trip through EvaluateAtAPointView. Exercises
-        # FitUserDefinedFunction's solvedCoefficients write (list after
-        # _json_native) and EvaluateAtAPointView's load site.
+        # FitUserDefinedFunction's solvedCoefficients write (coerced to a
+        # list by NumpySessionSerializer) and EvaluateAtAPointView's load site.
         err = _run_scenario(
             session,
             base,

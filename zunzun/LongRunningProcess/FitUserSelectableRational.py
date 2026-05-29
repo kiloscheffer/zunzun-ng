@@ -17,7 +17,6 @@ import zunzun.forms
 
 from . import FittingBaseClass
 from .child_payload import ChildPayload
-from .StatusMonitoredLongRunningProcessPage import _json_native
 
 
 class FitUserSelectableRational(FittingBaseClass.FittingBaseClass):
@@ -43,17 +42,15 @@ class FitUserSelectableRational(FittingBaseClass.FittingBaseClass):
     def SaveSpecificDataToSessionStore(self):
         self.SaveDictionaryOfItemsToSessionStore(
             "data",
-            _json_native(
-                {
-                    "dimensionality": self.dimensionality,
-                    "equationName": self.inEquationName,
-                    "equationFamilyName": self.inEquationFamilyName,
-                    "solvedCoefficients": self.dataObject.equation.solvedCoefficients,
-                    "fittingTarget": self.dataObject.equation.fittingTarget,
-                    "rationalNumeratorFlags": self.dataObject.equation.rationalNumeratorFlags,
-                    "rationalDenominatorFlags": self.dataObject.equation.rationalDenominatorFlags,
-                }
-            ),
+            {
+                "dimensionality": self.dimensionality,
+                "equationName": self.inEquationName,
+                "equationFamilyName": self.inEquationFamilyName,
+                "solvedCoefficients": self.dataObject.equation.solvedCoefficients,
+                "fittingTarget": self.dataObject.equation.fittingTarget,
+                "rationalNumeratorFlags": self.dataObject.equation.rationalNumeratorFlags,
+                "rationalDenominatorFlags": self.dataObject.equation.rationalDenominatorFlags,
+            },
         )
 
     def TransferFormDataToDataObject(

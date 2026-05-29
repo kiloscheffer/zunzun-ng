@@ -13,7 +13,6 @@ import zunzun.forms
 
 from . import FittingBaseClass
 from .child_payload import ChildPayload
-from .StatusMonitoredLongRunningProcessPage import _json_native
 
 
 class FitSpline(FittingBaseClass.FittingBaseClass):
@@ -32,14 +31,12 @@ class FitSpline(FittingBaseClass.FittingBaseClass):
         # spline from that tck at the load site.
         self.SaveDictionaryOfItemsToSessionStore(
             "data",
-            _json_native(
-                {
-                    "dimensionality": self.dimensionality,
-                    "equationName": self.inEquationName,
-                    "equationFamilyName": self.inEquationFamilyName,
-                    "solvedCoefficients": self.dataObject.equation.solvedCoefficients,
-                }
-            ),
+            {
+                "dimensionality": self.dimensionality,
+                "equationName": self.inEquationName,
+                "equationFamilyName": self.inEquationFamilyName,
+                "solvedCoefficients": self.dataObject.equation.solvedCoefficients,
+            },
         )
 
     def build_child_payload(self):
