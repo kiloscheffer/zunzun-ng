@@ -206,16 +206,21 @@ def _run_fit_child(payload: ChildPayload) -> None:
             # it deleted ours the update matches zero rows (harmless).
             from zunzun.models import LRPStatus
 
-            # Don't clobber a redirect an earlier successful stage
-            # already set (e.g., RenderOutputHTML succeeded then the
-            # success-path process_id-cleanup raised).
-            existing = (
+            # Don't clobber a row an earlier successful stage already
+            # finalized (e.g., RenderOutputHTML succeeded — setting
+            # completed=True — then the success-path process_id-cleanup
+            # raised). Guard on the durable `completed` flag, NOT on
+            # redirect_to_results: StatusView clears the redirect to "" the
+            # moment it serves the result, so a redirect-based check would
+            # mistake a served-and-cleared success for "no redirect yet" and
+            # overwrite it with this error page. `completed` survives that.
+            already_completed = (
                 LRPStatus.objects.filter(pk=payload.status_row_pk)
-                .values_list("redirect_to_results", flat=True)
+                .values_list("completed", flat=True)
                 .first()
             )
             update_fields: dict[str, Any] = {"process_id": 0, "completed": True}
-            if not existing:
+            if not already_completed:
                 update_fields["redirect_to_results"] = error_html_path if write_succeeded else ""
                 update_fields["current_status"] = (
                     "An unknown exception has occurred, and an email with "

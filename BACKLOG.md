@@ -1398,6 +1398,81 @@ focused PR after the current branch ships, so the diff is bounded
 to "swap blob for table" without the in-flight race-condition fixes
 muddying the picture.
 
+## Make LRPStatus completion signal uniform across the views
+
+**Symptom / exposure.** Follow-up from the `/code-review` of the
+LRP-status-table branch (`feat/lrp-status-table`, 2026-05-30). The
+branch added a durable `completed` boolean to `LRPStatus` and the
+per-user gate + `_run_fit_child`'s terminal handler key on it. But the
+two polling views still key completion on `redirect_to_results`:
+- `StatusView` (`zunzun/views.py`) serves the result file/302 iff
+  `row.redirect_to_results` is truthy, and CLEARS it to `""` on serve.
+- `StatusUpdateView` reports `{"completed": True}` iff
+  `row.redirect_to_results` is truthy.
+
+This is behavior-preserved from `main` (the JS-poll redesign always
+keyed on the redirect), so it's not a regression, and the normal
+single-tab flow works (smoke 14/14). But two edge cases are now
+needlessly fragile given `completed` exists:
+1. **Multi-viewer / poll-after-clear.** If one viewer completes and
+   `StatusView` clears the redirect, a second concurrent poller (other
+   tab, or an in-flight request) sees `redirect_to_results == ""` →
+   `StatusUpdateView` returns `{"completed": False}` → that viewer
+   polls forever.
+2. **Disk-unwritable terminal error.** When `_write_terminal_error_html`
+   returns `None` (disk full / permission denied), the terminal write
+   sets `completed=True, process_id=0` but leaves `redirect_to_results
+   == ""`. Both views then never signal completion → stuck poll.
+
+**Why it's worth fixing.** `completed` is the durable done-signal;
+`redirect_to_results` is an ephemeral payload that `StatusView`
+consumes. Keying completion on the payload is the same overloaded-signal
+mistake the gate fix already corrected on its side.
+
+**Where to pick up (coordinate BOTH views — do not change one alone).**
+A naive `if row.redirect_to_results or row.completed:` in
+`StatusUpdateView` ALONE causes a navigation loop: the JS navigates to
+`StatusView`, which (still keying on the now-empty redirect) re-renders
+the in-progress page, whose poller immediately re-completes. The fix
+must move both views to the `completed` flag together:
+1. `StatusUpdateView`: report completion on `row.completed` (not the
+   redirect).
+2. `StatusView`: branch on `row.completed`. If completed AND
+   `redirect_to_results` is set → serve/redirect as today (and the
+   clear is fine). If completed AND redirect is `""` (already served,
+   or disk-failure terminal) → render a terminal "your fit finished —
+   no result is available / it has already been shown" page, NOT the
+   in-progress template (which would loop).
+3. Add tests: a poll after `StatusView` consumed the redirect returns
+   completed; the disk-failure terminal (completed, empty redirect)
+   lands on a terminal page, not an infinite poll.
+
+**Related minor cleanups surfaced in the same review (fold in or skip):**
+- The terminal-error write
+  `update_status(redirect_to_results=self._write_terminal_error_html(msg)
+  or "", process_id=0, completed=True, current_status=msg,
+  parallel_count=0)` is duplicated across ~5 sites (FittingBaseClass,
+  FitUserDefinedFunction, FunctionFinder ×2, StatisticalDistributions,
+  base). The deleted `_publish_terminal_error()` used to be the
+  chokepoint; consider a small `_publish_terminal_error(html_path)`-style
+  helper again so a future terminal site can't forget `completed=True`
+  / `process_id=0`. The `test_all_broken_process_pool_sites_use_terminal_helpers`
+  structural test only checks `update_status` + `_write_terminal_error_html`
+  presence, not that `process_id=0` / `completed=True` are passed.
+- `CheckIfStillUsed`'s `get_status("last_status_check") or ... or
+  time.time()` fallback masks the never-stamped case that
+  `LongRunningProcessView` now prevents at dispatch — harmless defense
+  today, but it would hide a future regression rather than surface it.
+- Minor over-fetch: `StatusView`/`StatusUpdateView` fetch the full row
+  (`.first()`) but read a subset; `CheckIfStillUsed` issues two
+  `get_status` SELECTs (1 Hz hot path) where one `.values(a, b)` would
+  do.
+
+**Not in scope of the LRP-status-table branch.** That branch's job was
+the blob→row cutover and closing the ownership race; it preserved the
+existing (main) completion-signal behavior. Tightening the
+completion signal onto `completed` is separable polish.
+
 ## ~~Replace eval() with getattr() in LRP session helpers~~ RESOLVED 2026-05-29
 
 > **Resolution.** Replaced the four `eval()` calls in

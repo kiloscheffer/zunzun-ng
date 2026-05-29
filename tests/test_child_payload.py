@@ -192,6 +192,36 @@ def test_run_fit_child_terminal_write_against_deleted_row_is_harmless(tmp_path, 
 
 
 @pytest.mark.django_db
+def test_run_fit_child_does_not_clobber_an_already_completed_row(tmp_path, monkeypatch):
+    """A late exception after the fit already finalized must NOT overwrite a
+    served-and-cleared success with an error redirect.
+
+    Scenario: RenderOutputHTML succeeded (set completed=True + a redirect),
+    StatusView then served the result and CLEARED redirect_to_results to "",
+    and only afterwards a post-completion line in the child raised. The
+    terminal handler guards on the durable `completed` flag — NOT on
+    redirect_to_results (which StatusView blanks on serve) — so it leaves the
+    finished row alone. With the old redirect-based guard this test fails (the
+    empty redirect reads as "nothing set yet" and the handler clobbers it).
+    """
+    from zunzun.models import LRPStatus
+
+    row = LRPStatus.objects.create(
+        start_time=1.0, current_status="done", completed=True, redirect_to_results=""
+    )
+
+    fake_module = _build_fake_lrp_module(
+        perform_side_effect=RuntimeError("post-completion cleanup raised")
+    )
+    _run_fit_child_with_fake_lrp(tmp_path, monkeypatch, fake_module, status_row_pk=row.pk)
+
+    reloaded = LRPStatus.objects.get(pk=row.pk)
+    assert reloaded.redirect_to_results == ""  # not clobbered with an error page
+    assert reloaded.current_status == "done"  # not clobbered with the error message
+    assert reloaded.completed is True
+
+
+@pytest.mark.django_db
 def test_run_fit_child_publishes_terminal_redirect_to_a_real_row(tmp_path, monkeypatch):
     """End-to-end failure path against a REAL SQLite-backed LRPStatus row.
 
