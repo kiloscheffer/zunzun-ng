@@ -1570,6 +1570,22 @@ review and bisect.
 > design space; deferring as a separate item if there's appetite
 > later.
 >
+> **Codex review on PR #17 caught a pool-worker gap in the first cut.**
+> The deletions stripped `basicConfig(filename=temp/{pid}.log)` calls
+> in code that runs inside `FitPool` workers (e.g., the
+> `ParallelWorker_*` functions in `StatusMonitoredLongRunningProcessPage`,
+> `parallelWorkFunction` / `serialWorker` in `FunctionFinder`, etc.).
+> Pool workers are sub-children of the LRP child and DO NOT inherit
+> its FileHandler — each is its own fresh spawn. After deletion, their
+> `logging.exception(...)` calls fell back to stderr and the
+> user-facing "see log file" message pointed at a file that didn't
+> exist. Fixed by adding a default `_worker_initializer` to
+> `zunzun/parallel_pool.py` that calls `_setup_child_root_logging()`
+> on every pool worker at startup, then chains any caller-supplied
+> initializer. The `FunctionFinder` callsite that passes
+> `initializer=_install_worker_data_cache` continues to work — the
+> wrapper runs logging setup first, then the caller's hook.
+>
 > Pytest 133/133 green.
 >
 > Historical notes below, preserved for reference.
