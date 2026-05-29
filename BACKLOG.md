@@ -1499,7 +1499,48 @@ red flags. Doing all eight in one focused commit collapses the
 **Not in scope of any current branch.** Pure refactor; no behavior
 change. Worth a small focused commit when convenient.
 
-## Test coverage for dispatch-ownership and terminal-error helpers
+## ~~Test coverage for dispatch-ownership and terminal-error helpers~~ RESOLVED 2026-05-29
+
+> **Resolution.** Eight tests added to
+> `tests/test_perform_all_work_pipeline.py` covering gaps 1–4
+> (pytest now 143, was 135):
+>
+> - **`_we_own_status_slot()`** — three branch tests: pid+dispatch
+>   match → True; pid match + dispatch mismatch → False; session read
+>   raises `OperationalError` → True (with `caplog` assertion on the
+>   "Ownership check session read failed" log). The
+>   `OperationalError`-subclass-of-`DatabaseError` relationship is what
+>   makes it land in the `except (DatabaseError, InterfaceError)` branch.
+> - **`_write_terminal_error_html()`** — success path returns the
+>   artifact path and writes a non-empty file; disk-failure path
+>   (`page_artifact_path` → a path inside a nonexistent dir, so both
+>   the template render AND the hardcoded fallback `open()` fail)
+>   returns None without raising.
+> - **BrokenProcessPool publish** — one integration test on
+>   `CreateOutputReportsInParallelUsingProcessPool`: mocks
+>   `fit_pool.submit_many` to raise `BrokenProcessPool`, asserts
+>   `_ReportsPipelineAborted` is raised AND a single bundled
+>   ownership-gated write carries
+>   `redirectToResultsFileOrURL` + `processID:0` + `dispatched_at:0` +
+>   `currentStatus`. Plus a structural test asserting all four
+>   BrokenProcessPool sites (StatusMonitored base +
+>   `FunctionFinder.PerformWorkInParallel` ×2 +
+>   `StatisticalDistributions.PerformWorkInParallel`) route through
+>   `_publish_terminal_error` + `_write_terminal_error_html` — keyed on
+>   the `_write_terminal_error_html` caller set, which isolates the
+>   pool-death cohort from the Solve-failure paths (`FittingBaseClass`,
+>   `FitUserDefinedFunction`) that use a different terminal template.
+> - **Success-path entry gate** — asserts
+>   `RenderOutputHTMLToAFileAndSetStatusRedirect` returns before ANY
+>   shared-session write when a newer dispatch owns the slot (the
+>   original race; smoke runs one fit at a time so can't catch it).
+>
+> **Gap 5 (optional failure-path smoke scenario) deferred** — see the
+> new "Failure-path smoke scenario for the abort pipeline" entry
+> below. Kept this PR a focused pure-test-unit addition; the smoke
+> scenario adds Waitress+spawn runtime and is separable.
+>
+> Historical notes below, preserved for reference.
 
 **Symptom / exposure.** The `fix/pipeline-error-redirects` branch
 landed three new helpers on `StatusMonitoredLongRunningProcessPage`
@@ -1575,6 +1616,46 @@ harness in `tests/test_child_payload.py`.
 behavior change. Worth a focused PR (`test: cover dispatch-ownership
 helpers and BrokenProcessPool redirects`) so the diff is easy to
 review and bisect.
+
+## Failure-path smoke scenario for the abort pipeline
+
+**Symptom / exposure.** Gap 5 of the (now-resolved) "Test coverage
+for dispatch-ownership and terminal-error helpers" entry above. The
+unit + integration tests added 2026-05-29 cover the helper contracts
+in isolation, but no smoke scenario exercises the *failure* path
+end-to-end through the real Waitress + spawn + session pipeline.
+Every existing smoke scenario drives a fit that succeeds; the
+terminal-error redirect (the thing PR #11 was built to make
+race-free) is never walked under a real cross-process run.
+
+**Why it's worth fixing.** The unit tests mock `LoadItemFromSessionStore`
+/ `SaveDictionaryOfItemsToSessionStore` and the pool. A smoke
+scenario would prove the genuine article: a child hitting a Solve
+failure actually writes `exception_while_fitting_an_equation.html`,
+publishes the redirect into the real SQLite session, and the polling
+UI lands on it — across the process boundary the unit tests stub out.
+Mirrors the value the spline/UDF round-trip scenarios add over their
+unit-test counterparts.
+
+**Where to pick up.**
+
+1. Add a scenario to `scripts/smoke_test.py`: POST a UDF with a
+   deliberately divergent / undefined formula (e.g. `1/(X-X)` so the
+   Solve raises rather than the form rejecting it at validation) to
+   `/FitUserDefinedFunction__F__/2/`.
+2. Poll `/StatusAndResults/` until the REFRESH/REDIRECT settles.
+3. Assert the result body matches the
+   `exception_while_fitting_an_equation.html` markers within a bounded
+   timeout (UDF Solve failures are fast — budget ~60 s on Windows,
+   well under the 2D ceiling).
+4. Verify the bad formula actually reaches `Solve()` rather than being
+   rejected earlier by `Equation_2D.clean()` / form validation — if it
+   short-circuits at validation, pick a formula that parses but
+   diverges numerically so the failure happens in the fit child.
+
+**Not in scope of the test-coverage PR.** That PR was deliberately a
+pure unit/integration-test addition; the smoke scenario adds
+Waitress+spawn runtime and a new POST fixture, so it's separable.
 
 ## ~~Robustness improvements in LRP child logging and session reads~~ RESOLVED 2026-05-29
 
