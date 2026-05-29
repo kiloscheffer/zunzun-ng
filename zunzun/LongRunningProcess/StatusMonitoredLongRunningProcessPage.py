@@ -161,6 +161,7 @@ class StatusMonitoredLongRunningProcessPage(object):
         self.session_data = None
         self.session_status = None
         self.session_functionfinder = None
+        self.status_row_pk = None
 
         self.statisticalDistribution = False
         self.userDefinedFunction = False
@@ -667,6 +668,26 @@ You must provide any weights you wish to use.
         session = None
 
         return returnItem
+
+    def update_status(self, **fields):
+        """Write fields to this dispatch's LRPStatus row. Unconditional,
+        single-row UPDATE — no ownership check (each fit owns its own row).
+        A missing/deleted row (e.g., superseded by a newer dispatch that
+        deleted it) matches zero rows and is a harmless no-op.
+        """
+        from zunzun.models import LRPStatus
+
+        LRPStatus.objects.filter(pk=self.status_row_pk).update(**fields)
+
+    def get_status(self, field, default=None):
+        """Read one field from this dispatch's LRPStatus row. Returns
+        `default` ONLY when the row is missing — a falsy stored value
+        (process_id=0, redirect_to_results="") round-trips as itself.
+        """
+        from zunzun.models import LRPStatus
+
+        row = LRPStatus.objects.filter(pk=self.status_row_pk).values(field).first()
+        return row[field] if row is not None else default
 
     def _write_terminal_error_html(self, error_message):
         """Render a terminal error page to the dataObject's artifact path
