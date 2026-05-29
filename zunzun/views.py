@@ -18,7 +18,7 @@ from django_ratelimit.decorators import ratelimit
 
 import settings
 
-from . import LongRunningProcess, forms, platform_compat
+from . import LongRunningProcess, forms, middleware, platform_compat
 from .LongRunningProcess.child_payload import _run_fit_child
 
 
@@ -65,6 +65,7 @@ def _housekeeping_child(temp_dir: str, max_size_mb: int) -> None:
 
 @cache_control(no_cache=True)
 @ratelimit(key="ip", rate="12/m", block=False)
+@middleware.rate_limit_sleep
 def EvaluateAtAPointView(request):
     import os
     import sys
@@ -362,6 +363,7 @@ def StatusUpdateView(request):
 
 @cache_control(no_cache=True)
 @ratelimit(key="ip", rate="12/m", block=False)
+@middleware.rate_limit_sleep
 def LongRunningProcessView(
     request, inDimensionality, inEquationFamilyName="", inEquationName=""
 ):  # from urls.py, inDimensionality can only be '1', '2' or '3'
@@ -599,6 +601,7 @@ def LongRunningProcessView(
 
 @cache_control(no_cache=True)
 @ratelimit(key="ip", rate="12/m", block=False)
+@middleware.rate_limit_sleep
 def FeedbackView(request):
     import datetime
     import os
@@ -633,6 +636,7 @@ def FeedbackView(request):
 
 @cache_page(60 * 60)  # 60 minutes
 @ratelimit(key="ip", rate="12/m", block=False)
+@middleware.rate_limit_sleep
 def HomePageView(request):
     import os
     import sys
@@ -675,6 +679,7 @@ def HomePageView(request):
 
 @cache_control(no_cache=True)
 @ratelimit(key="ip", rate="12/m", block=False)
+@middleware.rate_limit_sleep
 def AllEquationsView(
     request, inDimensionality, inAllOrStandardOnly
 ):  # from urls.py, inDimensionality can only be '2' or '3'

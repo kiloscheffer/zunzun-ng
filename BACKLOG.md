@@ -727,13 +727,16 @@ behavior change in the dormant state.
 >   itself).
 > - The entry suggested registering after `RatelimitMiddleware`, but
 >   django-ratelimit is used as a `@ratelimit(...)` **decorator**,
->   not as middleware. The decorator sets `request.limited` *inside*
->   the view body, so middleware can't read it during process_request
->   — only in process_response. The sleep therefore moved from
->   "before view body" to "after view body". Net wall-clock latency
->   for a slammer is unchanged; server CPU is consumed identically.
->   Documented this timing change inline in the middleware docstring
->   and in `AGENTS.md` § Rate limiting + `docs/internals/active-gotchas.md`.
+>   not as middleware. The first cut put the rate-limit sleep in the
+>   middleware's `process_response` — Codex's review on PR #15
+>   correctly flagged that this loses slammer back-pressure on
+>   ``LongRunningProcessView``: the fit child spawn would happen
+>   *before* the 5 s sleep. Fixed by moving the sleep into a small
+>   ``rate_limit_sleep`` decorator stacked below ``@ratelimit`` on
+>   each rate-limited view, so the sleep runs after `request.limited`
+>   is set but before the view body executes. Documented in the
+>   middleware module docstring and in `AGENTS.md` §
+>   Rate limiting + `docs/internals/active-gotchas.md`.
 >
 > Also updated `.claude/agents/fork-pattern-reviewer.md` check #6
 > from "every entry-point view must call `CommonToAllViews`" to
