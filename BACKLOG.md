@@ -1617,7 +1617,53 @@ behavior change. Worth a focused PR (`test: cover dispatch-ownership
 helpers and BrokenProcessPool redirects`) so the diff is easy to
 review and bisect.
 
-## Failure-path smoke scenario for the abort pipeline
+## ~~Failure-path smoke scenario for the abort pipeline~~ RESOLVED 2026-05-29
+
+> **Resolution — built as a pytest, not a smoke scenario, after two
+> findings made the original "POST a bad UDF to Waitress" plan
+> impractical.**
+>
+> Added `test_run_fit_child_publishes_terminal_redirect_to_a_real_session`
+> to `tests/test_child_payload.py` (pytest 144, was 143). A
+> `FailingLRP` that subclasses `StatusMonitoredLongRunningProcessPage`
+> (inheriting the genuine `LoadItemFromSessionStore` /
+> `SaveDictionaryOfItemsToSessionStore`) is driven through the real
+> `_run_fit_child` entrypoint against a real `SessionStore`; its
+> `PerformAllWork` raises to simulate a post-dispatch fit failure. The
+> test reloads the status session from its key and asserts the terminal
+> redirect persisted through the genuine serialize → SQLite →
+> deserialize path, the error artifact exists on disk, and the
+> ownership-gated bundled write cleared `processID` / `dispatched_at`.
+> This adds the real-session round-trip the sibling FakeLRP tests
+> (mocked saves) lack.
+>
+> **Finding 1 — pyeq3 is hardened against bad fits, so a "bad formula"
+> can't reliably reach the exception template.**
+> `IModel.CalculateReducedDataFittingTarget` wraps the whole model
+> eval in `try/except Exception: return 1.0e300` and also maps
+> non-finite SSQ to `1.0e300`, so the differential-evolution phase
+> swallows every exception and every inf/NaN. A degenerate UDF
+> (`a*log(X-100)`, all-NaN predictions) doesn't crash — DE picks the
+> least-bad coefficient vector and the fit produces a *garbage success
+> page*. Symbolic-divide formulas (`a/(X-X)`) are rejected at parse
+> time, and `ConvertStringIntsToStringFloats` mangles index tricks
+> (`X[100]` → `X[100.0]`). The only unsanitized path is the post-DE
+> `curve_fit` refinement, which can't be steered into raising from form
+> input. So the abort/terminal pipeline can't be reached deterministically
+> through the HTTP fit form.
+>
+> **Finding 2 — a true os-level spawn can't be used in a pytest here.**
+> A spawned child is a fresh interpreter that (a) can't see a
+> parent-process monkeypatch (so "monkeypatch Solve" is impossible
+> across the boundary) and (b) uses the production `session_db`, not
+> pytest-django's transaction-scoped test session DB — so the
+> session-redirect write would be invisible to the parent's test
+> connection. Driving the real `_run_fit_child` in-process against a
+> real session is the faithful, deterministic substitute; cross-process
+> pickling is already covered by `test_pickle_spike.py` and the
+> `ChildPayload` round-trip tests.
+>
+> Historical notes below, preserved for reference.
 
 **Symptom / exposure.** Gap 5 of the (now-resolved) "Test coverage
 for dispatch-ownership and terminal-error helpers" entry above. The
