@@ -181,6 +181,7 @@ class FunctionFinderResults(FittingBaseClass.FittingBaseClass):
                 "start_time": time.time(),
                 "time_of_last_status_check": time.time(),
                 "redirectToResultsFileOrURL": "",
+                "parallelProcessCount": 0,
                 "dispatched_at": self.dispatched_at,
             },
         )

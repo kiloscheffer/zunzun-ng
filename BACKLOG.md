@@ -1362,7 +1362,19 @@ shouldn't bundle into the race-condition fix PR. The read-retry
 work overlaps the existing "Factor out session.save() retry helper"
 entry — both should land together.
 
-## Backfill `FunctionFinderResults.SetInitialStatusDataIntoSessionVariables`
+## ~~Backfill `FunctionFinderResults.SetInitialStatusDataIntoSessionVariables`~~ RESOLVED 2026-05-29
+
+> **Resolution.** Added `"parallelProcessCount": 0` to the initial-status
+> dict in `FunctionFinderResults.SetInitialStatusDataIntoSessionVariables`,
+> matching the base contract from
+> `StatusMonitoredLongRunningProcessPage.SetInitialStatusDataIntoSessionVariables`.
+> The key now appears between `redirectToResultsFileOrURL` and
+> `dispatched_at` so the two overrides line up byte-for-byte except for
+> the `currentStatus` string. Pytest 133/133 green. Did not take the
+> optional `_default_initial_status_dict()` factor-out — only one
+> overrider currently exists, so the abstraction wouldn't pay off yet.
+>
+> Historical notes below, preserved for reference.
 
 **Symptom / exposure.** The base
 `SetInitialStatusDataIntoSessionVariables` in
