@@ -8,7 +8,7 @@ import reportlab.lib.pagesizes
 import reportlab.platypus
 from bs4 import BeautifulSoup  # don't need everything, it has several components
 from django import db
-from django.contrib.sessions.backends.db import SessionStore  # pyright: ignore[reportUnusedImport]
+from django.contrib.sessions.backends.db import SessionStore
 from django.db import close_old_connections
 from django.template.loader import render_to_string
 from reportlab.lib.units import inch
@@ -682,10 +682,10 @@ You must provide any weights you wish to use.
     def SaveDictionaryOfItemsToSessionStore(self, inSessionStoreName, inDictionary):
         pid_trace.pid_trace(inSessionStoreName)
 
-        session = eval("self.session_" + inSessionStoreName)
+        session = getattr(self, "session_" + inSessionStoreName)
         if session is None:
             pid_trace.pid_trace("No session in sessionstore, creating new session")
-            session = eval("SessionStore(self.session_key_" + inSessionStoreName + ")")
+            session = SessionStore(getattr(self, "session_key_" + inSessionStoreName))
 
         pid_trace.pid_trace()
 
@@ -727,9 +727,9 @@ You must provide any weights you wish to use.
     def LoadItemFromSessionStore(self, inSessionStoreName, inItemName):
         pid_trace.pid_trace()
 
-        session = eval("self.session_" + inSessionStoreName)
+        session = getattr(self, "session_" + inSessionStoreName)
         if session is None:
-            session = eval("SessionStore(self.session_key_" + inSessionStoreName + ")")
+            session = SessionStore(getattr(self, "session_key_" + inSessionStoreName))
         try:
             returnItem = session[inItemName]
         except KeyError:
