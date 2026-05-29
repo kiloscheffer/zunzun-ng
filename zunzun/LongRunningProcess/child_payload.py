@@ -173,28 +173,31 @@ def _run_fit_child(payload: ChildPayload) -> None:
             # holds OUR dispatch's value. Equality means we are still
             # the current dispatch.
             #
-            # session.dispatched_at in (None, 0, 0.0) means no dispatch
-            # currently claims the slot — either session expired mid-fit
-            # and was re-created, or PerformAllWork's finally already
-            # cleared a partial state. Treat as "we own" so the terminal
-            # redirect still publishes; a genuinely newer dispatch writes
-            # a positive float that won't equal ours.
+            # session.dispatched_at is None means no dispatch has ever
+            # claimed the slot — either the session was destroyed and
+            # re-created mid-fit (key missing) or the very first fit's
+            # SetInitial hasn't propagated yet. Treat as "we own" so
+            # the terminal redirect still publishes in the rare
+            # session-recreated case.
+            #
+            # Crucially, do NOT treat 0 / 0.0 as ours: those values
+            # mean another fit explicitly cleared the slot
+            # (PerformAllWork's finally, _publish_terminal_error's
+            # bundled gate-clear, etc). If we're an older child whose
+            # exception fires after a newer fit completed and cleared,
+            # the slot's been released and we MUST NOT publish our
+            # stale error redirect into it — StatusView would otherwise
+            # serve our older error as the page for whichever fit
+            # claims the slot next.
             #
             # Read failure defaults to "we own" — matches the defensive
             # default in _we_own_status_slot for the LRP-method sites.
-            # The wrong-slot risk is bounded; the alternative would
-            # suppress the terminal redirect and re-introduce the
-            # stuck-poll bug this PR set out to fix.
             try:
                 current_dispatch = lrp.LoadItemFromSessionStore("status", "dispatched_at")
             except Exception:
                 _logging.exception("Could not read session dispatched_at; assuming we-own-slot")
                 current_dispatch = payload.dispatch_id
-            we_own_slot = current_dispatch == payload.dispatch_id or current_dispatch in (
-                None,
-                0,
-                0.0,
-            )
+            we_own_slot = current_dispatch == payload.dispatch_id or current_dispatch is None
 
             if not we_own_slot:
                 _logging.info(
