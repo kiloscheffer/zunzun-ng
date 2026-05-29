@@ -82,19 +82,36 @@ def _setup_child_root_logging() -> None:
     ``basicConfig`` calls elsewhere in the LRP tree), so DEBUG trace
     messages from normal flow are silently dropped — the
     ``ZUNZUN_LRP_LOG_LEVEL`` knob has no observable effect.
+
+    Attaches the handler directly (not via ``logging.basicConfig``)
+    for two reasons: ``basicConfig`` lowers the root logger's level
+    when ``level=`` is passed, which would pull DEBUG/INFO messages
+    from every other module (e.g. ``zunzun.parallel_pool``) into the
+    per-pid file regardless of the env var; and ``basicConfig`` is a
+    no-op when root already has any handler, so it would silently
+    fail to install if some other code touched logging first. The
+    direct ``addHandler`` call avoids both. Per-logger level filtering
+    on ``zunzun.LongRunningProcess`` (from ``settings.LOGGING``)
+    decides what reaches this handler.
     """
     import settings
 
     log_path = os.path.join(settings.TEMP_FILES_DIR, f"{os.getpid()}.log")
-    # basicConfig is a no-op if the root logger already has handlers,
-    # so this is the canonical "set once" call. Subsequent inline
-    # basicConfig calls in exception handlers and elsewhere become
-    # no-ops with the same filename and level.
-    logging.basicConfig(
-        filename=log_path,
-        level=logging.DEBUG,
-        format="[%(asctime)s] %(process)d %(name)s %(levelname)s %(message)s",
+    root = logging.getLogger()
+    # Idempotent: skip if a FileHandler for this exact path is already
+    # attached. Identifying by baseFilename avoids duplicate handlers
+    # if this function is somehow called twice.
+    for h in root.handlers:
+        if (
+            isinstance(h, logging.FileHandler)
+            and getattr(h, "baseFilename", None) == log_path
+        ):
+            return
+    handler = logging.FileHandler(log_path)
+    handler.setFormatter(
+        logging.Formatter("[%(asctime)s] %(process)d %(name)s %(levelname)s %(message)s")
     )
+    root.addHandler(handler)
 
 
 def _run_fit_child(payload: ChildPayload) -> None:
