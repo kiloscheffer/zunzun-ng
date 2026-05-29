@@ -59,7 +59,7 @@ def test_get_status_returns_field_or_default_only_when_row_missing():
 
 
 @pytest.mark.django_db
-def test_housekeeping_deletes_aged_status_rows(monkeypatch, tmp_path):
+def test_housekeeping_deletes_aged_status_rows(tmp_path):
     import time as _time
 
     from zunzun import views

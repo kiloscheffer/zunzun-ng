@@ -37,10 +37,9 @@ def _housekeeping_child(temp_dir: str, max_size_mb: int) -> None:
 
         # Reclaim LRPStatus rows whose user session has expired without a new
         # dispatch (delete-prior-row on dispatch handles the common case).
-        import settings as _settings
         from zunzun.models import LRPStatus as _LRPStatus
 
-        cutoff = time.time() - _settings.SESSION_COOKIE_AGE
+        cutoff = time.time() - settings.SESSION_COOKIE_AGE
         _LRPStatus.objects.filter(last_status_check__lt=cutoff, start_time__lt=cutoff).delete()
 
         totalDirSize = 0
