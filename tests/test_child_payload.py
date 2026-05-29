@@ -227,9 +227,9 @@ def test_run_fit_child_publishes_terminal_redirect_to_a_real_session(tmp_path, m
     """
     import os
 
-    import settings
     from django.contrib.sessions.backends.db import SessionStore
 
+    import settings
     from zunzun.LongRunningProcess import child_payload as cp
     from zunzun.LongRunningProcess.StatusMonitoredLongRunningProcessPage import (
         StatusMonitoredLongRunningProcessPage,
