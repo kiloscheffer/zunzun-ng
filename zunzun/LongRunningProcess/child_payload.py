@@ -68,6 +68,49 @@ class ChildPayload:
     extra: dict[str, Any] = field(default_factory=dict)
 
 
+def _setup_child_root_logging() -> None:
+    """Install the per-pid FileHandler on the root logger.
+
+    Called once at the top of every spawn child, before any
+    ``_logger.debug(...)`` calls in ``PerformAllWork`` fire. Routes all
+    propagated logging — including ``zunzun.LongRunningProcess.*``
+    trace messages enabled via ``ZUNZUN_LRP_LOG_LEVEL=DEBUG`` — to
+    ``temp/{pid}.log``.
+
+    Without this early call, the per-pid file is only installed inside
+    exception handlers (see the ``except`` branch below and the inline
+    ``basicConfig`` calls elsewhere in the LRP tree), so DEBUG trace
+    messages from normal flow are silently dropped — the
+    ``ZUNZUN_LRP_LOG_LEVEL`` knob has no observable effect.
+
+    Attaches the handler directly (not via ``logging.basicConfig``)
+    for two reasons: ``basicConfig`` lowers the root logger's level
+    when ``level=`` is passed, which would pull DEBUG/INFO messages
+    from every other module (e.g. ``zunzun.parallel_pool``) into the
+    per-pid file regardless of the env var; and ``basicConfig`` is a
+    no-op when root already has any handler, so it would silently
+    fail to install if some other code touched logging first. The
+    direct ``addHandler`` call avoids both. Per-logger level filtering
+    on ``zunzun.LongRunningProcess`` (from ``settings.LOGGING``)
+    decides what reaches this handler.
+    """
+    import settings
+
+    log_path = os.path.join(settings.TEMP_FILES_DIR, f"{os.getpid()}.log")
+    root = logging.getLogger()
+    # Idempotent: skip if a FileHandler for this exact path is already
+    # attached. Identifying by baseFilename avoids duplicate handlers
+    # if this function is somehow called twice.
+    for h in root.handlers:
+        if isinstance(h, logging.FileHandler) and getattr(h, "baseFilename", None) == log_path:
+            return
+    handler = logging.FileHandler(log_path)
+    handler.setFormatter(
+        logging.Formatter("[%(asctime)s] %(process)d %(name)s %(levelname)s %(message)s")
+    )
+    root.addHandler(handler)
+
+
 def _run_fit_child(payload: ChildPayload) -> None:
     """Entrypoint function for multiprocessing.Process(target=...).
 
@@ -85,6 +128,11 @@ def _run_fit_child(payload: ChildPayload) -> None:
     import django
 
     django.setup()
+
+    # Install the per-pid FileHandler BEFORE any LRP code runs, so
+    # _logger.debug(...) trace messages from PerformAllWork actually
+    # land in temp/{pid}.log when ZUNZUN_LRP_LOG_LEVEL=DEBUG is set.
+    _setup_child_root_logging()
 
     from zunzun import platform_compat
 

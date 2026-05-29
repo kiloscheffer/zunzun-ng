@@ -659,7 +659,63 @@ coercion automatically removes the requirement to remember.
 change. Cross-cutting touch (every save site changes), so worth
 doing in one focused commit rather than incrementally.
 
-## Replace pid_trace.py with proper logging
+## ~~Replace pid_trace.py with proper logging~~ RESOLVED 2026-05-29
+
+> **Resolution.** `zunzun/LongRunningProcess/pid_trace.py` deleted.
+> Per-LRP trace logging now routes through `_logger =
+> logging.getLogger(__name__)` defined at module level in the four
+> files that previously had text-bearing `pid_trace.pid_trace("...")`
+> calls (`DataObject.py`, `FitOneEquation.py`,
+> `StatisticalDistributions.py`, `StatusMonitoredLongRunningProcessPage.py`).
+> A `LOGGING` config block in `settings.py` makes
+> `zunzun.LongRunningProcess` reach the desired level via the
+> `ZUNZUN_LRP_LOG_LEVEL` env var (defaults to `WARNING`). Pytest
+> 133/133 green.
+>
+> **Departure from BACKLOG recipe — explicit.** The entry said
+> "replace each `pid_trace.<function>(...)` call with
+> `logging.getLogger("zunzun.lrp").debug(...)`." Auditing the 89
+> callsites showed:
+>
+> - 55 bare `pid_trace.pid_trace()` calls with no message — empty
+>   positional markers from a printf-debugging era. Translating
+>   these to `_logger.debug("")` would just move cognitive load
+>   from "what's `pid_trace`?" to "why all these empty debug calls?"
+>   Deleted them. A future contributor who wants per-step tracing
+>   can re-add `_logger.debug("...")` at the same spots with a
+>   message that actually says something.
+> - 11 `pid_trace.pid_trace("text")` calls with real debug content.
+>   Converted to `_logger.debug("text")`.
+> - 23 `pid_trace.delete_pid_trace_file()` calls — these used to
+>   delete the per-process trace file at the end of a code block.
+>   No analog in `logging` (file handlers don't get torn down per
+>   call), so deleted entirely.
+>
+> Net: 89 callsites → 11 meaningful `_logger.debug(...)` calls.
+> The "remove cognitive load" intent of the entry is better served
+> than the literal recipe would have been. Logger name uses
+> `__name__` per module (matching `child_payload.py`'s convention)
+> rather than a single shared `"zunzun.lrp"` — both work for the
+> env-var control knob since `zunzun.LongRunningProcess` is the
+> common prefix.
+>
+> Updated `docs/internals/active-gotchas.md` and `AGENTS.md`
+> (gitignored) to point at the new logger pattern.
+>
+> **Codex review on PR #16 caught a real defect in the first cut.**
+> The original `LOGGING` config attached no handler and the child's
+> `logging.basicConfig(... temp/{pid}.log ...)` only fires inside
+> exception handlers — by which point successful trace points have
+> already run. Result: `ZUNZUN_LRP_LOG_LEVEL=DEBUG` produced no output
+> for normal-flow tracing. Fixed in commit by adding
+> `_setup_child_root_logging()` to `child_payload.py` and calling it
+> at the top of `_run_fit_child` (after `django.setup()`, before any
+> `_logger.debug(...)` in `PerformAllWork` fires). The
+> `settings.LOGGING` docstring is also corrected to explain that
+> parent-side trace messages are NOT routed by default and require
+> the user to add a handler.
+>
+> Historical notes below, preserved for reference.
 
 **Symptom / exposure.** `zunzun/LongRunningProcess/pid_trace.py`
 contains two functions that `return` at the top — explicit no-ops

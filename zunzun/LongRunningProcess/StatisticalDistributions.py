@@ -1,6 +1,7 @@
 import concurrent.futures.process
 import inspect
 import io
+import logging
 import math
 import os
 import random
@@ -15,20 +16,22 @@ import scipy.stats
 import settings
 import zunzun.forms
 
-from . import ReportsAndGraphs, StatusMonitoredLongRunningProcessPage, pid_trace
+from . import ReportsAndGraphs, StatusMonitoredLongRunningProcessPage
 from .child_payload import ChildPayload
 from .StatusMonitoredLongRunningProcessPage import _ReportsPipelineAborted
+
+_logger = logging.getLogger(__name__)
 
 
 def parallelWorkFunction(distributionName, data, sortCriteriaName):
     try:
-        # pid_trace.pid_trace('distro: ' + distributionName)
+        # _logger.debug('distro: ' + distributionName)
         # tstart = time.time()
         r = pyeq3.Services.SolverService.SolverService().SolveStatisticalDistribution(
             distributionName, data, sortCriteriaName
         )
         # tend = time.time()
-        # pid_trace.pid_trace('elapsed time ' + str(int(tend - tstart)) + ' seconds')
+        # _logger.debug('elapsed time ' + str(int(tend - tstart)) + ' seconds')
         return r
     except:
         return 0
@@ -63,7 +66,6 @@ class StatisticalDistributions(
     def TransferFormDataToDataObject(
         self, request
     ):  # return any error in a user-viewable string (self.dataObject.ErrorString)
-        pid_trace.pid_trace()
 
         self.pdfTitleHTML = self.webFormName + " " + str(self.dimensionality) + "D"
         self.CommonCreateAndInitializeDataObject(False)
@@ -78,8 +80,6 @@ class StatisticalDistributions(
         return ""
 
     def GenerateListOfWorkItems(self):
-
-        pid_trace.pid_trace()
 
         self.SaveDictionaryOfItemsToSessionStore("status", {"currentStatus": "Sorting Data"})
 
@@ -99,10 +99,7 @@ class StatisticalDistributions(
             ]:  # these are very slow, taking too long
                 self.parallelWorkItemsList.append(item[0])
 
-        pid_trace.pid_trace()
-
     def PerformWorkInParallel(self):
-        pid_trace.pid_trace()
 
         countOfWorkItemsRun = 0
         totalNumberOfWorkItemsToBeRun = len(self.parallelWorkItemsList)
@@ -160,7 +157,6 @@ class StatisticalDistributions(
                         "parallelProcessCount": 0,
                     },
                 )
-                pid_trace.delete_pid_trace_file()
                 raise _ReportsPipelineAborted()
 
         # final save is outside the 'one second updates'. Clearing
@@ -221,8 +217,6 @@ class StatisticalDistributions(
 
         self.completedWorkItemsList.sort(key=lambda x: x[0])
 
-        pid_trace.pid_trace()
-
     def WorkItems_CheckOneSecondSessionUpdates(
         self, countOfWorkItemsRun, totalNumberOfWorkItemsToBeRun
     ):
@@ -232,7 +226,6 @@ class StatisticalDistributions(
         )
 
     def SpecificCodeForGeneratingListOfOutputReports(self):
-        pid_trace.pid_trace()
 
         self.functionString = "PrepareForCharacterizerOutput"
         self.SaveDictionaryOfItemsToSessionStore(
@@ -242,5 +235,3 @@ class StatisticalDistributions(
         self.ReportsAndGraphsCategoryDict = ReportsAndGraphs.StatisticalDistributionReportsDict(
             self.dataObject
         )
-
-        pid_trace.pid_trace()

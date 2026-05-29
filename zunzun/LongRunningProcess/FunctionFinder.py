@@ -16,7 +16,7 @@ import zunzun.formConstants
 import zunzun.forms
 
 from ..parallel_pool import FitPool
-from . import ReportsAndGraphs, StatusMonitoredLongRunningProcessPage, pid_trace
+from . import ReportsAndGraphs, StatusMonitoredLongRunningProcessPage
 from .child_payload import ChildPayload
 from .StatusMonitoredLongRunningProcessPage import _json_native, _ReportsPipelineAborted
 
@@ -665,7 +665,6 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
                                 "parallelProcessCount": 0,
                             },
                         )
-                        pid_trace.delete_pid_trace_file()
                         raise _ReportsPipelineAborted()
 
                     for fut in done:
@@ -695,7 +694,6 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
                                     "parallelProcessCount": 0,
                                 },
                             )
-                            pid_trace.delete_pid_trace_file()
                             raise _ReportsPipelineAborted()
                         except concurrent.futures.CancelledError:
                             # Pool was shut down via cancel_futures=True

@@ -1,5 +1,6 @@
 import copy
 import inspect
+import logging
 import math
 import multiprocessing
 import os
@@ -13,8 +14,10 @@ import scipy.stats
 
 import zunzun.forms
 
-from . import FittingBaseClass, pid_trace
+from . import FittingBaseClass
 from .StatusMonitoredLongRunningProcessPage import _json_native
+
+_logger = logging.getLogger(__name__)
 
 
 class FitOneEquation(FittingBaseClass.FittingBaseClass):
@@ -53,7 +56,7 @@ class FitOneEquation(FittingBaseClass.FittingBaseClass):
             try:
                 logLinX = self.LoadItemFromSessionStore("data", "logLinX")
                 logLinY = self.LoadItemFromSessionStore("data", "logLinY")
-                pid_trace.pid_trace("1 logLinX:" + str(logLinX) + " logLinY: " + str(logLinY))
+                _logger.debug("1 logLinX:" + str(logLinX) + " logLinY: " + str(logLinY))
             except:
                 logLinX = "LIN"
                 logLinY = "LIN"
@@ -65,11 +68,9 @@ class FitOneEquation(FittingBaseClass.FittingBaseClass):
                 logLinY = "LIN"
                 logLinY = "LIN"
 
-            pid_trace.pid_trace("1 logLinX:" + str(logLinX) + " logLinY: " + str(logLinY))
+            _logger.debug("1 logLinX:" + str(logLinX) + " logLinY: " + str(logLinY))
 
             self.unboundForm.fields["logLinX"].initial = logLinX
             self.unboundForm.fields["logLinY"].initial = logLinY
-
-            pid_trace.delete_pid_trace_file()
 
         return dictionaryToReturn
