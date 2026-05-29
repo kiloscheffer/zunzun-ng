@@ -64,6 +64,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     # 'django.contrib.auth.middleware.AuthenticationMiddleware',
+    "zunzun.middleware.CommonToAllViewsMiddleware",
 ]
 
 ROOT_URLCONF = "urls"
