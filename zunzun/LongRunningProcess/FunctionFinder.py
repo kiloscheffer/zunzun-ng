@@ -229,15 +229,22 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
                 "data", {"logLinX": self.dataObject.logLinX, "logLinY": self.dataObject.logLinY}
             )
 
-        self.SaveDictionaryOfItemsToSessionStore(
-            "status",
-            {
-                "redirectToResultsFileOrURL": "/FunctionFinderResults/"
-                + str(self.dataObject.dimensionality)
-                + "/?RANK=1&unused="
-                + str(time.time())
-            },
-        )
+        # Ownership-gate the success-redirect write (same contract as
+        # the base class's RenderOutputHTML and every other shared-session
+        # write). Without this, an older FunctionFinder run completing
+        # while a newer fit's parent SetInitial overwrites
+        # session.dispatched_at would publish the /FunctionFinderResults/
+        # URL into the newer fit's polling session.
+        if self._we_own_status_slot():
+            self.SaveDictionaryOfItemsToSessionStore(
+                "status",
+                {
+                    "redirectToResultsFileOrURL": "/FunctionFinderResults/"
+                    + str(self.dataObject.dimensionality)
+                    + "/?RANK=1&unused="
+                    + str(time.time())
+                },
+            )
 
     def AddEquationInfoToLinearAndParallelFittingListsAndCheckOneSecond(self):
         global externalDataCache
@@ -633,25 +640,17 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
                         logging.exception(
                             "BrokenProcessPool in FunctionFinder.PerformWorkInParallel"
                         )
-                        # Publish terminal redirect alongside status —
-                        # _ReportsPipelineAborted is swallowed by
-                        # PerformAllWork's `except: pass` and would
-                        # otherwise leave the polling UI stuck.
                         error_message = (
                             "An internal error occurred during equation "
                             "fitting. Please try again or contact the administrator."
                         )
-                        error_html_path = self._write_terminal_error_html(error_message)
-                        if self._we_own_status_slot():
-                            terminal_payload = {
+                        self._publish_terminal_error(
+                            html_path=self._write_terminal_error_html(error_message),
+                            status_dict={
                                 "currentStatus": error_message,
                                 "parallelProcessCount": 0,
-                                "processID": 0,
-                                "dispatched_at": 0,
-                            }
-                            if error_html_path:
-                                terminal_payload["redirectToResultsFileOrURL"] = error_html_path
-                            self.SaveDictionaryOfItemsToSessionStore("status", terminal_payload)
+                            },
+                        )
                         pid_trace.delete_pid_trace_file()
                         raise _ReportsPipelineAborted()
 
@@ -671,22 +670,17 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
                             logging.exception(
                                 "BrokenProcessPool surfaced via .result() in FunctionFinder"
                             )
-                            # Publish terminal redirect alongside status.
                             error_message = (
                                 "An internal error occurred during equation "
                                 "fitting. Please try again or contact the administrator."
                             )
-                            error_html_path = self._write_terminal_error_html(error_message)
-                            if self._we_own_status_slot():
-                                terminal_payload = {
+                            self._publish_terminal_error(
+                                html_path=self._write_terminal_error_html(error_message),
+                                status_dict={
                                     "currentStatus": error_message,
                                     "parallelProcessCount": 0,
-                                    "processID": 0,
-                                    "dispatched_at": 0,
-                                }
-                                if error_html_path:
-                                    terminal_payload["redirectToResultsFileOrURL"] = error_html_path
-                                self.SaveDictionaryOfItemsToSessionStore("status", terminal_payload)
+                                },
+                            )
                             pid_trace.delete_pid_trace_file()
                             raise _ReportsPipelineAborted()
                         except concurrent.futures.CancelledError:

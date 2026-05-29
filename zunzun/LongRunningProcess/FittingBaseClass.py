@@ -450,27 +450,16 @@ You must provide any weights you wish to use.
                         "zunzun/exception_while_fitting_an_equation.html", itemsToRender
                     )
                 )
-            # Gate the session write itself on ownership, not just the
-            # gate clear below. If a newer fit has taken over this
-            # status slot (its parent SetInitial refreshed dispatched_at
-            # while leaving our processID intact), publishing our error
-            # redirect would clobber the newer fit's polling and make
-            # it appear completed with our error page. The pid+dispatch
-            # check decides whether we are still the active dispatch.
-            if self._we_own_status_slot():
-                self.SaveDictionaryOfItemsToSessionStore(
-                    "status",
-                    {
-                        "redirectToResultsFileOrURL": error_html_path,
-                        "processID": 0,
-                        "dispatched_at": 0,
-                    },
-                )
+            # Publish the Solve-specific error template (already rendered
+            # above) via the base helper, which ownership-gates the
+            # write and bundles redirect + gate-clear atomically.
+            self._publish_terminal_error(html_path=error_html_path)
             # Without this raise, PerformAllWork continues into
             # PerformWorkInParallel / report generation on an unsolved
             # equation, and RenderOutputHTMLToAFileAndSetStatusRedirect
-            # at the end of the pipeline unconditionally overwrites the
-            # error redirect with a path to a (broken) results page.
+            # would overwrite the error redirect with a path to a
+            # (broken) results page (its own ownership gate matches
+            # our own dispatch).
             raise _ReportsPipelineAborted()
 
     def GetEquationFromNameAndFamily(

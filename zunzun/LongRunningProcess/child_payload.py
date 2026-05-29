@@ -53,12 +53,17 @@ class ChildPayload:
     # current session value to detect "a newer fit replaced me",
     # avoiding races where an older failing child publishes its
     # terminal redirect into a newer fit's shared status session.
-    # Currently the value is float seconds (time.time()) for
-    # convenience — microsecond resolution is unique enough that two
-    # consecutive dispatches will never collide given Python overhead.
-    # Stored as float and compared with equality; 0.0 means "no
-    # dispatch identifier was stamped" (legacy / FunctionFinderResults
-    # paths that haven't been updated).
+    #
+    # Value is the float result of time.time() from the parent's
+    # SetInitialStatusDataIntoSessionVariables. The float format is
+    # load-bearing: equality comparisons against session.dispatched_at
+    # appear in _we_own_status_slot (LRP method) and _run_fit_child
+    # (this module). Two consecutive dispatches from the same user are
+    # debounced by the per-user gate's 60s pending window, so
+    # collisions on the float are not a practical risk.
+    # 0.0 default exists for the dataclass; all production code paths
+    # (every Fit*, CharacterizeData, StatisticalDistributions,
+    # FunctionFinder, FunctionFinderResults) stamp a non-zero value.
     dispatch_id: float = 0.0
     extra: dict[str, Any] = field(default_factory=dict)
 
@@ -162,71 +167,44 @@ def _run_fit_child(payload: ChildPayload) -> None:
                 _logging.exception("Also failed to write static fallback HTML")
 
         try:
-            # Single ownership check gates BOTH the terminal-redirect
-            # write AND the per-user gate clear. Uses dispatch_id (a
-            # timestamp stamped by the parent's
-            # SetInitialStatusDataIntoSessionVariables into both the
-            # payload and the session) as the dispatch identity.
+            # Ownership check gates BOTH the terminal-redirect write
+            # AND the per-user gate clear. session.dispatched_at holds
+            # the current dispatch's identity stamp; payload.dispatch_id
+            # holds OUR dispatch's value. Equality means we are still
+            # the current dispatch.
             #
-            # With ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER=True (default),
-            # multiple POSTs reuse session_key_status. A naïve processID
-            # check is racy because:
-            #   - A newer fit's SetInitial clears the redirect AND
-            #     overwrites dispatched_at, but does NOT touch the older
-            #     child's processID. So the older child's pid-equality
-            #     check would still match and it would publish its
-            #     terminal redirect into the newer fit's shared session.
-            #   - Conversely, during the window between a newer parent's
-            #     SetInitial and its child's first processID write, the
-            #     session can show an older child's pid even though the
-            #     dispatch has moved on.
+            # session.dispatched_at in (None, 0, 0.0) means no dispatch
+            # currently claims the slot — either session expired mid-fit
+            # and was re-created, or PerformAllWork's finally already
+            # cleared a partial state. Treat as "we own" so the terminal
+            # redirect still publishes; a genuinely newer dispatch writes
+            # a positive float that won't equal ours.
             #
-            # Comparing dispatch_id resolves both: each dispatch has a
-            # unique microsecond-precision timestamp. session.dispatched_at
-            # holds the current dispatch's value; payload.dispatch_id
-            # holds OUR dispatch's value. Equality means "we are still
-            # the current dispatch."
-            #
-            # Backward-compat: payload.dispatch_id == 0.0 means the
-            # payload was built before this contract existed (no current
-            # code paths). Fall back to the older pid-based check.
-            we_own_slot = False
-            if payload.dispatch_id != 0.0:
-                try:
-                    current_dispatch = lrp.LoadItemFromSessionStore("status", "dispatched_at")
-                except Exception:
-                    _logging.exception("Could not read session dispatched_at; assuming we-own-slot")
-                    current_dispatch = payload.dispatch_id
-                # current_dispatch in (None, 0, 0.0) means no dispatch
-                # is currently claiming the slot — either session expired
-                # mid-fit and was re-created, or PerformAllWork's finally
-                # already cleared it. Treat as "we own" so the terminal
-                # redirect still publishes; if a NEWER dispatch claimed
-                # the slot, current_dispatch would be a positive float
-                # different from ours and the check below would correctly
-                # mark us not-owners. Mirrors the legacy pid-fallback
-                # below which treats current_pid in (None, 0) as owned.
-                we_own_slot = current_dispatch == payload.dispatch_id or current_dispatch in (
-                    None,
-                    0,
-                    0.0,
-                )
-            else:
-                try:
-                    current_pid = lrp.LoadItemFromSessionStore("status", "processID")
-                except Exception:
-                    _logging.exception("Could not read processID; assuming we-own-slot")
-                    current_pid = None
-                we_own_slot = current_pid in (None, 0) or current_pid == os.getpid()
+            # Read failure defaults to "we own" — matches the defensive
+            # default in _we_own_status_slot for the LRP-method sites.
+            # The wrong-slot risk is bounded; the alternative would
+            # suppress the terminal redirect and re-introduce the
+            # stuck-poll bug this PR set out to fix.
+            try:
+                current_dispatch = lrp.LoadItemFromSessionStore("status", "dispatched_at")
+            except Exception:
+                _logging.exception("Could not read session dispatched_at; assuming we-own-slot")
+                current_dispatch = payload.dispatch_id
+            we_own_slot = current_dispatch == payload.dispatch_id or current_dispatch in (
+                None,
+                0,
+                0.0,
+            )
 
             if not we_own_slot:
                 _logging.info(
                     "Child exception; newer dispatch owns the slot; leaving session alone"
                 )
             else:
-                # Don't overwrite a redirect an earlier successful stage
-                # already saved (e.g., RenderOutputHTML succeeded then
-                # the processID-cleanup at line 779 raised).
+                # Don't overwrite a redirect an earlier successful
+                # stage already saved (e.g., RenderOutputHTML succeeded
+                # then the success-path processID-cleanup in
+                # PerformAllWork raised).
                 existing_redirect = ""
                 try:
                     existing_redirect = (

@@ -142,9 +142,15 @@ class FunctionFinderResults(FittingBaseClass.FittingBaseClass):
         fileLocation = page_artifact_path(self.dataObject.uniqueString, "html")
         with open(fileLocation, "w", encoding="utf-8") as f:
             f.write(tempString)
-        self.SaveDictionaryOfItemsToSessionStore(
-            "status", {"redirectToResultsFileOrURL": fileLocation}
-        )
+        # Ownership-gate the success-redirect write (same contract as
+        # the base class's RenderOutputHTML). FunctionFinderResults is
+        # a results-detail render, not a fit, so concurrent dispatch
+        # is rare in practice — but the check is cheap and consistency
+        # with the rest of the codebase avoids future drift.
+        if self._we_own_status_slot():
+            self.SaveDictionaryOfItemsToSessionStore(
+                "status", {"redirectToResultsFileOrURL": fileLocation}
+            )
 
     def SetInitialStatusDataIntoSessionVariables(self, request):
         import time

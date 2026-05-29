@@ -116,22 +116,12 @@ class FitUserDefinedFunction(FittingBaseClass.FittingBaseClass):
                         "zunzun/exception_while_fitting_an_equation.html", itemsToRender
                     )
                 )
-            # Gate the redirect write AND the gate-clear on dispatch
-            # ownership. If a newer fit has taken over the slot, the
-            # error redirect we'd publish would clobber the newer fit's
-            # polling — StatusUpdateView would then mark the newer fit
-            # completed with our UDF error page. SystemExit bypasses
-            # _run_fit_child's ownership-verified handler, so this is
-            # the only place where the check can happen for this path.
-            if self._we_own_status_slot():
-                self.SaveDictionaryOfItemsToSessionStore(
-                    "status",
-                    {
-                        "redirectToResultsFileOrURL": error_html_path,
-                        "processID": 0,
-                        "dispatched_at": 0,
-                    },
-                )
+            # Publish the UDF-specific error template via the base
+            # helper, which ownership-gates and bundles redirect +
+            # gate-clear. SystemExit below bypasses _run_fit_child's
+            # ownership-verified handler, so this is the only place
+            # where the check can happen for this path.
+            self._publish_terminal_error(html_path=error_html_path)
             # Raise SystemExit so the spawned child terminates cleanly without
             # overwriting the redirect already written to the session store.
             # SystemExit is a BaseException, not Exception, so the generic
