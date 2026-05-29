@@ -700,7 +700,47 @@ logging:
 **Not in scope of any current branch.** Cleanup; no production
 behavior change in the dormant state.
 
-## Convert CommonToAllViews to Django middleware
+## ~~Convert CommonToAllViews to Django middleware~~ RESOLVED 2026-05-29
+
+> **Resolution.** Created `zunzun/middleware.py` with
+> `CommonToAllViewsMiddleware` and registered it in
+> `settings.MIDDLEWARE` after `SessionMiddleware`. The middleware now
+> handles zombie reap, IP block check, HTTP method gate (raising
+> `Http404` for non-GET/POST), and rate-limit sleep. Removed all five
+> `if CommonToAllViews(request): raise django.http.Http404` blocks
+> from `zunzun/views.py` and deleted the `CommonToAllViews` function
+> entirely. Pytest 133/133 green, including the rate-limit test
+> (`tests/test_ratelimit.py`).
+>
+> **Design wrinkles found in execution that the original entry
+> didn't anticipate:**
+>
+> - The entry's bullet list claimed `CommonToAllViews` did a
+>   load-average check; it didn't. That was wishful documentation.
+>   The actual responsibilities were: zombie reap, IP block, method
+>   gate, rate-limit sleep.
+> - Every `if CommonToAllViews(request): raise Http404` block was
+>   dead code: `CommonToAllViews` never returned `True` — only
+>   `False` or raise. The `if` evaluated to `False` always; the
+>   `raise Http404` was never reached. Middleware conversion turned
+>   those checks into actual `Http404` paths (now in the middleware
+>   itself).
+> - The entry suggested registering after `RatelimitMiddleware`, but
+>   django-ratelimit is used as a `@ratelimit(...)` **decorator**,
+>   not as middleware. The decorator sets `request.limited` *inside*
+>   the view body, so middleware can't read it during process_request
+>   — only in process_response. The sleep therefore moved from
+>   "before view body" to "after view body". Net wall-clock latency
+>   for a slammer is unchanged; server CPU is consumed identically.
+>   Documented this timing change inline in the middleware docstring
+>   and in `AGENTS.md` § Rate limiting + `docs/internals/active-gotchas.md`.
+>
+> Also updated `.claude/agents/fork-pattern-reviewer.md` check #6
+> from "every entry-point view must call `CommonToAllViews`" to
+> "verify `CommonToAllViewsMiddleware` remains in
+> `settings.MIDDLEWARE`."
+>
+> Historical notes below, preserved for reference.
 
 **Symptom / exposure.** Every view function in `zunzun/views.py`
 manually calls `CommonToAllViews(request)` at the top. The

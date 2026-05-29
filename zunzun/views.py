@@ -70,9 +70,6 @@ def EvaluateAtAPointView(request):
     import sys
     import time
 
-    if CommonToAllViews(request):  # any referrer blocks or web request checks processed here
-        raise django.http.Http404
-
     # only allow POST for this view
     if request.method != "POST":
         return HttpResponse("I am not able to process your request.")
@@ -422,9 +419,6 @@ def LongRunningProcessView(
     LRP.inEquationFamilyName = urllib.parse.unquote(inEquationFamilyName)
     LRP.dimensionality = int(inDimensionality)
 
-    if CommonToAllViews(request):  # any referrer blocks or web request checks processed here
-        raise django.http.Http404
-
     if "session_key_status" not in list(request.session.keys()):
         # sometimes database is momentarily locked, so retry on exception to mitigate
         s = SessionStore()
@@ -611,9 +605,6 @@ def FeedbackView(request):
     import sys
     import time
 
-    if CommonToAllViews(request):  # any referrer blocks or web request checks processed here
-        raise django.http.Http404
-
     if request.method == "POST":
         try:
             form = forms.FeedbackForm(request.POST)
@@ -663,9 +654,6 @@ def HomePageView(request):
     ).start()
 
     # parent process, start code for view generation
-    if CommonToAllViews(request):  # any referrer blocks or web request checks processed here
-        raise django.http.Http404
-
     request.session["cookie_test"] = 1
 
     items_to_render = {}
@@ -697,9 +685,6 @@ def AllEquationsView(
     # only allow GET for this view
     if request.method != "GET":
         return HttpResponse("I am not able to process your request.")
-
-    if CommonToAllViews(request):  # any referrer blocks or web request checks processed here
-        raise django.http.Http404
 
     items_to_render = {}
 
@@ -863,28 +848,6 @@ def GetEquationInfoDictionary(inDimensionality, inAllOrStandardOnly):
         ].lastItemInExtendedNameFlag = True
 
     return allEquationClassPropertiesList
-
-
-def CommonToAllViews(request):
-
-    # Reap any completed multiprocessing children so they don't linger.
-    # No-op on Windows (no zombies), proper cleanup on Unix.
-    platform_compat.reap_completed_children()
-
-    ip = request.META.get("REMOTE_ADDR")
-    if ip in []:
-        raise django.http.Http404
-
-    if request.META["REQUEST_METHOD"] not in ["GET", "POST"]:
-        raise django.http.Http404
-
-    # django-ratelimit sets request.limited=True when the caller
-    # exceeds the rate (with block=False, the decorator does not raise).
-    was_limited = getattr(request, "limited", False)
-    if was_limited:
-        time.sleep(5.0)  # sleep for 5 seconds to slow down slammers
-
-    return False  # all OK
 
 
 class ClassForAttachingProperties:
