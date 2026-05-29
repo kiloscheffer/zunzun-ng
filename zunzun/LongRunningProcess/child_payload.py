@@ -172,8 +172,6 @@ def _run_fit_child(payload: ChildPayload) -> None:
 
         import settings
 
-        log_path = os.path.join(settings.TEMP_FILES_DIR, f"{os.getpid()}.log")
-        _logging.basicConfig(filename=log_path, level=_logging.DEBUG)
         _logging.exception("Child exception in _run_fit_child")
 
         # Write a terminal error artifact so the polling UI completes.

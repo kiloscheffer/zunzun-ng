@@ -34,6 +34,7 @@ import zunzun.forms
 from zunzun import platform_compat
 
 from ..parallel_pool import FitPool
+from ..session_helpers import load_with_retry, save_with_retry
 from . import DataObject, DefaultData, ReportsAndGraphs
 from ._unique import (
     new_unique_string,
@@ -108,10 +109,6 @@ def ParallelWorker_CreateReportOutput(inReportObject):
 
             s += str(item) + ": " + str(getattr(inReportObject.dataObject, item)) + "\n\n"
 
-        logging.basicConfig(
-            filename=os.path.join(settings.TEMP_FILES_DIR, str(os.getpid()) + ".log"),
-            level=logging.DEBUG,
-        )
         logging.exception("Exception creating report, inReportObject.dataObject yields:\n\n" + s)
         return [inReportObject.name, 0, "Exception creating report, see log file"]
 
@@ -128,10 +125,6 @@ def ParallelWorker_CreateCharacterizerOutput(inReportObject):
     except:
         import logging
 
-        logging.basicConfig(
-            filename=os.path.join(settings.TEMP_FILES_DIR, str(os.getpid()) + ".log"),
-            level=logging.DEBUG,
-        )
         logging.exception("Exception characterizer output")
 
         s = "\n"
@@ -145,10 +138,6 @@ def ParallelWorker_CreateCharacterizerOutput(inReportObject):
 
             s += str(item) + ": " + str(getattr(inReportObject.dataObject, item)) + "\n\n"
 
-        logging.basicConfig(
-            filename=os.path.join(settings.TEMP_FILES_DIR, str(os.getpid()) + ".log"),
-            level=logging.DEBUG,
-        )
         logging.exception(
             "Exception creating characterizer, inReportObject.dataObject yields:\n\n" + s
         )
@@ -535,10 +524,6 @@ You must provide any weights you wish to use.
         except:
             import logging
 
-            logging.basicConfig(
-                filename=os.path.join(settings.TEMP_FILES_DIR, str(os.getpid()) + ".log"),
-                level=logging.DEBUG,
-            )
             logging.exception("Exception creating PDF file")
 
             self.pdfFileName = ""  # empty string used as a flag
@@ -687,19 +672,7 @@ You must provide any weights you wish to use.
         if inSessionStoreName == "status":
             session["timestamp"] = time.time()
 
-        # sometimes database is momentarily locked, so retry on exception to mitigate
-        s = session
-        save_complete = False
-        saveRetries = 0
-        while not save_complete:
-            try:
-                s.save()
-                save_complete = True
-            except Exception as e:
-                time.sleep(0.1)
-                saveRetries += 1
-                if saveRetries > 100:
-                    raise e
+        save_with_retry(session)
 
         db.connections.close_all()
         close_old_connections()
@@ -710,10 +683,7 @@ You must provide any weights you wish to use.
         session = getattr(self, "session_" + inSessionStoreName)
         if session is None:
             session = SessionStore(getattr(self, "session_key_" + inSessionStoreName))
-        try:
-            returnItem = session[inItemName]
-        except KeyError:
-            returnItem = None
+        returnItem = load_with_retry(session, inItemName)
         db.connections.close_all()
         close_old_connections()
         session = None
@@ -745,10 +715,6 @@ You must provide any weights you wish to use.
         except Exception:
             import logging
 
-            logging.basicConfig(
-                filename=os.path.join(settings.TEMP_FILES_DIR, f"{os.getpid()}.log"),
-                level=logging.DEBUG,
-            )
             logging.exception("Could not compute terminal-error artifact path")
             return None
 
@@ -759,10 +725,6 @@ You must provide any weights you wish to use.
         except Exception:
             import logging
 
-            logging.basicConfig(
-                filename=os.path.join(settings.TEMP_FILES_DIR, f"{os.getpid()}.log"),
-                level=logging.DEBUG,
-            )
             logging.exception("Failed to render generic_error.html; trying static fallback")
 
         # Fallback: hardcoded HTML, no Django dependency. Only fails
@@ -850,10 +812,6 @@ You must provide any weights you wish to use.
         except DatabaseError, InterfaceError:
             import logging
 
-            logging.basicConfig(
-                filename=os.path.join(settings.TEMP_FILES_DIR, f"{os.getpid()}.log"),
-                level=logging.DEBUG,
-            )
             logging.exception(
                 "Ownership check session read failed; defaulting we-own=True "
                 "(self.dispatched_at=%s os.getpid()=%s)",
@@ -997,10 +955,6 @@ You must provide any weights you wish to use.
         except concurrent.futures.process.BrokenProcessPool:
             import logging
 
-            logging.basicConfig(
-                filename=os.path.join(settings.TEMP_FILES_DIR, f"{os.getpid()}.log"),
-                level=logging.DEBUG,
-            )
             logging.exception("BrokenProcessPool in CreateOutputReportsInParallelUsingProcessPool")
             # Publish terminal redirect + status text in one
             # ownership-gated atomic write so the polling UI completes
@@ -1196,10 +1150,6 @@ You must provide any weights you wish to use.
         if not self._we_own_status_slot():
             import logging
 
-            logging.basicConfig(
-                filename=os.path.join(settings.TEMP_FILES_DIR, f"{os.getpid()}.log"),
-                level=logging.DEBUG,
-            )
             logging.info(
                 "%s.RenderOutputHTML: newer dispatch owns slot; "
                 "skipping shared-session writes (self.dispatched_at=%s)",
@@ -1279,10 +1229,6 @@ You must provide any weights you wish to use.
         except Exception:
             import logging
 
-            logging.basicConfig(
-                filename=os.path.join(settings.TEMP_FILES_DIR, str(os.getpid()) + ".log"),
-                level=logging.DEBUG,
-            )
             logging.exception("Exception rendering HTML to a file")
 
             # Fallback 1: render the project's generic error template.

@@ -588,7 +588,29 @@ optimization, not a correctness fix. It deserves its own branch
 with its own spec and before/after benchmark measurements
 captured in the design doc.
 
-## Factor out session.save() retry helper
+## ~~Factor out session.save() retry helper~~ RESOLVED 2026-05-29
+
+> **Resolution.** New module `zunzun/session_helpers.py` exports
+> `save_with_retry(session, ...)` and `load_with_retry(session, key, ...)`.
+> All seven inline retry-loop sites collapsed:
+>
+> - 6 sites in `zunzun/views.py` (lines 252, 337, 427, 492, 513, 574)
+> - 1 site in `zunzun/LongRunningProcess/StatusMonitoredLongRunningProcessPage.py`
+>   (`SaveDictionaryOfItemsToSessionStore`)
+>
+> Each ~10-line `save_complete = False / saveRetries = 0 / while ...`
+> block replaced by a single `save_with_retry(s)` call.
+> `LoadItemFromSessionStore` also rewired to use `load_with_retry`,
+> picking up the same retry semantics for SQLite-contention reads —
+> see the companion BACKLOG entry "Robustness improvements in LRP
+> child logging and session reads" resolution notes below for the
+> read-side rationale.
+>
+> Pytest 133/133 green. Bundled with the BACKLOG #6 child-logging
+> cleanup so the fork-pattern-reviewer agent's check could be updated
+> once instead of twice.
+>
+> Historical notes below, preserved for reference.
 
 **Symptom / exposure.** Every `session.save()` call inside the LRP child
 process is wrapped in a 100-retry @ 10Hz loop because spawn-children
@@ -1512,7 +1534,61 @@ behavior change. Worth a focused PR (`test: cover dispatch-ownership
 helpers and BrokenProcessPool redirects`) so the diff is easy to
 review and bisect.
 
-## Robustness improvements in LRP child logging and session reads
+## ~~Robustness improvements in LRP child logging and session reads~~ RESOLVED 2026-05-29
+
+> **Resolution.** Both halves addressed in the same PR as #1.
+>
+> **Read-side retry.** `load_with_retry(session, key, default=None)`
+> in `zunzun/session_helpers.py` mirrors `save_with_retry`:
+> 100 retries @ 10 Hz against transient `DatabaseError` /
+> `InterfaceError` from the SQLite backend. `KeyError` returns the
+> default immediately (no retry). `LoadItemFromSessionStore` in
+> `StatusMonitoredLongRunningProcessPage` now delegates to it. The
+> defensive "return True on read failure" in `_we_own_status_slot`
+> stays as a last-resort net for the exhausted-retries case.
+>
+> **Centralized child logging.** The 21 inline
+> `logging.basicConfig(filename=temp/{pid}.log, level=DEBUG)` calls
+> across the LRP tree (10 in `StatusMonitoredLongRunningProcessPage`,
+> 6 in `FunctionFinder`, 2 in `ReportsAndGraphs`, 1 each in
+> `FunctionFinderResults` and `StatisticalDistributions`, plus 1 in
+> `child_payload.py`'s except branch) were all deleted. They were
+> already no-ops as of PR #16's `_setup_child_root_logging()` —
+> root has the per-pid FileHandler attached at child startup, before
+> any LRP code runs, so subsequent inline basicConfig calls saw a
+> handler exist and skipped. The deletions remove the dead code
+> AND the lingering "lowers root to DEBUG" behavior change that
+> Codex flagged in PR #16's second review (each basicConfig call
+> redundantly set root level to DEBUG).
+>
+> The `import logging` lines inside individual except clauses stay —
+> they're still needed for `logging.exception(...)` calls. Future
+> consolidation to module-level imports is a separate cosmetic pass.
+>
+> Did NOT add the optional `error_ids.py` registry that the entry
+> suggested. That's a deeper observability improvement with its own
+> design space; deferring as a separate item if there's appetite
+> later.
+>
+> **Codex review on PR #17 caught a pool-worker gap in the first cut.**
+> The deletions stripped `basicConfig(filename=temp/{pid}.log)` calls
+> in code that runs inside `FitPool` workers (e.g., the
+> `ParallelWorker_*` functions in `StatusMonitoredLongRunningProcessPage`,
+> `parallelWorkFunction` / `serialWorker` in `FunctionFinder`, etc.).
+> Pool workers are sub-children of the LRP child and DO NOT inherit
+> its FileHandler — each is its own fresh spawn. After deletion, their
+> `logging.exception(...)` calls fell back to stderr and the
+> user-facing "see log file" message pointed at a file that didn't
+> exist. Fixed by adding a default `_worker_initializer` to
+> `zunzun/parallel_pool.py` that calls `_setup_child_root_logging()`
+> on every pool worker at startup, then chains any caller-supplied
+> initializer. The `FunctionFinder` callsite that passes
+> `initializer=_install_worker_data_cache` continues to work — the
+> wrapper runs logging setup first, then the caller's hook.
+>
+> Pytest 133/133 green.
+>
+> Historical notes below, preserved for reference.
 
 **Symptom / exposure.** The silent-failure-hunter agent's review of
 the `fix/pipeline-error-redirects` branch surfaced two correctness-

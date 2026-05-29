@@ -74,6 +74,34 @@ def resolve_max_workers(explicit: int | None = None) -> int:
     return hardware_ceiling
 
 
+def _worker_initializer(user_init: Callable[..., Any] | None, user_args: tuple[Any, ...]) -> None:
+    """Default ProcessPoolExecutor worker initializer.
+
+    Runs once per worker on spawn, before any submitted task. Installs the
+    per-worker-pid FileHandler on the root logger so ``logging.exception``
+    calls in worker code (the ``ParallelWorker_*`` functions in
+    ``StatusMonitoredLongRunningProcessPage``, the ``parallelWorkFunction`` /
+    ``serialWorker`` in ``FunctionFinder`` and ``StatisticalDistributions``,
+    the animation classes in ``ReportsAndGraphs``, etc.) actually land in
+    ``temp/{worker_pid}.log`` — matching the diagnostic file path that the
+    "see log file" user-facing error message points to.
+
+    Pool workers are sub-children of the LRP child and DO NOT inherit its
+    handlers (each is its own spawn process). Without this initializer, the
+    workers would fall back to ``logging``'s default stderr destination,
+    silently breaking the "see log file" promise.
+
+    After logging is installed, chains to any caller-supplied initializer
+    (passed via ``FitPool(initializer=fn, initargs=(...))``) with its
+    original args.
+    """
+    from zunzun.LongRunningProcess.child_payload import _setup_child_root_logging
+
+    _setup_child_root_logging()
+    if user_init is not None:
+        user_init(*user_args)
+
+
 class FitPool:
     """Persistent ProcessPoolExecutor for parallel fits within one LRP child.
 
@@ -143,11 +171,16 @@ class FitPool:
                 os.environ[_var] = "1"
 
         ctx = multiprocessing.get_context("spawn")
+        # Always wrap any caller-supplied initializer in `_worker_initializer`
+        # so per-worker logging gets installed FIRST. Otherwise
+        # `logging.exception` calls in worker code fall back to stderr and
+        # the user-facing "see log file" message points at a file that
+        # doesn't exist.
         self._executor = concurrent.futures.ProcessPoolExecutor(
             max_workers=self.max_workers,
             mp_context=ctx,
-            initializer=initializer,
-            initargs=initargs,
+            initializer=_worker_initializer,
+            initargs=(initializer, initargs),
         )
         self._shutdown = False
         _logger.info(
