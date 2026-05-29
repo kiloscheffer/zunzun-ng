@@ -4,23 +4,26 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
-    dependencies = [
-    ]
+    dependencies = []
 
     operations = [
         migrations.CreateModel(
-            name='LRPStatus',
+            name="LRPStatus",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('current_status', models.CharField(default='Initializing', max_length=255)),
-                ('start_time', models.FloatField(default=0.0)),
-                ('last_status_check', models.FloatField(default=0.0)),
-                ('redirect_to_results', models.TextField(default='')),
-                ('parallel_count', models.IntegerField(default=0)),
-                ('process_id', models.IntegerField(default=0)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+                    ),
+                ),
+                ("current_status", models.CharField(default="Initializing", max_length=255)),
+                ("start_time", models.FloatField(default=0.0)),
+                ("last_status_check", models.FloatField(default=0.0)),
+                ("redirect_to_results", models.TextField(default="")),
+                ("parallel_count", models.IntegerField(default=0)),
+                ("process_id", models.IntegerField(default=0)),
             ],
         ),
     ]
