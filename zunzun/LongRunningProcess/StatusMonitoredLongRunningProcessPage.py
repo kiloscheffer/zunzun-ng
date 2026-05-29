@@ -1,4 +1,5 @@
 import concurrent.futures.process
+import logging
 import multiprocessing
 import os
 import time
@@ -33,7 +34,7 @@ import zunzun.forms
 from zunzun import platform_compat
 
 from ..parallel_pool import FitPool
-from . import DataObject, DefaultData, ReportsAndGraphs, pid_trace
+from . import DataObject, DefaultData, ReportsAndGraphs
 from ._unique import (
     new_unique_string,
     page_artifact_filename,
@@ -41,6 +42,8 @@ from ._unique import (
     page_artifact_url,
 )
 from .child_payload import ChildPayload
+
+_logger = logging.getLogger(__name__)
 
 
 class _ReportsPipelineAborted(Exception):
@@ -295,7 +298,6 @@ You must provide any weights you wish to use.
         pass
 
     def CreateReportPDF(self):
-        pid_trace.pid_trace()
 
         self.SaveDictionaryOfItemsToSessionStore(
             "status", {"currentStatus": "Creating PDF Output File"}
@@ -540,7 +542,6 @@ You must provide any weights you wish to use.
             logging.exception("Exception creating PDF file")
 
             self.pdfFileName = ""  # empty string used as a flag
-        pid_trace.delete_pid_trace_file()
 
     def BaseCreateAndInitializeDataObject(self, xName, yName, zName):
         dataObject = DataObject.DataObject()
@@ -570,7 +571,6 @@ You must provide any weights you wish to use.
         return dataObject
 
     def CommonCreateAndInitializeDataObject(self, FF=False):
-        pid_trace.pid_trace()
 
         self.dataObject = self.BaseCreateAndInitializeDataObject("", "", "")
         self.dataObject.equation = 0
@@ -591,7 +591,6 @@ You must provide any weights you wish to use.
             except:
                 pass
 
-        pid_trace.pid_trace()
 
         if self.dataObject.dimensionality == 2:
             self.dataObject.logLinX = self.boundForm.cleaned_data["logLinX"]
@@ -604,12 +603,10 @@ You must provide any weights you wish to use.
         self.dataObject.graphHeight = int(self.boundForm.cleaned_data["graphSize"].split("x")[1])
 
         if self.dataObject.dimensionality > 1:
-            pid_trace.pid_trace()
             self.dataObject.Extrapolation_x = self.boundForm.cleaned_data["graphScaleX"]
             self.dataObject.Extrapolation_x_min = self.boundForm.cleaned_data["minManualScaleX"]
             self.dataObject.Extrapolation_x_max = self.boundForm.cleaned_data["maxManualScaleX"]
 
-            pid_trace.pid_trace()
             self.dataObject.ScientificNotationX = self.boundForm.cleaned_data["scientificNotationX"]
             self.dataObject.ScientificNotationY = self.boundForm.cleaned_data["scientificNotationY"]
             self.dataObject.Extrapolation_y = self.boundForm.cleaned_data["graphScaleY"]
@@ -617,7 +614,6 @@ You must provide any weights you wish to use.
             self.dataObject.Extrapolation_y_max = self.boundForm.cleaned_data["maxManualScaleY"]
 
         if self.dataObject.dimensionality > 2:
-            pid_trace.pid_trace()
             self.dataObject.animationWidth = int(
                 self.boundForm.cleaned_data["animationSize"].split("x")[0]
             )
@@ -630,7 +626,6 @@ You must provide any weights you wish to use.
             self.dataObject.Extrapolation_z_max = self.boundForm.cleaned_data["maxManualScaleZ"]
             self.dataObject.logLinZ = self.boundForm.cleaned_data["logLinZ"]
 
-        pid_trace.pid_trace()
 
         # can only take log of positive data
         if self.dataObject.logLinX == "LOG" and min(self.dataObject.IndependentDataArray[0]) <= 0.0:
@@ -663,7 +658,6 @@ You must provide any weights you wish to use.
                     + ") contains a non-positive value and you have selected logarithmic Z scaling. I cannot take the log of a non-positive number."
                 )
 
-        pid_trace.pid_trace()
 
         if self.dataObject.dimensionality == 3:
             self.dataObject.animationWidth = int(
@@ -677,27 +671,24 @@ You must provide any weights you wish to use.
                 self.boundForm.cleaned_data["rotationAnglesAltimuth"]
             )
 
-        pid_trace.delete_pid_trace_file()
 
     def SaveDictionaryOfItemsToSessionStore(self, inSessionStoreName, inDictionary):
-        pid_trace.pid_trace(inSessionStoreName)
+        _logger.debug(inSessionStoreName)
 
         session = getattr(self, "session_" + inSessionStoreName)
         if session is None:
-            pid_trace.pid_trace("No session in sessionstore, creating new session")
+            _logger.debug("No session in sessionstore, creating new session")
             session = SessionStore(getattr(self, "session_key_" + inSessionStoreName))
 
-        pid_trace.pid_trace()
 
         for i in list(inDictionary.keys()):
             item = inDictionary[i]
-            pid_trace.pid_trace(str(i) + " type: " + str(type(item)))
+            _logger.debug(str(i) + " type: " + str(type(item)))
             # Store the raw value. Callers are responsible for producing
             # JSON-native values (no numpy scalars, sets, or datetime).
             session[i] = item
-            pid_trace.pid_trace(str(i) + " saved to session")
+            _logger.debug(str(i) + " saved to session")
 
-        pid_trace.pid_trace()
 
         if inSessionStoreName == "status":
             session["timestamp"] = time.time()
@@ -716,16 +707,13 @@ You must provide any weights you wish to use.
                 if saveRetries > 100:
                     raise e
 
-        pid_trace.pid_trace()
 
         db.connections.close_all()
         close_old_connections()
         session = None
 
-        pid_trace.delete_pid_trace_file()
 
     def LoadItemFromSessionStore(self, inSessionStoreName, inItemName):
-        pid_trace.pid_trace()
 
         session = getattr(self, "session_" + inSessionStoreName)
         if session is None:
@@ -738,7 +726,6 @@ You must provide any weights you wish to use.
         close_old_connections()
         session = None
 
-        pid_trace.delete_pid_trace_file()
 
         return returnItem
 
@@ -885,31 +872,25 @@ You must provide any weights you wish to use.
             return True
 
     def PerformAllWork(self):
-        pid_trace.pid_trace()
 
         self.fit_pool = FitPool()
         try:
             self.SaveDictionaryOfItemsToSessionStore("status", {"processID": os.getpid()})
 
-            pid_trace.pid_trace()
 
             self.GenerateListOfWorkItems()
 
-            pid_trace.pid_trace()
 
             self.PerformWorkInParallel()
 
-            pid_trace.pid_trace()
 
             self.GenerateListOfOutputReports()
 
-            pid_trace.pid_trace()
 
             self.CreateOutputReportsInParallelUsingProcessPool()
 
             self.CreateReportPDF()
 
-            pid_trace.pid_trace()
 
             self.RenderOutputHTMLToAFileAndSetStatusRedirect()
 
@@ -928,7 +909,6 @@ You must provide any weights you wish to use.
                     "status", {"processID": 0, "dispatched_at": 0}
                 )
 
-            pid_trace.delete_pid_trace_file()
         except _ReportsPipelineAborted:
             # The reports phase wrote its own user-visible status AND
             # terminal redirect (via _publish_terminal_error /
@@ -964,7 +944,6 @@ You must provide any weights you wish to use.
                 pass  # finally cleanup must not raise
 
     def CreateOutputReportsInParallelUsingProcessPool(self):
-        pid_trace.pid_trace()
 
         self.SaveDictionaryOfItemsToSessionStore("status", {"currentStatus": "Running All Reports"})
 
@@ -973,7 +952,6 @@ You must provide any weights you wish to use.
 
         if totalNumberOfReportsToBeRun == 0:
             self.SaveDictionaryOfItemsToSessionStore("status", {"parallelProcessCount": 0})
-            pid_trace.delete_pid_trace_file()
             return
 
         # Pre-flight: User Defined Function pickle workaround. The compiled
@@ -1053,11 +1031,9 @@ You must provide any weights you wish to use.
                     "parallelProcessCount": 0,
                 },
             )
-            pid_trace.delete_pid_trace_file()
             raise _ReportsPipelineAborted()
 
         self.SaveDictionaryOfItemsToSessionStore("status", {"parallelProcessCount": 0})
-        pid_trace.delete_pid_trace_file()
 
     def _oneSecondStatusUpdate(self, currentStatus):
         """Throttled (≤1Hz) liveness + status write for tight work loops.
@@ -1107,7 +1083,6 @@ You must provide any weights you wish to use.
         ):
             time.sleep(1.0)
 
-            pid_trace.pid_trace()
 
             if self.fit_pool is not None:
                 self.fit_pool.shutdown(wait=False, cancel_futures=True)
@@ -1123,13 +1098,11 @@ You must provide any weights you wish to use.
             for p in multiprocessing.active_children():
                 p.terminate()
 
-            pid_trace.delete_pid_trace_file()
 
         # if the status has not been checked in the past 30 seconds, this process was abandoned
         if (
             time.time() - self.LoadItemFromSessionStore("status", "time_of_last_status_check")
         ) > 300:
-            pid_trace.pid_trace()
 
             time.sleep(1.0)
             if self.fit_pool is not None:
@@ -1146,10 +1119,8 @@ You must provide any weights you wish to use.
             for p in multiprocessing.active_children():
                 p.terminate()
 
-            pid_trace.delete_pid_trace_file()
 
     def SetInitialStatusDataIntoSessionVariables(self, request):
-        pid_trace.pid_trace()
         # Compute the dispatch timestamp ONCE and store on self so
         # build_child_payload can stamp the same value into the payload.
         # The child uses payload.dispatch_id == session.dispatched_at as
@@ -1178,10 +1149,8 @@ You must provide any weights you wish to use.
                 "DependentDataName": self.dataObject.DependentDataName,
             },
         )
-        pid_trace.delete_pid_trace_file()
 
     def SpecificCodeForGeneratingListOfOutputReports(self):
-        pid_trace.pid_trace()
 
         self.functionString = "PrepareForReportOutput"
         self.SaveDictionaryOfItemsToSessionStore(
@@ -1199,10 +1168,8 @@ You must provide any weights you wish to use.
         )
         self.ReportsAndGraphsCategoryDict = ReportsAndGraphs.FittingReportsDict(self.dataObject)
 
-        pid_trace.delete_pid_trace_file()
 
     def GenerateListOfOutputReports(self):
-        pid_trace.pid_trace()
 
         self.textReports = []
         self.graphReports = []
@@ -1219,7 +1186,6 @@ You must provide any weights you wish to use.
             )
             self.dataObject.CalculateGraphBoundaries()
 
-        pid_trace.pid_trace()
 
         self.SpecificCodeForGeneratingListOfOutputReports()
 
@@ -1232,7 +1198,6 @@ You must provide any weights you wish to use.
             if i.name != "":
                 self.textReports.append(i)
 
-        pid_trace.pid_trace()
 
         # select required graph reports
         self.SaveDictionaryOfItemsToSessionStore(
@@ -1243,10 +1208,8 @@ You must provide any weights you wish to use.
             if i.name != "":
                 self.graphReports.append(i)
 
-        pid_trace.delete_pid_trace_file()
 
     def RenderOutputHTMLToAFileAndSetStatusRedirect(self):
-        pid_trace.pid_trace()
 
         # Entry-gate: bail before any shared-session write if a newer
         # dispatch owns the slot. See `_we_own_status_slot` docstring
@@ -1319,7 +1282,6 @@ You must provide any weights you wish to use.
             itemsToRender["IndependentDataName2"] = self.dataObject.IndependentDataName2
         itemsToRender["loadavg"] = platform_compat.get_loadavg()
 
-        pid_trace.pid_trace()
 
         result_html_path = page_artifact_path(self.dataObject.uniqueString, "html")
 
@@ -1401,10 +1363,8 @@ You must provide any weights you wish to use.
                 },
             )
 
-        pid_trace.delete_pid_trace_file()
 
     def CreateUnboundInterfaceForm(self, request):  # OVERRIDDEN in fittingBaseClass
-        pid_trace.pid_trace()
         dictionaryToReturn = {}
         dictionaryToReturn["dimensionality"] = str(self.dimensionality)
 
@@ -1442,14 +1402,11 @@ You must provide any weights you wish to use.
 
         dictionaryToReturn["statisticalDistributions"] = self.statisticalDistribution
 
-        pid_trace.delete_pid_trace_file()
         return dictionaryToReturn
 
     def CreateBoundInterfaceForm(self, request):  # OVERRIDDEN in fittingBaseClass
-        pid_trace.pid_trace()
         self.boundForm = getattr(
             zunzun.forms, "CharacterizeDataForm_" + str(self.dimensionality) + "D"
         )(request.POST)
         self.boundForm.dimensionality = str(self.dimensionality)
         self.boundForm["statisticalDistributionsSortBy"].required = self.statisticalDistribution
-        pid_trace.delete_pid_trace_file()

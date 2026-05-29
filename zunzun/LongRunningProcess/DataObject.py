@@ -1,9 +1,10 @@
+import logging
 import string
 
 import numpy
 import scipy.stats
 
-from . import pid_trace
+_logger = logging.getLogger(__name__)
 
 
 class DataObject:
@@ -105,7 +106,6 @@ class DataObject:
         self.Extrapolation_z = 0.05
 
     def CalculateStatisticsForList(self, preString, tempdata):
-        pid_trace.pid_trace()
 
         # must at least have max and min
         self.statistics[preString + "_min"] = min(tempdata)
@@ -148,10 +148,8 @@ class DataObject:
         except:
             pass
 
-        pid_trace.pid_trace()
 
     def CalculateDataStatistics(self):
-        pid_trace.pid_trace()
 
         tempdata = self.IndependentDataArray[0]
         # if max == min, add a little error
@@ -161,11 +159,9 @@ class DataObject:
             else:
                 tempdata[0] += tempdata[0] / 1.0e6
 
-        pid_trace.pid_trace()
 
         self.CalculateStatisticsForList("1", tempdata)
 
-        pid_trace.pid_trace()
 
         # do we need dim 2 stats?
         if self.dimensionality > 1:
@@ -180,11 +176,9 @@ class DataObject:
                 else:
                     tempdata[0] += tempdata[0] / 1.0e6
 
-            pid_trace.pid_trace()
 
             self.CalculateStatisticsForList("2", tempdata)
 
-        pid_trace.pid_trace()
 
         # do we need dim 3 stats?
         if self.dimensionality == 3:
@@ -196,14 +190,11 @@ class DataObject:
                 else:
                     tempdata[0] += tempdata[0] / 1.0e6
 
-            pid_trace.pid_trace()
 
             self.CalculateStatisticsForList("3", tempdata)
 
-            pid_trace.pid_trace()
 
     def CalculateErrorStatistics(self):
-        pid_trace.pid_trace()
 
         # calculate model predictions and errors
         self.equation.CalculateModelErrors(
@@ -242,10 +233,8 @@ class DataObject:
             self.gper_err_max_p05 = self.per_err_max_p05 + (self.delta_per_err_p05 * 0.05)
             self.gdelta_per_err_p05 = self.gper_err_max_p05 - self.gper_err_min_p05
 
-        pid_trace.delete_pid_trace_file()
 
     def CalculateGraphBoundaries(self):
-        pid_trace.pid_trace()
 
         # _p05 is for error plot axes, etc.
         self.xmin_p05 = self.statistics["1_min"]
@@ -255,7 +244,6 @@ class DataObject:
         self.gxmax_p05 = self.xmax_p05 + (self.deltax_p05 * 0.05)
         self.gdeltax_p05 = self.gxmax_p05 - self.gxmin_p05
 
-        pid_trace.pid_trace()
 
         if self.dimensionality > 1:
             self.ymin_p05 = self.statistics["2_min"]
@@ -265,7 +253,6 @@ class DataObject:
             self.gymax_p05 = self.ymax_p05 + (self.deltay_p05 * 0.05)
             self.gdeltay_p05 = self.gymax_p05 - self.gymin_p05
 
-        pid_trace.pid_trace()
 
         if self.dimensionality == 3:
             self.zmin_p05 = self.statistics["3_min"]
@@ -275,7 +262,6 @@ class DataObject:
             self.gzmax_p05 = self.zmax_p05 + (self.deltaz_p05 * 0.05)
             self.gdeltaz_p05 = self.gzmax_p05 - self.gzmin_p05
 
-        pid_trace.pid_trace()
 
         if self.Extrapolation_x < 98.0:  # 99.0 means Manual Scaling
             self.xmin = self.statistics["1_min"]
@@ -292,7 +278,7 @@ class DataObject:
             self.gxmax = self.xmax
             self.gdeltax = self.gxmax - self.gxmin
 
-        pid_trace.pid_trace("dim = " + str(self.dimensionality))
+        _logger.debug("dim = " + str(self.dimensionality))
 
         if self.dimensionality > 1:
             if self.Extrapolation_y < 98.0:  # 99.0 means Manual Scaling
@@ -310,7 +296,6 @@ class DataObject:
                 self.gymax = self.ymax
                 self.gdeltay = self.gymax - self.gymin
 
-        pid_trace.pid_trace()
 
         if self.dimensionality == 3:
             if self.Extrapolation_z < 98.0:  # 99.0 means Manual Scaling
@@ -328,8 +313,8 @@ class DataObject:
                 self.gzmax = self.zmax
                 self.gdeltaz = self.gzmax - self.gzmin
 
-        pid_trace.pid_trace("self.graphHeight = " + str(self.graphHeight))
-        pid_trace.pid_trace("self.graphWidth = " + str(self.graphWidth))
+        _logger.debug("self.graphHeight = " + str(self.graphHeight))
+        _logger.debug("self.graphWidth = " + str(self.graphWidth))
 
         self.gridResolution = (self.graphHeight + self.graphWidth) // 40
 
@@ -338,7 +323,6 @@ class DataObject:
         if self.dimensionality > 1:
             self.grid_dY = self.gdeltay / float(self.gridResolution - 1)
 
-        pid_trace.delete_pid_trace_file()
 
     def hex_char_to_decimal(self, character):
         """Used to turn hex input into decimal values"""

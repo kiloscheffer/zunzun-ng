@@ -33,7 +33,7 @@ Operational rules-of-thumb — situational notes important enough to keep grep-a
 
 - `static/` (committed assets) and `temp/` (runtime outputs) serve two separate URL prefixes — `STATIC_URL = '/static/'` vs `MEDIA_URL = '/temp/'`. For Python-side paths use `settings.STATIC_FILES_DIR` and `settings.TEMP_FILES_DIR` respectively. They are different paths since the 2026-04-28 static-files restructure; before that, both lived under `temp/`.
 - `temp/` is auto-trimmed by `HomePageView`'s housekeeping when total size exceeds `MAX_TEMP_DIR_SIZE_IN_MBYTES` (default 500).
-- `pid_trace.py` is dormant by design. Both functions `return` at the top. The calls scattered through `StatusMonitoredLongRunningProcessPage.py` are debugging hooks that are no-ops in production. To enable per-fork trace files, remove the early `return`s; don't remove the call sites.
+- LRP trace logging routes through `logging.getLogger("zunzun.LongRunningProcess.*")`. Default level is `WARNING` (silent). To enable per-step tracing, set the env var `ZUNZUN_LRP_LOG_LEVEL=DEBUG` — output flows into `temp/{pid}.log` in spawn-child processes (via the inline `logging.basicConfig` calls in those children) and via the root logger's default handler (stderr) in the parent. No source edits required. The old `pid_trace.py` shim (dormant-by-design `return`-at-top no-op) was removed when the per-LRP logger landed; bare positional `pid_trace.pid_trace()` markers were deleted (no useful message), text-bearing ones converted to `_logger.debug(...)`.
 
 ## Filename grammar in temp/
 

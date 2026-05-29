@@ -10,7 +10,7 @@ from django.template.loader import render_to_string
 
 import settings
 
-from . import FittingBaseClass, ReportsAndGraphs, pid_trace
+from . import FittingBaseClass, ReportsAndGraphs
 from ._unique import page_artifact_path
 from .child_payload import ChildPayload
 
@@ -168,7 +168,6 @@ class FunctionFinderResults(FittingBaseClass.FittingBaseClass):
     def SetInitialStatusDataIntoSessionVariables(self, request):
         import time
 
-        pid_trace.pid_trace()
         # Stamp dispatched_at so build_child_payload can plumb it as
         # dispatch_id — matches the base SetInitialStatusDataIntoSessionVariables
         # contract so _run_fit_child's ownership check works for the
@@ -185,11 +184,9 @@ class FunctionFinderResults(FittingBaseClass.FittingBaseClass):
                 "dispatched_at": self.dispatched_at,
             },
         )
-        pid_trace.delete_pid_trace_file()
 
     def GenerateListOfOutputReports(self):
 
-        pid_trace.pid_trace()
 
         self.textReports = []
         self.graphReports = []
@@ -338,7 +335,6 @@ class FunctionFinderResults(FittingBaseClass.FittingBaseClass):
                 self.RelativeErrorPlotsFlag = True  # ok to set many times
             self.equationDataForDjangoTemplate.append(dataForOneEquation)
 
-        pid_trace.pid_trace()
 
     def GenerateListOfWorkItems(self):
         pass

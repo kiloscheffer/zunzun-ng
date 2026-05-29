@@ -106,6 +106,24 @@ TEMP_FILES_DIR = os.path.join(ROOT_PATH, "temp")
 MEDIA_ROOT = TEMP_FILES_DIR
 MAX_TEMP_DIR_SIZE_IN_MBYTES = 500  # default 500 megabytes maximum
 
+# Per-LRP trace logging. Default WARNING (silent in production). Bump to
+# DEBUG to see per-step tracing through fit dispatch, data validation,
+# and report generation. Set via env var ZUNZUN_LRP_LOG_LEVEL=DEBUG
+# without editing source. In spawn-child processes the messages route
+# through the basicConfig FileHandler the child installs at startup
+# (temp/{pid}.log); the parent process emits via the root logger's
+# default handler (stderr).
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "loggers": {
+        "zunzun.LongRunningProcess": {
+            "level": os.environ.get("ZUNZUN_LRP_LOG_LEVEL", "WARNING"),
+            "propagate": True,
+        },
+    },
+}
+
 # Maximum worker processes a single fit may use concurrently. Used by the
 # per-fit FitPool inside the LRP child. Resolution order:
 #   1. ZUNZUN_MAX_WORKERS env var (must be positive int).
