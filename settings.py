@@ -109,10 +109,20 @@ MAX_TEMP_DIR_SIZE_IN_MBYTES = 500  # default 500 megabytes maximum
 # Per-LRP trace logging. Default WARNING (silent in production). Bump to
 # DEBUG to see per-step tracing through fit dispatch, data validation,
 # and report generation. Set via env var ZUNZUN_LRP_LOG_LEVEL=DEBUG
-# without editing source. In spawn-child processes the messages route
-# through the basicConfig FileHandler the child installs at startup
-# (temp/{pid}.log); the parent process emits via the root logger's
-# default handler (stderr).
+# without editing source.
+#
+# Spawn-child trace output lands in temp/{pid}.log via the FileHandler
+# installed by `_setup_child_root_logging` at the top of
+# `_run_fit_child`. Without that early install, DEBUG messages from
+# normal-path code (PerformAllWork, the per-step trace points in the
+# LRP tree) would be dropped — only exception handlers add the file
+# handler downstream, by which point any successful trace points have
+# already fired.
+#
+# Parent-process trace output is not routed by default (Django's root
+# logger has no handlers). To see DEBUG messages from the parent's
+# share of LRP code (e.g. SetInitialStatusDataIntoSessionVariables),
+# add a handler in this LOGGING dict or via runserver --verbosity.
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,

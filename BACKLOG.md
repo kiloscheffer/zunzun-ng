@@ -702,6 +702,19 @@ doing in one focused commit rather than incrementally.
 > Updated `docs/internals/active-gotchas.md` and `AGENTS.md`
 > (gitignored) to point at the new logger pattern.
 >
+> **Codex review on PR #16 caught a real defect in the first cut.**
+> The original `LOGGING` config attached no handler and the child's
+> `logging.basicConfig(... temp/{pid}.log ...)` only fires inside
+> exception handlers — by which point successful trace points have
+> already run. Result: `ZUNZUN_LRP_LOG_LEVEL=DEBUG` produced no output
+> for normal-flow tracing. Fixed in commit by adding
+> `_setup_child_root_logging()` to `child_payload.py` and calling it
+> at the top of `_run_fit_child` (after `django.setup()`, before any
+> `_logger.debug(...)` in `PerformAllWork` fires). The
+> `settings.LOGGING` docstring is also corrected to explain that
+> parent-side trace messages are NOT routed by default and require
+> the user to add a handler.
+>
 > Historical notes below, preserved for reference.
 
 **Symptom / exposure.** `zunzun/LongRunningProcess/pid_trace.py`

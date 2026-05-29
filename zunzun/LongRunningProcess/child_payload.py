@@ -68,6 +68,35 @@ class ChildPayload:
     extra: dict[str, Any] = field(default_factory=dict)
 
 
+def _setup_child_root_logging() -> None:
+    """Install the per-pid FileHandler on the root logger.
+
+    Called once at the top of every spawn child, before any
+    ``_logger.debug(...)`` calls in ``PerformAllWork`` fire. Routes all
+    propagated logging — including ``zunzun.LongRunningProcess.*``
+    trace messages enabled via ``ZUNZUN_LRP_LOG_LEVEL=DEBUG`` — to
+    ``temp/{pid}.log``.
+
+    Without this early call, the per-pid file is only installed inside
+    exception handlers (see the ``except`` branch below and the inline
+    ``basicConfig`` calls elsewhere in the LRP tree), so DEBUG trace
+    messages from normal flow are silently dropped — the
+    ``ZUNZUN_LRP_LOG_LEVEL`` knob has no observable effect.
+    """
+    import settings
+
+    log_path = os.path.join(settings.TEMP_FILES_DIR, f"{os.getpid()}.log")
+    # basicConfig is a no-op if the root logger already has handlers,
+    # so this is the canonical "set once" call. Subsequent inline
+    # basicConfig calls in exception handlers and elsewhere become
+    # no-ops with the same filename and level.
+    logging.basicConfig(
+        filename=log_path,
+        level=logging.DEBUG,
+        format="[%(asctime)s] %(process)d %(name)s %(levelname)s %(message)s",
+    )
+
+
 def _run_fit_child(payload: ChildPayload) -> None:
     """Entrypoint function for multiprocessing.Process(target=...).
 
@@ -85,6 +114,11 @@ def _run_fit_child(payload: ChildPayload) -> None:
     import django
 
     django.setup()
+
+    # Install the per-pid FileHandler BEFORE any LRP code runs, so
+    # _logger.debug(...) trace messages from PerformAllWork actually
+    # land in temp/{pid}.log when ZUNZUN_LRP_LOG_LEVEL=DEBUG is set.
+    _setup_child_root_logging()
 
     from zunzun import platform_compat
 
