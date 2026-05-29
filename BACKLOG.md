@@ -1124,3 +1124,275 @@ issue; the site is functional and deployable on Windows. Linux
 deployments are likely fine in practice (the recipe is mostly
 boilerplate plus Caddy's well-documented setup). macOS is a
 genuine unknown until exercised.
+
+## Split the LRP status session blob into per-field rows
+
+**Symptom / exposure.** The LRP status session is a single Django
+session blob (JSON-encoded dict) that the parent and child processes
+both read-modify-write. Every shared-session race the
+`fix/pipeline-error-redirects` branch hunted across 11 Codex rounds
+and several self-review passes traces back to this one structural
+constraint: when the parent's `SetInitialStatusDataIntoSessionVariables`
+overwrites `dispatched_at` while a child is mid-render, or when an
+older child publishes its terminal redirect during the window between
+a newer child's check and its write, the underlying problem is that
+"check ownership then write" cannot be atomic against a JSON blob
+serialized as one column. The PR shipped a dispatch-id ownership
+protocol (`_we_own_status_slot()`, gated bundled writes via
+`_publish_terminal_error()`) that narrows every race window but does
+not close them — see Codex's round-12 P2 comment on
+`StatusMonitoredLongRunningProcessPage.py` ("TOCTOU between ownership
+check and write") and the reply at
+[PR #11 thread](https://github.com/kiloscheffer/zunzun-ng/pull/11#discussion_r3321258888)
+acknowledging the constraint.
+
+**Why it's worth fixing.** Codex's original review-1 finding #1
+("lost-update race in status sessions can drop completion redirects")
+called this out as the deep fix in May 2026. Sixteen commits, three
+new helpers, and ~600 lines of inline race-condition rationale later,
+the dispatch-id workaround is structurally correct but architecturally
+narrow — every new shared-session writer must remember to call the
+helper, and every new race window narrows the constraint without
+closing it. A per-field schema with `QuerySet.filter(...).update()`
+for race-free single-field updates would eliminate the ownership
+check at every call site, the helper's defensive `return True` on
+read failure, and the bundled-write pattern entirely.
+
+**Where to pick up.**
+
+1. Design a small ORM model (e.g., `LRPStatus(session_key, processID,
+   dispatched_at, current_status, redirect_to_results, parallel_process_count,
+   last_status_check, start_time)` with `session_key` as primary key).
+   The status data currently in the JSON blob maps 1:1 to columns.
+2. Change `SaveDictionaryOfItemsToSessionStore("status", {...})` to
+   `LRPStatus.objects.filter(session_key=...).update(**fields)` — a
+   single SQL UPDATE per call. The 100-retry session-lock loop
+   collapses to Django ORM's own retry on `OperationalError`.
+3. Change `LoadItemFromSessionStore("status", key)` to
+   `LRPStatus.objects.filter(session_key=...).values_list(key, flat=True).first()`.
+4. Drop `_we_own_status_slot()`, `_publish_terminal_error()`, the
+   `dispatch_id` field on `ChildPayload`, and the entire dispatch-id
+   ownership protocol — atomic single-field updates make ownership
+   identity unnecessary.
+5. The session-key plumbing stays (`session_key_status`,
+   `session_key_data`, `session_key_functionfinder`) since
+   `data` and `functionfinder` sessions are still JSON blobs by nature
+   (they hold equation/spline state, not race-sensitive flags).
+
+**Not in scope of any current branch.** Substantial change across
+the LRP base class, every subclass that touches `SaveDictionaryOfItemsToSessionStore("status", ...)`,
+and the `fork-pattern-reviewer` agent's checks. Worth doing as a
+focused PR after the current branch ships, so the diff is bounded
+to "swap blob for table" without the in-flight race-condition fixes
+muddying the picture.
+
+## Replace eval() with getattr() in LRP session helpers
+
+**Symptom / exposure.** `StatusMonitoredLongRunningProcessPage.py`'s
+session helpers use `eval()` to construct attribute lookups by name:
+
+```python
+session = eval("self.session_" + inSessionStoreName)
+session = eval("SessionStore(self.session_key_" + inSessionStoreName + ")")
+```
+
+at four sites in `SaveDictionaryOfItemsToSessionStore` and
+`LoadItemFromSessionStore`. The arguments are always one of three
+fixed literals (`"status"`, `"data"`, `"functionfinder"`) so the
+calls aren't an injection vector, but `eval()` is a code-review red
+flag wherever it appears and complicates future static analysis.
+
+**Why it's worth fixing.** Mechanical, low-risk, removes four
+`eval()` calls. The simplifier agent's medium-precision review
+flagged it but recommended a separate PR ("bundling unrelated
+cleanup into a fix PR muddles the bisect/revert story"). Worth a
+focused commit when convenient.
+
+**Where to pick up.**
+
+1. Replace `eval("self.session_" + inSessionStoreName)` with
+   `getattr(self, "session_" + inSessionStoreName)` at both sites.
+2. Replace `eval("SessionStore(self.session_key_" + inSessionStoreName + ")")`
+   with `SessionStore(getattr(self, "session_key_" + inSessionStoreName))`
+   at both sites.
+3. Add a test verifying all three store names still resolve. Tests
+   under `tests/test_session_roundtrip.py` already exercise the
+   round-trip; verify they still pass with the substitution.
+
+**Not in scope of any current branch.** Pure refactor; no behavior
+change. Worth a small focused commit when convenient.
+
+## Test coverage for dispatch-ownership and terminal-error helpers
+
+**Symptom / exposure.** The `fix/pipeline-error-redirects` branch
+landed three new helpers on `StatusMonitoredLongRunningProcessPage`
+that ~8 call sites depend on for race-free terminal writes:
+`_we_own_status_slot()`, `_write_terminal_error_html()`, and
+`_publish_terminal_error()`. The pr-test-analyzer agent's review
+([5-agent review PR comment](https://github.com/kiloscheffer/zunzun-ng/pull/11#issuecomment-4572150311))
+identified three coverage gaps that survive the PR:
+
+1. **`_we_own_status_slot()` is never tested as a unit.** All
+   ~8 callers exercise it transitively but the load-bearing
+   "return True on session-read failure" branch — documented
+   explicitly in the helper's docstring as a trade-off — has zero
+   coverage. The exact one-line conditional that gets "cleaned up"
+   in a future refactor with no warning.
+2. **`_write_terminal_error_html()`'s None-on-disk-failure path**
+   is uncovered. All four BrokenProcessPool sites guard with
+   `if error_html_path:`; if the helper regressed to raise instead
+   of return None, the BrokenProcessPool handler would crash inside
+   its own exception handler.
+3. **The 4 BrokenProcessPool sites' new terminal redirect
+   publication is not tested directly.** Each site could regress
+   to the pre-fix two-call shape (drop redirect on
+   `_we_own_status_slot` False) and the UI-stuck-bug class would
+   return with zero test signal. `_ReportsPipelineAborted` is
+   asserted on existing tests but the bundled redirect-bearing save
+   is not.
+4. **Success-path ownership check at `RenderOutputHTML:1241`** has
+   no test. A refactor that drops the gate would silently re-introduce
+   the original race; smoke runs one fit at a time so wouldn't catch.
+
+A fifth gap (failure-path smoke scenario) is folded in here for
+convenience.
+
+**Why it's worth fixing.** The PR's contracts are now well-documented
+in commit messages and inline comments, but tests are the only thing
+that catches a regression at PR-review time. The unit cost for each
+of these is ~10 lines using the existing `_build_fake_lrp_module`
+harness in `tests/test_child_payload.py`.
+
+**Where to pick up.**
+
+1. **`_we_own_status_slot()` unit tests** in `tests/test_perform_all_work_pipeline.py`:
+   one test per branch — pid match + dispatched_at match → True; pid
+   match + dispatched_at mismatch → False; session read raises
+   `OperationalError` → True (with caplog assertion).
+2. **`_write_terminal_error_html()` unit tests**: success path returns
+   path and the file exists; disk failure (point `page_artifact_path`
+   at `/dev/this/path/does/not/exist/x.html`) returns None without
+   raising.
+3. **One BrokenProcessPool integration test**: mock
+   `ProcessPoolExecutor` to raise `BrokenProcessPool`, call
+   `CreateOutputReportsInParallelUsingProcessPool`, assert
+   `_ReportsPipelineAborted` raised AND the bundled save included
+   `redirectToResultsFileOrURL`/`processID:0`/`dispatched_at:0`.
+   FunctionFinder and StatisticalDistributions are near-duplicates;
+   one site test plus a structural assertion that all four use
+   `_we_own_status_slot()` + `_write_terminal_error_html()` is
+   reasonable cost/benefit.
+4. **Success-path ownership test**: mock `LoadItemFromSessionStore`
+   to return a newer-dispatch value; call
+   `RenderOutputHTMLToAFileAndSetStatusRedirect`; assert no
+   `SaveDictionaryOfItemsToSessionStore` was called and the result
+   file IS still on disk (harmless leftover).
+5. **Optional failure-path smoke scenario** in `scripts/smoke_test.py`:
+   POST a UDF with a deliberately bad formula (e.g., `1/(X-X)`) to
+   trigger Solve failure; poll status; assert the polling UI lands
+   on the `exception_while_fitting_an_equation.html` template within
+   a bounded timeout. Costs ~30 s extra on Windows but exercises the
+   real Waitress + spawn + session pipeline end-to-end.
+
+**Not in scope of any current branch.** Pure test addition; no
+behavior change. Worth a focused PR (`test: cover dispatch-ownership
+helpers and BrokenProcessPool redirects`) so the diff is easy to
+review and bisect.
+
+## Robustness improvements in LRP child logging and session reads
+
+**Symptom / exposure.** The silent-failure-hunter agent's review of
+the `fix/pipeline-error-redirects` branch surfaced two correctness-
+adjacent issues that were deferred because they touch broader
+codebase patterns not introduced by this PR:
+
+1. **`LoadItemFromSessionStore` has no retry loop.** Its sibling
+   `SaveDictionaryOfItemsToSessionStore` already wraps `session.save()`
+   in a 100-retry @ 10Hz loop because spawn-child contention on the
+   SQLite session DB is common. The read path has zero retries: the
+   first transient `OperationalError` (lock contention) or
+   `InterfaceError` (connection already closed by a sibling call)
+   raises out. `_we_own_status_slot()` now catches these and defaults
+   "we own" (with logging), but the underlying transient is silently
+   handled at the helper level rather than retried at the DB level.
+   The 1-call `LoadItemFromSessionStore` shape means many call sites
+   are similarly exposed — `CheckIfStillUsed`, the per-user gate
+   checks in `views.py`, etc.
+
+2. **`logging.basicConfig` is re-called at 17 sites in the LRP
+   tree.** Each site does
+   `logging.basicConfig(filename=os.path.join(TEMP_FILES_DIR, f"{pid}.log"), level=DEBUG)`
+   before its `logging.exception(...)` calls. Python's
+   `logging.basicConfig` is a no-op if the root logger already has
+   handlers, so this works by accident — the first call wins per
+   child interpreter and everyone gets the same file path. A single
+   `_setup_child_logging()` call at the top of `_run_fit_child`
+   would make the intent obvious and remove the per-site
+   `basicConfig` boilerplate. Also opens the door to a centralized
+   error-ID registry (`zunzun/error_ids.py`) so field-debugging
+   reports can reference stable IDs instead of free-form messages.
+
+**Why it's worth fixing.** Both are observability/robustness
+improvements that pay off most when something goes wrong in
+production. The retry-on-read is a small win for users whose fits
+get stuck under SQLite-lock contention; the centralized logging
+setup is a maintenance win that scales as more child code paths are
+added.
+
+**Where to pick up.**
+
+1. **For the read retry**: extract `_save_with_retry(session, ...)`
+   (see the existing entry "Factor out session.save() retry helper"
+   above) and add a sibling `_load_with_retry(session, key, ...)`
+   that mirrors the loop. Update `LoadItemFromSessionStore` to use
+   it. Narrow the helper's exception-swallow path
+   (`_we_own_status_slot`) to log-only — actual retries happen
+   one layer down.
+2. **For the logging setup**: add `zunzun/LongRunningProcess/child_logging.py`
+   with `setup_child_logging(pid) -> None` that calls `basicConfig`
+   once with the standard `temp/{pid}.log` filename. Call it from
+   `_run_fit_child` after `django.setup()`. Replace the 17 inline
+   `basicConfig` calls with bare `logging.exception(...)`. Bonus:
+   add `error_ids.py` with named constants for the major failure
+   classes (`OWNERSHIP_READ_FAILED`, `TERMINAL_HTML_WRITE_FAILED`,
+   `BROKEN_PROCESS_POOL`, etc.) and reference them in log messages.
+
+**Not in scope of any current branch.** Cross-cutting changes that
+shouldn't bundle into the race-condition fix PR. The read-retry
+work overlaps the existing "Factor out session.save() retry helper"
+entry — both should land together.
+
+## Backfill `FunctionFinderResults.SetInitialStatusDataIntoSessionVariables`
+
+**Symptom / exposure.** The base
+`SetInitialStatusDataIntoSessionVariables` in
+`StatusMonitoredLongRunningProcessPage` writes
+`{"currentStatus", "start_time", "time_of_last_status_check",
+"redirectToResultsFileOrURL", "parallelProcessCount", "dispatched_at"}`
+into the status session. The override in
+`FunctionFinderResults.SetInitialStatusDataIntoSessionVariables` was
+updated in `fix/pipeline-error-redirects` to stamp `dispatched_at`
+(so `_we_own_status_slot()` works on the FFR path) but still omits
+`parallelProcessCount`. Minor inconsistency: if a previous run left
+a stale `parallelProcessCount` in the session, the FFR child sees
+that stale value until something else overwrites it.
+
+**Why it's worth fixing.** Small, mechanical, removes a subtle
+inconsistency. Either the base contract is "every override writes
+all initial-state keys" or it isn't — the current state is half
+each.
+
+**Where to pick up.**
+
+1. Add `"parallelProcessCount": 0` to the
+   `SaveDictionaryOfItemsToSessionStore` payload in
+   `FunctionFinderResults.SetInitialStatusDataIntoSessionVariables`.
+2. Optionally factor the common keys into a base-class helper
+   `_default_initial_status_dict()` that both
+   `StatusMonitoredLongRunningProcessPage.SetInitial...` and the
+   `FunctionFinderResults` override call into; the FFR override
+   then overrides only the `currentStatus` string ("Initializing
+   Reports and Graphs" vs the base's "Initializing").
+
+**Not in scope of any current branch.** Cosmetic consistency; no
+observable bug under current code paths.
