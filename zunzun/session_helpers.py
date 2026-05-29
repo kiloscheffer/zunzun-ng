@@ -1,21 +1,35 @@
-"""SQLite-aware retry helpers for the Django session backend.
+"""Session-backend helpers for the Django session store.
 
-Spawn-child contention on the SQLite session DB is common in this
-codebase — each request's child interpreter calls ``session.save()``
-during fit dispatch and status updates, and multiple children writing
-to the same SQLite file can briefly raise ``OperationalError``
-("database is locked"). The 100-retry @ 10Hz pattern below has been
-the established workaround since the original ``os.fork()`` era; this
-module centralises it so new save / load sites are obviously correct
-(``save_with_retry(s)`` is hard to typo) and the
-``fork-pattern-reviewer`` agent's check simplifies to "every session
-save is a ``save_with_retry`` call."
+Two concerns live here, both about the SQLite-backed Django session:
+
+1. **SQLite-contention retry** (``save_with_retry`` / ``load_with_retry``).
+   Spawn-child contention on the SQLite session DB is common in this
+   codebase — each request's child interpreter calls ``session.save()``
+   during fit dispatch and status updates, and multiple children writing
+   to the same SQLite file can briefly raise ``OperationalError``
+   ("database is locked"). The 100-retry @ 10Hz pattern has been the
+   established workaround since the original ``os.fork()`` era;
+   centralising it means new save / load sites are obviously correct
+   (``save_with_retry(s)`` is hard to typo) and the
+   ``fork-pattern-reviewer`` agent's check simplifies to "every session
+   save is a ``save_with_retry`` call."
+
+2. **numpy-aware JSON serialization** (``NumpyJSONEncoder`` /
+   ``NumpySessionSerializer``). pyeq3 produces numpy scalars and arrays
+   (coefficient arrays, ranking tuples) that Django's default
+   ``JSONSerializer`` can't encode. ``NumpySessionSerializer`` is wired
+   in via ``settings.SESSION_SERIALIZER`` so the coercion happens
+   automatically at ``session.save()`` time — no per-call-site
+   ``_json_native(...)`` wrapper to remember.
 """
 
 from __future__ import annotations
 
+import json
 import time
 from typing import Any
+
+from django.contrib.sessions.serializers import JSONSerializer
 
 
 def save_with_retry(session, *, max_retries: int = 100, delay: float = 0.1) -> None:
@@ -80,3 +94,49 @@ def load_with_retry(
             if retries > max_retries:
                 raise
             time.sleep(delay)
+
+
+class NumpyJSONEncoder(json.JSONEncoder):
+    """json.JSONEncoder that coerces numpy leaves to Python primitives.
+
+    Only the two cases that ``json`` itself can't handle need an override:
+
+      - ``numpy.ndarray`` -> ``list`` (via ``.tolist()``)
+      - ``numpy.generic`` (int64/int32/bool_/etc.) -> Python scalar
+        (via ``.item()``)
+
+    Note ``numpy.float64`` is a subclass of ``float`` and serializes
+    natively, so it never reaches ``default()`` — which is fine, it
+    round-trips to a Python float either way. ``json`` already recurses
+    into dicts / lists / tuples natively and only calls ``default()`` on
+    the leaves it can't encode, so no recursive container walk is needed
+    here (unlike the old ``_json_native`` helper this replaces).
+
+    numpy is imported lazily so this module stays importable in any
+    context that doesn't actually serialize numpy (it's pulled in via
+    ``settings.SESSION_SERIALIZER`` and touched on every session save).
+    """
+
+    def default(self, o: Any) -> Any:
+        import numpy
+
+        if isinstance(o, numpy.ndarray):
+            return o.tolist()
+        if isinstance(o, numpy.generic):
+            return o.item()
+        return super().default(o)
+
+
+class NumpySessionSerializer(JSONSerializer):
+    """Session serializer that routes encoding through ``NumpyJSONEncoder``.
+
+    Wired in via ``settings.SESSION_SERIALIZER``. Matches Django's stock
+    ``JSONSerializer.dumps`` byte-for-byte (same ``separators`` and
+    latin-1 encoding) except for the ``cls=`` encoder, so existing
+    session blobs stay compatible. ``loads`` is inherited unchanged —
+    decoding is plain ``json.loads`` and produces the same Python
+    primitives regardless of how they were encoded.
+    """
+
+    def dumps(self, obj: Any) -> bytes:
+        return json.dumps(obj, separators=(",", ":"), cls=NumpyJSONEncoder).encode("latin-1")

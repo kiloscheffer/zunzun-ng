@@ -18,7 +18,7 @@ import zunzun.forms
 from ..parallel_pool import FitPool
 from . import ReportsAndGraphs, StatusMonitoredLongRunningProcessPage
 from .child_payload import ChildPayload
-from .StatusMonitoredLongRunningProcessPage import _json_native, _ReportsPipelineAborted
+from .StatusMonitoredLongRunningProcessPage import _ReportsPipelineAborted
 
 externalDataCache = pyeq3.dataCache()
 
@@ -215,20 +215,18 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
 
         self.SaveDictionaryOfItemsToSessionStore(
             "functionfinder",
-            {"functionFinderResultsList": _json_native(self.functionFinderResultsList)},
+            {"functionFinderResultsList": self.functionFinderResultsList},
         )
 
         self.SaveDictionaryOfItemsToSessionStore(
             "data",
-            _json_native(
-                {
-                    "textDataEditor": self.dataObject.textDataEditor,
-                    "weightedFittingChoice": self.dataObject.weightedFittingChoice,
-                    "fittingTarget": self.dataObject.fittingTarget,
-                    "DependentDataArray": self.dataObject.DependentDataArray,
-                    "IndependentDataArray": self.dataObject.IndependentDataArray,
-                }
-            ),
+            {
+                "textDataEditor": self.dataObject.textDataEditor,
+                "weightedFittingChoice": self.dataObject.weightedFittingChoice,
+                "fittingTarget": self.dataObject.fittingTarget,
+                "DependentDataArray": self.dataObject.DependentDataArray,
+                "IndependentDataArray": self.dataObject.IndependentDataArray,
+            },
         )
 
         if self.dataObject.dimensionality == 2:

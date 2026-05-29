@@ -158,7 +158,8 @@ def EvaluateAtAPointView(request):
     else:
         equation.fittingTarget = LRP.LoadItemFromSessionStore("data", "fittingTarget")
 
-    # solvedCoefficients is stored as a list after _json_native. pyeq3's
+    # solvedCoefficients round-trips through the session as a JSON list
+    # (NumpySessionSerializer coerces the numpy array at save time). pyeq3's
     # CalculateModelPredictions expects an ndarray for regular equations.
     # For splines, solvedCoefficients IS the tck tuple (already consumed
     # above to reconstruct equation.scipySpline) and pyeq3's Spline

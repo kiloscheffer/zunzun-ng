@@ -21,7 +21,7 @@ Operational rules-of-thumb — situational notes important enough to keep grep-a
 ## Sessions and state
 
 - Every session write goes through `save_with_retry(session)` from `zunzun/session_helpers.py`; every session read goes through `load_with_retry(session, key, default=None)` from the same module. Both wrap the 100-retry @ 10Hz loop that handles SQLite contention from concurrent spawn children. Direct `session.save()` or `session[key]` calls in spawn-child code are a bug. Spawn children open fresh DB connections (vs. fork's inherited ones), so lock contention is arguably more relevant post-migration, not less.
-- Session values are stored as JSON-native Python types (floats, strings, lists of floats, nested dicts of primitives) via the default `JSONSerializer`. Callers are responsible for casting numpy values to plain Python primitives at write time — see `_json_native` in `StatusMonitoredLongRunningProcessPage.py`.
+- Session values are stored as JSON via `NumpySessionSerializer` (wired in `settings.SESSION_SERIALIZER`, defined in `zunzun/session_helpers.py`). numpy scalars and arrays produced by pyeq3 are coerced to plain Python primitives automatically at `session.save()` time — callers do NOT need to cast manually (the old `_json_native` per-call-site helper was removed once the serializer landed). Anything else stored must still be JSON-encodable (no sets, datetimes, live scipy objects, etc.).
 - Three parallel `SessionStore`s per user — keys stored in the main request session as `session_key_status` / `session_key_data` / `session_key_functionfinder`. The helpers `SaveDictionaryOfItemsToSessionStore` / `LoadItemFromSessionStore` handle routing.
 
 ## Templates and URLs
