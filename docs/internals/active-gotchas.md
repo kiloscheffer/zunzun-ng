@@ -20,7 +20,7 @@ Operational rules-of-thumb — situational notes important enough to keep grep-a
 
 ## Sessions and state
 
-- Every `session.save()` is wrapped in a `while not save_complete` loop that retries 100× at 10Hz before re-raising. When adding new session writes, copy this pattern — concurrent spawn children fighting for the SQLite session DB will lock it otherwise. Spawn children open fresh DB connections (vs. fork's inherited ones), so lock contention is arguably more relevant post-migration, not less.
+- Every session write goes through `save_with_retry(session)` from `zunzun/session_helpers.py`; every session read goes through `load_with_retry(session, key, default=None)` from the same module. Both wrap the 100-retry @ 10Hz loop that handles SQLite contention from concurrent spawn children. Direct `session.save()` or `session[key]` calls in spawn-child code are a bug. Spawn children open fresh DB connections (vs. fork's inherited ones), so lock contention is arguably more relevant post-migration, not less.
 - Session values are stored as JSON-native Python types (floats, strings, lists of floats, nested dicts of primitives) via the default `JSONSerializer`. Callers are responsible for casting numpy values to plain Python primitives at write time — see `_json_native` in `StatusMonitoredLongRunningProcessPage.py`.
 - Three parallel `SessionStore`s per user — keys stored in the main request session as `session_key_status` / `session_key_data` / `session_key_functionfinder`. The helpers `SaveDictionaryOfItemsToSessionStore` / `LoadItemFromSessionStore` handle routing.
 

@@ -104,10 +104,6 @@ def parallelWorkFunction(inParameterList):
     except:
         import logging
 
-        logging.basicConfig(
-            filename=os.path.join(settings.TEMP_FILES_DIR, str(os.getpid()) + ".log"),
-            level=logging.DEBUG,
-        )
         logging.exception("parallelWorkFunction exception")
         return [None, inParameterList[0], inParameterList[1], inParameterList[2]]
 
@@ -130,10 +126,6 @@ def serialWorker(obj, inputList, outputList, dataCache):
         except:
             import logging
 
-            logging.basicConfig(
-                filename=os.path.join(settings.TEMP_FILES_DIR, str(os.getpid()) + ".log"),
-                level=logging.DEBUG,
-            )
             logging.exception("serialWorker exception")
 
 
@@ -213,10 +205,6 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
         if not self._we_own_status_slot():
             import logging
 
-            logging.basicConfig(
-                filename=os.path.join(settings.TEMP_FILES_DIR, f"{os.getpid()}.log"),
-                level=logging.DEBUG,
-            )
             logging.info(
                 "%s.RenderOutputHTML: newer dispatch owns slot; "
                 "skipping shared-session writes (self.dispatched_at=%s)",
@@ -315,10 +303,6 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
             except:
                 import logging
 
-                logging.basicConfig(
-                    filename=os.path.join(settings.TEMP_FILES_DIR, str(os.getpid()) + ".log"),
-                    level=logging.DEBUG,
-                )
                 logging.exception("oodbadcachedata flags exception, i = " + str(i))
             if self.dictionaryOf_BothGoodAndBadCacheData_Flags[i[0]] == False:  # if bad
                 self.fit_skip_count += 1
@@ -647,10 +631,6 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
                         ff_pool_error = True
                         import logging
 
-                        logging.basicConfig(
-                            filename=os.path.join(settings.TEMP_FILES_DIR, f"{os.getpid()}.log"),
-                            level=logging.DEBUG,
-                        )
                         logging.exception(
                             "BrokenProcessPool in FunctionFinder.PerformWorkInParallel"
                         )
@@ -674,12 +654,6 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
                             ff_pool_error = True
                             import logging
 
-                            logging.basicConfig(
-                                filename=os.path.join(
-                                    settings.TEMP_FILES_DIR, f"{os.getpid()}.log"
-                                ),
-                                level=logging.DEBUG,
-                            )
                             logging.exception(
                                 "BrokenProcessPool surfaced via .result() in FunctionFinder"
                             )

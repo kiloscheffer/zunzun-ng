@@ -124,10 +124,6 @@ class FunctionFinderResults(FittingBaseClass.FittingBaseClass):
         if not self._we_own_status_slot():
             import logging
 
-            logging.basicConfig(
-                filename=os.path.join(settings.TEMP_FILES_DIR, f"{os.getpid()}.log"),
-                level=logging.DEBUG,
-            )
             logging.info(
                 "%s.RenderOutputHTML: newer dispatch owns slot; "
                 "skipping shared-session writes (self.dispatched_at=%s)",

@@ -141,10 +141,6 @@ class StatisticalDistributions(
             except concurrent.futures.process.BrokenProcessPool:
                 import logging
 
-                logging.basicConfig(
-                    filename=os.path.join(settings.TEMP_FILES_DIR, f"{os.getpid()}.log"),
-                    level=logging.DEBUG,
-                )
                 logging.exception("BrokenProcessPool in StatisticalDistributions")
                 error_message = (
                     "An internal error occurred during statistical "
