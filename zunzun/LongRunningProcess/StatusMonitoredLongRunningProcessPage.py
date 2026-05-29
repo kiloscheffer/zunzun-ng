@@ -159,7 +159,6 @@ class StatusMonitoredLongRunningProcessPage(object):
         self.inEquationFamilyName = ""
 
         self.session_data = None
-        self.session_status = None
         self.session_functionfinder = None
         self.status_row_pk = None
 
@@ -750,13 +749,15 @@ You must provide any weights you wish to use.
 
             self.RenderOutputHTMLToAFileAndSetStatusRedirect()
 
-            # Clear process_id so the per-user gate
-            # (views.LongRunningProcessView) doesn't block this user's
-            # next fit. This dispatch owns its own row, so no ownership
-            # check is needed — the write only ever touches our row.
-            # start_time is left intact because the status template
-            # uses it for elapsed-time display.
-            self.update_status(process_id=0)
+            # Success terminal: clear process_id and mark completed so the
+            # per-user gate (views.LongRunningProcessView) doesn't block this
+            # user's next fit. completed survives StatusView clearing
+            # redirect_to_results, so a fast fit the user views within 60s
+            # doesn't falsely re-enter the gate's pending window. This
+            # dispatch owns its own row, so no ownership check is needed.
+            # start_time is left intact for the status template's elapsed
+            # timer.
+            self.update_status(process_id=0, completed=True)
 
         except _ReportsPipelineAborted:
             # The reports phase wrote its own user-visible status AND
@@ -773,15 +774,15 @@ You must provide any weights you wish to use.
                 self.fit_pool = None
             # Catch-all clear for unhandled exceptions that escape the
             # try AND aren't _ReportsPipelineAborted (PDF render bug,
-            # scipy/numpy crash, DB error). Clears process_id so the
-            # per-user gate is released for the next retry. This dispatch
-            # owns its own row, so the unconditional update only touches
-            # our row (a superseding dispatch deleted it → zero rows).
-            # _run_fit_child's except-branch handles the terminal
+            # scipy/numpy crash, DB error). Clears process_id and marks
+            # completed so the per-user gate is released for the next retry.
+            # This dispatch owns its own row, so the unconditional update
+            # only touches our row (a superseding dispatch deleted it → zero
+            # rows). _run_fit_child's except-branch handles the terminal
             # redirect separately when the exception is an Exception (not
             # _ReportsPipelineAborted, which is handled above).
             try:
-                self.update_status(process_id=0)
+                self.update_status(process_id=0, completed=True)
             except Exception:
                 pass  # finally cleanup must not raise
 
@@ -865,6 +866,7 @@ You must provide any weights you wish to use.
             self.update_status(
                 redirect_to_results=self._write_terminal_error_html(error_message) or "",
                 process_id=0,
+                completed=True,
                 current_status=error_message,
                 parallel_count=0,
             )
@@ -1119,7 +1121,11 @@ You must provide any weights you wish to use.
                     logging.exception("Also failed to write static fallback HTML")
 
         if write_succeeded:
-            self.update_status(redirect_to_results=result_html_path)
+            # Success terminal. Mark completed here too (belt-and-suspenders
+            # with PerformAllWork's end-of-try process_id=0/completed=True
+            # clear) so the gate's pending window can't re-fire after
+            # StatusView consumes redirect_to_results.
+            self.update_status(redirect_to_results=result_html_path, completed=True)
         else:
             # Disk is unwritable; we cannot deliver a terminal page.
             # Update status text so polling at least surfaces the error,

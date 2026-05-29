@@ -225,16 +225,18 @@ def test_concurrent_fit_refused_in_pending_window_before_child_writes_pid(client
 @pytest.mark.django_db
 def test_concurrent_fit_allowed_after_fast_completion(client, mocked_process_start):
     """ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER=False — a fit that completes
-    in <60s sets redirect_to_results (the terminal "done" signal). Even
-    though start_time is still recent, the next POST must NOT be blocked:
-    the completed row is excluded from the pending check."""
+    in <60s sets completed=True (the terminal "done" signal). Even though
+    start_time is still recent and redirect_to_results is still present (not
+    yet consumed by StatusView), the next POST must NOT be blocked: the
+    completed row is excluded from the pending check."""
     with mock.patch("settings.ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER", False, create=True):
         client.get("/")
         # State immediately after a fast successful fit: process_id cleared,
-        # terminal redirect set, but start_time still recent (<60s).
+        # completed set, terminal redirect set, start_time still recent (<60s).
         _plant_status_row(
             client,
             process_id=0,
+            completed=True,
             start_time=time.time() - 30,
             last_status_check=time.time() - 5,
             redirect_to_results="/temp/abc.html",
@@ -245,4 +247,39 @@ def test_concurrent_fit_allowed_after_fast_completion(client, mocked_process_sta
             data={"IndependentData": "1 2 3", "DependentData": "1 2 3"},
         )
         # Completed fit → neither pending nor active → gate must NOT trigger
+        assert b"already in progress" not in response.content
+
+
+@pytest.mark.django_db
+def test_concurrent_fit_allowed_after_fast_completion_when_redirect_consumed(
+    client, mocked_process_start
+):
+    """Regression guard for the redirect-overload bug: StatusView clears
+    redirect_to_results the moment it serves the result. For a fast fit the
+    user views within 60s of dispatch, the post-consumption row is:
+        completed=True, process_id=0, redirect_to_results="", start_time recent
+    The old gate (which keyed the pending window on `not redirect_to_results`)
+    would see an empty redirect + recent start_time + no process_id and
+    re-block the next POST for the rest of the 60s window. With the explicit
+    `completed` flag the gate must allow the re-submit.
+
+    Fails on the pre-fix code (redirect-clause gate); passes with the flag.
+    """
+    with mock.patch("settings.ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER", False, create=True):
+        client.get("/")
+        _plant_status_row(
+            client,
+            process_id=0,
+            completed=True,
+            start_time=time.time() - 20,  # within the 60s pending window
+            last_status_check=time.time() - 5,
+            redirect_to_results="",  # StatusView already consumed it
+        )
+
+        response = client.post(
+            "/FitEquation__F__/2/Polynomial/Linear%20Polynomial/",
+            data={"IndependentData": "1 2 3", "DependentData": "1 2 3"},
+        )
+        # Completed (flag set) → gate must NOT block even though redirect was
+        # consumed and start_time is still inside the pending window.
         assert b"already in progress" not in response.content

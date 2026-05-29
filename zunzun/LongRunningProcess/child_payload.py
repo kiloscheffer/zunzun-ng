@@ -214,7 +214,7 @@ def _run_fit_child(payload: ChildPayload) -> None:
                 .values_list("redirect_to_results", flat=True)
                 .first()
             )
-            update_fields: dict[str, Any] = {"process_id": 0}
+            update_fields: dict[str, Any] = {"process_id": 0, "completed": True}
             if not existing:
                 update_fields["redirect_to_results"] = error_html_path if write_succeeded else ""
                 update_fields["current_status"] = (

@@ -15,6 +15,7 @@ def test_lrpstatus_defaults_and_roundtrip():
     assert row.redirect_to_results == ""
     assert row.parallel_count == 0
     assert row.process_id == 0
+    assert row.completed is False
 
     LRPStatus.objects.filter(pk=row.pk).update(process_id=4321, current_status="Fitting Data")
     reloaded = LRPStatus.objects.get(pk=row.pk)

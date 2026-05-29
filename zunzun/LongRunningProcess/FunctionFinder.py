@@ -228,7 +228,8 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
             redirect_to_results="/FunctionFinderResults/"
             + str(self.dataObject.dimensionality)
             + "/?RANK=1&unused="
-            + str(time.time())
+            + str(time.time()),
+            completed=True,
         )
 
     def AddEquationInfoToLinearAndParallelFittingListsAndCheckOneSecond(self):
@@ -620,6 +621,7 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
                             redirect_to_results=self._write_terminal_error_html(error_message)
                             or "",
                             process_id=0,
+                            completed=True,
                             current_status=error_message,
                             parallel_count=0,
                         )
@@ -643,6 +645,7 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
                                 redirect_to_results=self._write_terminal_error_html(error_message)
                                 or "",
                                 process_id=0,
+                                completed=True,
                                 current_status=error_message,
                                 parallel_count=0,
                             )

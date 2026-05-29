@@ -147,6 +147,7 @@ class StatisticalDistributions(
                 self.update_status(
                     redirect_to_results=self._write_terminal_error_html(error_message) or "",
                     process_id=0,
+                    completed=True,
                     current_status=error_message,
                     parallel_count=0,
                 )

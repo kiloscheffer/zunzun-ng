@@ -419,18 +419,19 @@ def LongRunningProcessView(
             #    parent creating the row and the child's first PerformAllWork
             #    status write (~50-500ms). start_time covers the pending
             #    window that the dispatch-id float used to cover. A completed
-            #    fit (redirect_to_results set) is excluded: start_time is NOT
-            #    cleared on completion, so a fast (<60s) fit would otherwise
-            #    falsely register as pending and block the next POST — the
-            #    terminal redirect is the "no longer in progress" signal the
-            #    old dispatched_at=0 clear used to provide.
+            #    fit is excluded via the explicit `completed` flag: start_time
+            #    is NOT cleared on completion, so a fast (<60s) fit would
+            #    otherwise falsely register as pending and block the next POST.
+            #    The `completed` flag (set at every terminal write) is the
+            #    "no longer in progress" signal — NOT redirect_to_results,
+            #    which StatusView clears the moment it serves the result.
             # Missing row → no active fit → allow.
             is_active = bool(row) and row.process_id and (now - row.last_status_check) < 300
             is_pending = (
                 bool(row)
                 and (now - row.start_time) < 60
                 and not row.process_id
-                and not row.redirect_to_results
+                and not row.completed
             )
             if is_active or is_pending:
                 return HttpResponse(

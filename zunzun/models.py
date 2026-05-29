@@ -20,3 +20,9 @@ class LRPStatus(models.Model):
     redirect_to_results = models.TextField(default="")
     parallel_count = models.IntegerField(default=0)
     process_id = models.IntegerField(default=0)
+    # True once the fit reaches a terminal state (success OR failure). The
+    # per-user gate's pending-window check reads this instead of
+    # redirect_to_results, because StatusView clears redirect_to_results the
+    # moment it serves the result — which would otherwise re-enable the
+    # pending window for a fast fit and falsely block the user's next POST.
+    completed = models.BooleanField(default=False)

@@ -452,7 +452,9 @@ You must provide any weights you wish to use.
                 )
             # Publish the Solve-specific error template (already rendered
             # above) directly to this dispatch's row, clearing the gate.
-            self.update_status(redirect_to_results=error_html_path or "", process_id=0)
+            self.update_status(
+                redirect_to_results=error_html_path or "", process_id=0, completed=True
+            )
             # Without this raise, PerformAllWork continues into
             # PerformWorkInParallel / report generation on an unsolved
             # equation, and RenderOutputHTMLToAFileAndSetStatusRedirect
