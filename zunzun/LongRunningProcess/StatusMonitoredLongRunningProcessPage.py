@@ -1248,15 +1248,10 @@ You must provide any weights you wish to use.
     def RenderOutputHTMLToAFileAndSetStatusRedirect(self):
         pid_trace.pid_trace()
 
-        # Ownership gate at the TOP of the method, not just before the
-        # final redirect publish. If a newer dispatch owns the slot,
-        # SaveSpecificDataToSessionStore would overwrite the `data`
-        # session with this (older) fit's equationName/solvedCoefficients,
-        # and /EvaluateAtAPoint/ would later read OUR data while the
-        # newer fit's redirect drives the polling UI — wrong fit's
-        # equation displayed against newer fit's results page.
-        # Late-bailing at the redirect write was insufficient; bail
-        # before any shared-session write.
+        # Entry-gate: bail before any shared-session write if a newer
+        # dispatch owns the slot. See `_we_own_status_slot` docstring
+        # for the contract; the post-render disk artifact, if any,
+        # would be unreferenced and is fine to skip.
         if not self._we_own_status_slot():
             import logging
 
@@ -1265,9 +1260,9 @@ You must provide any weights you wish to use.
                 level=logging.DEBUG,
             )
             logging.info(
-                "RenderOutputHTML: newer dispatch owns slot; "
-                "skipping SaveSpecificData + status writes for this fit "
-                "(self.dispatched_at=%s)",
+                "%s.RenderOutputHTML: newer dispatch owns slot; "
+                "skipping shared-session writes (self.dispatched_at=%s)",
+                type(self).__name__,
                 self.dispatched_at,
             )
             return
@@ -1386,13 +1381,7 @@ You must provide any weights you wish to use.
                 except Exception:
                     logging.exception("Also failed to write static fallback HTML")
 
-        # Re-check ownership at the actual redirect-write site —
-        # narrows the TOCTOU window between the entry gate at the top
-        # of this method and now (a newer fit's SetInitial could land
-        # in between). Suppression is silent: the entry-gate already
-        # logs when ownership is False at entry, and this late flip
-        # is a vanishingly-narrow race we cannot eliminate without
-        # splitting the session blob (see BACKLOG entry).
+        # TOCTOU re-check before redirect publish; silent (entry-gate logs).
         if not self._we_own_status_slot():
             return
 

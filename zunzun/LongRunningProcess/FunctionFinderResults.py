@@ -119,10 +119,8 @@ class FunctionFinderResults(FittingBaseClass.FittingBaseClass):
 
         import time  # acts strangely if import is at top of file
 
-        # Ownership gate at the TOP. The currentStatus write below
-        # would otherwise clobber a newer dispatch's running status.
-        # FFR is a results-detail render so concurrent dispatch is
-        # rare, but the gate matches the contract everywhere else.
+        # Entry-gate: bail before any shared-session write if a newer
+        # dispatch owns the slot. See `_we_own_status_slot` docstring.
         if not self._we_own_status_slot():
             import logging
 
@@ -131,8 +129,9 @@ class FunctionFinderResults(FittingBaseClass.FittingBaseClass):
                 level=logging.DEBUG,
             )
             logging.info(
-                "FunctionFinderResults RenderOutputHTML: newer dispatch owns slot; "
-                "skipping all session writes (self.dispatched_at=%s)",
+                "%s.RenderOutputHTML: newer dispatch owns slot; "
+                "skipping shared-session writes (self.dispatched_at=%s)",
+                type(self).__name__,
                 self.dispatched_at,
             )
             return
@@ -160,11 +159,7 @@ class FunctionFinderResults(FittingBaseClass.FittingBaseClass):
         fileLocation = page_artifact_path(self.dataObject.uniqueString, "html")
         with open(fileLocation, "w", encoding="utf-8") as f:
             f.write(tempString)
-        # Ownership-gate the success-redirect write (same contract as
-        # the base class's RenderOutputHTML). FunctionFinderResults is
-        # a results-detail render, not a fit, so concurrent dispatch
-        # is rare in practice — but the check is cheap and consistency
-        # with the rest of the codebase avoids future drift.
+        # TOCTOU re-check before redirect publish; silent (entry-gate logs).
         if self._we_own_status_slot():
             self.SaveDictionaryOfItemsToSessionStore(
                 "status", {"redirectToResultsFileOrURL": fileLocation}

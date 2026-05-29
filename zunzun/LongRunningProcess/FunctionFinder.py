@@ -206,15 +206,10 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
 
     def RenderOutputHTMLToAFileAndSetStatusRedirect(self):
 
-        # Ownership gate at the TOP of the method, not just before the
-        # final redirect publish. The functionfinder + data writes
-        # below shape the content that /FunctionFinderResults/ later
-        # reads via FunctionFinderResults.TransferFormDataToDataObject;
-        # an older child writing them after a newer dispatch owns the
-        # slot would let the newer fit's polling complete with a
-        # redirect to OUR ranked-equations and OUR input arrays.
-        # Late-bailing at the status write was insufficient; bail
-        # before any shared-session write.
+        # Entry-gate: bail before any shared-session write if a newer
+        # dispatch owns the slot. See `_we_own_status_slot` docstring;
+        # the functionfinder + data writes below shape what
+        # /FunctionFinderResults/ later reads.
         if not self._we_own_status_slot():
             import logging
 
@@ -223,8 +218,9 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
                 level=logging.DEBUG,
             )
             logging.info(
-                "FunctionFinder RenderOutputHTML: newer dispatch owns slot; "
-                "skipping functionfinder/data/status writes (self.dispatched_at=%s)",
+                "%s.RenderOutputHTML: newer dispatch owns slot; "
+                "skipping shared-session writes (self.dispatched_at=%s)",
+                type(self).__name__,
                 self.dispatched_at,
             )
             return
@@ -252,9 +248,7 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
                 "data", {"logLinX": self.dataObject.logLinX, "logLinY": self.dataObject.logLinY}
             )
 
-        # Re-check ownership before the status redirect — narrows the
-        # TOCTOU window with the entry gate above. A newer fit's
-        # SetInitial could have run between the two checks.
+        # TOCTOU re-check before redirect publish; silent (entry-gate logs).
         if self._we_own_status_slot():
             self.SaveDictionaryOfItemsToSessionStore(
                 "status",
