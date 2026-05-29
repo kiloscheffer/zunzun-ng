@@ -102,10 +102,7 @@ def _setup_child_root_logging() -> None:
     # attached. Identifying by baseFilename avoids duplicate handlers
     # if this function is somehow called twice.
     for h in root.handlers:
-        if (
-            isinstance(h, logging.FileHandler)
-            and getattr(h, "baseFilename", None) == log_path
-        ):
+        if isinstance(h, logging.FileHandler) and getattr(h, "baseFilename", None) == log_path:
             return
     handler = logging.FileHandler(log_path)
     handler.setFormatter(
