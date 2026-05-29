@@ -206,6 +206,29 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
 
     def RenderOutputHTMLToAFileAndSetStatusRedirect(self):
 
+        # Ownership gate at the TOP of the method, not just before the
+        # final redirect publish. The functionfinder + data writes
+        # below shape the content that /FunctionFinderResults/ later
+        # reads via FunctionFinderResults.TransferFormDataToDataObject;
+        # an older child writing them after a newer dispatch owns the
+        # slot would let the newer fit's polling complete with a
+        # redirect to OUR ranked-equations and OUR input arrays.
+        # Late-bailing at the status write was insufficient; bail
+        # before any shared-session write.
+        if not self._we_own_status_slot():
+            import logging
+
+            logging.basicConfig(
+                filename=os.path.join(settings.TEMP_FILES_DIR, f"{os.getpid()}.log"),
+                level=logging.DEBUG,
+            )
+            logging.info(
+                "FunctionFinder RenderOutputHTML: newer dispatch owns slot; "
+                "skipping functionfinder/data/status writes (self.dispatched_at=%s)",
+                self.dispatched_at,
+            )
+            return
+
         self.SaveDictionaryOfItemsToSessionStore(
             "functionfinder",
             {"functionFinderResultsList": _json_native(self.functionFinderResultsList)},
@@ -229,12 +252,9 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
                 "data", {"logLinX": self.dataObject.logLinX, "logLinY": self.dataObject.logLinY}
             )
 
-        # Ownership-gate the success-redirect write (same contract as
-        # the base class's RenderOutputHTML and every other shared-session
-        # write). Without this, an older FunctionFinder run completing
-        # while a newer fit's parent SetInitial overwrites
-        # session.dispatched_at would publish the /FunctionFinderResults/
-        # URL into the newer fit's polling session.
+        # Re-check ownership before the status redirect — narrows the
+        # TOCTOU window with the entry gate above. A newer fit's
+        # SetInitial could have run between the two checks.
         if self._we_own_status_slot():
             self.SaveDictionaryOfItemsToSessionStore(
                 "status",

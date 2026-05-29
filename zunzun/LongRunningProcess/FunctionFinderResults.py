@@ -119,6 +119,24 @@ class FunctionFinderResults(FittingBaseClass.FittingBaseClass):
 
         import time  # acts strangely if import is at top of file
 
+        # Ownership gate at the TOP. The currentStatus write below
+        # would otherwise clobber a newer dispatch's running status.
+        # FFR is a results-detail render so concurrent dispatch is
+        # rare, but the gate matches the contract everywhere else.
+        if not self._we_own_status_slot():
+            import logging
+
+            logging.basicConfig(
+                filename=os.path.join(settings.TEMP_FILES_DIR, f"{os.getpid()}.log"),
+                level=logging.DEBUG,
+            )
+            logging.info(
+                "FunctionFinderResults RenderOutputHTML: newer dispatch owns slot; "
+                "skipping all session writes (self.dispatched_at=%s)",
+                self.dispatched_at,
+            )
+            return
+
         self.SaveDictionaryOfItemsToSessionStore(
             "status", {"currentStatus": "Generating Output HTML"}
         )

@@ -1248,6 +1248,30 @@ You must provide any weights you wish to use.
     def RenderOutputHTMLToAFileAndSetStatusRedirect(self):
         pid_trace.pid_trace()
 
+        # Ownership gate at the TOP of the method, not just before the
+        # final redirect publish. If a newer dispatch owns the slot,
+        # SaveSpecificDataToSessionStore would overwrite the `data`
+        # session with this (older) fit's equationName/solvedCoefficients,
+        # and /EvaluateAtAPoint/ would later read OUR data while the
+        # newer fit's redirect drives the polling UI — wrong fit's
+        # equation displayed against newer fit's results page.
+        # Late-bailing at the redirect write was insufficient; bail
+        # before any shared-session write.
+        if not self._we_own_status_slot():
+            import logging
+
+            logging.basicConfig(
+                filename=os.path.join(settings.TEMP_FILES_DIR, f"{os.getpid()}.log"),
+                level=logging.DEBUG,
+            )
+            logging.info(
+                "RenderOutputHTML: newer dispatch owns slot; "
+                "skipping SaveSpecificData + status writes for this fit "
+                "(self.dispatched_at=%s)",
+                self.dispatched_at,
+            )
+            return
+
         self.SaveSpecificDataToSessionStore()
 
         self.SaveDictionaryOfItemsToSessionStore(
