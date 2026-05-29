@@ -81,7 +81,6 @@ class StatisticalDistributions(
 
     def GenerateListOfWorkItems(self):
 
-
         self.SaveDictionaryOfItemsToSessionStore("status", {"currentStatus": "Sorting Data"})
 
         # required for special beta distribution data max/min case
@@ -99,7 +98,6 @@ class StatisticalDistributions(
                 "levy_stable",
             ]:  # these are very slow, taking too long
                 self.parallelWorkItemsList.append(item[0])
-
 
     def PerformWorkInParallel(self):
 
@@ -219,7 +217,6 @@ class StatisticalDistributions(
 
         self.completedWorkItemsList.sort(key=lambda x: x[0])
 
-
     def WorkItems_CheckOneSecondSessionUpdates(
         self, countOfWorkItemsRun, totalNumberOfWorkItemsToBeRun
     ):
@@ -238,4 +235,3 @@ class StatisticalDistributions(
         self.ReportsAndGraphsCategoryDict = ReportsAndGraphs.StatisticalDistributionReportsDict(
             self.dataObject
         )
-

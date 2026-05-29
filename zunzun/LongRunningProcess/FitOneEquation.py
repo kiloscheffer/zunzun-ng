@@ -73,5 +73,4 @@ class FitOneEquation(FittingBaseClass.FittingBaseClass):
             self.unboundForm.fields["logLinX"].initial = logLinX
             self.unboundForm.fields["logLinY"].initial = logLinY
 
-
         return dictionaryToReturn

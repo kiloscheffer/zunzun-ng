@@ -187,7 +187,6 @@ class FunctionFinderResults(FittingBaseClass.FittingBaseClass):
 
     def GenerateListOfOutputReports(self):
 
-
         self.textReports = []
         self.graphReports = []
 
@@ -334,7 +333,6 @@ class FunctionFinderResults(FittingBaseClass.FittingBaseClass):
                 dataForOneEquation["r2Value"] = ""
                 self.RelativeErrorPlotsFlag = True  # ok to set many times
             self.equationDataForDjangoTemplate.append(dataForOneEquation)
-
 
     def GenerateListOfWorkItems(self):
         pass

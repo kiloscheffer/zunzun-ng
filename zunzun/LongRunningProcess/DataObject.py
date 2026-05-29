@@ -148,7 +148,6 @@ class DataObject:
         except:
             pass
 
-
     def CalculateDataStatistics(self):
 
         tempdata = self.IndependentDataArray[0]
@@ -159,9 +158,7 @@ class DataObject:
             else:
                 tempdata[0] += tempdata[0] / 1.0e6
 
-
         self.CalculateStatisticsForList("1", tempdata)
-
 
         # do we need dim 2 stats?
         if self.dimensionality > 1:
@@ -176,9 +173,7 @@ class DataObject:
                 else:
                     tempdata[0] += tempdata[0] / 1.0e6
 
-
             self.CalculateStatisticsForList("2", tempdata)
-
 
         # do we need dim 3 stats?
         if self.dimensionality == 3:
@@ -190,9 +185,7 @@ class DataObject:
                 else:
                     tempdata[0] += tempdata[0] / 1.0e6
 
-
             self.CalculateStatisticsForList("3", tempdata)
-
 
     def CalculateErrorStatistics(self):
 
@@ -233,7 +226,6 @@ class DataObject:
             self.gper_err_max_p05 = self.per_err_max_p05 + (self.delta_per_err_p05 * 0.05)
             self.gdelta_per_err_p05 = self.gper_err_max_p05 - self.gper_err_min_p05
 
-
     def CalculateGraphBoundaries(self):
 
         # _p05 is for error plot axes, etc.
@@ -244,7 +236,6 @@ class DataObject:
         self.gxmax_p05 = self.xmax_p05 + (self.deltax_p05 * 0.05)
         self.gdeltax_p05 = self.gxmax_p05 - self.gxmin_p05
 
-
         if self.dimensionality > 1:
             self.ymin_p05 = self.statistics["2_min"]
             self.ymax_p05 = self.statistics["2_max"]
@@ -253,7 +244,6 @@ class DataObject:
             self.gymax_p05 = self.ymax_p05 + (self.deltay_p05 * 0.05)
             self.gdeltay_p05 = self.gymax_p05 - self.gymin_p05
 
-
         if self.dimensionality == 3:
             self.zmin_p05 = self.statistics["3_min"]
             self.zmax_p05 = self.statistics["3_max"]
@@ -261,7 +251,6 @@ class DataObject:
             self.gzmin_p05 = self.zmin_p05 - (self.deltaz_p05 * 0.05)
             self.gzmax_p05 = self.zmax_p05 + (self.deltaz_p05 * 0.05)
             self.gdeltaz_p05 = self.gzmax_p05 - self.gzmin_p05
-
 
         if self.Extrapolation_x < 98.0:  # 99.0 means Manual Scaling
             self.xmin = self.statistics["1_min"]
@@ -296,7 +285,6 @@ class DataObject:
                 self.gymax = self.ymax
                 self.gdeltay = self.gymax - self.gymin
 
-
         if self.dimensionality == 3:
             if self.Extrapolation_z < 98.0:  # 99.0 means Manual Scaling
                 self.zmin = self.statistics["3_min"]
@@ -322,7 +310,6 @@ class DataObject:
 
         if self.dimensionality > 1:
             self.grid_dY = self.gdeltay / float(self.gridResolution - 1)
-
 
     def hex_char_to_decimal(self, character):
         """Used to turn hex input into decimal values"""

@@ -591,7 +591,6 @@ You must provide any weights you wish to use.
             except:
                 pass
 
-
         if self.dataObject.dimensionality == 2:
             self.dataObject.logLinX = self.boundForm.cleaned_data["logLinX"]
             self.dataObject.logLinY = self.boundForm.cleaned_data["logLinY"]
@@ -626,7 +625,6 @@ You must provide any weights you wish to use.
             self.dataObject.Extrapolation_z_max = self.boundForm.cleaned_data["maxManualScaleZ"]
             self.dataObject.logLinZ = self.boundForm.cleaned_data["logLinZ"]
 
-
         # can only take log of positive data
         if self.dataObject.logLinX == "LOG" and min(self.dataObject.IndependentDataArray[0]) <= 0.0:
             self.dataObject.ErrorString = (
@@ -658,7 +656,6 @@ You must provide any weights you wish to use.
                     + ") contains a non-positive value and you have selected logarithmic Z scaling. I cannot take the log of a non-positive number."
                 )
 
-
         if self.dataObject.dimensionality == 3:
             self.dataObject.animationWidth = int(
                 self.boundForm.cleaned_data["animationSize"].split("x")[0]
@@ -671,7 +668,6 @@ You must provide any weights you wish to use.
                 self.boundForm.cleaned_data["rotationAnglesAltimuth"]
             )
 
-
     def SaveDictionaryOfItemsToSessionStore(self, inSessionStoreName, inDictionary):
         _logger.debug(inSessionStoreName)
 
@@ -680,7 +676,6 @@ You must provide any weights you wish to use.
             _logger.debug("No session in sessionstore, creating new session")
             session = SessionStore(getattr(self, "session_key_" + inSessionStoreName))
 
-
         for i in list(inDictionary.keys()):
             item = inDictionary[i]
             _logger.debug(str(i) + " type: " + str(type(item)))
@@ -688,7 +683,6 @@ You must provide any weights you wish to use.
             # JSON-native values (no numpy scalars, sets, or datetime).
             session[i] = item
             _logger.debug(str(i) + " saved to session")
-
 
         if inSessionStoreName == "status":
             session["timestamp"] = time.time()
@@ -707,11 +701,9 @@ You must provide any weights you wish to use.
                 if saveRetries > 100:
                     raise e
 
-
         db.connections.close_all()
         close_old_connections()
         session = None
-
 
     def LoadItemFromSessionStore(self, inSessionStoreName, inItemName):
 
@@ -725,7 +717,6 @@ You must provide any weights you wish to use.
         db.connections.close_all()
         close_old_connections()
         session = None
-
 
         return returnItem
 
@@ -877,20 +868,15 @@ You must provide any weights you wish to use.
         try:
             self.SaveDictionaryOfItemsToSessionStore("status", {"processID": os.getpid()})
 
-
             self.GenerateListOfWorkItems()
-
 
             self.PerformWorkInParallel()
 
-
             self.GenerateListOfOutputReports()
-
 
             self.CreateOutputReportsInParallelUsingProcessPool()
 
             self.CreateReportPDF()
-
 
             self.RenderOutputHTMLToAFileAndSetStatusRedirect()
 
@@ -1083,7 +1069,6 @@ You must provide any weights you wish to use.
         ):
             time.sleep(1.0)
 
-
             if self.fit_pool is not None:
                 self.fit_pool.shutdown(wait=False, cancel_futures=True)
                 self.fit_pool = None
@@ -1098,12 +1083,10 @@ You must provide any weights you wish to use.
             for p in multiprocessing.active_children():
                 p.terminate()
 
-
         # if the status has not been checked in the past 30 seconds, this process was abandoned
         if (
             time.time() - self.LoadItemFromSessionStore("status", "time_of_last_status_check")
         ) > 300:
-
             time.sleep(1.0)
             if self.fit_pool is not None:
                 self.fit_pool.shutdown(wait=False, cancel_futures=True)
@@ -1118,7 +1101,6 @@ You must provide any weights you wish to use.
             # abandoned fit doesn't keep consuming CPU/RAM.
             for p in multiprocessing.active_children():
                 p.terminate()
-
 
     def SetInitialStatusDataIntoSessionVariables(self, request):
         # Compute the dispatch timestamp ONCE and store on self so
@@ -1168,7 +1150,6 @@ You must provide any weights you wish to use.
         )
         self.ReportsAndGraphsCategoryDict = ReportsAndGraphs.FittingReportsDict(self.dataObject)
 
-
     def GenerateListOfOutputReports(self):
 
         self.textReports = []
@@ -1186,7 +1167,6 @@ You must provide any weights you wish to use.
             )
             self.dataObject.CalculateGraphBoundaries()
 
-
         self.SpecificCodeForGeneratingListOfOutputReports()
 
         # generate required text reports
@@ -1198,7 +1178,6 @@ You must provide any weights you wish to use.
             if i.name != "":
                 self.textReports.append(i)
 
-
         # select required graph reports
         self.SaveDictionaryOfItemsToSessionStore(
             "status", {"currentStatus": "Generating List Of Graphical Reports"}
@@ -1207,7 +1186,6 @@ You must provide any weights you wish to use.
             exec("i." + self.functionString + "()")
             if i.name != "":
                 self.graphReports.append(i)
-
 
     def RenderOutputHTMLToAFileAndSetStatusRedirect(self):
 
@@ -1281,7 +1259,6 @@ You must provide any weights you wish to use.
             itemsToRender["IndependentDataName1"] = self.dataObject.IndependentDataName1
             itemsToRender["IndependentDataName2"] = self.dataObject.IndependentDataName2
         itemsToRender["loadavg"] = platform_compat.get_loadavg()
-
 
         result_html_path = page_artifact_path(self.dataObject.uniqueString, "html")
 
@@ -1362,7 +1339,6 @@ You must provide any weights you wish to use.
                     "results page. Please try again or contact the administrator."
                 },
             )
-
 
     def CreateUnboundInterfaceForm(self, request):  # OVERRIDDEN in fittingBaseClass
         dictionaryToReturn = {}
