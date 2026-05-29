@@ -127,6 +127,7 @@ exclude = [
     "funkload_tests",   # legacy Py2.7 / pre-uv code
     "temp",             # runtime scratch
     "session_db",       # SQLite session store
+    "migrations",       # Django-generated; e.g. empty `dependencies = []` trips var-annotated
     "\\.venv",
     "build",
 ]
