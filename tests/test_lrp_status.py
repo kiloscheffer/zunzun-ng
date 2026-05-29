@@ -56,3 +56,23 @@ def test_get_status_returns_field_or_default_only_when_row_missing():
 
     lrp.status_row_pk = 99999
     assert lrp.get_status("process_id", default=-1) == -1
+
+
+@pytest.mark.django_db
+def test_housekeeping_deletes_aged_status_rows(monkeypatch, tmp_path):
+    import time as _time
+
+    from zunzun import views
+    from zunzun.models import LRPStatus
+
+    now = _time.time()
+    fresh = LRPStatus.objects.create(start_time=now, last_status_check=now)
+    stale = LRPStatus.objects.create(
+        start_time=now - 10_000_000, last_status_check=now - 10_000_000
+    )
+
+    # temp dir arg is unused for this assertion; point it at tmp_path
+    views._housekeeping_child(str(tmp_path), 500)
+
+    assert LRPStatus.objects.filter(pk=fresh.pk).exists()
+    assert not LRPStatus.objects.filter(pk=stale.pk).exists()
