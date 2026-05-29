@@ -98,12 +98,12 @@ def ParallelWorker_CreateReportOutput(inReportObject):
         for item in dir(inReportObject.dataObject):
             if -1 != str(item).find("__"):  # internal python objects
                 continue
-            if -1 != str(eval("inReportObject.dataObject." + str(item))).find(
+            if -1 != str(getattr(inReportObject.dataObject, item)).find(
                 "bound"
             ):  # internal python objects
                 continue
 
-            s += str(item) + ": " + str(eval("inReportObject.dataObject." + str(item))) + "\n\n"
+            s += str(item) + ": " + str(getattr(inReportObject.dataObject, item)) + "\n\n"
 
         logging.basicConfig(
             filename=os.path.join(settings.TEMP_FILES_DIR, str(os.getpid()) + ".log"),
@@ -135,12 +135,12 @@ def ParallelWorker_CreateCharacterizerOutput(inReportObject):
         for item in dir(inReportObject.dataObject):
             if -1 != str(item).find("__"):  # internal python objects
                 continue
-            if -1 != str(eval("inReportObject.dataObject." + str(item))).find(
+            if -1 != str(getattr(inReportObject.dataObject, item)).find(
                 "bound"
             ):  # internal python objects
                 continue
 
-            s += str(item) + ": " + str(eval("inReportObject.dataObject." + str(item))) + "\n\n"
+            s += str(item) + ": " + str(getattr(inReportObject.dataObject, item)) + "\n\n"
 
         logging.basicConfig(
             filename=os.path.join(settings.TEMP_FILES_DIR, str(os.getpid()) + ".log"),
@@ -1312,9 +1312,9 @@ You must provide any weights you wish to use.
 
         itemsToRender["equationInstance"] = self.equationInstance
         if self.evaluateAtAPointFormNeeded:
-            itemsToRender["EvaluateAtAPointForm"] = eval(
-                "zunzun.forms.EvaluateAtAPointForm_" + str(self.dimensionality) + "D()"
-            )
+            itemsToRender["EvaluateAtAPointForm"] = getattr(
+                zunzun.forms, "EvaluateAtAPointForm_" + str(self.dimensionality) + "D"
+            )()
             itemsToRender["IndependentDataName1"] = self.dataObject.IndependentDataName1
             itemsToRender["IndependentDataName2"] = self.dataObject.IndependentDataName2
         itemsToRender["loadavg"] = platform_compat.get_loadavg()
@@ -1417,9 +1417,9 @@ You must provide any weights you wish to use.
         )
 
         # make a dimensionality-based unbound Django form
-        self.unboundForm = eval(
-            "zunzun.forms.CharacterizeDataForm_" + str(self.dimensionality) + "D()"
-        )
+        self.unboundForm = getattr(
+            zunzun.forms, "CharacterizeDataForm_" + str(self.dimensionality) + "D"
+        )()
 
         # set the form to have either default or session text data
         temp = self.LoadItemFromSessionStore(
@@ -1430,7 +1430,7 @@ You must provide any weights you wish to use.
         else:
             self.unboundForm.fields["textDataEditor"].initial = (
                 zunzun.forms.formConstants.initialDataEntryText
-                + eval("self.defaultData" + str(self.dimensionality) + "D")
+                + getattr(self, "defaultData" + str(self.dimensionality) + "D")
             )
         temp = self.LoadItemFromSessionStore("data", "commaConversion")
         if temp:
@@ -1447,9 +1447,9 @@ You must provide any weights you wish to use.
 
     def CreateBoundInterfaceForm(self, request):  # OVERRIDDEN in fittingBaseClass
         pid_trace.pid_trace()
-        self.boundForm = eval(
-            "zunzun.forms.CharacterizeDataForm_" + str(self.dimensionality) + "D(request.POST)"
-        )
+        self.boundForm = getattr(
+            zunzun.forms, "CharacterizeDataForm_" + str(self.dimensionality) + "D"
+        )(request.POST)
         self.boundForm.dimensionality = str(self.dimensionality)
         self.boundForm["statisticalDistributionsSortBy"].required = self.statisticalDistribution
         pid_trace.delete_pid_trace_file()
