@@ -71,7 +71,11 @@ def load_with_retry(
             return session[key]
         except KeyError:
             return default
-        except (DatabaseError, InterfaceError):
+        except (DatabaseError, InterfaceError):  # fmt: skip
+            # ruff format would drop the parens — the result parses
+            # as a Tuple expression and behaves identically, but reads
+            # like Python 2's `except X, varname:` syntax. Keep parens
+            # for readability.
             retries += 1
             if retries > max_retries:
                 raise

@@ -19,8 +19,8 @@ from django_ratelimit.decorators import ratelimit
 import settings
 
 from . import LongRunningProcess, forms, middleware, platform_compat
-from .session_helpers import save_with_retry
 from .LongRunningProcess.child_payload import _run_fit_child
+from .session_helpers import save_with_retry
 
 
 def _housekeeping_child(temp_dir: str, max_size_mb: int) -> None:
