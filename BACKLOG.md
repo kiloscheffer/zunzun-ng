@@ -1242,7 +1242,28 @@ focused commit when convenient.
 **Not in scope of any current branch.** Pure refactor; no behavior
 change. Worth a small focused commit when convenient.
 
-## Replace remaining eval() calls in StatusMonitoredLongRunningProcessPage
+## ~~Replace remaining eval() calls in StatusMonitoredLongRunningProcessPage~~ RESOLVED 2026-05-29
+
+> **Resolution.** All three patterns substituted in one focused commit:
+>
+> - 4 `dataObject` attribute reads (lines 101, 106, 138, 143):
+>   `eval("inReportObject.dataObject." + str(item))` →
+>   `getattr(inReportObject.dataObject, item)`. Single `replace_all` edit.
+> - 3 form-class instantiations (lines 1315, 1420, 1450):
+>   `eval("zunzun.forms.<Form>_" + str(self.dimensionality) + "D(...)")` →
+>   `getattr(zunzun.forms, "<Form>_" + str(self.dimensionality) + "D")(...)`.
+> - 1 defaultData read (line 1433):
+>   `eval("self.defaultData" + str(self.dimensionality) + "D")` →
+>   `getattr(self, "defaultData" + str(self.dimensionality) + "D")`.
+>
+> `eval()` count in `StatusMonitoredLongRunningProcessPage.py` is now
+> zero. Pytest 133/133 green. Did NOT factor the two near-duplicate
+> `dataObject`-dir-loop blocks into a single helper — that scope was
+> explicitly left to author judgment in the entry and would have
+> muddied the substitution PR. Worth a separate small refactor when
+> convenient.
+>
+> Historical notes below, preserved for reference.
 
 **Symptom / exposure.** After the session-helper `eval()` cleanup
 landed (resolved entry above), eight `eval()` calls remain in
