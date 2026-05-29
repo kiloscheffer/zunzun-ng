@@ -11,6 +11,7 @@ import zunzun.formConstants
 
 from . import StatusMonitoredLongRunningProcessPage
 from ._unique import page_artifact_path
+from .StatusMonitoredLongRunningProcessPage import _ReportsPipelineAborted
 
 
 class FittingBaseClass(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRunningProcessPage):
@@ -436,12 +437,30 @@ You must provide any weights you wish to use.
             itemsToRender["error0"] = str(sys.exc_info()[0])
             itemsToRender["error1"] = str(sys.exc_info()[1])
             error_html_path = page_artifact_path(self.dataObject.uniqueString, "html")
-            open(error_html_path, "w").write(
-                render_to_string("zunzun/exception_while_fitting_an_equation.html", itemsToRender)
-            )
-            self.SaveDictionaryOfItemsToSessionStore(
-                "status", {"redirectToResultsFileOrURL": error_html_path}
-            )
+            # Write the error HTML with explicit utf-8 encoding via a
+            # context manager. Without encoding, Windows defaults to
+            # cp1252 and a non-ASCII character in the Solve() exception
+            # message (e.g., a math symbol in a pyeq3 equation name
+            # echoed in the traceback) would raise UnicodeEncodeError —
+            # which would propagate past the raise _ReportsPipelineAborted()
+            # below, so PerformAllWork's sentinel catch would miss it.
+            with open(error_html_path, "w", encoding="utf-8") as f:
+                f.write(
+                    render_to_string(
+                        "zunzun/exception_while_fitting_an_equation.html", itemsToRender
+                    )
+                )
+            # Publish the Solve-specific error template (already rendered
+            # above) via the base helper, which ownership-gates the
+            # write and bundles redirect + gate-clear atomically.
+            self._publish_terminal_error(html_path=error_html_path)
+            # Without this raise, PerformAllWork continues into
+            # PerformWorkInParallel / report generation on an unsolved
+            # equation, and RenderOutputHTMLToAFileAndSetStatusRedirect
+            # would overwrite the error redirect with a path to a
+            # (broken) results page (its own ownership gate matches
+            # our own dispatch).
+            raise _ReportsPipelineAborted()
 
     def GetEquationFromNameAndFamily(
         self,

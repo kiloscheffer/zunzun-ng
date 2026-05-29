@@ -119,6 +119,23 @@ class FunctionFinderResults(FittingBaseClass.FittingBaseClass):
 
         import time  # acts strangely if import is at top of file
 
+        # Entry-gate: bail before any shared-session write if a newer
+        # dispatch owns the slot. See `_we_own_status_slot` docstring.
+        if not self._we_own_status_slot():
+            import logging
+
+            logging.basicConfig(
+                filename=os.path.join(settings.TEMP_FILES_DIR, f"{os.getpid()}.log"),
+                level=logging.DEBUG,
+            )
+            logging.info(
+                "%s.RenderOutputHTML: newer dispatch owns slot; "
+                "skipping shared-session writes (self.dispatched_at=%s)",
+                type(self).__name__,
+                self.dispatched_at,
+            )
+            return
+
         self.SaveDictionaryOfItemsToSessionStore(
             "status", {"currentStatus": "Generating Output HTML"}
         )
@@ -140,15 +157,23 @@ class FunctionFinderResults(FittingBaseClass.FittingBaseClass):
 
         tempString = render_to_string("zunzun/function_finder_results.html", itemsToRender)
         fileLocation = page_artifact_path(self.dataObject.uniqueString, "html")
-        open(fileLocation, "w").write(tempString)
-        self.SaveDictionaryOfItemsToSessionStore(
-            "status", {"redirectToResultsFileOrURL": fileLocation}
-        )
+        with open(fileLocation, "w", encoding="utf-8") as f:
+            f.write(tempString)
+        # TOCTOU re-check before redirect publish; silent (entry-gate logs).
+        if self._we_own_status_slot():
+            self.SaveDictionaryOfItemsToSessionStore(
+                "status", {"redirectToResultsFileOrURL": fileLocation}
+            )
 
     def SetInitialStatusDataIntoSessionVariables(self, request):
         import time
 
         pid_trace.pid_trace()
+        # Stamp dispatched_at so build_child_payload can plumb it as
+        # dispatch_id — matches the base SetInitialStatusDataIntoSessionVariables
+        # contract so _run_fit_child's ownership check works for the
+        # FunctionFinderResults code path too.
+        self.dispatched_at = time.time()
         self.SaveDictionaryOfItemsToSessionStore(
             "status",
             {
@@ -156,6 +181,7 @@ class FunctionFinderResults(FittingBaseClass.FittingBaseClass):
                 "start_time": time.time(),
                 "time_of_last_status_check": time.time(),
                 "redirectToResultsFileOrURL": "",
+                "dispatched_at": self.dispatched_at,
             },
         )
         pid_trace.delete_pid_trace_file()

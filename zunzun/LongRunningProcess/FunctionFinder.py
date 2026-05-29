@@ -206,6 +206,25 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
 
     def RenderOutputHTMLToAFileAndSetStatusRedirect(self):
 
+        # Entry-gate: bail before any shared-session write if a newer
+        # dispatch owns the slot. See `_we_own_status_slot` docstring;
+        # the functionfinder + data writes below shape what
+        # /FunctionFinderResults/ later reads.
+        if not self._we_own_status_slot():
+            import logging
+
+            logging.basicConfig(
+                filename=os.path.join(settings.TEMP_FILES_DIR, f"{os.getpid()}.log"),
+                level=logging.DEBUG,
+            )
+            logging.info(
+                "%s.RenderOutputHTML: newer dispatch owns slot; "
+                "skipping shared-session writes (self.dispatched_at=%s)",
+                type(self).__name__,
+                self.dispatched_at,
+            )
+            return
+
         self.SaveDictionaryOfItemsToSessionStore(
             "functionfinder",
             {"functionFinderResultsList": _json_native(self.functionFinderResultsList)},
@@ -229,15 +248,17 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
                 "data", {"logLinX": self.dataObject.logLinX, "logLinY": self.dataObject.logLinY}
             )
 
-        self.SaveDictionaryOfItemsToSessionStore(
-            "status",
-            {
-                "redirectToResultsFileOrURL": "/FunctionFinderResults/"
-                + str(self.dataObject.dimensionality)
-                + "/?RANK=1&unused="
-                + str(time.time())
-            },
-        )
+        # TOCTOU re-check before redirect publish; silent (entry-gate logs).
+        if self._we_own_status_slot():
+            self.SaveDictionaryOfItemsToSessionStore(
+                "status",
+                {
+                    "redirectToResultsFileOrURL": "/FunctionFinderResults/"
+                    + str(self.dataObject.dimensionality)
+                    + "/?RANK=1&unused="
+                    + str(time.time())
+                },
+            )
 
     def AddEquationInfoToLinearAndParallelFittingListsAndCheckOneSecond(self):
         global externalDataCache
@@ -633,19 +654,17 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
                         logging.exception(
                             "BrokenProcessPool in FunctionFinder.PerformWorkInParallel"
                         )
-                        self.SaveDictionaryOfItemsToSessionStore(
-                            "status",
-                            {
-                                "currentStatus": "An internal error occurred during equation "
-                                "fitting. Please try again or contact the administrator.",
+                        error_message = (
+                            "An internal error occurred during equation "
+                            "fitting. Please try again or contact the administrator."
+                        )
+                        self._publish_terminal_error(
+                            html_path=self._write_terminal_error_html(error_message),
+                            status_dict={
+                                "currentStatus": error_message,
                                 "parallelProcessCount": 0,
                             },
                         )
-                        # Conditional pid/dispatched_at clear (concurrent-fit safety)
-                        if self.LoadItemFromSessionStore("status", "processID") == os.getpid():
-                            self.SaveDictionaryOfItemsToSessionStore(
-                                "status", {"processID": 0, "dispatched_at": 0}
-                            )
                         pid_trace.delete_pid_trace_file()
                         raise _ReportsPipelineAborted()
 
@@ -665,18 +684,17 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
                             logging.exception(
                                 "BrokenProcessPool surfaced via .result() in FunctionFinder"
                             )
-                            self.SaveDictionaryOfItemsToSessionStore(
-                                "status",
-                                {
-                                    "currentStatus": "An internal error occurred during equation "
-                                    "fitting. Please try again or contact the administrator.",
+                            error_message = (
+                                "An internal error occurred during equation "
+                                "fitting. Please try again or contact the administrator."
+                            )
+                            self._publish_terminal_error(
+                                html_path=self._write_terminal_error_html(error_message),
+                                status_dict={
+                                    "currentStatus": error_message,
                                     "parallelProcessCount": 0,
                                 },
                             )
-                            if self.LoadItemFromSessionStore("status", "processID") == os.getpid():
-                                self.SaveDictionaryOfItemsToSessionStore(
-                                    "status", {"processID": 0, "dispatched_at": 0}
-                                )
                             pid_trace.delete_pid_trace_file()
                             raise _ReportsPipelineAborted()
                         except concurrent.futures.CancelledError:

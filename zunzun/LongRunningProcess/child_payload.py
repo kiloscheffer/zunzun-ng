@@ -46,6 +46,25 @@ class ChildPayload:
     renice_level: int
     data_object: Any
     equation: Any
+    # dispatch_id is the unique identifier for THIS dispatch — the
+    # parent stamps it into both the payload AND the session in
+    # SetInitialStatusDataIntoSessionVariables. The exception handler
+    # in _run_fit_child compares its payload's value against the
+    # current session value to detect "a newer fit replaced me",
+    # avoiding races where an older failing child publishes its
+    # terminal redirect into a newer fit's shared status session.
+    #
+    # Value is the float result of time.time() from the parent's
+    # SetInitialStatusDataIntoSessionVariables. The float format is
+    # load-bearing: equality comparisons against session.dispatched_at
+    # appear in _we_own_status_slot (LRP method) and _run_fit_child
+    # (this module). Two consecutive dispatches from the same user are
+    # debounced by the per-user gate's 60s pending window, so
+    # collisions on the float are not a practical risk.
+    # 0.0 default exists for the dataclass; all production code paths
+    # (every Fit*, CharacterizeData, StatisticalDistributions,
+    # FunctionFinder, FunctionFinderResults) stamp a non-zero value.
+    dispatch_id: float = 0.0
     extra: dict[str, Any] = field(default_factory=dict)
 
 
@@ -80,15 +99,28 @@ def _run_fit_child(payload: ChildPayload) -> None:
     module = importlib.import_module(module_path)
     lrp_class = getattr(module, class_name)
 
-    # Reconstruct the LRP. The subclass is responsible for populating
-    # itself from the payload via apply_child_payload().
+    # Reconstruct the LRP. Both hydration AND PerformAllWork live
+    # inside the try so failures in either path still produce a
+    # terminal redirect. Set the session keys directly from payload
+    # BEFORE calling apply_child_payload — the except-branch's
+    # SaveDictionaryOfItemsToSessionStore depends on session_key_status
+    # being on the instance, and we cannot rely on subclass overrides
+    # always calling super().apply_child_payload() before their own
+    # logic (the base apply_child_payload sets these keys, but a
+    # subclass that validates payload.extra first would raise before
+    # super() ran, leaving session_key_status unset).
     lrp = lrp_class()
-    lrp.apply_child_payload(payload)
+    lrp.session_key_status = payload.session_key_status
+    lrp.session_key_data = payload.session_key_data
+    lrp.session_key_functionfinder = payload.session_key_functionfinder
 
     try:
+        lrp.apply_child_payload(payload)
         lrp.PerformAllWork()
     except Exception:
         import logging as _logging
+
+        from django.template.loader import render_to_string
 
         import settings
 
@@ -96,16 +128,116 @@ def _run_fit_child(payload: ChildPayload) -> None:
         _logging.basicConfig(filename=log_path, level=_logging.DEBUG)
         _logging.exception("Child exception in _run_fit_child")
 
+        # Write a terminal error artifact so the polling UI completes.
+        # Without this, StatusUpdateView keeps reporting completed=False
+        # forever because no redirectToResultsFileOrURL is ever set, and
+        # the user is stuck on the status page until the session expires.
+        # Mirrors the three-layer fallback in
+        # RenderOutputHTMLToAFileAndSetStatusRedirect: try the Django
+        # template first, fall back to a hardcoded HTML string if
+        # render_to_string raises (template loader broken). The hardcoded
+        # fallback only fails if disk itself is unwritable.
+        error_html_path = os.path.join(settings.TEMP_FILES_DIR, f"error_{os.getpid()}.html")
+        write_succeeded = False
         try:
-            lrp.SaveDictionaryOfItemsToSessionStore(
-                "status",
-                {
-                    "currentStatus": "An unknown exception has occurred, and an email with "
-                    "details has been sent to the site administrator."
-                },
-            )
+            with open(error_html_path, "w", encoding="utf-8") as f:
+                f.write(
+                    render_to_string(
+                        "zunzun/generic_error.html",
+                        {
+                            "error": "An unknown exception occurred while processing your "
+                            "request. The site administrator has been notified."
+                        },
+                    )
+                )
+            write_succeeded = True
         except Exception:
-            _logging.exception("Also failed to write status after child exception")
+            _logging.exception("Failed to render generic_error.html; trying static fallback")
+            try:
+                with open(error_html_path, "w", encoding="utf-8") as f:
+                    f.write(
+                        "<html><head><title>ZunZunNG - Error</title></head>"
+                        "<body><h2>Error</h2>"
+                        "<p>An unknown exception occurred while processing your "
+                        "request. The site administrator has been notified.</p>"
+                        "</body></html>"
+                    )
+                write_succeeded = True
+            except Exception:
+                _logging.exception("Also failed to write static fallback HTML")
+
+        try:
+            # Ownership check gates BOTH the terminal-redirect write
+            # AND the per-user gate clear. session.dispatched_at holds
+            # the current dispatch's identity stamp; payload.dispatch_id
+            # holds OUR dispatch's value. Equality means we are still
+            # the current dispatch.
+            #
+            # session.dispatched_at is None means no dispatch has ever
+            # claimed the slot — either the session was destroyed and
+            # re-created mid-fit (key missing) or the very first fit's
+            # SetInitial hasn't propagated yet. Treat as "we own" so
+            # the terminal redirect still publishes in the rare
+            # session-recreated case.
+            #
+            # Crucially, do NOT treat 0 / 0.0 as ours: those values
+            # mean another fit explicitly cleared the slot
+            # (PerformAllWork's finally, _publish_terminal_error's
+            # bundled gate-clear, etc). If we're an older child whose
+            # exception fires after a newer fit completed and cleared,
+            # the slot's been released and we MUST NOT publish our
+            # stale error redirect into it — StatusView would otherwise
+            # serve our older error as the page for whichever fit
+            # claims the slot next.
+            #
+            # Read failure defaults to "we own" — matches the defensive
+            # default in _we_own_status_slot for the LRP-method sites.
+            try:
+                current_dispatch = lrp.LoadItemFromSessionStore("status", "dispatched_at")
+            except Exception:
+                _logging.exception("Could not read session dispatched_at; assuming we-own-slot")
+                current_dispatch = payload.dispatch_id
+            we_own_slot = current_dispatch == payload.dispatch_id or current_dispatch is None
+
+            if not we_own_slot:
+                _logging.info(
+                    "Child exception; newer dispatch owns the slot; leaving session alone"
+                )
+            else:
+                # Don't overwrite a redirect an earlier successful
+                # stage already saved (e.g., RenderOutputHTML succeeded
+                # then the success-path processID-cleanup in
+                # PerformAllWork raised).
+                existing_redirect = ""
+                try:
+                    existing_redirect = (
+                        lrp.LoadItemFromSessionStore("status", "redirectToResultsFileOrURL") or ""
+                    )
+                except Exception:
+                    _logging.exception("Could not read existing redirect; assuming none")
+
+                # Bundle redirect/status + gate-clear into ONE atomic
+                # SaveDictionaryOfItemsToSessionStore call. Previous
+                # code did two separate saves with a race window in
+                # between, during which a newer fit could write its
+                # own processID/dispatched_at — the second clear save
+                # would then wipe the newer fit's tracking.
+                payload_dict: dict[str, Any] = {"processID": 0, "dispatched_at": 0}
+                if not existing_redirect:
+                    payload_dict["currentStatus"] = (
+                        "An unknown exception has occurred, and an email with "
+                        "details has been sent to the site administrator."
+                    )
+                    if write_succeeded:
+                        payload_dict["redirectToResultsFileOrURL"] = error_html_path
+                else:
+                    _logging.info(
+                        "Exception after redirect already set; preserving existing: %s",
+                        existing_redirect,
+                    )
+                lrp.SaveDictionaryOfItemsToSessionStore("status", payload_dict)
+        except Exception:
+            _logging.exception("Also failed to write terminal error status after child exception")
     finally:
         time.sleep(1.0)  # match the existing post-work sleep
         # Child returns (implicit); multiprocessing handles exit code.

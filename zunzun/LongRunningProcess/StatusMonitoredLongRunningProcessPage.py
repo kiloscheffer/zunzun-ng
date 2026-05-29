@@ -237,6 +237,13 @@ You must provide any weights you wish to use.
             renice_level=self.reniceLevel,
             data_object=getattr(self, "dataObject", None),
             equation=None,  # overridden by fit subclasses
+            # Stamped by SetInitialStatusDataIntoSessionVariables (run
+            # in the parent moments before this build). The child uses
+            # it as a dispatch identity to detect "newer fit replaced me"
+            # races in its terminal-error handler. getattr fallback to
+            # 0.0 covers paths that don't run SetInitial (none in current
+            # tree, but defensive).
+            dispatch_id=getattr(self, "dispatched_at", 0.0),
             extra={
                 # inEquationName / inEquationFamilyName are set by
                 # views.LongRunningProcessView (parent) from URL path
@@ -269,6 +276,14 @@ You must provide any weights you wish to use.
         self.dataObject = payload.data_object
         self.inEquationName = payload.extra.get("inEquationName", "")
         self.inEquationFamilyName = payload.extra.get("inEquationFamilyName", "")
+        # Carry the dispatch identity into the child so the various
+        # processID/dispatched_at clear sites can do an ownership check
+        # against `session.dispatched_at == self.dispatched_at` before
+        # clobbering the latter — a newer fit's SetInitial in the parent
+        # can overwrite the session's dispatched_at while leaving an
+        # older child's processID intact, and the old check
+        # (pid-only) would then clear the newer fit's dispatch markers.
+        self.dispatched_at = payload.dispatch_id
 
     def PerformWorkInParallel(self):
         pass
@@ -727,6 +742,148 @@ You must provide any weights you wish to use.
 
         return returnItem
 
+    def _write_terminal_error_html(self, error_message):
+        """Render a terminal error page to the dataObject's artifact path
+        and return that path. Returns None only if disk is unwritable.
+
+        Used by the abort sites that raise _ReportsPipelineAborted
+        (BrokenProcessPool, FunctionFinder/StatisticalDistributions
+        pool failures). Without a terminal artifact + redirect, those
+        paths only update currentStatus, and since PerformAllWork's
+        `except _ReportsPipelineAborted: pass` doesn't propagate to
+        _run_fit_child, the polling UI stays stuck forever.
+
+        Tiered fallback mirrors RenderOutputHTMLToAFileAndSetStatusRedirect:
+          1. Django template render of generic_error.html
+          2. Hardcoded HTML string (template loader broken)
+        Both layers use the same artifact path so the redirect is
+        single-pointer regardless of which succeeds. Returns None ONLY
+        when the disk itself is unwritable (full, permission denied) —
+        callers can treat that as "skip the redirect" knowing this is
+        the truly unrecoverable case, not a transient template hiccup.
+        """
+        try:
+            error_html_path = page_artifact_path(self.dataObject.uniqueString, "html")
+        except Exception:
+            import logging
+
+            logging.basicConfig(
+                filename=os.path.join(settings.TEMP_FILES_DIR, f"{os.getpid()}.log"),
+                level=logging.DEBUG,
+            )
+            logging.exception("Could not compute terminal-error artifact path")
+            return None
+
+        try:
+            with open(error_html_path, "w", encoding="utf-8") as f:
+                f.write(render_to_string("zunzun/generic_error.html", {"error": error_message}))
+            return error_html_path
+        except Exception:
+            import logging
+
+            logging.basicConfig(
+                filename=os.path.join(settings.TEMP_FILES_DIR, f"{os.getpid()}.log"),
+                level=logging.DEBUG,
+            )
+            logging.exception("Failed to render generic_error.html; trying static fallback")
+
+        # Fallback: hardcoded HTML, no Django dependency. Only fails
+        # if disk itself is unwritable.
+        try:
+            with open(error_html_path, "w", encoding="utf-8") as f:
+                f.write(
+                    "<html><head><title>ZunZunNG - Error</title></head>"
+                    "<body><h2>Error</h2><p>"
+                    + (error_message or "An internal error occurred.")
+                    + "</p></body></html>"
+                )
+            return error_html_path
+        except Exception:
+            import logging
+
+            logging.exception("Also failed to write static fallback HTML")
+            return None
+
+    def _publish_terminal_error(self, *, html_path, status_dict=None):
+        """Ownership-gated bundled terminal write: redirect + gate-clear
+        in a single SaveDictionaryOfItemsToSessionStore call.
+
+        Called by the abort sites after they've prepared their terminal
+        HTML (either via _write_terminal_error_html for generic errors,
+        or by rendering exception_while_fitting_an_equation.html for
+        Solve/UDF failures). Bundles `processID: 0` and
+        `dispatched_at: 0` automatically; the caller passes any
+        additional keys (currentStatus, parallelProcessCount, etc.)
+        via `status_dict`.
+
+        If _we_own_status_slot() returns False, a newer dispatch has
+        taken over and we leave the shared session alone — the file
+        on disk is harmless. If html_path is None (disk-truly-unwritable
+        case from _write_terminal_error_html), the redirect key is
+        omitted but the gate-clear still ships so the next retry isn't
+        gate-blocked.
+        """
+        if not self._we_own_status_slot():
+            return
+        payload = dict(status_dict or {})
+        payload.setdefault("processID", 0)
+        payload.setdefault("dispatched_at", 0)
+        if html_path:
+            payload["redirectToResultsFileOrURL"] = html_path
+        self.SaveDictionaryOfItemsToSessionStore("status", payload)
+
+    def _we_own_status_slot(self):
+        """True iff this child still owns the shared status session.
+
+        Dual identity check: both `processID` AND `dispatched_at` must
+        match our own. processID alone is insufficient because a newer
+        fit's SetInitialStatusDataIntoSessionVariables in the parent
+        overwrites session.dispatched_at without touching processID;
+        an older child clearing the slot on a pid-only match would
+        clobber the newer fit's tracking.
+
+        On transient session-read failure (Django's session backend
+        wraps a SQLite read, which can raise OperationalError under
+        lock contention or InterfaceError after close_old_connections),
+        returns True. Letting a read hiccup return False would suppress
+        the success redirect at RenderOutputHTMLToAFileAndSetStatusRedirect
+        and re-introduce the stuck-poll bug this PR was built to fix.
+        The fall-through is logged so postmortems can distinguish
+        "correctly newer-fit-owned" from "ownership read failed."
+
+        Used to gate every shared-session write — both failure/abort
+        paths AND the success-redirect publish in
+        RenderOutputHTMLToAFileAndSetStatusRedirect (overridden in
+        FunctionFinder and FunctionFinderResults). AttributeError on
+        self.dispatched_at (subclass that bypassed apply_child_payload)
+        is NOT swallowed — that's a contract violation, not a transient
+        read failure, and should propagate.
+        """
+        # Common transient-read exception classes from Django's session
+        # backend wrapping SQLite. Imported locally to avoid pulling
+        # them into module scope just for the except clause.
+        from django.db import DatabaseError, InterfaceError
+
+        try:
+            return (
+                self.LoadItemFromSessionStore("status", "processID") == os.getpid()
+                and self.LoadItemFromSessionStore("status", "dispatched_at") == self.dispatched_at
+            )
+        except DatabaseError, InterfaceError:
+            import logging
+
+            logging.basicConfig(
+                filename=os.path.join(settings.TEMP_FILES_DIR, f"{os.getpid()}.log"),
+                level=logging.DEBUG,
+            )
+            logging.exception(
+                "Ownership check session read failed; defaulting we-own=True "
+                "(self.dispatched_at=%s os.getpid()=%s)",
+                getattr(self, "dispatched_at", "<unset>"),
+                os.getpid(),
+            )
+            return True
+
     def PerformAllWork(self):
         pid_trace.pid_trace()
 
@@ -758,56 +915,51 @@ You must provide any weights you wish to use.
 
             # Clear processID AND dispatched_at so the per-user gate
             # (views.LongRunningProcessView) doesn't block this user's
-            # next fit. Both are intentionally NOT cleared on
-            # _ReportsPipelineAborted or other exception paths: leaving
-            # the dispatch markers lets abandoned-fit detection in
-            # CheckIfStillUsed correlate the failed PID, and lets the
-            # gate's 60s pending window debounce rapid retries after a
-            # crash. start_time is left intact because the status
-            # template uses it for elapsed-time display.
-            # FunctionFinder.PerformWorkInParallel also writes processID:0
-            # at its own end (a no-op overlap with this write but harmless
-            # and historical).
-            # Clear processID AND dispatched_at IFF this child still
-            # owns them. When ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER=True
-            # (default), a second fit in the same session may have
-            # overwritten processID with its own pid while we were
-            # rendering. Unconditionally clearing would clobber the
-            # replacement fit's tracking and confuse the status page +
-            # per-user gate. Read-then-conditional-write: clear only if
-            # processID still matches our own pid.
-            if self.LoadItemFromSessionStore("status", "processID") == os.getpid():
+            # next fit. The dual ownership check (_we_own_status_slot)
+            # ensures we don't clobber a replacement fit's tracking
+            # when ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER=True. Note:
+            # every _ReportsPipelineAborted call site now bundles its
+            # own dispatch-cleared status write before raising — this
+            # success-path clear is symmetrical for the no-error case.
+            # start_time is left intact because the status template
+            # uses it for elapsed-time display.
+            if self._we_own_status_slot():
                 self.SaveDictionaryOfItemsToSessionStore(
                     "status", {"processID": 0, "dispatched_at": 0}
                 )
 
             pid_trace.delete_pid_trace_file()
         except _ReportsPipelineAborted:
-            # The reports phase wrote its own user-visible status message;
-            # do not run CreateReportPDF or RenderOutputHTML (which would
-            # overwrite that status and produce a broken redirect to an
-            # empty results page). The finally block still tears down the
-            # pool. The status page will continue polling and show the
-            # error indefinitely until the user navigates away.
+            # The reports phase wrote its own user-visible status AND
+            # terminal redirect (via _publish_terminal_error /
+            # _write_terminal_error_html); do not run CreateReportPDF
+            # or RenderOutputHTML, which would overwrite that redirect
+            # with a path to an empty results page. The finally block
+            # still tears down the pool; the status page completes via
+            # the abort site's terminal redirect within one poll cycle.
             pass
         finally:
             if self.fit_pool is not None:
                 self.fit_pool.shutdown(wait=True)
                 self.fit_pool = None
-            # Catch-all clear: if any unhandled exception (e.g., a PDF
-            # render bug, an scipy/numpy crash, a session-store DB error)
-            # escapes the try AND isn't _ReportsPipelineAborted, the
-            # success-path and abort-site clears never ran. Without this
-            # finally clear, processID/dispatched_at stay set in the
-            # session and the per-user gate keeps blocking retries until
-            # StatusUpdateView stops refreshing time_of_last_status_check
-            # AND the 300s active-window expires. Conditional on still
-            # owning the pid avoids clobbering a concurrent fit.
+            # Catch-all clear for unhandled exceptions that escape the
+            # try AND aren't _ReportsPipelineAborted (PDF render bug,
+            # scipy/numpy crash, session-store DB error). Clears ONLY
+            # processID — NOT dispatched_at — because _run_fit_child's
+            # except-branch ownership check uses session.dispatched_at
+            # vs payload.dispatch_id to decide whether to publish a
+            # terminal redirect. Wiping dispatched_at here would make
+            # the ownership check see a mismatch on its OWN dispatch's
+            # failure (our payload.dispatch_id != session 0), skip the
+            # redirect write, and leave the polling UI stuck.
+            # _run_fit_child's gate-clear step clears dispatched_at
+            # after the ownership-verified redirect write, so the gate
+            # is still released for the next user retry.
+            # Conditional on still owning the pid avoids clobbering a
+            # concurrent fit's tracking.
             try:
                 if self.LoadItemFromSessionStore("status", "processID") == os.getpid():
-                    self.SaveDictionaryOfItemsToSessionStore(
-                        "status", {"processID": 0, "dispatched_at": 0}
-                    )
+                    self.SaveDictionaryOfItemsToSessionStore("status", {"processID": 0})
             except Exception:
                 pass  # finally cleanup must not raise
 
@@ -886,21 +1038,21 @@ You must provide any weights you wish to use.
                 level=logging.DEBUG,
             )
             logging.exception("BrokenProcessPool in CreateOutputReportsInParallelUsingProcessPool")
-            # User-visible error message is always written.
-            self.SaveDictionaryOfItemsToSessionStore(
-                "status",
-                {
-                    "currentStatus": "An internal error occurred during report generation. "
-                    "Please try again or contact the administrator.",
+            # Publish terminal redirect + status text in one
+            # ownership-gated atomic write so the polling UI completes
+            # — PerformAllWork's `except _ReportsPipelineAborted: pass`
+            # swallows the abort without propagating to _run_fit_child.
+            error_message = (
+                "An internal error occurred during report generation. "
+                "Please try again or contact the administrator."
+            )
+            self._publish_terminal_error(
+                html_path=self._write_terminal_error_html(error_message),
+                status_dict={
+                    "currentStatus": error_message,
                     "parallelProcessCount": 0,
                 },
             )
-            # Only clear processID/dispatched_at if this child still
-            # owns them — avoid clobbering a concurrent fit's tracking.
-            if self.LoadItemFromSessionStore("status", "processID") == os.getpid():
-                self.SaveDictionaryOfItemsToSessionStore(
-                    "status", {"processID": 0, "dispatched_at": 0}
-                )
             pid_trace.delete_pid_trace_file()
             raise _ReportsPipelineAborted()
 
@@ -998,6 +1150,12 @@ You must provide any weights you wish to use.
 
     def SetInitialStatusDataIntoSessionVariables(self, request):
         pid_trace.pid_trace()
+        # Compute the dispatch timestamp ONCE and store on self so
+        # build_child_payload can stamp the same value into the payload.
+        # The child uses payload.dispatch_id == session.dispatched_at as
+        # an ownership identifier to detect "newer fit replaced me" races
+        # in its terminal-error handler.
+        self.dispatched_at = time.time()
         self.SaveDictionaryOfItemsToSessionStore(
             "status",
             {
@@ -1006,7 +1164,7 @@ You must provide any weights you wish to use.
                 "time_of_last_status_check": time.time(),
                 "redirectToResultsFileOrURL": "",
                 "parallelProcessCount": 0,
-                "dispatched_at": time.time(),
+                "dispatched_at": self.dispatched_at,
             },
         )
 
@@ -1090,6 +1248,25 @@ You must provide any weights you wish to use.
     def RenderOutputHTMLToAFileAndSetStatusRedirect(self):
         pid_trace.pid_trace()
 
+        # Entry-gate: bail before any shared-session write if a newer
+        # dispatch owns the slot. See `_we_own_status_slot` docstring
+        # for the contract; the post-render disk artifact, if any,
+        # would be unreferenced and is fine to skip.
+        if not self._we_own_status_slot():
+            import logging
+
+            logging.basicConfig(
+                filename=os.path.join(settings.TEMP_FILES_DIR, f"{os.getpid()}.log"),
+                level=logging.DEBUG,
+            )
+            logging.info(
+                "%s.RenderOutputHTML: newer dispatch owns slot; "
+                "skipping shared-session writes (self.dispatched_at=%s)",
+                type(self).__name__,
+                self.dispatched_at,
+            )
+            return
+
         self.SaveSpecificDataToSessionStore()
 
         self.SaveDictionaryOfItemsToSessionStore(
@@ -1144,14 +1321,23 @@ You must provide any weights you wish to use.
 
         pid_trace.pid_trace()
 
+        result_html_path = page_artifact_path(self.dataObject.uniqueString, "html")
+
+        # File write and session save are intentionally separate try
+        # blocks. Earlier this lived in one combined try, but a session
+        # save failure (SQLite lock-retry budget exhausted) would then
+        # enter the except branch and re-open result_html_path in 'w'
+        # mode, truncating the just-written valid results file.
+        write_succeeded = False
         try:
-            f = open(page_artifact_path(self.dataObject.uniqueString, "html"), "w")
-            f.write(
-                render_to_string("zunzun/equation_fit_or_characterizer_results.html", itemsToRender)
-            )
-            f.flush()
-            f.close()
-        except:
+            with open(result_html_path, "w", encoding="utf-8") as f:
+                f.write(
+                    render_to_string(
+                        "zunzun/equation_fit_or_characterizer_results.html", itemsToRender
+                    )
+                )
+            write_succeeded = True
+        except Exception:
             import logging
 
             logging.basicConfig(
@@ -1160,14 +1346,60 @@ You must provide any weights you wish to use.
             )
             logging.exception("Exception rendering HTML to a file")
 
-        self.SaveDictionaryOfItemsToSessionStore(
-            "status",
-            {
-                "redirectToResultsFileOrURL": page_artifact_path(
-                    self.dataObject.uniqueString, "html"
-                )
-            },
-        )
+            # Fallback 1: render the project's generic error template.
+            # Most common failure mode (template change in the success
+            # results template) doesn't affect this one.
+            try:
+                with open(result_html_path, "w", encoding="utf-8") as f:
+                    f.write(
+                        render_to_string(
+                            "zunzun/generic_error.html",
+                            {
+                                "error": "An internal error occurred while generating "
+                                "the results page."
+                            },
+                        )
+                    )
+                write_succeeded = True
+            except Exception:
+                logging.exception("Also failed to write generic error HTML; trying static fallback")
+
+                # Fallback 2: a hardcoded HTML string that does not
+                # depend on Django templates at all. Only fails if
+                # disk itself is unwritable. Guarantees the polling
+                # UI terminates whenever the disk works.
+                try:
+                    with open(result_html_path, "w", encoding="utf-8") as f:
+                        f.write(
+                            "<html><head><title>ZunZunNG - Error</title></head>"
+                            "<body><h2>Error</h2>"
+                            "<p>An internal error occurred while generating the results "
+                            "page. Please try again or contact the administrator.</p>"
+                            "</body></html>"
+                        )
+                    write_succeeded = True
+                except Exception:
+                    logging.exception("Also failed to write static fallback HTML")
+
+        # TOCTOU re-check before redirect publish; silent (entry-gate logs).
+        if not self._we_own_status_slot():
+            return
+
+        if write_succeeded:
+            self.SaveDictionaryOfItemsToSessionStore(
+                "status", {"redirectToResultsFileOrURL": result_html_path}
+            )
+        else:
+            # Disk is unwritable; we cannot deliver a terminal page.
+            # Update status text so polling at least surfaces the error,
+            # even though the page will not finalize.
+            self.SaveDictionaryOfItemsToSessionStore(
+                "status",
+                {
+                    "currentStatus": "An internal error occurred while generating the "
+                    "results page. Please try again or contact the administrator."
+                },
+            )
 
         pid_trace.delete_pid_trace_file()
 
