@@ -34,9 +34,11 @@ uv sync --no-dev
 uv run python manage.py migrate
 ```
 
-`migrate` creates `session_db/db.sqlite3` (gitignored) and applies the
-`sessions.0001_initial` migration. Without it, the first session write
-from a spawned child fails because `django_session` doesn't exist.
+`migrate` creates `session_db/db.sqlite3` (gitignored) and applies both
+`sessions.0001_initial` and the `zunzun` app migrations. Without it, the
+first session write from a spawned child fails because `django_session`
+doesn't exist, and the `zunzun_lrpstatus` status-tracking table won't
+exist either.
 
 Ensure the service account (`www-data` below) owns `temp/` and
 `session_db/`:
