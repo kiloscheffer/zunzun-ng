@@ -1288,7 +1288,56 @@ deployments are likely fine in practice (the recipe is mostly
 boilerplate plus Caddy's well-documented setup). macOS is a
 genuine unknown until exercised.
 
-## Split the LRP status session blob into per-field rows
+## ~~Split the LRP status session blob into per-field rows~~ RESOLVED 2026-05-30
+
+> **Resolution.** Replaced the shared status session blob with a
+> per-dispatch `LRPStatus` ORM row (`zunzun/models.py`). Spec:
+> `docs/superpowers/specs/2026-05-29-lrp-status-table-design.md`; plan:
+> `docs/superpowers/plans/2026-05-29-lrp-status-table.md` (both local /
+> gitignored per repo convention). Landed on `feat/lrp-status-table`
+> as 9 commits; pytest 147/147, smoke 14/14, `migrate` creates
+> `zunzun_lrpstatus`.
+>
+> **As-built design (deviates from the sketch below — the sketch was
+> directional, not literal):**
+> - **Row per DISPATCH, not per session_key.** The autopk `id` is the
+>   dispatch identity; the current dispatch's pk lives in
+>   `request.session["lrp_status_pk"]` and `StatusView` follows that
+>   pointer. This eliminates the shared mutable cell entirely (each fit
+>   writes only its own row), so the race dissolves rather than being
+>   made atomic. The sketch's "`session_key` as PK" would have kept one
+>   reused row per user and still needed an ownership guard.
+> - **`dispatch_id` was NOT dropped — it was replaced by the row pk.**
+>   `ChildPayload.dispatch_id: float` → `status_row_pk: int`. Ownership
+>   identity is now row identity; `_we_own_status_slot()` and
+>   `_publish_terminal_error()` were deleted, and `dispatched_at` is gone.
+> - **Writes:** `update_status(**fields)` — an unconditional single-row
+>   `LRPStatus.objects.filter(pk=...).update(...)` (no ownership check).
+>   **Reads:** `get_status(field, default)`.
+> - **Gate completion signal:** an explicit `completed` boolean
+>   (`is_pending` checks `not row.completed`). An earlier cut reused
+>   `redirect_to_results` as the signal, but `StatusView` clears that on
+>   serve, which re-opened the pending window for fast fits — caught in
+>   the final code review.
+> - **The retry loop did NOT "collapse to Django's own retry"** (the
+>   sketch's step 2 was wrong — Django doesn't auto-retry SQLite
+>   `OperationalError`). The existing 5 s SQLite `busy_timeout`
+>   (`DATABASES OPTIONS timeout`) covers `LRPStatus` writes; no manual
+>   retry was added. `data`/`functionfinder` keep `save_with_retry` /
+>   `load_with_retry`.
+> - **Lifecycle:** parent deletes the prior row on each dispatch +
+>   the housekeeping child sweeps rows older than `SESSION_COOKIE_AGE`.
+> - **`data` / `functionfinder` stores unchanged** (still JSON blobs via
+>   `NumpySessionSerializer`).
+>
+> **Two bugs the review/smoke gate caught (both fixed on-branch):**
+> (1) per-user cap weakened because the new row defaulted
+> `last_status_check=0.0` → now stamped at dispatch; (2) the `completed`
+> column was added by *regenerating* `0001` (a no-op `migrate` on
+> already-applied DBs) → corrected to an append-only `0002` migration.
+> See [[migrations-and-smoke-real-db]] for the latter lesson.
+>
+> Historical notes below, preserved for reference.
 
 **Symptom / exposure.** The LRP status session is a single Django
 session blob (JSON-encoded dict) that the parent and child processes
