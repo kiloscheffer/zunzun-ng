@@ -530,15 +530,27 @@ def LongRunningProcessView(
         if errorString:
             return render(request, "zunzun/generic_error.html", {"error": errorString})
 
-    # Per-dispatch status row. Delete the user's prior row first (it's
-    # already unreferenced once we overwrite the pointer below), then create
-    # a fresh row and point the session at it. The child writes only this
-    # row, so there is no shared cell to race on. Autocommit makes the row
-    # durable before multiprocessing.Process.start() spawns the child.
+    # Per-dispatch status row. Create a fresh row and point the session at it.
+    # The child writes only this row, so there is no shared cell to race on.
+    # Autocommit makes the row durable before multiprocessing.Process.start()
+    # spawns the child.
+    #
+    # Delete the user's PRIOR row only when concurrent fits are DISALLOWED.
+    # Rationale: a missing row is the supersession signal CheckIfStillUsed uses
+    # to abort an abandoned child (it raises _ReportsPipelineAborted at the next
+    # heartbeat). When ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER is True (the
+    # default), the prior fit is allowed to keep running, so deleting its row
+    # would make ITS CheckIfStillUsed see a missing row and tear the
+    # still-wanted fit down — breaking the concurrent-fit promise. So in
+    # concurrent-allowed mode we leave the prior row for the housekeeping
+    # age-sweep (it's unreferenced once the pointer moves below). In
+    # concurrent-disallowed mode, reaching this block means the per-user gate
+    # already judged the prior fit stale or completed, so deleting it is the
+    # intended supersession and the superseded child aborting is correct.
     from zunzun.models import LRPStatus
 
     old_pk = request.session.get("lrp_status_pk")
-    if old_pk:
+    if old_pk and not getattr(settings, "ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER", True):
         LRPStatus.objects.filter(pk=old_pk).delete()
     # Stamp last_status_check at dispatch (not only at the first poll) so the
     # per-user "one fit at a time" gate's is_active check — process_id set AND
