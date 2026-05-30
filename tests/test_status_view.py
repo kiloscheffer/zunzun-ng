@@ -234,3 +234,53 @@ def test_status_view_message_when_no_row(client):
     response = client.get("/StatusAndResults/")
     assert response.status_code == 200
     assert b"session data" in response.content
+
+
+@pytest.mark.django_db
+def test_status_update_returns_completed_when_completed_flag_set_without_redirect(client):
+    """A terminal fit with completed=True but an EMPTY redirect (a mid-fit
+    crash whose error page could not be linked, or a success already served &
+    cleared in another tab) must still report completion so the poller stops.
+
+    Regression: the endpoint used to key completion only off
+    redirect_to_results, so this state reported completed=False forever and the
+    status page heartbeated indefinitely.
+    """
+    row = _make_status_row(
+        current_status="An unknown exception has occurred.",
+        start_time=time.time(),
+        last_status_check=time.time(),
+        completed=True,
+        redirect_to_results="",
+    )
+    _wire_status_row(client, row)
+
+    response = client.get("/StatusUpdate/")
+    assert response.status_code == 200
+    assert response.json() == {"completed": True}
+
+
+@pytest.mark.django_db
+def test_status_view_serves_terminal_page_when_completed_without_redirect(client):
+    """When completed=True but the redirect is empty, StatusView must serve a
+    terminal page rather than the in-progress status template (which re-arms
+    the JS poll loop). Without this the browser bounces between StatusUpdate
+    (now reporting completed) and StatusView (re-rendering the working page)
+    forever.
+    """
+    row = _make_status_row(
+        current_status="An unknown exception has occurred.",
+        start_time=time.time(),
+        last_status_check=time.time(),
+        completed=True,
+        redirect_to_results="",
+    )
+    _wire_status_row(client, row)
+
+    response = client.get("/StatusAndResults/")
+    assert response.status_code == 200
+    body = response.content.decode("utf-8")
+    # Terminal page, not the polling page: the poll script must be absent so
+    # the browser does not re-enter the status loop.
+    assert "StatusPoll.js" not in body
+    assert "no results to display" in body

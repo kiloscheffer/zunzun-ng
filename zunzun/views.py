@@ -273,6 +273,25 @@ def StatusView(request):
         else:
             return HttpResponseRedirect(redirect)
 
+    # Terminal without a deliverable redirect: the fit finished (completed=True
+    # is the durable terminal flag) but there is nothing to serve — a mid-fit
+    # crash whose error page could not be written, or a success whose redirect
+    # was already served & cleared in another tab. Serve a terminal page so the
+    # poll loop ends; without this the request falls through to the in-progress
+    # render and StatusUpdateView (also keyed on completed) bounces the browser
+    # back here indefinitely.
+    if row.completed:
+        return render(
+            request,
+            "zunzun/generic_error.html",
+            {
+                "error": "Your fit has finished, but there are no results to "
+                "display — they may already have been shown in another tab, or "
+                "an error prevented the results page from being created. Please "
+                "run the fit again."
+            },
+        )
+
     # In-progress branch: render the template. Heartbeat write moved to
     # StatusUpdateView so there is a single owner of that side effect.
     loadavg = platform_compat.get_loadavg()
@@ -309,8 +328,15 @@ def StatusUpdateView(request):
         # retry" so this is graceful.
         return JsonResponse({"error": "stale_session"}, status=400)
 
-    # Completion: report and return immediately. Do NOT clear the redirect.
-    if row.redirect_to_results:
+    # Completion: report immediately. `completed` is the durable terminal
+    # signal — every terminal path (success, abort, mid-fit crash) sets it,
+    # and unlike redirect_to_results it survives StatusView clearing the
+    # redirect on serve. Keying off it (not the redirect) means a fit that
+    # finished without a deliverable redirect — a crash whose error page could
+    # not be linked, or a result already served & cleared in another tab —
+    # still ends the poll instead of heartbeating forever. Do NOT clear the
+    # redirect; that's StatusView's job when the browser follows up.
+    if row.completed or row.redirect_to_results:
         return JsonResponse({"completed": True})
 
     # Heartbeat write: the only RECURRING writer of last_status_check (it is

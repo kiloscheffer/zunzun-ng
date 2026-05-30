@@ -2,7 +2,10 @@
 
 CheckIfStillUsed is the abandoned-fit watchdog the spawned child runs once
 per second (via _oneSecondStatusUpdate). It reads this dispatch's LRPStatus
-row and tears down the fit pool + terminates worker children when EITHER:
+row and tears down the fit pool + terminates worker children when ANY of:
+  - the row is GONE (get_status -> None): a newer dispatch superseded this one
+    and deleted it (delete-prior-row in LongRunningProcessView), or the
+    housekeeping age-sweep removed it — either way this fit is abandoned, OR
   - a different (foreign) process_id appears in the row (a newer fit took
     over this user's session under the concurrent-disallowed config), OR
   - the heartbeat (last_status_check, falling back to start_time) is stale
@@ -105,10 +108,11 @@ def test_stalled_heartbeat_own_pid_tears_down():
 
 
 @pytest.mark.django_db
-def test_missing_row_early_returns_without_teardown():
+def test_missing_row_tears_down():
     """status_row_pk points at a deleted/nonexistent row → get_status returns
-    None → early return, NO teardown (the superseded fit finishes on its own;
-    update_status against the deleted pk is a harmless no-op)."""
+    None → a newer dispatch superseded this one (or housekeeping reclaimed the
+    row). The fit is abandoned, so the watchdog must tear the pool down rather
+    than letting a superseded CPU-heavy fit run to natural completion."""
     from zunzun.models import LRPStatus
 
     row = LRPStatus.objects.create(process_id=os.getpid(), start_time=time.time())
@@ -119,5 +123,5 @@ def test_missing_row_early_returns_without_teardown():
 
     _run_check(lrp)
 
-    fit_pool.shutdown.assert_not_called()
-    assert lrp.fit_pool is fit_pool  # not torn down
+    fit_pool.shutdown.assert_called_once_with(wait=False, cancel_futures=True)
+    assert lrp.fit_pool is None  # torn down

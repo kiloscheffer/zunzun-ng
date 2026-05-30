@@ -198,11 +198,17 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
 
     def RenderOutputHTMLToAFileAndSetStatusRedirect(self):
 
-        # The functionfinder + data blob writes below shape what
-        # /FunctionFinderResults/ later reads; those stores remain JSON
-        # session blobs. The terminal redirect goes to this dispatch's
-        # LRPStatus row via update_status — no ownership gate (each
-        # dispatch owns its own row).
+        # If a newer dispatch superseded this one it deleted our status row
+        # (delete-prior-row in LongRunningProcessView). The functionfinder +
+        # data blobs below are per-SESSION-shared stores that
+        # /FunctionFinderResults/ later reads, so a superseded child writing
+        # them would clobber the winning dispatch's results. A missing row
+        # (get_status -> None) is the supersession signal — skip all
+        # shared-state writes. The terminal redirect (also via update_status)
+        # would be a no-op on the deleted row anyway.
+        if self.get_status("process_id") is None:
+            return
+
         self.SaveDictionaryOfItemsToSessionStore(
             "functionfinder",
             {"functionFinderResultsList": self.functionFinderResultsList},

@@ -907,63 +907,65 @@ You must provide any weights you wish to use.
             "Created %s of %s Reports and Graphs" % (countOfReportsRun, totalNumberOfReportsToBeRun)
         )
 
+    def _teardown_abandoned_fit(self):
+        """Tear down this fit's pools and terminate its worker children.
+
+        Called by CheckIfStillUsed when the fit is determined abandoned or
+        superseded (the row was deleted by a newer dispatch, a foreign pid
+        claimed it, or the heartbeat went stale). ``shutdown(cancel_futures=
+        True)`` only cancels PENDING futures; workers mid-fit keep running
+        until their task finishes, so we also ``terminate()`` the live
+        children to free CPU/RAM immediately.
+        """
+        import time
+
+        time.sleep(1.0)
+        if self.fit_pool is not None:
+            self.fit_pool.shutdown(wait=False, cancel_futures=True)
+            self.fit_pool = None
+        # FunctionFinder's per-fit sub-pool, if present
+        if getattr(self, "ff_pool", None) is not None:
+            self.ff_pool.shutdown(wait=False, cancel_futures=True)
+            self.ff_pool = None
+        for p in multiprocessing.active_children():
+            p.terminate()
+
     def CheckIfStillUsed(self):
         import time
 
         running_pid = self.get_status("process_id")
         # A None process_id means the row is gone — a newer dispatch
         # superseded this one and deleted the row (delete-prior-row in
-        # LongRunningProcessView). There's nothing to police: the
-        # superseded fit's own PerformAllWork finishes (or aborts) on its
-        # own, and update_status against the deleted pk is a no-op. Early
-        # return without teardown is correct.
+        # LongRunningProcessView), or the housekeeping age-sweep reclaimed it.
+        # Either way this fit is abandoned: tear it down so a superseded
+        # CPU-heavy fit doesn't keep saturating cores until it finishes on its
+        # own. (update_status against the deleted pk stays a harmless no-op;
+        # the *resource* leak is what this teardown addresses — without it the
+        # superseded child can no longer observe the foreign-pid or stale-
+        # heartbeat triggers below, because the row carrying them is gone.)
         if running_pid is None:
+            self._teardown_abandoned_fit()
             return
 
-        # if a new process ID is in the row, another process was started and this process was abandoned
+        # if a new process ID is in the row, another process was started and
+        # this process was abandoned
         if running_pid != os.getpid() and running_pid != 0:
-            time.sleep(1.0)
+            self._teardown_abandoned_fit()
+            return
 
-            if self.fit_pool is not None:
-                self.fit_pool.shutdown(wait=False, cancel_futures=True)
-                self.fit_pool = None
-            # FunctionFinder's per-fit sub-pool, if present
-            if getattr(self, "ff_pool", None) is not None:
-                self.ff_pool.shutdown(wait=False, cancel_futures=True)
-                self.ff_pool = None
-            # shutdown(cancel_futures=True) only cancels PENDING futures;
-            # workers currently executing a long pyeq3 fit continue until
-            # their task completes. Terminate them immediately so an
-            # abandoned fit doesn't keep consuming CPU/RAM.
-            for p in multiprocessing.active_children():
-                p.terminate()
-
-        # if the status has not been checked in the past 300 seconds, this process was abandoned.
-        # last_status_check is the StatusUpdateView heartbeat. The parent
-        # stamps it = start_time at dispatch (LongRunningProcessView), so in
-        # normal operation it is never 0.0 here. The start_time fallback
-        # below is belt-and-suspenders for the should-not-occur case where
-        # the row somehow has last_status_check=0.0 (e.g. a row created
-        # outside the view path); without it such a fit would self-terminate
-        # before its first poll.
+        # if the status has not been checked in the past 300 seconds, this
+        # process was abandoned. last_status_check is the StatusUpdateView
+        # heartbeat. The parent stamps it = start_time at dispatch
+        # (LongRunningProcessView), so in normal operation it is never 0.0
+        # here. The start_time fallback below is belt-and-suspenders for the
+        # should-not-occur case where the row somehow has last_status_check=0.0
+        # (e.g. a row created outside the view path); without it such a fit
+        # would self-terminate before its first poll.
         last_check = self.get_status("last_status_check") or 0.0
         if not last_check:
             last_check = self.get_status("start_time") or time.time()
         if (time.time() - last_check) > 300:
-            time.sleep(1.0)
-            if self.fit_pool is not None:
-                self.fit_pool.shutdown(wait=False, cancel_futures=True)
-                self.fit_pool = None
-            # FunctionFinder's per-fit sub-pool, if present
-            if getattr(self, "ff_pool", None) is not None:
-                self.ff_pool.shutdown(wait=False, cancel_futures=True)
-                self.ff_pool = None
-            # shutdown(cancel_futures=True) only cancels PENDING futures;
-            # workers currently executing a long pyeq3 fit continue until
-            # their task completes. Terminate them immediately so an
-            # abandoned fit doesn't keep consuming CPU/RAM.
-            for p in multiprocessing.active_children():
-                p.terminate()
+            self._teardown_abandoned_fit()
 
     def SetInitialStatusDataIntoSessionVariables(self, request):
         # The status row is created by the parent (views.LongRunningProcessView)
@@ -1022,6 +1024,16 @@ You must provide any weights you wish to use.
                 self.graphReports.append(i)
 
     def RenderOutputHTMLToAFileAndSetStatusRedirect(self):
+
+        # If a newer dispatch superseded this one it deleted our status row
+        # (delete-prior-row in LongRunningProcessView). SaveSpecificDataToSessionStore
+        # below writes the per-SESSION-shared `data` blob that EvaluateAtAPoint
+        # later reads; a superseded child writing it would clobber the winning
+        # dispatch's data. A missing row (get_status -> None) is the
+        # supersession signal — skip all shared-state writes (the terminal
+        # redirect would be a no-op on the deleted row anyway).
+        if self.get_status("process_id") is None:
+            return
 
         self.SaveSpecificDataToSessionStore()
 
