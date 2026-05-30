@@ -774,15 +774,26 @@ You must provide any weights you wish to use.
                 self.fit_pool = None
             # Catch-all clear for unhandled exceptions that escape the
             # try AND aren't _ReportsPipelineAborted (PDF render bug,
-            # scipy/numpy crash, DB error). Clears process_id and marks
-            # completed so the per-user gate is released for the next retry.
-            # This dispatch owns its own row, so the unconditional update
-            # only touches our row (a superseding dispatch deleted it → zero
-            # rows). _run_fit_child's except-branch handles the terminal
-            # redirect separately when the exception is an Exception (not
-            # _ReportsPipelineAborted, which is handled above).
+            # scipy/numpy crash, DB error). Clears process_id so the
+            # per-user gate's is_active check is released.
+            #
+            # Deliberately does NOT set completed=True here. On the
+            # unhandled-exception path the exception propagates to
+            # _run_fit_child's except-branch, which writes the terminal
+            # error artifact and publishes its path to redirect_to_results
+            # — but only if the row is not ALREADY completed (its
+            # `already_completed` guard exists to avoid clobbering a served
+            # success). If this finally pre-set completed=True, that guard
+            # would skip the error redirect and orphan the artifact, leaving
+            # the user on the generic "no results" page. So `completed` is
+            # left for a real terminal writer to set: the success path
+            # (above), the abort sites, or _run_fit_child's handler (which
+            # always sets it). The gate is still released in every failure
+            # path because that handler sets process_id=0 + completed=True.
+            # This dispatch owns its own row, so the update only touches our
+            # row (a superseding dispatch deleted it → zero rows).
             try:
-                self.update_status(process_id=0, completed=True)
+                self.update_status(process_id=0)
             except Exception:
                 pass  # finally cleanup must not raise
 
