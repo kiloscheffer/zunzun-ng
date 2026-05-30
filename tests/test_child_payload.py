@@ -288,3 +288,67 @@ def test_run_fit_child_publishes_terminal_redirect_to_a_real_row(tmp_path, monke
     # Terminal write also clears the per-user gate.
     assert reloaded.process_id == 0
     assert reloaded.current_status
+
+
+@pytest.mark.django_db
+def test_run_fit_child_publishes_redirect_after_real_base_finally(tmp_path, monkeypatch):
+    """Regression (Codex PR #21, comment 3328499506): an ordinary Exception in
+    the REAL base-class PerformAllWork runs its `finally`, which clears
+    process_id to release the per-user gate. The _run_fit_child handler must
+    STILL publish the terminal error redirect — i.e. the finally must NOT
+    pre-set completed=True, or the handler's `already_completed` guard skips the
+    redirect and orphans the error artifact (the user then lands on the generic
+    "no results" page instead of the specific error page).
+
+    Unlike the FakeLRP/FailingLRP stubs above (which replace PerformAllWork
+    wholesale, so the genuine try/finally never runs), this subclass overrides
+    only an inner work step — exercising the exact finally -> child-handler
+    ordering the `completed`-flag interaction depends on.
+    """
+    import os
+
+    import settings
+    from zunzun.LongRunningProcess import StatusMonitoredLongRunningProcessPage as _mod
+    from zunzun.LongRunningProcess import child_payload as cp
+    from zunzun.LongRunningProcess.StatusMonitoredLongRunningProcessPage import (
+        StatusMonitoredLongRunningProcessPage,
+    )
+    from zunzun.models import LRPStatus
+
+    class RealBaseFailingWorkLRP(StatusMonitoredLongRunningProcessPage):
+        def apply_child_payload(self, payload):
+            self.status_row_pk = payload.status_row_pk
+
+        def GenerateListOfWorkItems(self):
+            raise RuntimeError("work boom (real base finally runs)")
+
+    fake_module = mock.Mock()
+    fake_module.RealBaseFailingWorkLRP = RealBaseFailingWorkLRP
+
+    row = LRPStatus.objects.create(start_time=1.0, current_status="working", process_id=1234)
+
+    monkeypatch.setattr(settings, "TEMP_FILES_DIR", str(tmp_path))
+    monkeypatch.setattr(_mod, "FitPool", mock.Mock())  # don't spawn a real pool
+    monkeypatch.setattr(cp.importlib, "import_module", lambda _path: fake_module)
+    monkeypatch.setattr(cp, "time", mock.Mock())  # skip the 1s post-work sleep
+
+    payload = cp.ChildPayload(
+        lrp_class_path="fake.module.RealBaseFailingWorkLRP",
+        session_key_data="",
+        session_key_functionfinder="",
+        dimensionality=2,
+        renice_level=10,
+        data_object=None,
+        equation=None,
+        status_row_pk=row.pk,
+    )
+
+    cp._run_fit_child(payload)
+
+    reloaded = LRPStatus.objects.get(pk=row.pk)
+    assert reloaded.process_id == 0  # gate released by the finally
+    # The error artifact must be LINKED, not orphaned on disk.
+    assert reloaded.redirect_to_results.endswith(".html")
+    assert os.path.exists(reloaded.redirect_to_results)
+    assert reloaded.completed is True
+    assert reloaded.current_status  # carries the user-facing error text
