@@ -208,6 +208,14 @@ class FitPool:
         once per completion.
 
         Worker exceptions propagate on result()."""
+        # Late import (runtime, after both modules are loaded) to avoid the
+        # parallel_pool <-> StatusMonitoredLongRunningProcessPage circular
+        # dependency: the abandoned-fit abort sentinel must be re-raised, not
+        # swallowed, by the progress-callback guard below.
+        from zunzun.LongRunningProcess.StatusMonitoredLongRunningProcessPage import (
+            _ReportsPipelineAborted,
+        )
+
         items_list = list(items)
         total = len(items_list)
         if total == 0:
@@ -219,7 +227,19 @@ class FitPool:
             if progress is not None:
                 try:
                     progress(done_count, total)
+                except _ReportsPipelineAborted:
+                    # The abandoned-fit abort: CheckIfStillUsed (reached via
+                    # the 1-Hz status callback) raises this to stop a
+                    # superseded child. It is an Exception subclass, so the
+                    # broad guard below would otherwise log-and-swallow it,
+                    # leaving the parallel phase pulling results after
+                    # teardown. Must propagate. Late import avoids the
+                    # parallel_pool <-> StatusMonitored circular dependency.
+                    raise
                 except Exception:
+                    # Incidental progress-callback errors (e.g. a transient
+                    # status-write hiccup) must not kill an otherwise healthy
+                    # fit — log and continue.
                     _logger.exception("FitPool progress callback raised")
             yield fut.result()
 

@@ -954,15 +954,27 @@ You must provide any weights you wish to use.
         # the *resource* leak is what this teardown addresses — without it the
         # superseded child can no longer observe the foreign-pid or stale-
         # heartbeat triggers below, because the row carrying them is gone.)
+        #
+        # Teardown alone is NOT enough: it kills the pools/worker children, but
+        # the LRP child's OWN control flow continues — e.g. FunctionFinder's
+        # all-linear serialWorker fits in this very process with no pool child
+        # to terminate, and the report/scan loops would proceed through the
+        # rest of PerformAllWork. So after teardown we raise
+        # _ReportsPipelineAborted (the same sentinel the pool-death sites use);
+        # PerformAllWork catches it and halts the child. No terminal redirect is
+        # written, which is correct: in every abandonment case nobody is
+        # watching THIS row (the user's session points at the newer dispatch's
+        # row, or the client stopped polling), and update_status on a deleted
+        # row is a no-op anyway.
         if running_pid is None:
             self._teardown_abandoned_fit()
-            return
+            raise _ReportsPipelineAborted()
 
         # if a new process ID is in the row, another process was started and
         # this process was abandoned
         if running_pid != os.getpid() and running_pid != 0:
             self._teardown_abandoned_fit()
-            return
+            raise _ReportsPipelineAborted()
 
         # if the status has not been checked in the past 300 seconds, this
         # process was abandoned. last_status_check is the StatusUpdateView
@@ -977,6 +989,7 @@ You must provide any weights you wish to use.
             last_check = self.get_status("start_time") or time.time()
         if (time.time() - last_check) > 300:
             self._teardown_abandoned_fit()
+            raise _ReportsPipelineAborted()
 
     def SetInitialStatusDataIntoSessionVariables(self, request):
         # The status row is created by the parent (views.LongRunningProcessView)

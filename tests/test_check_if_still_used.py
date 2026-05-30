@@ -2,7 +2,10 @@
 
 CheckIfStillUsed is the abandoned-fit watchdog the spawned child runs once
 per second (via _oneSecondStatusUpdate). It reads this dispatch's LRPStatus
-row and tears down the fit pool + terminates worker children when ANY of:
+row and, when the fit is abandoned, tears down the fit pool + terminates
+worker children AND raises _ReportsPipelineAborted so the abort propagates up
+to PerformAllWork (which catches it) — stopping the LRP child itself, not just
+its pools. Abandonment is ANY of:
   - the row is GONE (get_status -> None): a newer dispatch superseded this one
     and deleted it (delete-prior-row in LongRunningProcessView), or the
     housekeeping age-sweep removed it — either way this fit is abandoned, OR
@@ -20,6 +23,36 @@ import time
 from unittest import mock
 
 import pytest
+
+from zunzun.LongRunningProcess.StatusMonitoredLongRunningProcessPage import (
+    _ReportsPipelineAborted,
+)
+
+
+def _identity(x):
+    """Module-level (picklable) worker fn for the FitPool abort test."""
+    return x
+
+
+def test_submit_many_propagates_pipeline_abort_from_progress():
+    """submit_many's progress callback runs the 1-Hz status update, which calls
+    CheckIfStillUsed -> _ReportsPipelineAborted on an abandoned fit. That abort
+    must propagate out of submit_many, NOT be logged-and-swallowed by the
+    progress-callback guard — otherwise the parallel reports phase keeps pulling
+    results after teardown and the superseded child runs on.
+    """
+    from zunzun.parallel_pool import FitPool
+
+    pool = FitPool(max_workers=1)
+    try:
+
+        def progress(_done, _total):
+            raise _ReportsPipelineAborted()
+
+        with pytest.raises(_ReportsPipelineAborted):
+            list(pool.submit_many(_identity, [1, 2, 3], progress=progress))
+    finally:
+        pool.shutdown(wait=False, cancel_futures=True)
 
 
 def _make_lrp(status_row_pk):
@@ -82,7 +115,8 @@ def test_foreign_pid_tears_down():
     )
     lrp, fit_pool = _make_lrp(row.pk)
 
-    _run_check(lrp)
+    with pytest.raises(_ReportsPipelineAborted):
+        _run_check(lrp)
 
     fit_pool.shutdown.assert_called_once_with(wait=False, cancel_futures=True)
     assert lrp.fit_pool is None  # torn down
@@ -91,7 +125,7 @@ def test_foreign_pid_tears_down():
 @pytest.mark.django_db
 def test_stalled_heartbeat_own_pid_tears_down():
     """Own pid but last_status_check > 300s ago → the client stopped polling
-    and the fit is abandoned; tear the pool down."""
+    and the fit is abandoned; tear the pool down AND abort the pipeline."""
     from zunzun.models import LRPStatus
 
     row = LRPStatus.objects.create(
@@ -101,7 +135,8 @@ def test_stalled_heartbeat_own_pid_tears_down():
     )
     lrp, fit_pool = _make_lrp(row.pk)
 
-    _run_check(lrp)
+    with pytest.raises(_ReportsPipelineAborted):
+        _run_check(lrp)
 
     fit_pool.shutdown.assert_called_once_with(wait=False, cancel_futures=True)
     assert lrp.fit_pool is None  # torn down
@@ -111,8 +146,9 @@ def test_stalled_heartbeat_own_pid_tears_down():
 def test_missing_row_tears_down():
     """status_row_pk points at a deleted/nonexistent row → get_status returns
     None → a newer dispatch superseded this one (or housekeeping reclaimed the
-    row). The fit is abandoned, so the watchdog must tear the pool down rather
-    than letting a superseded CPU-heavy fit run to natural completion."""
+    row). The fit is abandoned, so the watchdog must tear the pool down AND
+    raise _ReportsPipelineAborted to stop the child, rather than letting a
+    superseded CPU-heavy fit run to natural completion."""
     from zunzun.models import LRPStatus
 
     row = LRPStatus.objects.create(process_id=os.getpid(), start_time=time.time())
@@ -121,7 +157,34 @@ def test_missing_row_tears_down():
 
     lrp, fit_pool = _make_lrp(pk)
 
-    _run_check(lrp)
+    with pytest.raises(_ReportsPipelineAborted):
+        _run_check(lrp)
 
     fit_pool.shutdown.assert_called_once_with(wait=False, cancel_futures=True)
     assert lrp.fit_pool is None  # torn down
+
+
+@pytest.mark.django_db
+def test_serial_worker_reraises_pipeline_abort(monkeypatch):
+    """FunctionFinder's all-linear serialWorker runs fits in the CURRENT
+    process (no pool child to terminate). When CheckIfStillUsed aborts an
+    abandoned fit, the abort must propagate OUT of serialWorker — its
+    catch-all except must not swallow _ReportsPipelineAborted, or a superseded
+    serial fit keeps burning CPU through the rest of the loop and can still
+    progress through the rest of PerformAllWork.
+    """
+    from zunzun.LongRunningProcess import FunctionFinder as ff
+
+    # parallelWorkFunction returns a falsy result[0] so countOfSerialWorkItemsRun
+    # stays 0 -> 0 % 50 == 0 -> the liveness check fires on the first item.
+    monkeypatch.setattr(ff, "parallelWorkFunction", lambda _item: [None])
+    monkeypatch.setattr(ff, "_install_worker_data_cache", lambda _dc: None)
+
+    class _Obj:
+        countOfSerialWorkItemsRun = 0
+
+        def WorkItems_CheckOneSecondSessionUpdates(self):
+            raise _ReportsPipelineAborted()
+
+    with pytest.raises(_ReportsPipelineAborted):
+        ff.serialWorker(_Obj(), [["item"]], [], dataCache=None)

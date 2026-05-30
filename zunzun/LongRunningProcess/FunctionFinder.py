@@ -123,7 +123,14 @@ def serialWorker(obj, inputList, outputList, dataCache):
                 obj.countOfSerialWorkItemsRun += 1
             if (obj.countOfSerialWorkItemsRun % 50) == 0:
                 obj.WorkItems_CheckOneSecondSessionUpdates()
-        except:
+        except _ReportsPipelineAborted:
+            # CheckIfStillUsed (via WorkItems_CheckOneSecondSessionUpdates)
+            # detected this fit was abandoned/superseded and is aborting the
+            # pipeline. Must propagate, NOT be swallowed by the catch-all
+            # below — otherwise this in-process serial loop keeps fitting and
+            # the superseded child burns CPU through the rest of PerformAllWork.
+            raise
+        except Exception:
             import logging
 
             logging.exception("serialWorker exception")
