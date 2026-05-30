@@ -60,6 +60,51 @@ def test_get_status_returns_field_or_default_only_when_row_missing():
 
 
 @pytest.mark.django_db
+def test_current_status_is_unbounded_textfield():
+    """current_status must be an unbounded TextField, not CharField(255).
+
+    FunctionFinder's progress path (WorkItems_CheckOneSecondSessionUpdates)
+    builds an HTML <table> with one row per included equation family and writes
+    it via update_status(current_status=...). A normal multi-family run exceeds
+    255 chars; on a length-enforcing backend a CharField(255) would make that
+    write fail and abort an otherwise healthy fit. The old session blob had no
+    such cap; redirect_to_results is already TextField — match it.
+    """
+    from django.db import models
+
+    from zunzun.models import LRPStatus
+
+    field = LRPStatus._meta.get_field("current_status")
+    assert isinstance(field, models.TextField)
+    # TextField reports max_length=None; CharField would report 255 here.
+    assert getattr(field, "max_length", None) is None
+
+
+@pytest.mark.django_db
+def test_update_status_accepts_long_html_table():
+    """Behavioral companion to the field-type guard: a >255-char HTML status
+    (the FunctionFinder family-progress table) round-trips intact."""
+    from zunzun.LongRunningProcess.StatusMonitoredLongRunningProcessPage import (
+        StatusMonitoredLongRunningProcessPage,
+    )
+    from zunzun.models import LRPStatus
+
+    long_status = (
+        "<table>"
+        + ("<tr><td>1</td><td>of</td><td>9</td><td>Polynomial</td></tr>" * 40)
+        + "</table>"
+    )
+    assert len(long_status) > 255
+
+    row = LRPStatus.objects.create(start_time=1.0)
+    lrp = StatusMonitoredLongRunningProcessPage()
+    lrp.status_row_pk = row.pk
+    lrp.update_status(current_status=long_status)
+
+    assert LRPStatus.objects.get(pk=row.pk).current_status == long_status
+
+
+@pytest.mark.django_db
 def test_housekeeping_deletes_aged_status_rows(tmp_path):
     import time as _time
 

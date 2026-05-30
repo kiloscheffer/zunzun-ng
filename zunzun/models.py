@@ -14,7 +14,14 @@ class LRPStatus(models.Model):
     cell to race on and no ownership check is needed on writes.
     """
 
-    current_status = models.CharField(max_length=255, default="Initializing")
+    # TextField (unbounded), not CharField(255): the FunctionFinder progress
+    # path writes an HTML <table> with one row per included equation family
+    # (WorkItems_CheckOneSecondSessionUpdates), which exceeds 255 chars on a
+    # normal multi-family run. update_status uses .update() (no Django-level
+    # length validation) and SQLite ignores VARCHAR length, so a cap is a
+    # silent footgun that would only bite a length-enforcing backend mid-fit.
+    # Matches redirect_to_results.
+    current_status = models.TextField(default="Initializing")
     start_time = models.FloatField(default=0.0)
     last_status_check = models.FloatField(default=0.0)
     redirect_to_results = models.TextField(default="")
