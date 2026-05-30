@@ -2042,3 +2042,39 @@ each.
 
 **Not in scope of any current branch.** Cosmetic consistency; no
 observable bug under current code paths.
+
+## Pre-migration in-flight fits are not resumed across deploy
+
+**Symptom.** When the `feat/lrp-status-table` code is deployed while a user
+already has a fit in progress from the *previous* (status-session-blob)
+code, that user's browser session has the old `session_key_status` but no
+`lrp_status_pk`. The new `StatusView` / `StatusUpdateView` / per-user gate
+look up the `LRPStatus` row by `lrp_status_pk`, find nothing, and treat the
+still-running fit as absent — so its status page can no longer show progress
+or deliver the result. The abandoned child finishes (or is reaped) on its
+own; only the *view* of it is lost.
+
+**Hypothesis / scope.** A one-time cutover artifact, not a steady-state bug.
+It can only affect fits that were mid-flight at the exact moment of the
+deploy that introduces the `LRPStatus` table.
+
+**What we did NOT do, and why.** Codex (PR #21, comment 3328546514)
+suggested keeping a `session_key_status` fallback read path until old
+sessions expire, or migrating the session pointer on read. We declined: the
+whole point of the `2026-05-29-lrp-status-table-design.md` refactor was to
+*delete* the status-session apparatus (`_we_own_status_slot`,
+`_publish_terminal_error`, `dispatched_at`, `session_key_status`). Re-adding
+a parallel blob-read path — permanent code in the hot request path for a
+one-time transition — reintroduces exactly the dual-read surface the
+refactor removed, and the fallback would itself need test coverage and a
+removal date.
+
+**Mitigation (chosen).** Drain in-progress fits before deploying (see
+`docs/deployment/README.md`, "Upgrades and redeploys"). Fits are short, so a
+brief drain window before the Waitress restart fully avoids the symptom.
+
+**Where to pick up.** If a future deploy genuinely cannot drain (e.g. a
+long-running FunctionFinder must survive a restart), the cleanest path is a
+one-shot data migration that mints an `LRPStatus` row from any live
+`session_key_status` blob and stamps `lrp_status_pk` into that session —
+transitional and removable — rather than a permanent dual-read in the views.

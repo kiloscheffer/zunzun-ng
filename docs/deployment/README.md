@@ -22,6 +22,12 @@ The single shared [`Caddyfile.example`](Caddyfile.example) works on all three pl
 
 No external system binaries beyond Caddy itself — animated GIF output is pure-Python via matplotlib's `PillowWriter` since the April 2026 migration.
 
+The one-time `uv run python manage.py migrate` (see the top-level `README.md`) creates `session_db/db.sqlite3` with both the `django_session` table and the `zunzun_lrpstatus` status table. Without it, every fit dispatch fails because the session/status backends have nowhere to write.
+
+## Upgrades and redeploys
+
+**Drain in-progress fits before deploying.** A fit's status lives in a per-dispatch `zunzun_lrpstatus` row, pointed at by `lrp_status_pk` in the user's session. A fit dispatched by the *previous* code that is still running across a restart is not migrated: the spawned child keeps running, but its status page may not resolve cleanly under the new code. Before restarting Waitress for an upgrade, let active fits finish (or accept that any in-flight fit must be re-run by the user). Fits are short (seconds to a few minutes), so a brief drain window before restart is enough. This is standard practice for the spawn-LRP architecture and avoids carrying transitional fallback code in the request path. See `BACKLOG.md` ("Pre-migration in-flight fits are not resumed across deploy").
+
 ## Why Caddy
 
 Three reasons it ended up the default after the cross-platform migration:
