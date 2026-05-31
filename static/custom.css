@@ -338,17 +338,13 @@ td.pick {
   white-space: nowrap;
 }
 
-/* Pressed look = inverted bevel (dark top/left, light bottom/right). Applied
-   on mouse-down for tactile feedback and persistently while selected. */
+/* Pressed look = inverted bevel (dark top/left, light bottom/right), face
+   stays silver. Selected reads as "pushed in" purely from the depressed
+   bevel rather than a color change. Applied on mouse-down for tactile
+   feedback and persistently while selected. */
 td.pick:active,
 td.pick.selected {
   border-color: #808080 #f4f4f4 #f4f4f4 #808080;
-}
-
-/* Selected also gets a white face so picked terms read as "engaged" against
-   the raised, gray, unselected cells. */
-td.pick.selected {
-  background-color: #fff;
 }
 
 /* ------------------------------------------------------------------------ */
