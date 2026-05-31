@@ -29,6 +29,10 @@ uv sync --no-dev
 uv run python manage.py migrate
 ```
 
+`migrate` creates `session_db/db.sqlite3` and applies both
+`sessions.0001_initial` and the `zunzun` app migrations (including
+the `zunzun_lrpstatus` status-tracking table). No extra command needed.
+
 ## Caddyfile
 
 Copy [`Caddyfile.example`](Caddyfile.example) to

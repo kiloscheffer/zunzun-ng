@@ -123,7 +123,14 @@ def serialWorker(obj, inputList, outputList, dataCache):
                 obj.countOfSerialWorkItemsRun += 1
             if (obj.countOfSerialWorkItemsRun % 50) == 0:
                 obj.WorkItems_CheckOneSecondSessionUpdates()
-        except:
+        except _ReportsPipelineAborted:
+            # CheckIfStillUsed (via WorkItems_CheckOneSecondSessionUpdates)
+            # detected this fit was abandoned/superseded and is aborting the
+            # pipeline. Must propagate, NOT be swallowed by the catch-all
+            # below — otherwise this in-process serial loop keeps fitting and
+            # the superseded child burns CPU through the rest of PerformAllWork.
+            raise
+        except Exception:
             import logging
 
             logging.exception("serialWorker exception")
@@ -198,19 +205,15 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
 
     def RenderOutputHTMLToAFileAndSetStatusRedirect(self):
 
-        # Entry-gate: bail before any shared-session write if a newer
-        # dispatch owns the slot. See `_we_own_status_slot` docstring;
-        # the functionfinder + data writes below shape what
-        # /FunctionFinderResults/ later reads.
-        if not self._we_own_status_slot():
-            import logging
-
-            logging.info(
-                "%s.RenderOutputHTML: newer dispatch owns slot; "
-                "skipping shared-session writes (self.dispatched_at=%s)",
-                type(self).__name__,
-                self.dispatched_at,
-            )
+        # If a newer dispatch superseded this one it deleted our status row
+        # (delete-prior-row in LongRunningProcessView). The functionfinder +
+        # data blobs below are per-SESSION-shared stores that
+        # /FunctionFinderResults/ later reads, so a superseded child writing
+        # them would clobber the winning dispatch's results. A missing row
+        # (get_status -> None) is the supersession signal — skip all
+        # shared-state writes. The terminal redirect (also via update_status)
+        # would be a no-op on the deleted row anyway.
+        if self.get_status("process_id") is None:
             return
 
         self.SaveDictionaryOfItemsToSessionStore(
@@ -234,17 +237,13 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
                 "data", {"logLinX": self.dataObject.logLinX, "logLinY": self.dataObject.logLinY}
             )
 
-        # TOCTOU re-check before redirect publish; silent (entry-gate logs).
-        if self._we_own_status_slot():
-            self.SaveDictionaryOfItemsToSessionStore(
-                "status",
-                {
-                    "redirectToResultsFileOrURL": "/FunctionFinderResults/"
-                    + str(self.dataObject.dimensionality)
-                    + "/?RANK=1&unused="
-                    + str(time.time())
-                },
-            )
+        self.update_status(
+            redirect_to_results="/FunctionFinderResults/"
+            + str(self.dataObject.dimensionality)
+            + "/?RANK=1&unused="
+            + str(time.time()),
+            completed=True,
+        )
 
     def AddEquationInfoToLinearAndParallelFittingListsAndCheckOneSecond(self):
         global externalDataCache
@@ -570,24 +569,19 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
                                                 self.dataObject.equation.rationalDenominatorFlags = denominatorCombo
                                                 self.AddEquationInfoToLinearAndParallelFittingListsAndCheckOneSecond()
 
-        self.SaveDictionaryOfItemsToSessionStore(
-            "status",
-            {
-                "currentStatus": "Scanned %s Equations : %s OK, %s skipped, %s exceptions"
-                % (
-                    self.numberOfEquationsScannedSoFar,
-                    len(self.linearFittingList) + len(self.parallelWorkItemsList),
-                    self.fit_skip_count,
-                    self.fit_exception_count,
-                )
-            },
+        self.update_status(
+            current_status="Scanned %s Equations : %s OK, %s skipped, %s exceptions"
+            % (
+                self.numberOfEquationsScannedSoFar,
+                len(self.linearFittingList) + len(self.parallelWorkItemsList),
+                self.fit_skip_count,
+                self.fit_exception_count,
+            )
         )
 
     def PerformWorkInParallel(self):
 
-        self.SaveDictionaryOfItemsToSessionStore(
-            "status", {"currentStatus": "Preparing to fit equations, one minute please..."}
-        )
+        self.update_status(current_status="Preparing to fit equations, one minute please...")
         self.countOfParallelWorkItemsRun = 0
         self.countOfSerialWorkItemsRun = 0
         self.totalNumberOfParallelWorkItemsToBeRun = len(self.parallelWorkItemsList)
@@ -636,12 +630,13 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
                             "An internal error occurred during equation "
                             "fitting. Please try again or contact the administrator."
                         )
-                        self._publish_terminal_error(
-                            html_path=self._write_terminal_error_html(error_message),
-                            status_dict={
-                                "currentStatus": error_message,
-                                "parallelProcessCount": 0,
-                            },
+                        self.update_status(
+                            redirect_to_results=self._write_terminal_error_html(error_message)
+                            or "",
+                            process_id=0,
+                            completed=True,
+                            current_status=error_message,
+                            parallel_count=0,
                         )
                         raise _ReportsPipelineAborted()
 
@@ -659,12 +654,13 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
                                 "An internal error occurred during equation "
                                 "fitting. Please try again or contact the administrator."
                             )
-                            self._publish_terminal_error(
-                                html_path=self._write_terminal_error_html(error_message),
-                                status_dict={
-                                    "currentStatus": error_message,
-                                    "parallelProcessCount": 0,
-                                },
+                            self.update_status(
+                                redirect_to_results=self._write_terminal_error_html(error_message)
+                                or "",
+                                process_id=0,
+                                completed=True,
+                                current_status=error_message,
+                                parallel_count=0,
                             )
                             raise _ReportsPipelineAborted()
                         except concurrent.futures.CancelledError:
@@ -727,34 +723,28 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
         self.WorkItems_CheckOneSecondSessionUpdates()
         # All parallel workers have drained; clear the indicator so the status
         # page stops showing the count during post-processing phases.
-        self.SaveDictionaryOfItemsToSessionStore(
-            "status",
-            {
-                "currentStatus": "%s Total Equations Fitted, combining lists..."
-                % (self.countOfParallelWorkItemsRun + self.countOfSerialWorkItemsRun),
-                "parallelProcessCount": 0,
-            },
+        self.update_status(
+            current_status="%s Total Equations Fitted, combining lists..."
+            % (self.countOfParallelWorkItemsRun + self.countOfSerialWorkItemsRun),
+            parallel_count=0,
         )
 
         # final status update is outside the 'one second updates'
-        self.SaveDictionaryOfItemsToSessionStore(
-            "status",
-            {
-                "currentStatus": "%s Total Equations Fitted, sorting..."
-                % (self.countOfParallelWorkItemsRun + self.countOfSerialWorkItemsRun)
-            },
+        self.update_status(
+            current_status="%s Total Equations Fitted, sorting..."
+            % (self.countOfParallelWorkItemsRun + self.countOfSerialWorkItemsRun)
         )
 
         self.functionFinderResultsList.sort()  # uses the default sort on list element zero
 
         # The legacy code cleared processID here to bypass CheckIfStillUsed
         # during the chunked-pool report phase. With the FitPool refactor,
-        # CheckIfStillUsed correctly compares processID against os.getpid()
-        # (no teardown when they match), and the base PerformAllWork's
-        # end-of-success cleanup clears processID + dispatched_at together
-        # AFTER RenderOutputHTMLToAFileAndSetStatusRedirect. Clearing here
-        # would prematurely allow a second concurrent fit to be accepted
-        # during the (small but real) post-PerformWorkInParallel window.
+        # CheckIfStillUsed correctly compares the row's process_id against
+        # os.getpid() (no teardown when they match), and the base
+        # PerformAllWork's end-of-success cleanup clears process_id AFTER
+        # RenderOutputHTMLToAFileAndSetStatusRedirect. Clearing here would
+        # prematurely allow a second concurrent fit to be accepted during
+        # the (small but real) post-PerformWorkInParallel window.
 
     def WorkItems_CheckOneSecondSessionUpdates(self):
         sortedFamilyNameList = sorted(self.parallelFittingResultsByEquationFamilyDictionary.keys())

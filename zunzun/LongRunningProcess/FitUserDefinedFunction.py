@@ -91,9 +91,7 @@ class FitUserDefinedFunction(FittingBaseClass.FittingBaseClass):
 
     def SpecificCodeForGeneratingListOfOutputReports(self):
         self.functionString = "PrepareForReportOutput"
-        self.SaveDictionaryOfItemsToSessionStore(
-            "status", {"currentStatus": "Calculating Error Statistics"}
-        )
+        self.update_status(current_status="Calculating Error Statistics")
         try:
             self.dataObject.CalculateErrorStatistics()
         except:
@@ -113,12 +111,13 @@ class FitUserDefinedFunction(FittingBaseClass.FittingBaseClass):
                         "zunzun/exception_while_fitting_an_equation.html", itemsToRender
                     )
                 )
-            # Publish the UDF-specific error template via the base
-            # helper, which ownership-gates and bundles redirect +
-            # gate-clear. SystemExit below bypasses _run_fit_child's
-            # ownership-verified handler, so this is the only place
-            # where the check can happen for this path.
-            self._publish_terminal_error(html_path=error_html_path)
+            # Publish the UDF-specific error template directly to this
+            # dispatch's row, clearing the gate. SystemExit below bypasses
+            # _run_fit_child's terminal-error handler, so this is the only
+            # place where the redirect can be written for this path.
+            self.update_status(
+                redirect_to_results=error_html_path or "", process_id=0, completed=True
+            )
             # Raise SystemExit so the spawned child terminates cleanly without
             # overwriting the redirect already written to the session store.
             # SystemExit is a BaseException, not Exception, so the generic
@@ -126,12 +125,8 @@ class FitUserDefinedFunction(FittingBaseClass.FittingBaseClass):
             # The finally block in _run_fit_child provides the post-work sleep.
             raise SystemExit(0)
 
-        self.SaveDictionaryOfItemsToSessionStore(
-            "status", {"currentStatus": "Calculating Parameter Statistics"}
-        )
+        self.update_status(current_status="Calculating Parameter Statistics")
         self.dataObject.equation.CalculateCoefficientAndFitStatistics()
 
-        self.SaveDictionaryOfItemsToSessionStore(
-            "status", {"currentStatus": "Generating Report Objects"}
-        )
+        self.update_status(current_status="Generating Report Objects")
         self.ReportsAndGraphsCategoryDict = ReportsAndGraphs.FittingReportsDict(self.dataObject)

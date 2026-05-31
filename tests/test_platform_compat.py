@@ -4,6 +4,7 @@ These tests do not require Django. They cover the cross-platform
 abstraction layer that replaces /proc, vmstat, os.popen, etc.
 """
 
+import os
 import sys
 from pathlib import Path
 from unittest import mock
@@ -234,3 +235,53 @@ def test_ensure_external_binaries_returns_empty_list():
     from zunzun import platform_compat
 
     assert platform_compat.ensure_external_binaries() == []
+
+
+def test_pid_is_alive_zero_returns_false_without_syscall():
+    """pid 0 is the cleared sentinel — never a live child. Returns False
+    immediately, without constructing a psutil.Process.
+    """
+    from zunzun import platform_compat
+
+    with mock.patch("zunzun.platform_compat.psutil.Process") as proc:
+        assert platform_compat.pid_is_alive(0) is False
+        proc.assert_not_called()
+
+
+def test_pid_is_alive_current_process_returns_true():
+    """The running test process is alive and not a zombie — real psutil path."""
+    from zunzun import platform_compat
+
+    assert platform_compat.pid_is_alive(os.getpid()) is True
+
+
+def test_pid_is_alive_nonexistent_pid_returns_false():
+    """A pid with no process (NoSuchProcess) is not alive."""
+    from zunzun import platform_compat
+
+    with mock.patch(
+        "zunzun.platform_compat.psutil.Process", side_effect=psutil.NoSuchProcess(123456)
+    ):
+        assert platform_compat.pid_is_alive(123456) is False
+
+
+def test_pid_is_alive_zombie_returns_false():
+    """A zombie (exited, awaiting reap) counts as NOT alive so the status
+    backstop fires on the next poll rather than waiting for the reaper.
+    """
+    from zunzun import platform_compat
+
+    fake = mock.Mock()
+    fake.status.return_value = psutil.STATUS_ZOMBIE
+    with mock.patch("zunzun.platform_compat.psutil.Process", return_value=fake):
+        assert platform_compat.pid_is_alive(4321) is False
+
+
+def test_pid_is_alive_access_denied_returns_true():
+    """AccessDenied on a foreign pid errs toward 'alive' — we must never
+    falsely finalize a fit that is actually still running.
+    """
+    from zunzun import platform_compat
+
+    with mock.patch("zunzun.platform_compat.psutil.Process", side_effect=psutil.AccessDenied(4321)):
+        assert platform_compat.pid_is_alive(4321) is True

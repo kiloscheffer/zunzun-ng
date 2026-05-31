@@ -19,19 +19,21 @@ from zunzun.LongRunningProcess.StatusMonitoredLongRunningProcessPage import (
 
 
 def _make_lrp(db):
-    """Build an LRP with a fresh status SessionStore — minimal setup
-    needed for Save/Load helpers to work.
+    """Build an LRP with a fresh 'data' SessionStore — minimal setup
+    needed for the Save/Load helpers to work.
+
+    The status store moved to the LRPStatus ORM row and no longer routes
+    through SaveDictionaryOfItemsToSessionStore, so these serializer tests
+    exercise the 'data' store (still a JSON session blob) instead.
     """
     from django.contrib.sessions.backends.db import SessionStore
 
     lrp = StatusMonitoredLongRunningProcessPage()
-    # Create a new session and stash its key on the LRP.
+    # Create a new session and stash its key on the LRP as the 'data' store.
     session = SessionStore()
     session.create()
-    lrp.session_key_status = session.session_key
-    lrp.session_status = session
-    lrp.session_key_data = None
-    lrp.session_data = None
+    lrp.session_key_data = session.session_key
+    lrp.session_data = session
     lrp.session_key_functionfinder = None
     lrp.session_functionfinder = None
     return lrp
@@ -53,8 +55,8 @@ def _make_lrp(db):
 @pytest.mark.django_db
 def test_save_load_roundtrip(db, key, value):
     lrp = _make_lrp(db)
-    lrp.SaveDictionaryOfItemsToSessionStore("status", {key: value})
-    loaded = lrp.LoadItemFromSessionStore("status", key)
+    lrp.SaveDictionaryOfItemsToSessionStore("data", {key: value})
+    loaded = lrp.LoadItemFromSessionStore("data", key)
     assert loaded == value
 
 
@@ -82,7 +84,7 @@ def test_values_are_json_native(db, value):
 @pytest.mark.django_db
 def test_load_missing_key_returns_none(db):
     lrp = _make_lrp(db)
-    result = lrp.LoadItemFromSessionStore("status", "no_such_key")
+    result = lrp.LoadItemFromSessionStore("data", "no_such_key")
     assert result is None
 
 
@@ -146,14 +148,14 @@ def test_lrp_save_load_roundtrips_numpy_via_serializer(db):
 
     lrp = _make_lrp(db)
     lrp.SaveDictionaryOfItemsToSessionStore(
-        "status",
+        "data",
         {
             "coeffs": numpy.array([1.5, 2.5, 3.5]),
             "rank": numpy.int64(7),
         },
     )
 
-    fresh = SessionStore(lrp.session_key_status)
+    fresh = SessionStore(lrp.session_key_data)
     assert fresh["coeffs"] == [1.5, 2.5, 3.5]
     assert isinstance(fresh["coeffs"], list)
     assert fresh["rank"] == 7

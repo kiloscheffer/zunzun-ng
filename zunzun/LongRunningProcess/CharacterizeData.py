@@ -36,9 +36,7 @@ class CharacterizeData(StatusMonitoredLongRunningProcessPage.StatusMonitoredLong
 
     def SpecificCodeForGeneratingListOfOutputReports(self):
         self.functionString = "PrepareForCharacterizerOutput"
-        self.SaveDictionaryOfItemsToSessionStore(
-            "status", {"currentStatus": "Generating Report Objects"}
-        )
+        self.update_status(current_status="Generating Report Objects")
         self.ReportsAndGraphsCategoryDict = ReportsAndGraphs.CharacterizerReportsDict(
             self.dataObject
         )

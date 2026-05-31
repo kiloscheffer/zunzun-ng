@@ -1288,7 +1288,56 @@ deployments are likely fine in practice (the recipe is mostly
 boilerplate plus Caddy's well-documented setup). macOS is a
 genuine unknown until exercised.
 
-## Split the LRP status session blob into per-field rows
+## ~~Split the LRP status session blob into per-field rows~~ RESOLVED 2026-05-30
+
+> **Resolution.** Replaced the shared status session blob with a
+> per-dispatch `LRPStatus` ORM row (`zunzun/models.py`). Spec:
+> `docs/superpowers/specs/2026-05-29-lrp-status-table-design.md`; plan:
+> `docs/superpowers/plans/2026-05-29-lrp-status-table.md` (both local /
+> gitignored per repo convention). Landed on `feat/lrp-status-table`
+> as 9 commits; pytest 147/147, smoke 14/14, `migrate` creates
+> `zunzun_lrpstatus`.
+>
+> **As-built design (deviates from the sketch below — the sketch was
+> directional, not literal):**
+> - **Row per DISPATCH, not per session_key.** The autopk `id` is the
+>   dispatch identity; the current dispatch's pk lives in
+>   `request.session["lrp_status_pk"]` and `StatusView` follows that
+>   pointer. This eliminates the shared mutable cell entirely (each fit
+>   writes only its own row), so the race dissolves rather than being
+>   made atomic. The sketch's "`session_key` as PK" would have kept one
+>   reused row per user and still needed an ownership guard.
+> - **`dispatch_id` was NOT dropped — it was replaced by the row pk.**
+>   `ChildPayload.dispatch_id: float` → `status_row_pk: int`. Ownership
+>   identity is now row identity; `_we_own_status_slot()` and
+>   `_publish_terminal_error()` were deleted, and `dispatched_at` is gone.
+> - **Writes:** `update_status(**fields)` — an unconditional single-row
+>   `LRPStatus.objects.filter(pk=...).update(...)` (no ownership check).
+>   **Reads:** `get_status(field, default)`.
+> - **Gate completion signal:** an explicit `completed` boolean
+>   (`is_pending` checks `not row.completed`). An earlier cut reused
+>   `redirect_to_results` as the signal, but `StatusView` clears that on
+>   serve, which re-opened the pending window for fast fits — caught in
+>   the final code review.
+> - **The retry loop did NOT "collapse to Django's own retry"** (the
+>   sketch's step 2 was wrong — Django doesn't auto-retry SQLite
+>   `OperationalError`). The existing 5 s SQLite `busy_timeout`
+>   (`DATABASES OPTIONS timeout`) covers `LRPStatus` writes; no manual
+>   retry was added. `data`/`functionfinder` keep `save_with_retry` /
+>   `load_with_retry`.
+> - **Lifecycle:** parent deletes the prior row on each dispatch +
+>   the housekeeping child sweeps rows older than `SESSION_COOKIE_AGE`.
+> - **`data` / `functionfinder` stores unchanged** (still JSON blobs via
+>   `NumpySessionSerializer`).
+>
+> **Two bugs the review/smoke gate caught (both fixed on-branch):**
+> (1) per-user cap weakened because the new row defaulted
+> `last_status_check=0.0` → now stamped at dispatch; (2) the `completed`
+> column was added by *regenerating* `0001` (a no-op `migrate` on
+> already-applied DBs) → corrected to an append-only `0002` migration.
+> See [[migrations-and-smoke-real-db]] for the latter lesson.
+>
+> Historical notes below, preserved for reference.
 
 **Symptom / exposure.** The LRP status session is a single Django
 session blob (JSON-encoded dict) that the parent and child processes
@@ -1348,6 +1397,198 @@ and the `fork-pattern-reviewer` agent's checks. Worth doing as a
 focused PR after the current branch ships, so the diff is bounded
 to "swap blob for table" without the in-flight race-condition fixes
 muddying the picture.
+
+## ~~Make LRPStatus completion signal uniform across the views~~ RESOLVED 2026-05-31
+
+> **Resolution.** The core work landed on the same `feat/lrp-status-table`
+> branch (later commits than the cut that prompted this entry), so the
+> symptom described below — "the two polling views still key completion on
+> `redirect_to_results`" — is **no longer true on the branch**. Final state:
+> - `StatusUpdateView` reports `{"completed": True}` on
+>   `row.completed or row.redirect_to_results` (`zunzun/views.py`) — the
+>   durable `completed` flag is the primary signal; the redirect arm just
+>   covers the window before `StatusView` serves it.
+> - `StatusView` branches on `row.completed`: serves the file/302 when
+>   `redirect_to_results` is set, else renders a terminal "no results"
+>   page instead of looping on the in-progress template.
+> - Both edge cases are closed and tested:
+>   `test_status_view.py::test_status_view_serves_terminal_page_when_completed_without_redirect`
+>   (disk-unwritable terminal) and
+>   `test_status_update_returns_completed_when_completed_flag_set_without_redirect`
+>   (poll-after-clear).
+> - A reader-side **dead-pid backstop** (`_finalize_row_if_child_dead` in
+>   `zunzun/views.py`, `platform_compat.pid_is_alive`) was added in the
+>   PR #21 review pass to cover the remaining gap the `completed` flag
+>   can't: a child that dies WITHOUT finalizing its row at all (SIGKILL /
+>   OOM / segfault, or a terminal `update_status` that itself failed under
+>   DB lock past `busy_timeout`). The views detect the owning pid is gone
+>   and mark the row terminal so the poll ends.
+>
+> **Backstop hardening (`/code-review xhigh`, 2026-05-31).** Three follow-up
+> fixes from a later review pass, all in `zunzun/views.py` /
+> `_finalize_row_if_child_dead`:
+> - **Pre-pid-write death.** The backstop early-returned on `process_id == 0`,
+>   so a child that died (or failed to spawn) BEFORE `PerformAllWork`'s first
+>   `process_id` write left the row stuck — there was no pid to probe. It now
+>   finalizes a `process_id == 0` row once it is past the 60s pending window
+>   (by `start_time` age; no probe), matching `is_pending`'s bound. Covered by
+>   `test_status_view.py::test_backstop_finalizes_unset_pid_row_past_pending_window`.
+> - **Completed-but-uncleared gate block.** The per-user gate's `is_active`
+>   now also requires `not row.completed`, so a fit that finished but whose
+>   child died in the window before clearing `process_id` (result already
+>   deliverable) no longer falsely blocks the next POST.
+> - **Gate now applies the backstop.** `LongRunningProcessView`'s per-user
+>   gate calls `_finalize_row_if_child_dead(row)` before computing
+>   `is_active` / `is_pending`. Previously the gate trusted the heartbeat
+>   alone, so a SIGKILL/OOM-killed child blocked the user's retry for up to
+>   300s (the poll views already recovered; the gate was the one place a
+>   provably-dead fit still gated). A live fit's pid passes the probe and is
+>   left untouched. Covered by
+>   `test_views_per_user_cap.py::test_concurrent_fit_allowed_when_pid_dead`.
+>
+> **Still open (separable polish, not blockers).** The "Related minor
+> cleanups" below remain deferred: the duplicated terminal-write tuple
+> across ~5 sites is folded into the "Model LRPStatus lifecycle as an
+> explicit state field" entry; the `CheckIfStillUsed` fallback-masking note
+> and the `StatusView`/`StatusUpdateView`/`CheckIfStillUsed` over-fetch are
+> small standalone items worth a future sweep.
+
+**Symptom / exposure.** Follow-up from the `/code-review` of the
+LRP-status-table branch (`feat/lrp-status-table`, 2026-05-30). The
+branch added a durable `completed` boolean to `LRPStatus` and the
+per-user gate + `_run_fit_child`'s terminal handler key on it. But the
+two polling views still key completion on `redirect_to_results`:
+- `StatusView` (`zunzun/views.py`) serves the result file/302 iff
+  `row.redirect_to_results` is truthy, and CLEARS it to `""` on serve.
+- `StatusUpdateView` reports `{"completed": True}` iff
+  `row.redirect_to_results` is truthy.
+
+This is behavior-preserved from `main` (the JS-poll redesign always
+keyed on the redirect), so it's not a regression, and the normal
+single-tab flow works (smoke 14/14). But two edge cases are now
+needlessly fragile given `completed` exists:
+1. **Multi-viewer / poll-after-clear.** If one viewer completes and
+   `StatusView` clears the redirect, a second concurrent poller (other
+   tab, or an in-flight request) sees `redirect_to_results == ""` →
+   `StatusUpdateView` returns `{"completed": False}` → that viewer
+   polls forever.
+2. **Disk-unwritable terminal error.** When `_write_terminal_error_html`
+   returns `None` (disk full / permission denied), the terminal write
+   sets `completed=True, process_id=0` but leaves `redirect_to_results
+   == ""`. Both views then never signal completion → stuck poll.
+
+**Why it's worth fixing.** `completed` is the durable done-signal;
+`redirect_to_results` is an ephemeral payload that `StatusView`
+consumes. Keying completion on the payload is the same overloaded-signal
+mistake the gate fix already corrected on its side.
+
+**Where to pick up (coordinate BOTH views — do not change one alone).**
+A naive `if row.redirect_to_results or row.completed:` in
+`StatusUpdateView` ALONE causes a navigation loop: the JS navigates to
+`StatusView`, which (still keying on the now-empty redirect) re-renders
+the in-progress page, whose poller immediately re-completes. The fix
+must move both views to the `completed` flag together:
+1. `StatusUpdateView`: report completion on `row.completed` (not the
+   redirect).
+2. `StatusView`: branch on `row.completed`. If completed AND
+   `redirect_to_results` is set → serve/redirect as today (and the
+   clear is fine). If completed AND redirect is `""` (already served,
+   or disk-failure terminal) → render a terminal "your fit finished —
+   no result is available / it has already been shown" page, NOT the
+   in-progress template (which would loop).
+3. Add tests: a poll after `StatusView` consumed the redirect returns
+   completed; the disk-failure terminal (completed, empty redirect)
+   lands on a terminal page, not an infinite poll.
+
+**Related minor cleanups surfaced in the same review (fold in or skip):**
+- The terminal-error write
+  `update_status(redirect_to_results=self._write_terminal_error_html(msg)
+  or "", process_id=0, completed=True, current_status=msg,
+  parallel_count=0)` is duplicated across ~5 sites (FittingBaseClass,
+  FitUserDefinedFunction, FunctionFinder ×2, StatisticalDistributions,
+  base). The deleted `_publish_terminal_error()` used to be the
+  chokepoint; consider a small `_publish_terminal_error(html_path)`-style
+  helper again so a future terminal site can't forget `completed=True`
+  / `process_id=0`. The `test_all_broken_process_pool_sites_use_terminal_helpers`
+  structural test only checks `update_status` + `_write_terminal_error_html`
+  presence, not that `process_id=0` / `completed=True` are passed.
+- `CheckIfStillUsed`'s `get_status("last_status_check") or ... or
+  time.time()` fallback masks the never-stamped case that
+  `LongRunningProcessView` now prevents at dispatch — harmless defense
+  today, but it would hide a future regression rather than surface it.
+- Minor over-fetch: `StatusView`/`StatusUpdateView` fetch the full row
+  (`.first()`) but read a subset; `CheckIfStillUsed` issues two
+  `get_status` SELECTs (1 Hz hot path) where one `.values(a, b)` would
+  do.
+
+**Not in scope of the LRP-status-table branch.** That branch's job was
+the blob→row cutover and closing the ownership race; it preserved the
+existing (main) completion-signal behavior. Tightening the
+completion signal onto `completed` is separable polish.
+
+## Model LRPStatus lifecycle as an explicit state field
+
+**Symptom / exposure.** Type-design observation from the comprehensive PR
+review of the LRP-status-table branch (`feat/lrp-status-table`, PR #21,
+2026-05-30). `LRPStatus` is an anemic model: it has no behavior, and the
+fit lifecycle (initializing → running → terminal) is not represented
+directly — it's *reconstructed* from loose, individually-mutable fields
+(`process_id`, `completed`, `redirect_to_results`, `last_status_check`).
+The per-user gate in `LongRunningProcessView` derives `is_active` /
+`is_pending` by combining 3–4 of these fields with two time windows, and
+terminal consistency (`process_id=0` + `completed=True`, plus a redirect
+or status text) is hand-maintained across ~8 write sites (PerformAllWork
+success + finally, the base/FunctionFinder/StatisticalDistributions
+BrokenProcessPool handlers, FittingBaseClass + FitUserDefinedFunction
+Solve/stat-failure terminals, `_run_fit_child`'s except handler, and the
+three success-path `RenderOutputHTML` redirect writes). Each new terminal
+site has to remember the full tuple; the
+`test_all_broken_process_pool_sites_use_terminal_helpers` /
+`test_all_success_terminal_writes_set_completed` structural guards exist
+precisely because the invariant is enforced by convention, not by type.
+
+**Recommended improvement (deferred).** Add a Django `TextChoices`
+`state` field (`INITIALIZING` / `RUNNING` / `TERMINAL`, default
+`INITIALIZING`) and 2–3 transition methods on the model —
+`mark_running(pid)`, `mark_terminal(redirect="")` (and the gate reads
+`row.state` directly). The transition methods become the single place
+that sets the field tuple correctly, replacing the derived `completed`
+flag and the scattered `process_id=0, completed=True` pairs. The gate's
+`is_active` / `is_pending` collapse to `state == RUNNING` (+ heartbeat
+window) and `state == INITIALIZING` (+ pending window). This is an
+**additive migration** (a new column + a data-free default), so it
+doesn't churn the schema history. Not an idealized rewrite — the current
+field-based design works, is covered by the gate/terminal tests, and
+ships green (147 unit + 14 smoke); this is separable type-design polish,
+sequence it with or after the "Make LRPStatus completion signal uniform"
+entry above (they touch the same fields).
+
+**Behavior change to revisit (concurrent-fit config).** The
+delete-prior-row step in `LongRunningProcessView` fires ONLY when
+`ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER=False` (concurrent DISALLOWED);
+see commit `92c6075`. The two modes diverge:
+
+- **Disallowed (`=False`, production-recommended).** Reaching the
+  create/delete block means the per-user gate already judged the prior fit
+  stale or completed, so the new dispatch deletes the prior row. A still-
+  running superseded child then reads `process_id is None` in
+  `CheckIfStillUsed` and *does* reap itself — `_teardown_abandoned_fit()` +
+  `_ReportsPipelineAborted` at its next heartbeat — freeing CPU/RAM
+  immediately rather than running to natural completion.
+- **Allowed (`=True`, the dev default).** The prior row is deliberately
+  NOT deleted (that would tear down a fit the setting promises to keep
+  running). The older fit keeps its own row, so its `CheckIfStillUsed`
+  never sees a missing row and runs to completion; the orphaned prior row
+  is reclaimed by the housekeeping age-sweep once the session pointer moves
+  on.
+
+This is a behavior change from `main`, where the single shared status slot
+let a newer fit's `processID` signal an older child to tear down
+regardless of the concurrent-fit setting. Revisit if concurrent-fit
+resource use under `=True` (an abandoned older fit consuming CPU/RAM until
+it finishes) becomes a concern — e.g. keep superseded rows briefly with a
+`superseded` state instead of leaving them for the age-sweep, so
+`CheckIfStillUsed` can reap them in allow-concurrent mode too.
 
 ## ~~Replace eval() with getattr() in LRP session helpers~~ RESOLVED 2026-05-29
 
@@ -1866,3 +2107,87 @@ each.
 
 **Not in scope of any current branch.** Cosmetic consistency; no
 observable bug under current code paths.
+
+## Pre-migration in-flight fits are not resumed across deploy
+
+**Symptom.** When the `feat/lrp-status-table` code is deployed while a user
+already has a fit in progress from the *previous* (status-session-blob)
+code, that user's browser session has the old `session_key_status` but no
+`lrp_status_pk`. The new `StatusView` / `StatusUpdateView` / per-user gate
+look up the `LRPStatus` row by `lrp_status_pk`, find nothing, and treat the
+still-running fit as absent — so its status page can no longer show progress
+or deliver the result. The abandoned child finishes (or is reaped) on its
+own; only the *view* of it is lost.
+
+**Hypothesis / scope.** A one-time cutover artifact, not a steady-state bug.
+It can only affect fits that were mid-flight at the exact moment of the
+deploy that introduces the `LRPStatus` table.
+
+**What we did NOT do, and why.** Codex (PR #21, comment 3328546514)
+suggested keeping a `session_key_status` fallback read path until old
+sessions expire, or migrating the session pointer on read. We declined: the
+whole point of the `2026-05-29-lrp-status-table-design.md` refactor was to
+*delete* the status-session apparatus (`_we_own_status_slot`,
+`_publish_terminal_error`, `dispatched_at`, `session_key_status`). Re-adding
+a parallel blob-read path — permanent code in the hot request path for a
+one-time transition — reintroduces exactly the dual-read surface the
+refactor removed, and the fallback would itself need test coverage and a
+removal date.
+
+**Mitigation (chosen).** Drain in-progress fits before deploying (see
+`docs/deployment/README.md`, "Upgrades and redeploys"). Fits are short, so a
+brief drain window before the Waitress restart fully avoids the symptom.
+
+**Where to pick up.** If a future deploy genuinely cannot drain (e.g. a
+long-running FunctionFinder must survive a restart), the cleanest path is a
+one-shot data migration that mints an `LRPStatus` row from any live
+`session_key_status` blob and stamps `lrp_status_pk` into that session —
+transitional and removable — rather than a permanent dual-read in the views.
+
+## True per-dispatch isolation for ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER=True
+
+**Symptom.** With `ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER=True` (the dev
+default), two fits in one browser session interfere in two ways Codex flagged
+on PR #21 (comments 3329374711 and 3329374713):
+
+1. **Shared result blobs (3329374711).** `data` and `functionfinder` are
+   per-SESSION SessionStores, not per-dispatch. The supersession guard in
+   `RenderOutputHTMLToAFileAndSetStatusRedirect` (skip-when-row-missing) only
+   fires when a row was deleted; in concurrent mode the prior row is now
+   preserved (commit 92c6075), so an older concurrent child still has a live
+   `process_id`, passes the guard, and can overwrite the shared `data` blob
+   that `/EvaluateAtAPoint/` reads — yielding stale/mixed follow-up
+   evaluations against whichever result `lrp_status_pk` currently points at.
+
+2. **Single status pointer (3329374713).** There is one `lrp_status_pk` per
+   browser session. A second concurrent dispatch overwrites it, so the first
+   fit's already-open status tab begins polling the newer row; the first row
+   stops receiving `StatusUpdateView` heartbeats and, after 300s,
+   `CheckIfStillUsed` tears the first (wanted) child down — or its terminal
+   redirect is simply never served.
+
+**Scope / why deferred.** Both are inherent to concurrent mode and were out
+of scope for the status-table cutover (`2026-05-29-lrp-status-table-design.md`,
+which explicitly kept `data`/`functionfinder` as session blobs and the status
+pointer as a single session key). The **production-recommended setting is
+`ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER=False`**, under which the per-user
+gate admits only one live fit at a time and neither issue can arise. The
+`True` default is a single-user local-dev convenience.
+
+**What we did NOT do, and why.** Did not make `data`/`functionfinder`
+per-dispatch or give each status page its own dispatch-scoped id this round —
+that is a genuine architecture change (new per-dispatch stores or a
+DB-backed data row keyed by dispatch pk, plus a status URL that carries the
+dispatch id instead of reading the mutable session pointer), not a localized
+fix, and it would expand PR #21 well past its stated scope.
+
+**Where to pick up.** Two coordinated pieces: (a) move the `data`/
+`functionfinder` payloads to per-dispatch storage (e.g. keyed by the
+`LRPStatus` pk, or folded into the row) so a superseded child cannot clobber
+the winner; (b) make the status page address its dispatch's row by id in the
+URL (e.g. `/StatusAndResults/<pk>/`) rather than the single
+`request.session['lrp_status_pk']`, so concurrent fits each keep a live,
+independently-heartbeated status view. With (b), the housekeeping/abandonment
+thresholds also need revisiting so a backgrounded-but-wanted concurrent fit
+isn't reaped. Until then, document `False` as the supported multi-user
+posture.

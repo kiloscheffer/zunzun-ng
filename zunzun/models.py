@@ -1,3 +1,35 @@
 from django.db import models
 
-# Create your models here.
+
+class LRPStatus(models.Model):
+    """Per-dispatch status row for a long-running fit.
+
+    One row per fit DISPATCH (not per user): the autopk ``id`` is the
+    dispatch identity, replacing the old ``dispatched_at`` ownership float
+    from the JSON-session-blob era. The current dispatch's pk is stored in
+    ``request.session['lrp_status_pk']`` and StatusView follows that pointer.
+    Older/superseded rows are simply unreferenced and reclaimed by cleanup
+    (delete-prior-row on new dispatch + an age sweep in the housekeeping
+    child). Because each fit writes only its own row, there is no shared
+    cell to race on and no ownership check is needed on writes.
+    """
+
+    # TextField (unbounded), not CharField(255): the FunctionFinder progress
+    # path writes an HTML <table> with one row per included equation family
+    # (WorkItems_CheckOneSecondSessionUpdates), which exceeds 255 chars on a
+    # normal multi-family run. update_status uses .update() (no Django-level
+    # length validation) and SQLite ignores VARCHAR length, so a cap is a
+    # silent footgun that would only bite a length-enforcing backend mid-fit.
+    # Matches redirect_to_results.
+    current_status = models.TextField(default="Initializing")
+    start_time = models.FloatField(default=0.0)
+    last_status_check = models.FloatField(default=0.0)
+    redirect_to_results = models.TextField(default="")
+    parallel_count = models.IntegerField(default=0)
+    process_id = models.IntegerField(default=0)
+    # True once the fit reaches a terminal state (success OR failure). The
+    # per-user gate's pending-window check reads this instead of
+    # redirect_to_results, because StatusView clears redirect_to_results the
+    # moment it serves the result — which would otherwise re-enable the
+    # pending window for a fast fit and falsely block the user's next POST.
+    completed = models.BooleanField(default=False)

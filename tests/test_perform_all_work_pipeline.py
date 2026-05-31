@@ -9,6 +9,8 @@ produce a broken redirect to an empty results page.
 
 from unittest import mock
 
+import pytest
+
 
 def test_perform_all_work_aborts_pipeline_on_reports_failure():
     from zunzun.LongRunningProcess.StatusMonitoredLongRunningProcessPage import (
@@ -18,9 +20,10 @@ def test_perform_all_work_aborts_pipeline_on_reports_failure():
 
     lrp = StatusMonitoredLongRunningProcessPage()
 
-    # Stub out methods that PerformAllWork calls
+    # Stub out methods that PerformAllWork calls. update_status is mocked so
+    # the test doesn't need a real LRPStatus row / DB.
     with (
-        mock.patch.object(lrp, "SaveDictionaryOfItemsToSessionStore"),
+        mock.patch.object(lrp, "update_status"),
         mock.patch.object(lrp, "GenerateListOfWorkItems"),
         mock.patch.object(lrp, "PerformWorkInParallel"),
         mock.patch.object(lrp, "GenerateListOfOutputReports"),
@@ -43,20 +46,19 @@ def test_perform_all_work_aborts_pipeline_on_reports_failure():
     assert lrp.fit_pool is None
 
 
+@pytest.mark.django_db
 def test_generate_list_of_work_items_aborts_pipeline_on_solve_failure(tmp_path, monkeypatch):
     """Solve() failure must raise _ReportsPipelineAborted so PerformAllWork
     does not continue into report/PDF/HTML stages that would overwrite the
     error redirect with a path to a (broken) success-results page. Also
-    verifies the dispatch-ownership-gated session write — when we own
-    the slot (pid AND dispatch_id match), the error redirect must be
-    published; the gate clear is bundled into the same write.
+    verifies the terminal write lands on this dispatch's LRPStatus row:
+    redirect_to_results set, process_id cleared.
     """
-    import os as _os
-
     from zunzun.LongRunningProcess.FittingBaseClass import FittingBaseClass
     from zunzun.LongRunningProcess.StatusMonitoredLongRunningProcessPage import (
         _ReportsPipelineAborted,
     )
+    from zunzun.models import LRPStatus
 
     # Redirect the error-HTML write to a temp dir so the test doesn't
     # pollute temp/ on real disk.
@@ -65,32 +67,13 @@ def test_generate_list_of_work_items_aborts_pipeline_on_solve_failure(tmp_path, 
         lambda *_args, **_kwargs: str(tmp_path / "error.html"),
     )
 
+    row = LRPStatus.objects.create(start_time=1.0, process_id=4321, current_status="Fitting Data")
+
     lrp = FittingBaseClass()
+    lrp.status_row_pk = row.pk
     lrp.dataObject = mock.Mock()
     lrp.dataObject.uniqueString = "test"
     lrp.dataObject.equation.Solve.side_effect = RuntimeError("Solve diverged")
-    # Simulate the parent's SetInitialStatusDataIntoSessionVariables
-    # having stamped a dispatch_id; the child carries the same value
-    # via apply_child_payload (test inlines the assignment).
-    lrp.dispatched_at = 12345.6789
-
-    saves = []
-    monkeypatch.setattr(
-        lrp,
-        "SaveDictionaryOfItemsToSessionStore",
-        lambda store, payload: saves.append((store, payload)),
-    )
-
-    # Simulate "we own the slot": session.processID matches our pid,
-    # session.dispatched_at matches our stamped dispatch_id.
-    def _load(store, key):
-        if key == "processID":
-            return _os.getpid()
-        if key == "dispatched_at":
-            return lrp.dispatched_at
-        return 0
-
-    monkeypatch.setattr(lrp, "LoadItemFromSessionStore", _load)
 
     try:
         lrp.GenerateListOfWorkItems()
@@ -99,24 +82,18 @@ def test_generate_list_of_work_items_aborts_pipeline_on_solve_failure(tmp_path, 
     else:
         raise AssertionError("Expected _ReportsPipelineAborted")
 
-    # The error redirect must have been written before the raise (under
-    # the new structure, redirect + gate clear are bundled into one
-    # ownership-gated write).
-    redirect_writes = [p for s, p in saves if s == "status" and "redirectToResultsFileOrURL" in p]
-    assert len(redirect_writes) == 1
-    assert redirect_writes[0]["redirectToResultsFileOrURL"].endswith("error.html")
-    # The bundled write also clears the per-user gate.
-    assert redirect_writes[0]["processID"] == 0
-    assert redirect_writes[0]["dispatched_at"] == 0
+    reloaded = LRPStatus.objects.get(pk=row.pk)
+    assert reloaded.redirect_to_results.endswith("error.html")
+    # The terminal write also clears the per-user gate.
+    assert reloaded.process_id == 0
 
 
 # ---------------------------------------------------------------------------
-# Dispatch-ownership and terminal-error helper coverage.
+# Terminal-error helper coverage.
 #
-# These cover the three helpers landed on StatusMonitoredLongRunningProcessPage
-# by fix/pipeline-error-redirects (PR #11) — _we_own_status_slot(),
-# _write_terminal_error_html(), _publish_terminal_error() — and the two
-# gated call sites (BrokenProcessPool handler, success-path entry gate).
+# _write_terminal_error_html() survives the LRPStatus cutover (it writes the
+# error HTML *file* and returns the path); only its callers changed (they now
+# publish via update_status instead of the retired _publish_terminal_error).
 # The pr-test-analyzer review on PR #11 flagged these branches as
 # transitively-exercised-but-never-asserted, i.e. the exact lines a future
 # refactor could "clean up" with zero test signal.
@@ -131,77 +108,8 @@ def _base_lrp():
     return StatusMonitoredLongRunningProcessPage()
 
 
-def test_we_own_status_slot_true_when_pid_and_dispatch_match(monkeypatch):
-    """pid match AND dispatched_at match → we own the slot."""
-    import os
-
-    lrp = _base_lrp()
-    lrp.dispatched_at = 999.5
-
-    def _load(store, key):
-        assert store == "status"
-        if key == "processID":
-            return os.getpid()
-        if key == "dispatched_at":
-            return 999.5
-        return None
-
-    monkeypatch.setattr(lrp, "LoadItemFromSessionStore", _load)
-    assert lrp._we_own_status_slot() is True
-
-
-def test_we_own_status_slot_false_when_dispatch_mismatch(monkeypatch):
-    """pid matches but dispatched_at differs → a newer fit owns the slot.
-
-    This is the dual-identity check's whole reason for existing: the OS
-    can recycle a pid, and a newer fit's SetInitialStatusDataIntoSessionVariables
-    overwrites session.dispatched_at without touching processID.
-    """
-    import os
-
-    lrp = _base_lrp()
-    lrp.dispatched_at = 999.5
-
-    def _load(store, key):
-        if key == "processID":
-            return os.getpid()
-        if key == "dispatched_at":
-            return 111.1  # newer dispatch stamped a different value
-        return None
-
-    monkeypatch.setattr(lrp, "LoadItemFromSessionStore", _load)
-    assert lrp._we_own_status_slot() is False
-
-
-def test_we_own_status_slot_true_on_session_read_failure(monkeypatch, caplog):
-    """Transient SQLite read failure → default to we-own=True (and log it).
-
-    This is the load-bearing branch documented in the helper's docstring:
-    letting a read hiccup return False would suppress the success redirect
-    and re-introduce the stuck-poll bug PR #11 fixed. OperationalError is a
-    subclass of DatabaseError, so it exercises the except clause.
-    """
-    import logging
-
-    from django.db import OperationalError
-
-    lrp = _base_lrp()
-    lrp.dispatched_at = 999.5
-
-    def _load(store, key):
-        raise OperationalError("database is locked")
-
-    monkeypatch.setattr(lrp, "LoadItemFromSessionStore", _load)
-
-    with caplog.at_level(logging.ERROR):
-        assert lrp._we_own_status_slot() is True
-    assert "Ownership check session read failed" in caplog.text
-
-
 def test_write_terminal_error_html_success(monkeypatch, tmp_path):
     """Happy path: returns the artifact path and the file exists on disk."""
-    from unittest import mock
-
     target = tmp_path / "err.html"
     monkeypatch.setattr(
         "zunzun.LongRunningProcess.StatusMonitoredLongRunningProcessPage.page_artifact_path",
@@ -221,11 +129,9 @@ def test_write_terminal_error_html_success(monkeypatch, tmp_path):
 def test_write_terminal_error_html_returns_none_on_disk_failure(monkeypatch, tmp_path):
     """Disk-unwritable: both the template render AND the static fallback
     target the same (unwritable) path, so the helper returns None rather
-    than raising — the contract the four BrokenProcessPool sites rely on
-    via `if html_path:`.
+    than raising — the contract the BrokenProcessPool sites rely on via
+    `... or ""`.
     """
-    from unittest import mock
-
     # Path inside a directory that doesn't exist → open() raises for both
     # the template-render write and the hardcoded-fallback write.
     bad = tmp_path / "no_such_dir" / "err.html"
@@ -241,28 +147,29 @@ def test_write_terminal_error_html_returns_none_on_disk_failure(monkeypatch, tmp
     assert lrp._write_terminal_error_html("something broke") is None
 
 
-def test_broken_process_pool_publishes_bundled_terminal_redirect(monkeypatch, tmp_path):
+@pytest.mark.django_db
+def test_broken_process_pool_publishes_terminal_redirect(monkeypatch, tmp_path):
     """A BrokenProcessPool in the reports phase must (a) raise
-    _ReportsPipelineAborted so PerformAllWork halts, and (b) publish a
-    single ownership-gated write bundling the terminal redirect with the
-    gate-clear (processID:0 / dispatched_at:0). Regression guard against
-    the pre-fix two-call shape that dropped the redirect.
+    _ReportsPipelineAborted so PerformAllWork halts, and (b) publish the
+    terminal redirect + gate-clear to this dispatch's LRPStatus row.
+    Regression guard against the pre-fix shape that dropped the redirect.
     """
-    import os
     from concurrent.futures.process import BrokenProcessPool
-    from unittest import mock
 
     from zunzun.LongRunningProcess.StatusMonitoredLongRunningProcessPage import (
         _ReportsPipelineAborted,
     )
+    from zunzun.models import LRPStatus
 
     monkeypatch.setattr(
         "zunzun.LongRunningProcess.StatusMonitoredLongRunningProcessPage.page_artifact_path",
         lambda *_a, **_k: str(tmp_path / "err.html"),
     )
 
+    row = LRPStatus.objects.create(start_time=1.0, process_id=4321, current_status="Running")
+
     lrp = _base_lrp()
-    lrp.dispatched_at = 42.0
+    lrp.status_row_pk = row.pk
     lrp.dataObject = mock.Mock()
     lrp.dataObject.uniqueString = "abc"
     lrp.characterizerOutputTrueOrReportOutputFalse = False
@@ -277,44 +184,23 @@ def test_broken_process_pool_publishes_bundled_terminal_redirect(monkeypatch, tm
     lrp.fit_pool = mock.Mock()
     lrp.fit_pool.submit_many.side_effect = BrokenProcessPool("a worker died")
 
-    # We still own the slot, so the terminal write must publish.
-    def _load(store, key):
-        if key == "processID":
-            return os.getpid()
-        if key == "dispatched_at":
-            return 42.0
-        return None
-
-    monkeypatch.setattr(lrp, "LoadItemFromSessionStore", _load)
-
-    saves = []
-    monkeypatch.setattr(
-        lrp,
-        "SaveDictionaryOfItemsToSessionStore",
-        lambda store, payload: saves.append((store, payload)),
-    )
-
-    import pytest
-
     with pytest.raises(_ReportsPipelineAborted):
         lrp.CreateOutputReportsInParallelUsingProcessPool()
 
-    redirect_writes = [p for s, p in saves if s == "status" and "redirectToResultsFileOrURL" in p]
-    assert len(redirect_writes) == 1
-    bundled = redirect_writes[0]
-    assert bundled["redirectToResultsFileOrURL"].endswith("err.html")
-    assert bundled["processID"] == 0
-    assert bundled["dispatched_at"] == 0
-    assert bundled["currentStatus"]  # carries the user-facing error text
+    reloaded = LRPStatus.objects.get(pk=row.pk)
+    assert reloaded.redirect_to_results.endswith("err.html")
+    assert reloaded.process_id == 0
+    assert reloaded.current_status  # carries the user-facing error text
+    assert reloaded.parallel_count == 0
 
 
 def test_all_broken_process_pool_sites_use_terminal_helpers():
-    """Structural guard: all four BrokenProcessPool handlers route through
-    _publish_terminal_error() + _write_terminal_error_html(). If a future
-    edit open-codes a save at one of these sites, this catches it without
-    needing four near-duplicate integration tests.
+    """Structural guard: all BrokenProcessPool handlers route through
+    update_status() + _write_terminal_error_html(). If a future edit
+    open-codes a save at one of these sites, this catches it without
+    needing near-duplicate integration tests.
 
-    The four sites are the _write_terminal_error_html callers:
+    The _write_terminal_error_html callers are:
     StatusMonitored base (1) + FunctionFinder.PerformWorkInParallel (2) +
     StatisticalDistributions.PerformWorkInParallel (1).
     """
@@ -334,38 +220,42 @@ def test_all_broken_process_pool_sites_use_terminal_helpers():
         inspect.getsource(StatisticalDistributions.StatisticalDistributions.PerformWorkInParallel),
     ]
     for src in sources:
-        assert "_publish_terminal_error" in src
+        assert "update_status" in src
         assert "_write_terminal_error_html" in src
 
 
-def test_render_output_html_entry_gate_skips_all_writes_when_not_owner(monkeypatch):
-    """Success-path entry gate: when a newer dispatch owns the slot,
-    RenderOutputHTMLToAFileAndSetStatusRedirect must return before ANY
-    shared-session write (the original race was an older child publishing
-    its success redirect over a newer fit's slot). smoke runs one fit at a
-    time, so only a unit test catches a dropped gate here.
+def test_all_success_terminal_writes_set_completed():
+    """Structural guard: every SUCCESS terminal write (the RenderOutputHTML
+    redirect publish on the base + the two FunctionFinder variants) sets
+    completed=True.
+
+    The per-user gate's is_pending check keys on `completed` (NOT
+    redirect_to_results, which StatusView clears on serve). If a future edit
+    drops `completed=True` from one of these success paths, a fast fit the
+    user views within 60s would re-enter the pending window and falsely block
+    the next POST — exactly the regression the completed flag exists to fix.
+    These methods write a redirect from the parent/child success path and are
+    never exercised end-to-end in the unit suite (smoke covers the live
+    pipeline), so a source-level guard is the cheapest non-flaky protection.
     """
-    import os
+    import inspect
 
-    lrp = _base_lrp()
-    lrp.dispatched_at = 42.0
-
-    def _load(store, key):
-        if key == "processID":
-            return os.getpid()
-        if key == "dispatched_at":
-            return 999.9  # newer dispatch owns the slot now
-        return None
-
-    monkeypatch.setattr(lrp, "LoadItemFromSessionStore", _load)
-
-    calls = []
-    monkeypatch.setattr(
-        lrp, "SaveDictionaryOfItemsToSessionStore", lambda *a, **k: calls.append(("status", a))
-    )
-    monkeypatch.setattr(
-        lrp, "SaveSpecificDataToSessionStore", lambda *a, **k: calls.append(("specific", a))
+    from zunzun.LongRunningProcess import (
+        FunctionFinder,
+        FunctionFinderResults,
+        StatusMonitoredLongRunningProcessPage,
     )
 
-    lrp.RenderOutputHTMLToAFileAndSetStatusRedirect()
-    assert calls == []  # entry gate returned before touching the session
+    sources = [
+        inspect.getsource(
+            StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRunningProcessPage.RenderOutputHTMLToAFileAndSetStatusRedirect
+        ),
+        inspect.getsource(
+            FunctionFinder.FunctionFinder.RenderOutputHTMLToAFileAndSetStatusRedirect
+        ),
+        inspect.getsource(
+            FunctionFinderResults.FunctionFinderResults.RenderOutputHTMLToAFileAndSetStatusRedirect
+        ),
+    ]
+    for src in sources:
+        assert "completed=True" in src

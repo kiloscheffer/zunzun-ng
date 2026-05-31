@@ -185,7 +185,7 @@ def test_lrp_instance_pickles_minimally():
 
 def _base_lrp_attrs(lrp, dimensionality=2):
     """Set the minimum attributes every LRP base class reads in build_child_payload."""
-    lrp.session_key_status = "k_status"
+    lrp.status_row_pk = 777
     lrp.session_key_data = "k_data"
     lrp.session_key_functionfinder = "k_ff"
     lrp.dimensionality = dimensionality
@@ -202,7 +202,7 @@ def test_fit_one_equation_payload_round_trips():
     payload = lrp.build_child_payload()
     clone = _roundtrip(payload)
     assert clone.lrp_class_path.endswith("FitOneEquation")
-    assert clone.session_key_status == "k_status"
+    assert clone.status_row_pk == 777
     assert clone.dimensionality == 2
 
 
