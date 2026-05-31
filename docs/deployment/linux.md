@@ -117,8 +117,11 @@ sudo journalctl -u caddy -f
   `MAX_TEMP_DIR_SIZE_IN_MBYTES` (default 500 in `settings.py`) and
   to purge expired sessions.
 - **Child-process visibility:** during a fit, `ps aux | grep python`
-  shows `waitress-serve` + the spawned `_run_fit_child` + up to 4
-  Pool workers under Linux fork (see `get_parallel_process_count`).
+  shows `waitress-serve` + the spawned `_run_fit_child` + its
+  `spawn`-based `FitPool` workers (count from
+  `get_parallel_process_count`; the old 4-worker cap was dropped when
+  the pool became persistent). Linux uses `spawn` too — the `fork` path
+  was removed in the cross-platform migration.
 - **Logs:** Waitress + Django output goes to journald. Child-process
   tracebacks land in `temp/{pid}.log` and are reaped periodically by
   the housekeeping logic.
