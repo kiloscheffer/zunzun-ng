@@ -1134,7 +1134,55 @@ accessibility polish.
 ergonomic improvements rather than bug fixes; pick them up
 individually as small focused commits when convenient.
 
-## Modernize legacy DOM access in matrix-selector JavaScript
+## ~~Modernize legacy DOM access in matrix-selector JavaScript~~ RESOLVED 2026-05-31
+
+> **Resolution.** Landed on `feat/matrix-selector-js-modernization`. Spec:
+> `docs/superpowers/specs/2026-05-31-matrix-selector-js-modernization-design.md`
+> (local / gitignored per repo convention). The selection state moved off the
+> inline `style="background-color:rgb(...)"` attribute and onto a `selected`
+> CSS class; the legacy Netscape/IE branches and both `eval()` calls are gone.
+>
+> **As-built (deviates from the recipe below — corrections noted):**
+> - **The recipe's white/lightgray semantics were inverted.** It said white
+>   `rgb(255,255,255)` = unselected and lightgray `rgb(211,211,211)` =
+>   selected. The live code (all 4 JS files + the 3 Python builders) is the
+>   opposite: **white = SELECTED** (hidden input `'True'`, inset border,
+>   included in the equation), **lightgray = unselected** (`'False'`, outset).
+>   Following the recipe's `classList.add('selected')` mapping literally would
+>   have silently flipped every coefficient selection. The bool->class mapping
+>   is now pinned by `tests/test_matrix_selector.py`.
+> - **The cells are built in-repo, not by pyeq3.** The clickable `<td>`s come
+>   from the Django templates' `*ColorList` context vars, populated by
+>   `FitUserSelectablePolyfunctional.py`, `FitUserCustomizablePolynomial.py`,
+>   and `FitUserSelectableRational.py`. Each `*ColorList` tuple's first element
+>   changed from an rgb string to a `selected` bool; `colorOffset` (string) ->
+>   `offsetSelected` (bool). No pyeq3-ng release was needed.
+> - **State is a class toggle, not add/remove against a no-default.** Default
+>   `td.pick` now carries the lightgray + outset look (the inline style used to
+>   supply the background); `td.pick.selected` is white + inset. The
+>   single-source read/write helpers `isSelected()` / `setSelected()` live in
+>   `JavascriptCommonToFunctionMatrices.js`, trimmed to just `c`, `maxCoeffs`,
+>   `warning` plus those helpers (the `ns4`/`ie4`/`d`/`w`/`lg`/`ins`/`os`
+>   globals are gone).
+> - **CSS consolidated; legacy partial deleted.** The `td.pick` rule moved
+>   into `static/custom.css` (new MATRIX PICKER CELLS section) and the
+>   Netscape-era `templates/zunzun/polyfunctional_css_style.html`
+>   `<style><!-- ... --></style>` partial + its `css_definitions` include were
+>   removed.
+>
+> **This unblocks** HTML-modernization remaining item #3 (inline
+> `style="background-color"` on coefficient-picker `<td>`s) — now done. Step 7
+> below (lowercasing `id='FUNCTION'` now that the JS no longer keys on it) is
+> left as optional future polish.
+>
+> **Verification:** `tests/test_matrix_selector.py` (7 tests) green; full
+> `pytest` green; `ruff format` clean. Smoke does not exercise the click UI
+> (it POSTs the hidden fields directly), so a manual click-through across 2D +
+> 3D polyfunctional / polynomial-customization / polyrational pickers is the
+> coverage for the interaction itself.
+>
+> Historical notes below, preserved for reference (including the inverted
+> white/lightgray semantics in the original recipe — see the correction above).
 
 **Symptom / exposure.** Four JS files in
 `templates/zunzun/javascript/`:
@@ -1229,6 +1277,75 @@ and `'rgb(211,211,211)'` (lightgray = selected).
 **Not in scope of any current branch.** Cleanup; no production
 behavior change. Worth a small focused commit; ~50% line reduction
 across 4 JS files plus the paired `<td>` template cleanup.
+
+## Matrix-selector follow-ups (duplication + submit-sync) — deferred from JS modernization
+
+**Surfaced by** the `/code-review xhigh` pass on
+`feat/matrix-selector-js-modernization` (2026-05-31). None are regressions
+from that PR — they are pre-existing structure the modernization left in place.
+Bundled here because they all live in the same matrix-selector surface and are
+best tackled together (and all need a manual click-through to verify, since
+there is no automated coverage of the picker's click/submit path — smoke POSTs
+the hidden fields directly).
+
+**1. Cross-file JS duplication.** After the rewrite, the four matrix scripts in
+`templates/zunzun/javascript/` are largely duplicated:
+- `JavascriptForRationalMatrix3D.js` is byte-identical to
+  `JavascriptForFunctionMatrix3D.js` except the `cT()` signature line
+  (`cT(id)` vs `cT(id, unusedFor3D)`) — 60 of 61 lines.
+- `readPolyFlags()` is byte-identical across `JavascriptForFunctionMatrix2D.js`,
+  `JavascriptForFunctionMatrix3D.js`, and `JavascriptForRationalMatrix3D.js`
+  (only the rational-2D variant genuinely differs, splitting `CPX_N`/`CPX_D`/
+  `CPX_O`).
+- The count→cap→toggle prologue of `cT()` (the `pickCells()` count loop, the
+  `count >= maxCoeffs` alert gate, and `setSelected(target, !isSelected(target))`)
+  is byte-identical in all four files (~18 lines × 4).
+
+The shared `JavascriptCommonToFunctionMatrices.js` already hosts the selection
+primitives (`pickCells`/`isSelected`/`setSelected`), so it is the natural home
+for a shared `readPolyFlags` (polyfunctional form) + a `toggleWithLimit(id)`
+helper, leaving only the rational-2D `readPolyFlags` and each file's
+format-specific equation-preview builder local. **Risk:** the common file is
+included by every matrix type, so a `readPolyFlags` defined there must be
+overridden (not shadowed by accident) by the rational-2D file — include order
+is common-first, so a later redefinition wins, but this is exactly the subtle
+JS that breaks silently. Re-run the manual click-through for all three pickers
+in 2D and 3D after any consolidation.
+
+**2. Dead `unusedFor3D` param.** `JavascriptForFunctionMatrix3D.js`'s
+`cT(id, unusedFor3D)` never reads the 2nd arg, yet the 3D templates pass
+`cT(this.id,1)` (polyfunctional) / `cT(this.id,0)` (polynomial). Drop the param
+and the `,1`/`,0` literals in the 3D divs, or document why 3D keeps an arg.
+
+**3. Python 3D ColorList builder duplication.** The 3D `Polyfun3DColorList`
+block (the 4-way `i==0&&j==0 / i>0&&j==0 / i==0&&j>0 / else` ladder) is
+byte-identical between `FitUserSelectablePolyfunctional.py` and
+`FitUserCustomizablePolynomial.py`, and within each file the rank-selected,
+rank-unselected, and no-rank branches differ only in the leading bool. Now that
+only the bool differs (the rgb→bool change made them alignable), the whole
+method collapses to: compute `is_selected` once per cell, then run a single
+4-way builder. A shared `_build_3d_color_list(self, selected_predicate)` on
+`FittingBaseClass` would cut ~3 near-identical copies per file. No 3D builder
+test exists (tests are 2D-only), so add 3D coverage alongside.
+
+**4. Altitude: selections only sync to hidden inputs at Submit-button click.**
+The picker holds selection state in the `selected` CSS class and reconciles it
+to the hidden `polyFunctional_*`/`polyRational_*` inputs via `readPolyFlags()`,
+which is wired only to the Submit button's `onClick`
+(`equation_fit_interface.html:136`). Any submit path that bypasses that button
+— pressing Enter in a text field (e.g. a data-name input), or a future
+programmatic `form.submit()` — ships every hidden input at its default `False`,
+silently discarding the user's coefficient selections. This is pre-existing
+(identical on `main`), but the deeper fix doubles as a cleanup: have
+`setSelected()` also write the corresponding hidden input at click time (the
+cell id already encodes the field name), making the form always submit-ready
+and letting `readPolyFlags()` + the inline `onClick` sweep be deleted entirely.
+
+**Not in scope of the JS-modernization branch.** That branch delivered the
+eval/dead-browser-branch removal and the inline-style→CSS-class migration, all
+manually verified. These four are cleanup/altitude on the same surface; doing
+them in-branch would invalidate that verification and expand the diff well past
+its stated scope. Each wants its own focused commit + a fresh click-through.
 
 ## Verify Caddy deployment recipes on macOS and Linux
 

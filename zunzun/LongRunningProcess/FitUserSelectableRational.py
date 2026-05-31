@@ -89,39 +89,31 @@ class FitUserSelectableRational(FittingBaseClass.FittingBaseClass):
             Polyrat2DNumeratorColorList = []  # Numerator
             for i in range(len(self.X2DList)):
                 if i in self.functionFinderResultsList[self.rank - 1][8]:
-                    Polyrat2DNumeratorColorList.append(
-                        ("rgb(255,255,255)", i, self.X2DList[i].HTML)
-                    )
+                    Polyrat2DNumeratorColorList.append((True, i, self.X2DList[i].HTML))
                 else:
-                    Polyrat2DNumeratorColorList.append(
-                        ("rgb(211,211,211)", i, self.X2DList[i].HTML)
-                    )
+                    Polyrat2DNumeratorColorList.append((False, i, self.X2DList[i].HTML))
             self.dictionaryToReturn["Polyrat2DNumeratorColorList"] = Polyrat2DNumeratorColorList
             Polyrat2DDenominatorColorList = []  # Denominator
             for i in range(len(self.X2DList)):
                 if i in self.functionFinderResultsList[self.rank - 1][9]:
-                    Polyrat2DDenominatorColorList.append(
-                        ("rgb(255,255,255)", i, self.X2DList[i].HTML)
-                    )
+                    Polyrat2DDenominatorColorList.append((True, i, self.X2DList[i].HTML))
                 else:
-                    Polyrat2DDenominatorColorList.append(
-                        ("rgb(211,211,211)", i, self.X2DList[i].HTML)
-                    )
+                    Polyrat2DDenominatorColorList.append((False, i, self.X2DList[i].HTML))
             self.dictionaryToReturn["Polyrat2DDenominatorColorList"] = Polyrat2DDenominatorColorList
             if len(self.equation.solvedCoefficients) == len(
                 self.equation.rationalNumeratorFlags
             ) + len(self.equation.rationalDenominatorFlags):
-                self.dictionaryToReturn["colorOffset"] = "rgb(211,211,211)"  # Offset Term NOT used
+                self.dictionaryToReturn["offsetSelected"] = False  # Offset Term NOT used
             else:
-                self.dictionaryToReturn["colorOffset"] = "rgb(255,255,255)"  # Offset Term used
+                self.dictionaryToReturn["offsetSelected"] = True  # Offset Term used
         else:  # NOT coming from a function finder
             Polyrat2DNumeratorColorList = []  # Numerator
             for i in range(len(self.X2DList)):
-                Polyrat2DNumeratorColorList.append(("rgb(211,211,211)", i, self.X2DList[i].HTML))
+                Polyrat2DNumeratorColorList.append((False, i, self.X2DList[i].HTML))
             self.dictionaryToReturn["Polyrat2DNumeratorColorList"] = Polyrat2DNumeratorColorList
             Polyrat2DDenominatorColorList = []  # Denominator
             for i in range(len(self.X2DList)):
-                Polyrat2DDenominatorColorList.append(("rgb(211,211,211)", i, self.X2DList[i].HTML))
+                Polyrat2DDenominatorColorList.append((False, i, self.X2DList[i].HTML))
             self.dictionaryToReturn["Polyrat2DDenominatorColorList"] = Polyrat2DDenominatorColorList
-            self.dictionaryToReturn["colorOffset"] = "rgb(211,211,211)"  # Offset Term
+            self.dictionaryToReturn["offsetSelected"] = False  # Offset Term
         FittingBaseClass.FittingBaseClass.SpecificEquationUnboundInterfaceCode(self, request)

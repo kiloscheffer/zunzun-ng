@@ -279,6 +279,14 @@ header h1 .brand-logo {
 
 .function-matrix {
   margin-top: 0.5rem;
+  /* Separate (not collapsed) borders so each picker cell owns all four of
+     its edges -- a prerequisite for the per-cell outset/inset 3D bevel in
+     the MATRIX PICKER CELLS section. simple.css sets table borders to
+     collapse, which merges shared edges into one flat line and defeats the
+     bevel; .function-matrix beats it on specificity. border-spacing gives
+     the gap between buttons that the collapsed layout had no room for. */
+  border-collapse: separate;
+  border-spacing: 0.35rem;
 }
 
 .matrix-layout > .function-matrix {
@@ -298,6 +306,46 @@ header h1 .brand-logo {
 .matrix-layout > .function-matrix-scroll {
   grid-area: matrix;
   max-width: 100%;
+}
+
+/* ------------------------------------------------------------------------ */
+/*   MATRIX PICKER CELLS                                                     */
+/*   Clickable coefficient cells in the polyfunctional / polynomial-        */
+/*   customization / polyrational selection matrices. The "selected" class  */
+/*   IS the selection state: JavascriptCommonToFunctionMatrices.js reads it  */
+/*   via isSelected() and toggles it via setSelected(); readPolyFlags()      */
+/*   then maps it onto the hidden polyFunctional / polyRational inputs at     */
+/*   submit. Both states share a silver face; unselected = raised (outset)   */
+/*   bevel, selected = pushed-in (inset) bevel -- selection reads from the    */
+/*   bevel direction alone, replacing the legacy inline white/lightgray       */
+/*   style="background-color:rgb(...)" that used to carry this state.         */
+/* ------------------------------------------------------------------------ */
+td.pick {
+  /* Classic raised push-button. The bevel uses EXPLICIT per-edge colors
+     rather than the `outset` keyword: modern browsers derive `outset` edges
+     from border-color but mostly only darken, so on a light face the
+     top/left highlight vanishes and the button looks like it casts a shadow
+     instead of standing proud. Setting the four edges by hand -- light
+     top/left, dark bottom/right -- reproduces the symmetric Win95 bevel of
+     the original site deterministically. border-color shorthand order is
+     top right bottom left. */
+  background-color: #d3d3d3;
+  border: 3px solid;
+  border-color: #f4f4f4 #808080 #808080 #f4f4f4;
+  cursor: pointer;
+  font-size: 75%;
+  padding: 0.5rem 0.75rem;
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* Pressed look = inverted bevel (dark top/left, light bottom/right), face
+   stays silver. Selected reads as "pushed in" purely from the depressed
+   bevel rather than a color change. Applied on mouse-down for tactile
+   feedback and persistently while selected. */
+td.pick:active,
+td.pick.selected {
+  border-color: #808080 #f4f4f4 #f4f4f4 #808080;
 }
 
 /* ------------------------------------------------------------------------ */

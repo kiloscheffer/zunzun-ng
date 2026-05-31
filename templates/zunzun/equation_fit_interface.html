@@ -1,11 +1,5 @@
 {% extends "zunzun/generic_page_template.html" %}
 
-{% block css_definitions %}
-{% if equationInstance.userSelectablePolyfunctionalFlag or equationInstance.userCustomizablePolynomialFlag or equationInstance.userSelectableRationalFlag %}
-{% include "zunzun/polyfunctional_css_style.html" %}
-{% endif %}
-{% endblock %}
-
 {% if equationInstance.userSelectablePolynomialFlag %}
 {% if dimensionality == '2' %}
 {% block additional_jquery_ready_code %}
