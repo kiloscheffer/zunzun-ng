@@ -165,9 +165,10 @@ def _run_fit_child(payload: ChildPayload) -> None:
         _logging.exception("Child exception in _run_fit_child")
 
         # Write a terminal error artifact so the polling UI completes.
-        # Without this, StatusUpdateView keeps reporting completed=False
-        # forever because no redirect_to_results is ever set, and the user
-        # is stuck on the status page until the session expires.
+        # Without this, the row stays non-terminal (state != TERMINAL) and
+        # no redirect_to_results is ever set; the _finalize_row_if_child_dead
+        # backstop eventually ends the poll once this child's pid is gone,
+        # but that leaves the user stuck on the status page in the interim.
         # Mirrors the three-layer fallback in
         # RenderOutputHTMLToAFileAndSetStatusRedirect: try the Django
         # template first, fall back to a hardcoded HTML string if
@@ -237,14 +238,15 @@ def _run_fit_child(payload: ChildPayload) -> None:
         except Exception:
             # The single poll-terminating LRPStatus write failed (a SQLite lock
             # past busy_timeout is the realistic trigger). The row stays
-            # process_id-set / completed-False, so the browser would poll
-            # forever — EXCEPT the status views' _finalize_row_if_child_dead
-            # backstop catches it once this child's pid goes away (which it is
-            # about to, on return). Distinct, greppable message so a postmortem
-            # can separate "terminal status write failed" from the earlier
-            # "couldn't write the HTML artifact" log above. No retry here: per
-            # the LRPStatus design these writes lean on busy_timeout, not a
-            # retry loop, and the reader-side backstop is the safety net.
+            # non-terminal (state != TERMINAL) with a stale/dead pid, so the
+            # browser would poll forever — EXCEPT the status views'
+            # _finalize_row_if_child_dead backstop catches it once this child's
+            # pid goes away (which it is about to, on return). Distinct,
+            # greppable message so a postmortem can separate "terminal status
+            # write failed" from the earlier "couldn't write the HTML artifact"
+            # log above. No retry here: per the LRPStatus design these writes
+            # lean on busy_timeout, not a retry loop, and the reader-side
+            # backstop is the safety net.
             _logging.exception(
                 "TERMINAL LRPStatus write FAILED for row pk=%s after child "
                 "exception; relying on the dead-pid reader backstop to end the poll",

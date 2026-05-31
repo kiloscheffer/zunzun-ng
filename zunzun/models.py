@@ -48,9 +48,7 @@ class LRPStatus(models.Model):
         written ONLY when passed, so a bare mark_terminal(pk) never clobbers a
         redirect a prior successful stage already published. Uses
         .filter(pk).update() (not instance.save()): a no-op if a superseding
-        dispatch deleted the row.
-
-        """
+        dispatch deleted the row."""
         fields = {"state": cls.State.TERMINAL, "process_id": 0}
         if redirect is not None:
             fields["redirect_to_results"] = redirect
