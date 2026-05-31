@@ -93,44 +93,10 @@ class FitUserSelectablePolyfunctional(FittingBaseClass.FittingBaseClass):
                         Polyfun2DColorList.append((False, i, self.X2DList[i].HTML))
                 self.dictionaryToReturn["Polyfun2DColorList"] = Polyfun2DColorList
             else:  # 3D
-                Polyfun3DColorList = []
-                for i in range(len(self.X3DList)):
-                    for j in range(len(self.Y3DList)):
-                        if [i, j] in self.functionFinderResultsList[self.rank - 1][5]:
-                            if i == 0 and j == 0:
-                                Polyfun3DColorList.append((True, i, j, "Offset", ""))
-                            elif i > 0 and j == 0:
-                                Polyfun3DColorList.append((True, i, j, self.X3DList[i].HTML, ""))
-                            elif i == 0 and j > 0:
-                                Polyfun3DColorList.append((True, i, j, "", self.Y3DList[j].HTML))
-                            else:
-                                Polyfun3DColorList.append(
-                                    (
-                                        True,
-                                        i,
-                                        j,
-                                        self.X3DList[i].HTML,
-                                        self.Y3DList[j].HTML,
-                                    )
-                                )
-                        else:
-                            if i == 0 and j == 0:
-                                Polyfun3DColorList.append((False, i, j, "Offset", ""))
-                            elif i > 0 and j == 0:
-                                Polyfun3DColorList.append((False, i, j, self.X3DList[i].HTML, ""))
-                            elif i == 0 and j > 0:
-                                Polyfun3DColorList.append((False, i, j, "", self.Y3DList[j].HTML))
-                            else:
-                                Polyfun3DColorList.append(
-                                    (
-                                        False,
-                                        i,
-                                        j,
-                                        self.X3DList[i].HTML,
-                                        self.Y3DList[j].HTML,
-                                    )
-                                )
-                    self.dictionaryToReturn["Polyfun3DColorList"] = Polyfun3DColorList
+                flags = self.functionFinderResultsList[self.rank - 1][5]
+                self.dictionaryToReturn["Polyfun3DColorList"] = self._build_3d_color_list(
+                    lambda i, j: [i, j] in flags
+                )
         else:
             if self.dimensionality == 2:
                 Polyfun2DColorList = []
@@ -138,24 +104,7 @@ class FitUserSelectablePolyfunctional(FittingBaseClass.FittingBaseClass):
                     Polyfun2DColorList.append((False, i, self.X2DList[i].HTML))
                 self.dictionaryToReturn["Polyfun2DColorList"] = Polyfun2DColorList
             else:  # 3D
-                Polyfun3DColorList = []
-                for i in range(len(self.X3DList)):
-                    for j in range(len(self.Y3DList)):
-                        if i == 0 and j == 0:
-                            Polyfun3DColorList.append((False, i, j, "Offset", ""))
-                        elif i > 0 and j == 0:
-                            Polyfun3DColorList.append((False, i, j, self.X3DList[i].HTML, ""))
-                        elif i == 0 and j > 0:
-                            Polyfun3DColorList.append((False, i, j, "", self.Y3DList[j].HTML))
-                        else:
-                            Polyfun3DColorList.append(
-                                (
-                                    False,
-                                    i,
-                                    j,
-                                    self.X3DList[i].HTML,
-                                    self.Y3DList[j].HTML,
-                                )
-                            )
-                self.dictionaryToReturn["Polyfun3DColorList"] = Polyfun3DColorList
+                self.dictionaryToReturn["Polyfun3DColorList"] = self._build_3d_color_list(
+                    lambda i, j: False
+                )
         FittingBaseClass.FittingBaseClass.SpecificEquationUnboundInterfaceCode(self, request)

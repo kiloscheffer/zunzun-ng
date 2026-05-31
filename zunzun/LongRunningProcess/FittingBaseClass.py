@@ -53,6 +53,33 @@ You must provide any weights you wish to use.
         # equation comes directly from the payload.
         self.equationFromPayload = payload.equation
 
+    def _build_3d_color_list(self, selected_predicate):
+        """Build the 3D coefficient-picker color list.
+
+        Each entry is (selected, i, j, htmlX, htmlY). ``i`` indexes
+        ``self.X3DList`` (row); ``j`` indexes ``self.Y3DList`` (column). The
+        (0, 0) cell is the
+        offset term; cells on the i==0 or j==0 axes carry only the other axis's
+        HTML. ``selected_predicate(i, j)`` returns the leading bool — pass
+        ``lambda i, j: [i, j] in flags`` for a FunctionFinder rank pre-fill, or
+        ``lambda i, j: False`` when not arriving from a function finder.
+        """
+        color_list = []
+        for i in range(len(self.X3DList)):
+            for j in range(len(self.Y3DList)):
+                selected = selected_predicate(i, j)
+                if i == 0 and j == 0:
+                    color_list.append((selected, i, j, "Offset", ""))
+                elif i > 0 and j == 0:
+                    color_list.append((selected, i, j, self.X3DList[i].HTML, ""))
+                elif i == 0 and j > 0:
+                    color_list.append((selected, i, j, "", self.Y3DList[j].HTML))
+                else:
+                    color_list.append(
+                        (selected, i, j, self.X3DList[i].HTML, self.Y3DList[j].HTML)
+                    )
+        return color_list
+
     def CheckDataForZeroAndPositiveAndNegative(self):
         # check for zero
         if (

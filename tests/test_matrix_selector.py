@@ -24,8 +24,12 @@ contains the substring ``background-color`` from the unrelated
 old picker pattern, so that is what the integration test guards against.)
 """
 
+import types
+
 import pytest
 from django.template.loader import render_to_string
+
+from zunzun.LongRunningProcess.FittingBaseClass import FittingBaseClass
 
 
 def _polyfunctional_2d(selected_first):
@@ -201,3 +205,56 @@ def test_polyfunctional_interface_renders_class_driven(client):
     assert "cT(this.id" in body
     # ...but no inline picker background-color survives.
     assert "background-color:rgb(" not in body
+
+
+class _HtmlStub:
+    def __init__(self, html):
+        self.HTML = html
+
+
+def _fake_3d_self():
+    # _build_3d_color_list reads only self.X3DList / self.Y3DList and each
+    # item's .HTML. Index 0 of each axis is the offset position; its .HTML is
+    # never read (the (0,0) cell is hardcoded "Offset").
+    return types.SimpleNamespace(
+        X3DList=[_HtmlStub("x0"), _HtmlStub("X")],
+        Y3DList=[_HtmlStub("y0"), _HtmlStub("Y")],
+    )
+
+
+def test_build_3d_color_list_no_rank_all_unselected():
+    result = FittingBaseClass._build_3d_color_list(_fake_3d_self(), lambda i, j: False)
+    assert result == [
+        (False, 0, 0, "Offset", ""),
+        (False, 0, 1, "", "Y"),
+        (False, 1, 0, "X", ""),
+        (False, 1, 1, "X", "Y"),
+    ]
+
+
+def test_build_3d_color_list_rank_predicate_marks_selected_cells():
+    flags = [[1, 1]]
+    result = FittingBaseClass._build_3d_color_list(
+        _fake_3d_self(), lambda i, j: [i, j] in flags
+    )
+    assert result == [
+        (False, 0, 0, "Offset", ""),
+        (False, 0, 1, "", "Y"),
+        (False, 1, 0, "X", ""),
+        (True, 1, 1, "X", "Y"),
+    ]
+
+
+def test_build_3d_color_list_predicate_selects_offset_and_axis_cells():
+    # selected=True must thread through every positional branch, not just the
+    # general (i>0, j>0) cell.
+    flags = [[0, 0], [1, 0], [0, 1]]
+    result = FittingBaseClass._build_3d_color_list(
+        _fake_3d_self(), lambda i, j: [i, j] in flags
+    )
+    assert result == [
+        (True, 0, 0, "Offset", ""),   # offset branch
+        (True, 0, 1, "", "Y"),        # Y-only branch
+        (True, 1, 0, "X", ""),        # X-only branch
+        (False, 1, 1, "X", "Y"),      # general branch, not selected
+    ]
