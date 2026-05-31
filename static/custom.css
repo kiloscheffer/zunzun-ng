@@ -320,11 +320,17 @@ header h1 .brand-logo {
 /*   style="background-color:rgb(...)" that used to carry this state).       */
 /* ------------------------------------------------------------------------ */
 td.pick {
-  /* Classic raised push-button: a silver button-face with an outset bevel.
-     border-color is set to the same gray as the face so the browser derives
-     the highlight (top/left) and shadow (bottom/right) edges from it. */
+  /* Classic raised push-button. The bevel uses EXPLICIT per-edge colors
+     rather than the `outset` keyword: modern browsers derive `outset` edges
+     from border-color but mostly only darken, so on a light face the
+     top/left highlight vanishes and the button looks like it casts a shadow
+     instead of standing proud. Setting the four edges by hand -- light
+     top/left, dark bottom/right -- reproduces the symmetric Win95 bevel of
+     the original site deterministically. border-color shorthand order is
+     top right bottom left. */
   background-color: #d3d3d3;
-  border: 3px outset #d3d3d3;
+  border: 3px solid;
+  border-color: #f4f4f4 #808080 #808080 #f4f4f4;
   cursor: pointer;
   font-size: 75%;
   padding: 0.5rem 0.75rem;
@@ -332,17 +338,17 @@ td.pick {
   white-space: nowrap;
 }
 
-/* Mouse-down: depress the button (invert the bevel) for tactile feedback,
-   independent of whether the click ends up selecting it. */
-td.pick:active {
-  border-style: inset;
+/* Pressed look = inverted bevel (dark top/left, light bottom/right). Applied
+   on mouse-down for tactile feedback and persistently while selected. */
+td.pick:active,
+td.pick.selected {
+  border-color: #808080 #f4f4f4 #f4f4f4 #808080;
 }
 
-/* Selected = pushed in: inset bevel + white face so picked terms read as
-   "engaged" against the raised, gray, unselected cells. */
+/* Selected also gets a white face so picked terms read as "engaged" against
+   the raised, gray, unselected cells. */
 td.pick.selected {
   background-color: #fff;
-  border-style: inset;
 }
 
 /* ------------------------------------------------------------------------ */
