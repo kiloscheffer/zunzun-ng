@@ -122,3 +122,34 @@ def test_housekeeping_deletes_aged_status_rows(tmp_path):
 
     assert LRPStatus.objects.filter(pk=fresh.pk).exists()
     assert not LRPStatus.objects.filter(pk=stale.pk).exists()
+
+
+@pytest.mark.django_db
+def test_housekeeping_initializes_django_before_model_access(monkeypatch, tmp_path):
+    """Regression (Codex PR #21, comment 3329374716): _housekeeping_child runs
+    in a multiprocessing spawn child — a fresh interpreter with no Django
+    bootstrap. It must call django.setup() before touching SessionStore /
+    LRPStatus, or the first ORM call raises AppRegistryNotReady, the broad
+    except swallows it, and session-clear + the row sweep + the temp-dir prune
+    are all silently skipped in production spawn mode.
+
+    pytest pre-initializes Django, so a not-ready registry can't be reproduced
+    in-process; instead assert django.setup() is actually invoked (re-running it
+    is a safe near-no-op when already configured, matching _run_fit_child).
+    """
+    import django
+
+    from zunzun import views
+
+    calls = []
+    real_setup = django.setup
+
+    def _tracking_setup(*args, **kwargs):
+        calls.append(True)
+        return real_setup(*args, **kwargs)
+
+    monkeypatch.setattr("django.setup", _tracking_setup)
+
+    views._housekeeping_child(str(tmp_path), 500)
+
+    assert calls, "_housekeeping_child must call django.setup() before model/session access"

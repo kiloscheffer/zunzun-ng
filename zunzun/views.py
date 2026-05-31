@@ -30,6 +30,20 @@ def _housekeeping_child(temp_dir: str, max_size_mb: int) -> None:
     Clears expired sessions and trims temp/ when it exceeds
     max_size_mb.
     """
+    # Spawn starts a fresh interpreter that does NOT inherit the parent's
+    # Django bootstrap (same constraint _run_fit_child documents). Without
+    # django.setup() here, the first ORM/session call below raises
+    # AppRegistryNotReady, the broad except swallows it, and ALL housekeeping
+    # — session-clear, the LRPStatus sweep, and the temp-dir prune — is
+    # silently skipped in production spawn mode. setup() is idempotent (a safe
+    # near-no-op when the registry is already populated, e.g. under pytest).
+    import os as _os
+
+    import django
+
+    _os.environ.setdefault("DJANGO_SETTINGS_MODULE", "settings")
+    django.setup()
+
     from django.contrib.sessions.backends.db import SessionStore as _SessionStore
 
     try:
