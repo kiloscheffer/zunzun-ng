@@ -1278,6 +1278,47 @@ and `'rgb(211,211,211)'` (lightgray = selected).
 behavior change. Worth a small focused commit; ~50% line reduction
 across 4 JS files plus the paired `<td>` template cleanup.
 
+## Matrix-selector round-2 follow-ups (from PR review of feat/matrix-selector-followups)
+
+**Surfaced by** the `/pr-review-toolkit:review-pr` pass on
+`feat/matrix-selector-followups` (2026-06-01). None block that branch (the
+review found zero Critical/Important *code* defects); these are residual
+coverage/dedup items deferred from it.
+
+**1. 2D color-list builder is untested and still inline.** The #3 work
+extracted the 3D ladder into `FittingBaseClass._build_3d_color_list` with unit
+tests, but the parallel 2D rank-prefill loops in
+`FitUserSelectablePolyfunctional.py` (`SpecificEquationUnboundInterfaceCode`,
+the `Polyfun2DColorList` block) and the `Polynomial2DColorList` block in
+`FitUserCustomizablePolynomial.py` remain inline and uncovered. They are
+simpler (one axis, no offset/axis branches) so risk is low, but the asymmetry
+means a 2D rank-prefill regression (e.g. `i in flags` vs `[i] in flags`) ships
+silently. If touched, extract a `_build_2d_color_list(self, selected_predicate)`
+mirroring the 3D helper and add the mirror tests. Note the 2D var names differ
+(`Polyfun2DColorList` vs `Polynomial2DColorList`), so the helper would assign
+into a caller-supplied key.
+
+**2. The two 3D matrix JS files are now byte-identical.** After the prologue
+hoist, `templates/zunzun/javascript/JavascriptForFunctionMatrix3D.js` and
+`JavascriptForRationalMatrix3D.js` are the same git blob. Merging them to a
+single included file (or having both `<script>` includes point at one file)
+removes a maintain-in-parallel hazard. Was a non-goal of the round-1 branch
+(template `<script>` include rewiring); pick up as its own small commit. Verify
+with a manual click-through of both the polyfunctional-3D and rational-3D
+pickers after rewiring the includes.
+
+**3. `AGENTS.md` brace-pattern filename imprecision.** `AGENTS.md` (the
+coefficient-picker-templates section) lists the three divs as
+`{polyfunctional,polyrational,polynomial_customization}_selection_div.html`,
+which brace-expands to a non-existent `polynomial_customization_selection_div.html`
+(the real file is `polynomial_customization_div.html`). The same wording in
+`docs/internals/active-gotchas.md` was corrected on the round-1 branch; fix
+`AGENTS.md` to match in a docs pass.
+
+**Not in scope of the round-1 branch.** All three are below the merge bar —
+coverage hardening and cosmetic/dedup cleanup — and were deferred from the PR
+review rather than fixed inline to keep that branch's diff scoped.
+
 ## ~~Matrix-selector follow-ups (duplication + submit-sync) — deferred from JS modernization~~ RESOLVED 2026-06-01
 
 > **Resolution.** All four items landed on `feat/matrix-selector-followups`.

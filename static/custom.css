@@ -314,8 +314,8 @@ header h1 .brand-logo {
 /*   customization / polyrational selection matrices. The "selected" class  */
 /*   IS the selection state: JavascriptCommonToFunctionMatrices.js reads it  */
 /*   via isSelected() and toggles it via setSelected(); setSelected() also   */
-/*   writes the cell's data-flag hidden input at click time, keeping the     */
-/*   form submit-ready at rest (no submit-time sweep). Both states share a   */
+/*   writes that hidden input on every toggle, while its server-rendered     */
+/*   initial value keeps the form correct at rest. Both states share a       */
 /*   silver face; unselected = raised (outset) bevel, selected = pushed-in   */
 /*   (inset) bevel -- selection reads from the bevel direction alone,        */
 /*   replacing the legacy inline white/lightgray                             */
