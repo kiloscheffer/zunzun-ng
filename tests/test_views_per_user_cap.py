@@ -5,6 +5,7 @@ if the user's prior LRPStatus row shows an active or pending fit. The gate
 reads the row pointed at by request.session['lrp_status_pk'].
 """
 
+import os
 import time
 from unittest import mock
 
@@ -46,7 +47,11 @@ def test_concurrent_fit_refused_when_flag_false_and_recent_fit(client):
     """ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER=False — refuse second POST."""
     with mock.patch("settings.ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER", False, create=True):
         client.get("/")
-        _plant_status_row(client, process_id=99999, last_status_check=time.time())
+        # process_id is this (live) process: the gate's dead-child backstop
+        # probes pid_is_alive and, finding the owner alive, leaves the row
+        # active so the cap blocks. (A bogus dead pid would now be finalized
+        # and the fit allowed — see test_concurrent_fit_allowed_when_pid_dead.)
+        _plant_status_row(client, process_id=os.getpid(), last_status_check=time.time())
 
         response = client.post(
             "/FitEquation__F__/2/Polynomial/Linear%20Polynomial/",
@@ -74,9 +79,11 @@ def test_concurrent_fit_refused_for_active_fit_without_polling(client):
     with mock.patch("settings.ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER", False, create=True):
         client.get("/")
         dispatch_time = time.time() - 120  # 2 min ago; never polled since
+        # Live pid so the gate's dead-child backstop sees a genuine running
+        # fit (probe returns alive) and the is_active window holds.
         _plant_status_row(
             client,
-            process_id=54321,
+            process_id=os.getpid(),
             start_time=dispatch_time,
             last_status_check=dispatch_time,
         )
@@ -87,6 +94,38 @@ def test_concurrent_fit_refused_for_active_fit_without_polling(client):
         )
         # Active fit, no polling → is_active must still hold → REFUSED
         assert b"already in progress" in response.content
+
+
+@pytest.mark.django_db
+def test_concurrent_fit_allowed_when_pid_dead(client, monkeypatch):
+    """ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER=False — a prior fit whose child
+    died WITHOUT finalizing (process_id still set, completed False, heartbeat
+    still fresh) must NOT block the user's next fit. The gate applies the
+    dead-child backstop (_finalize_row_if_child_dead): finding the owning pid
+    gone, it promotes the row to terminal so is_active releases, instead of
+    blocking the retry for up to 300s while the fresh heartbeat ages out.
+
+    Regression guard for wiring the backstop into the gate (previously the
+    gate trusted the heartbeat alone, so a SIGKILL/OOM-killed child blocked
+    the user until the 300s window lapsed).
+    """
+    monkeypatch.setattr("zunzun.platform_compat.pid_is_alive", lambda pid: False)
+    with mock.patch("settings.ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER", False, create=True):
+        client.get("/")
+        # Looks active (pid set, fresh heartbeat) but the owning child is dead.
+        _plant_status_row(
+            client,
+            process_id=4242,
+            start_time=time.time() - 30,
+            last_status_check=time.time(),
+        )
+
+        response = client.post(
+            "/FitEquation__F__/2/Polynomial/Linear%20Polynomial/",
+            data={"IndependentData": "1 2 3", "DependentData": "1 2 3"},
+        )
+        # Dead owner → backstop finalizes the row → gate must NOT block.
+        assert b"already in progress" not in response.content
 
 
 # Complete, valid 2D polynomial-quadratic form payload — enough for

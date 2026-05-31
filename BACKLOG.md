@@ -1424,6 +1424,28 @@ muddying the picture.
 >   DB lock past `busy_timeout`). The views detect the owning pid is gone
 >   and mark the row terminal so the poll ends.
 >
+> **Backstop hardening (`/code-review xhigh`, 2026-05-31).** Three follow-up
+> fixes from a later review pass, all in `zunzun/views.py` /
+> `_finalize_row_if_child_dead`:
+> - **Pre-pid-write death.** The backstop early-returned on `process_id == 0`,
+>   so a child that died (or failed to spawn) BEFORE `PerformAllWork`'s first
+>   `process_id` write left the row stuck — there was no pid to probe. It now
+>   finalizes a `process_id == 0` row once it is past the 60s pending window
+>   (by `start_time` age; no probe), matching `is_pending`'s bound. Covered by
+>   `test_status_view.py::test_backstop_finalizes_unset_pid_row_past_pending_window`.
+> - **Completed-but-uncleared gate block.** The per-user gate's `is_active`
+>   now also requires `not row.completed`, so a fit that finished but whose
+>   child died in the window before clearing `process_id` (result already
+>   deliverable) no longer falsely blocks the next POST.
+> - **Gate now applies the backstop.** `LongRunningProcessView`'s per-user
+>   gate calls `_finalize_row_if_child_dead(row)` before computing
+>   `is_active` / `is_pending`. Previously the gate trusted the heartbeat
+>   alone, so a SIGKILL/OOM-killed child blocked the user's retry for up to
+>   300s (the poll views already recovered; the gate was the one place a
+>   provably-dead fit still gated). A live fit's pid passes the probe and is
+>   left untouched. Covered by
+>   `test_views_per_user_cap.py::test_concurrent_fit_allowed_when_pid_dead`.
+>
 > **Still open (separable polish, not blockers).** The "Related minor
 > cleanups" below remain deferred: the duplicated terminal-write tuple
 > across ~5 sites is folded into the "Model LRPStatus lifecycle as an
@@ -1541,20 +1563,32 @@ ships green (147 unit + 14 smoke); this is separable type-design polish,
 sequence it with or after the "Make LRPStatus completion signal uniform"
 entry above (they touch the same fields).
 
-**Behavior change to revisit (concurrent-fit config).** Under
-`ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER=True`, a new dispatch now
-deletes the prior dispatch's row (delete-prior-row in
-`LongRunningProcessView`). An older fit that is still running when a newer
-one is dispatched therefore has its row removed out from under it, so
-`CheckIfStillUsed` reads `process_id is None` and no longer reaps it — the
-older fit just runs to completion on its own. This is arguably *correct*
-for an allow-concurrent config (independent fits should each finish), but
-it is a behavior change from `main`, where the shared status slot let a
-newer fit's `processID` signal the older child to tear down. Revisit if
-concurrent-fit resource use (an abandoned older fit consuming CPU/RAM
-until it finishes) becomes a concern — e.g. keep superseded rows briefly
-with a `superseded` state instead of hard-deleting, so `CheckIfStillUsed`
-can still reap them.
+**Behavior change to revisit (concurrent-fit config).** The
+delete-prior-row step in `LongRunningProcessView` fires ONLY when
+`ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER=False` (concurrent DISALLOWED);
+see commit `92c6075`. The two modes diverge:
+
+- **Disallowed (`=False`, production-recommended).** Reaching the
+  create/delete block means the per-user gate already judged the prior fit
+  stale or completed, so the new dispatch deletes the prior row. A still-
+  running superseded child then reads `process_id is None` in
+  `CheckIfStillUsed` and *does* reap itself — `_teardown_abandoned_fit()` +
+  `_ReportsPipelineAborted` at its next heartbeat — freeing CPU/RAM
+  immediately rather than running to natural completion.
+- **Allowed (`=True`, the dev default).** The prior row is deliberately
+  NOT deleted (that would tear down a fit the setting promises to keep
+  running). The older fit keeps its own row, so its `CheckIfStillUsed`
+  never sees a missing row and runs to completion; the orphaned prior row
+  is reclaimed by the housekeeping age-sweep once the session pointer moves
+  on.
+
+This is a behavior change from `main`, where the single shared status slot
+let a newer fit's `processID` signal an older child to tear down
+regardless of the concurrent-fit setting. Revisit if concurrent-fit
+resource use under `=True` (an abandoned older fit consuming CPU/RAM until
+it finishes) becomes a concern — e.g. keep superseded rows briefly with a
+`superseded` state instead of leaving them for the age-sweep, so
+`CheckIfStillUsed` can reap them in allow-concurrent mode too.
 
 ## ~~Replace eval() with getattr() in LRP session helpers~~ RESOLVED 2026-05-29
 

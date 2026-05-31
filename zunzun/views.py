@@ -287,25 +287,46 @@ def _finalize_row_if_child_dead(row) -> bool:
     it is closed here on the reader side — which additionally catches every
     no-handler-ran crash (SIGKILL/OOM/segfault) a writer-side retry never could.
 
-    If the row looks in-progress but its owning pid is no longer alive on this
-    host, mark it terminal so StatusView serves the "no results" page and the
-    gate releases. Mutates the passed-in ``row`` in place so the caller's
-    subsequent ``row.completed`` check sees the update. Returns True iff it
-    finalized. See platform_compat.pid_is_alive for the co-location and
-    pid-reuse caveats.
+    Two abandonment shapes are handled:
+
+      1. process_id SET but its owning pid is no longer alive on this host —
+         the common SIGKILL/OOM/segfault-mid-fit case; probe the pid.
+      2. process_id NEVER written (still 0) but the row is well past the 60s
+         pending window — the child died (or failed to spawn) during early
+         startup, BEFORE PerformAllWork's first ``process_id`` write. The pid
+         probe can't see this (there is no pid to probe), so without this
+         branch such a row polls forever. A healthy child writes its pid
+         within a few seconds of dispatch — well inside 60s — so this never
+         races a slow-but-live startup. 60s matches the per-user gate's
+         is_pending bound, keeping the two views of "pending" consistent.
+
+    If the row looks abandoned, mark it terminal so StatusView serves the
+    "no results" page and the gate releases. Mutates the passed-in ``row`` in
+    place so the caller's subsequent ``row.completed`` check sees the update.
+    Returns True iff it finalized. See platform_compat.pid_is_alive for the
+    co-location and pid-reuse caveats.
     """
-    if not row.process_id or row.completed:
+    if row.completed:
         return False
-    if platform_compat.pid_is_alive(row.process_id):
-        return False
+    if row.process_id:
+        # Child claimed the row: a live pid means the fit is genuinely still
+        # running, so leave it alone.
+        if platform_compat.pid_is_alive(row.process_id):
+            return False
+    else:
+        # No pid written yet: still within the pending window → assume the
+        # child is just starting up and leave it alone (no pid to probe).
+        if (time.time() - row.start_time) < 60:
+            return False
 
     import logging
 
     logging.warning(
-        "Fit child pid %s for LRPStatus row %s vanished without finalizing; "
-        "marking the row terminal so the poll loop ends",
-        row.process_id,
+        "LRPStatus row %s looks abandoned (process_id=%s, no live owner or no "
+        "pid written within the pending window); marking it terminal so the "
+        "poll loop ends",
         row.pk,
+        row.process_id,
     )
     from zunzun.models import LRPStatus
 
@@ -522,6 +543,19 @@ def LongRunningProcessView(
             from zunzun.models import LRPStatus
 
             row = LRPStatus.objects.filter(pk=request.session.get("lrp_status_pk")).first()
+            # Apply the dead-child backstop before judging the prior fit: a
+            # child killed by SIGKILL/OOM/segfault (or one whose terminal write
+            # failed) leaves the row process_id-set / completed-False with a
+            # heartbeat that can stay fresh for up to 300s, which would block
+            # this user's retry even though no fit is running. _finalize_row_if_
+            # child_dead promotes such a row to terminal (process_id=0,
+            # completed=True) in place, so the is_active/is_pending checks below
+            # see the released state. Mirrors what the status views already do
+            # on the poll path; without it the gate is the one place a provably-
+            # dead fit still gates. (A live fit's pid passes the probe and is
+            # left untouched, so genuine in-progress fits still block.)
+            if row is not None:
+                _finalize_row_if_child_dead(row)
             now = time.time()
             # Block if EITHER:
             #  - a child has written process_id and its heartbeat is fresh
@@ -545,7 +579,18 @@ def LongRunningProcessView(
             #    "no longer in progress" signal — NOT redirect_to_results,
             #    which StatusView clears the moment it serves the result.
             # Missing row → no active fit → allow.
-            is_active = bool(row) and row.process_id and (now - row.last_status_check) < 300
+            # `not row.completed` guards the narrow window where a terminal
+            # write set completed=True but the child died before clearing
+            # process_id (e.g. killed between RenderOutputHTML's completed=True
+            # write and PerformAllWork's process_id=0 clear). A finished fit —
+            # result already deliverable — must not register as an active fit
+            # and block the user's next POST for the 300s heartbeat window.
+            is_active = (
+                bool(row)
+                and row.process_id
+                and (now - row.last_status_check) < 300
+                and not row.completed
+            )
             is_pending = (
                 bool(row)
                 and (now - row.start_time) < 60

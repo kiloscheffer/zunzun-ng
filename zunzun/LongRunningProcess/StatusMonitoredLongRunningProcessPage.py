@@ -930,8 +930,6 @@ You must provide any weights you wish to use.
         until their task finishes, so we also ``terminate()`` the live
         children to free CPU/RAM immediately.
         """
-        import time
-
         time.sleep(1.0)
         if self.fit_pool is not None:
             self.fit_pool.shutdown(wait=False, cancel_futures=True)

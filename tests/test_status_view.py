@@ -6,6 +6,7 @@ LRPStatus row (request.session['lrp_status_pk']) rather than the old
 shared status session blob.
 """
 
+import os
 import time
 
 import pytest
@@ -77,10 +78,15 @@ def test_status_view_clears_redirect_after_consuming(client):
 
 @pytest.mark.django_db
 def test_status_update_returns_in_progress_json(client):
+    # process_id is this (live) process so the dead-child backstop sees a
+    # genuine running fit and renders in-progress. A real fit 84s in has its
+    # pid written within seconds of dispatch; process_id=0 this far past the
+    # pending window would (correctly) be finalized as an abandoned startup.
     row = _make_status_row(
         current_status="Calculating Error Statistics",
         start_time=time.time() - 84.0,
         last_status_check=time.time() - 2.0,
+        process_id=os.getpid(),
     )
     _wire_status_row(client, row)
 
@@ -403,3 +409,43 @@ def test_backstop_ignores_pending_row_with_unset_process_id(client, monkeypatch)
 
     reloaded = LRPStatus.objects.get(pk=row.pk)
     assert reloaded.completed is False
+
+
+@pytest.mark.django_db
+def test_backstop_finalizes_unset_pid_row_past_pending_window(client, monkeypatch):
+    """A row whose child never wrote its pid (process_id=0, not completed) but
+    that is well past the 60s pending window is a child that died or failed to
+    spawn during early startup — before PerformAllWork's first process_id
+    write. The pid probe can't see it (no pid to probe), so the backstop must
+    finalize it by start_time age, ending the poll loop instead of hanging
+    until session expiry. The liveness check must NOT be consulted (there is no
+    owning pid).
+    """
+    from zunzun.models import LRPStatus
+
+    called = {"n": 0}
+
+    def _spy(pid):
+        called["n"] += 1
+        return False
+
+    monkeypatch.setattr("zunzun.platform_compat.pid_is_alive", _spy)
+
+    row = _make_status_row(
+        current_status="Initializing",
+        start_time=time.time() - 120,  # well past the 60s pending window
+        last_status_check=time.time() - 120,
+        process_id=0,
+        completed=False,
+        redirect_to_results="",
+    )
+    _wire_status_row(client, row)
+
+    response = client.get("/StatusUpdate/")
+    assert response.status_code == 200
+    assert response.json() == {"completed": True}
+    assert called["n"] == 0  # no pid to probe — finalized on start_time age
+
+    reloaded = LRPStatus.objects.get(pk=row.pk)
+    assert reloaded.completed is True
+    assert reloaded.process_id == 0
