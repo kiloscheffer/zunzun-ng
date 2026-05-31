@@ -170,6 +170,14 @@ def test_mark_running_sets_state_and_pid():
 
 
 @pytest.mark.django_db
+def test_mark_running_noop_on_missing_row():
+    """A keyed update on a deleted/missing row matches zero rows and must not raise."""
+    from zunzun.models import LRPStatus
+
+    LRPStatus.mark_running(999999, 4242)  # nonexistent pk — harmless no-op
+
+
+@pytest.mark.django_db
 def test_mark_terminal_sets_terminal_and_clears_pid():
     from zunzun.models import LRPStatus
 
@@ -193,13 +201,26 @@ def test_mark_terminal_writes_optional_fields_when_passed():
         row.pk,
         redirect="/temp/result.html",
         current_status="done",
-        parallel_count=0,
+        parallel_count=4,
     )
 
     row.refresh_from_db()
     assert row.redirect_to_results == "/temp/result.html"
     assert row.current_status == "done"
-    assert row.parallel_count == 0
+    assert row.parallel_count == 4
+
+
+@pytest.mark.django_db
+def test_mark_terminal_dual_writes_completed_scaffolding():
+    """TEMPORARY (removed in Task 4): mark_terminal also sets the legacy
+    completed=True so readers still on the boolean stay correct during the
+    expand/contract migration."""
+    from zunzun.models import LRPStatus
+
+    row = LRPStatus.objects.create()
+    LRPStatus.mark_terminal(row.pk)
+    row.refresh_from_db()
+    assert row.completed is True
 
 
 @pytest.mark.django_db
