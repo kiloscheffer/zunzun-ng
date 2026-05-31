@@ -688,7 +688,9 @@ You must provide any weights you wish to use.
         `except _ReportsPipelineAborted: pass` doesn't propagate to
         _run_fit_child, the polling UI stays stuck forever.
 
-        Tiered fallback mirrors RenderOutputHTMLToAFileAndSetStatusRedirect:
+        Tiered fallback uses the same template-then-hardcoded philosophy as
+        RenderOutputHTMLToAFileAndSetStatusRedirect's error-path tiers (it omits
+        that method's success-results tier — this is purely the error path):
           1. Django template render of generic_error.html
           2. Hardcoded HTML string (template loader broken)
         Both layers use the same artifact path so the redirect is

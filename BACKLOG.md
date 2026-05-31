@@ -1398,7 +1398,38 @@ focused PR after the current branch ships, so the diff is bounded
 to "swap blob for table" without the in-flight race-condition fixes
 muddying the picture.
 
-## Make LRPStatus completion signal uniform across the views
+## ~~Make LRPStatus completion signal uniform across the views~~ RESOLVED 2026-05-31
+
+> **Resolution.** The core work landed on the same `feat/lrp-status-table`
+> branch (later commits than the cut that prompted this entry), so the
+> symptom described below — "the two polling views still key completion on
+> `redirect_to_results`" — is **no longer true on the branch**. Final state:
+> - `StatusUpdateView` reports `{"completed": True}` on
+>   `row.completed or row.redirect_to_results` (`zunzun/views.py`) — the
+>   durable `completed` flag is the primary signal; the redirect arm just
+>   covers the window before `StatusView` serves it.
+> - `StatusView` branches on `row.completed`: serves the file/302 when
+>   `redirect_to_results` is set, else renders a terminal "no results"
+>   page instead of looping on the in-progress template.
+> - Both edge cases are closed and tested:
+>   `test_status_view.py::test_status_view_serves_terminal_page_when_completed_without_redirect`
+>   (disk-unwritable terminal) and
+>   `test_status_update_returns_completed_when_completed_flag_set_without_redirect`
+>   (poll-after-clear).
+> - A reader-side **dead-pid backstop** (`_finalize_row_if_child_dead` in
+>   `zunzun/views.py`, `platform_compat.pid_is_alive`) was added in the
+>   PR #21 review pass to cover the remaining gap the `completed` flag
+>   can't: a child that dies WITHOUT finalizing its row at all (SIGKILL /
+>   OOM / segfault, or a terminal `update_status` that itself failed under
+>   DB lock past `busy_timeout`). The views detect the owning pid is gone
+>   and mark the row terminal so the poll ends.
+>
+> **Still open (separable polish, not blockers).** The "Related minor
+> cleanups" below remain deferred: the duplicated terminal-write tuple
+> across ~5 sites is folded into the "Model LRPStatus lifecycle as an
+> explicit state field" entry; the `CheckIfStillUsed` fallback-masking note
+> and the `StatusView`/`StatusUpdateView`/`CheckIfStillUsed` over-fetch are
+> small standalone items worth a future sweep.
 
 **Symptom / exposure.** Follow-up from the `/code-review` of the
 LRP-status-table branch (`feat/lrp-status-table`, 2026-05-30). The

@@ -233,8 +233,7 @@ class FitPool:
                     # superseded child. It is an Exception subclass, so the
                     # broad guard below would otherwise log-and-swallow it,
                     # leaving the parallel phase pulling results after
-                    # teardown. Must propagate. Late import avoids the
-                    # parallel_pool <-> StatusMonitored circular dependency.
+                    # teardown. Must propagate.
                     raise
                 except Exception:
                     # Incidental progress-callback errors (e.g. a transient
