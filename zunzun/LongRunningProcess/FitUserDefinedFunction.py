@@ -115,9 +115,7 @@ class FitUserDefinedFunction(FittingBaseClass.FittingBaseClass):
             # dispatch's row, clearing the gate. SystemExit below bypasses
             # _run_fit_child's terminal-error handler, so this is the only
             # place where the redirect can be written for this path.
-            self.update_status(
-                redirect_to_results=error_html_path or "", process_id=0, completed=True
-            )
+            self.mark_terminal(redirect=error_html_path or "")
             # Raise SystemExit so the spawned child terminates cleanly without
             # overwriting the redirect already written to the session store.
             # SystemExit is a BaseException, not Exception, so the generic

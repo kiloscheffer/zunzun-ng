@@ -677,6 +677,21 @@ You must provide any weights you wish to use.
         row = LRPStatus.objects.filter(pk=self.status_row_pk).values(field).first()
         return row[field] if row is not None else default
 
+    def mark_running(self):
+        """Transition this dispatch's row INITIALIZING -> RUNNING with this
+        child's pid. Thin wrapper over LRPStatus.mark_running."""
+        from zunzun.models import LRPStatus
+
+        LRPStatus.mark_running(self.status_row_pk, os.getpid())
+
+    def mark_terminal(self, **kwargs):
+        """Transition this dispatch's row to TERMINAL (clears process_id). Thin
+        wrapper over LRPStatus.mark_terminal; forwards optional redirect /
+        current_status / parallel_count kwargs."""
+        from zunzun.models import LRPStatus
+
+        LRPStatus.mark_terminal(self.status_row_pk, **kwargs)
+
     def _write_terminal_error_html(self, error_message):
         """Render a terminal error page to the dataObject's artifact path
         and return that path. Returns None only if disk is unwritable.
@@ -737,7 +752,7 @@ You must provide any weights you wish to use.
 
         self.fit_pool = FitPool()
         try:
-            self.update_status(process_id=os.getpid())
+            self.mark_running()
 
             self.GenerateListOfWorkItems()
 
@@ -759,7 +774,7 @@ You must provide any weights you wish to use.
             # dispatch owns its own row, so no ownership check is needed.
             # start_time is left intact for the status template's elapsed
             # timer.
-            self.update_status(process_id=0, completed=True)
+            self.mark_terminal()
 
         except _ReportsPipelineAborted:
             # The reports phase wrote its own user-visible status AND
@@ -779,19 +794,19 @@ You must provide any weights you wish to use.
             # scipy/numpy crash, DB error). Clears process_id so the
             # per-user gate's is_active check is released.
             #
-            # Deliberately does NOT set completed=True here. On the
+            # Deliberately does NOT mark the row TERMINAL here. On the
             # unhandled-exception path the exception propagates to
             # _run_fit_child's except-branch, which writes the terminal
             # error artifact and publishes its path to redirect_to_results
-            # — but only if the row is not ALREADY completed (its
-            # `already_completed` guard exists to avoid clobbering a served
-            # success). If this finally pre-set completed=True, that guard
+            # — but only if the row is not already terminal (its
+            # `already terminal` guard exists to avoid clobbering a served
+            # success). If this finally pre-set state=TERMINAL, that guard
             # would skip the error redirect and orphan the artifact, leaving
-            # the user on the generic "no results" page. So `completed` is
+            # the user on the generic "no results" page. So state=TERMINAL is
             # left for a real terminal writer to set: the success path
             # (above), the abort sites, or _run_fit_child's handler (which
             # always sets it). The gate is still released in every failure
-            # path because that handler sets process_id=0 + completed=True.
+            # path because that handler sets process_id=0 + state=TERMINAL.
             # This dispatch owns its own row, so the update only touches our
             # row (a superseding dispatch deleted it → zero rows).
             try:
@@ -876,10 +891,8 @@ You must provide any weights you wish to use.
                 "An internal error occurred during report generation. "
                 "Please try again or contact the administrator."
             )
-            self.update_status(
-                redirect_to_results=self._write_terminal_error_html(error_message) or "",
-                process_id=0,
-                completed=True,
+            self.mark_terminal(
+                redirect=self._write_terminal_error_html(error_message) or "",
                 current_status=error_message,
                 parallel_count=0,
             )
@@ -1170,7 +1183,7 @@ You must provide any weights you wish to use.
             # with PerformAllWork's end-of-try process_id=0/completed=True
             # clear) so the gate's pending window can't re-fire after
             # StatusView consumes redirect_to_results.
-            self.update_status(redirect_to_results=result_html_path, completed=True)
+            self.mark_terminal(redirect=result_html_path)
         else:
             # Disk is unwritable; we cannot deliver a terminal page.
             # Update status text so polling at least surfaces the error,

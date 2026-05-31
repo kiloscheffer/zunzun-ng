@@ -144,10 +144,8 @@ class StatisticalDistributions(
                     "An internal error occurred during statistical "
                     "distribution fitting. Please try again or contact the administrator."
                 )
-                self.update_status(
-                    redirect_to_results=self._write_terminal_error_html(error_message) or "",
-                    process_id=0,
-                    completed=True,
+                self.mark_terminal(
+                    redirect=self._write_terminal_error_html(error_message) or "",
                     current_status=error_message,
                     parallel_count=0,
                 )

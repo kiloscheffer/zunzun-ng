@@ -210,25 +210,30 @@ def _run_fit_child(payload: ChildPayload) -> None:
 
             # Don't clobber a row an earlier successful stage already
             # finalized (e.g., RenderOutputHTML succeeded — setting
-            # completed=True — then the success-path process_id-cleanup
-            # raised). Guard on the durable `completed` flag, NOT on
+            # state=TERMINAL — then the success-path process_id-cleanup
+            # raised). Guard on the durable `state == TERMINAL`, NOT on
             # redirect_to_results: StatusView clears the redirect to "" the
             # moment it serves the result, so a redirect-based check would
             # mistake a served-and-cleared success for "no redirect yet" and
-            # overwrite it with this error page. `completed` survives that.
-            already_completed = (
+            # overwrite it with this error page. state=TERMINAL survives that.
+            current_state = (
                 LRPStatus.objects.filter(pk=payload.status_row_pk)
-                .values_list("completed", flat=True)
+                .values_list("state", flat=True)
                 .first()
             )
-            update_fields: dict[str, Any] = {"process_id": 0, "completed": True}
-            if not already_completed:
-                update_fields["redirect_to_results"] = error_html_path if write_succeeded else ""
-                update_fields["current_status"] = (
-                    "An unknown exception has occurred. Please try again or "
-                    "contact the site administrator."
+            if current_state == LRPStatus.State.TERMINAL:
+                # An earlier successful stage already finalized this row; just
+                # reaffirm the terminal tuple without clobbering its redirect.
+                LRPStatus.mark_terminal(payload.status_row_pk)
+            else:
+                LRPStatus.mark_terminal(
+                    payload.status_row_pk,
+                    redirect=error_html_path if write_succeeded else "",
+                    current_status=(
+                        "An unknown exception has occurred. Please try again or "
+                        "contact the site administrator."
+                    ),
                 )
-            LRPStatus.objects.filter(pk=payload.status_row_pk).update(**update_fields)
         except Exception:
             # The single poll-terminating LRPStatus write failed (a SQLite lock
             # past busy_timeout is the realistic trigger). The row stays
