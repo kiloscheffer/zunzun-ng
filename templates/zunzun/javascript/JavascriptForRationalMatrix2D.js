@@ -1,267 +1,102 @@
  function cT(id)
  {
-    if (ns4)
+    cells = pickCells();
+    count = 0;
+    for (i=0; i<cells.length; i++)
     {
-        len = d.layers.length;
-        count = 0;
-        for (i=0; i<len; i++)
+        if (isSelected(cells[i]))
         {
-            if ((d.layers[i].id.toString().substring(0,3) == "CPX") && (d.layers[i].style.backgroundColor.replace(/\s/g, '') == w))
-            {
-                count += 1;
-            }
+            count += 1;
         }
-        if ((count >= maxCoeffs) && (d.layers[id].style.backgroundColor.replace(/\s/g, '') == lg))
-        {
-            alert(warning);
-            return;
-        }
-
-        if (d.layers[id].style.backgroundColor.replace(/\s/g, '') == lg)
-        {
-            d.layers[id].style.backgroundColor = w;
-            d.layers[id].borderStyle = ins;
-        }
-        else
-        {
-            d.layers[id].style.backgroundColor = lg;
-            d.layers[id].borderStyle = os;
-        }
-
-        tstr = "<b>y = &nbsp; (</b>";
-        str = "";
-        count = 0;
-        totalCount = 0;
-        for (i=0; i<len; i++) // Numerator
-        {
-            if (d.layers[i].id.toString().substring(0,5) != "CPX_N")
-            {
-                continue;
-            }
-
-            if (d.layers[i].style.backgroundColor.replace(/\s/g, '') == w)
-            {
-                if (count > 0)
-                    tstr += "&nbsp+ ";
-                if (d.layers[i].id.toString().substring(5,6) == "0")
-                    tstr += '<b>' + c[totalCount] + '</b>';
-                else
-                    tstr += '<b>' + c[totalCount] + '(&nbsp;</b>' + d.all[i].innerHTML + '<b>&nbsp;)</b>';
-                count += 1;
-                totalCount += 1;
-            }
-        }
-        tstr += "<b>) &nbsp; / &nbsp; (1.0 + </b>";
-        count = 0;
-        for (i=0; i<len; i++) // Denominator
-        {
-            if (d.layers[i].id.toString().substring(0,5) != "CPX_D")
-            {
-                continue;
-            }
-
-            if (d.layers[i].style.backgroundColor.replace(/\s/g, '') == w)
-            {
-                if (count > 0)
-                    tstr += "&nbsp+ ";
-                if (d.layers[i].id.toString().substring(5,6) == "0")
-                    tstr += '<b>' + c[totalCount] + '</b>';
-                else
-                    tstr += '<b>' + c[totalCount] + '(&nbsp;</b>' + d.all[i].innerHTML + '<b>&nbsp;)</b>';
-                count += 1;
-                totalCount += 1;
-            }
-        }
-        tstr += "<b>)</b>";
-        
-        for (i=0; i<len; i++) // Offset
-        {
-            if (d.layers[i].id.toString().substring(0,5) != "CPX_O")
-            {
-                continue;
-            }
-
-            if (d.layers[i].style.backgroundColor.replace(/\s/g, '') == w)
-            {
-                tstr += ' &nbsp; + &nbsp; <b>' + c[totalCount] + '</b>';
-            }
-        }
-        
-        d.layers['FUNCTION'].innerHTML = tstr;
     }
 
-    if (ie4)
+    target = document.getElementById(id);
+    if ((count >= maxCoeffs) && (!isSelected(target)))
     {
-        len = d.all.length;
-        count = 0;
-        for (i=0; i<len; i++)
-        {
-            if ((d.all[i].id.toString().substring(0,3) == "CPX") && (d.all[i].style.backgroundColor.replace(/\s/g, '') == w))
-            {
-                count += 1;
-            }
-        }
-        if ((count >= maxCoeffs) && (d.all[id].style.backgroundColor.replace(/\s/g, '') == lg))
-        {
-            alert(warning);
-            return;
-        }
-
-        if (d.all[id].style.backgroundColor.replace(/\s/g, '') == lg)
-        {
-            d.all[id].style.backgroundColor = w;
-            d.all[id].style.borderStyle = ins;
-        }
-        else
-        {
-            d.all[id].style.backgroundColor = lg;
-            d.all[id].style.borderStyle = os;
-        }
-
-        tstr = "<b>y = &nbsp; (</b>";
-        str = "";
-        count = 0;
-        totalCount = 0;
-        for (i=0; i<len; i++) // Numerator
-        {
-            if (d.all[i].id.toString().substring(0,5) != "CPX_N")
-            {
-                continue;
-            }
-
-            if (d.all[i].style.backgroundColor.replace(/\s/g, '') == w)
-            {
-                if (count > 0)
-                    tstr += "&nbsp+ ";
-                if (d.all[i].id.toString().substring(5,6) == "0")
-                    tstr += '<b>' + c[totalCount] + '</b>';
-                else
-                    tstr += '<b>' + c[totalCount] + '(&nbsp;</b>' + d.all[i].innerHTML + '<b>&nbsp;)</b>';
-                count += 1;
-                totalCount += 1;
-            }
-        }
-        tstr += "<b>) &nbsp; / &nbsp; (1.0 + </b>";
-        count = 0;
-        for (i=0; i<len; i++) // Denominator
-        {
-            if (d.all[i].id.toString().substring(0,5) != "CPX_D")
-            {
-                continue;
-            }
-
-            if (d.all[i].style.backgroundColor.replace(/\s/g, '') == w)
-            {
-                if (count > 0)
-                    tstr += "&nbsp+ ";
-                if (d.all[i].id.toString().substring(5,6) == "0")
-                    tstr += '<b>' + c[totalCount] + '</b>';
-                else
-                    tstr += '<b>' + c[totalCount] + '(&nbsp;</b>' + d.all[i].innerHTML + '<b>&nbsp;)</b>';
-                count += 1;
-                totalCount += 1;
-            }
-        }
-        tstr += "<b>)</b>";
-        
-        for (i=0; i<len; i++) // Offset
-        {
-            if (d.all[i].id.toString().substring(0,5) != "CPX_O")
-            {
-                continue;
-            }
-
-            if (d.all[i].style.backgroundColor.replace(/\s/g, '') == w)
-            {
-                tstr += ' &nbsp; + &nbsp; <b>' + c[totalCount] + '</b>';
-            }
-        }
-
-        d.all['FUNCTION'].innerHTML = tstr;
+        alert(warning);
+        return;
     }
+
+    setSelected(target, !isSelected(target));
+
+    tstr = "<b>y = &nbsp; (</b>";
+    count = 0;
+    totalCount = 0;
+    for (i=0; i<cells.length; i++) // Numerator
+    {
+        if (cells[i].id.toString().substring(0,5) != "CPX_N")
+        {
+            continue;
+        }
+
+        if (isSelected(cells[i]))
+        {
+            if (count > 0)
+                tstr += "&nbsp+ ";
+            if (cells[i].id.toString().substring(5,6) == "0")
+                tstr += '<b>' + c[totalCount] + '</b>';
+            else
+                tstr += '<b>' + c[totalCount] + '(&nbsp;</b>' + cells[i].innerHTML + '<b>&nbsp;)</b>';
+            count += 1;
+            totalCount += 1;
+        }
+    }
+    tstr += "<b>) &nbsp; / &nbsp; (1.0 + </b>";
+    count = 0;
+    for (i=0; i<cells.length; i++) // Denominator
+    {
+        if (cells[i].id.toString().substring(0,5) != "CPX_D")
+        {
+            continue;
+        }
+
+        if (isSelected(cells[i]))
+        {
+            if (count > 0)
+                tstr += "&nbsp+ ";
+            if (cells[i].id.toString().substring(5,6) == "0")
+                tstr += '<b>' + c[totalCount] + '</b>';
+            else
+                tstr += '<b>' + c[totalCount] + '(&nbsp;</b>' + cells[i].innerHTML + '<b>&nbsp;)</b>';
+            count += 1;
+            totalCount += 1;
+        }
+    }
+    tstr += "<b>)</b>";
+
+    for (i=0; i<cells.length; i++) // Offset
+    {
+        if (cells[i].id.toString().substring(0,5) != "CPX_O")
+        {
+            continue;
+        }
+
+        if (isSelected(cells[i]))
+        {
+            tstr += ' &nbsp; + &nbsp; <b>' + c[totalCount] + '</b>';
+        }
+    }
+
+    document.getElementById('FUNCTION').innerHTML = tstr;
  }
 
  function readPolyFlags()
  {
-    if (ns4)
+    cells = pickCells();
+    for (i=0; i<cells.length; i++)
     {
-        len = document.layers.length;
-        for (i=0; i<len; i++)
+        value = isSelected(cells[i]) ? 'True' : 'False';
+        if (cells[i].id.toString().substring(0,5) == 'CPX_N')
         {
-        	if(document.layers[i].id.toString().substring(0,5) == 'CPX_N')
-        	{
-	            if (document.layers[i].style.backgroundColor.replace(/\s/g, '') == w)
-	            {
-	                eval("document.forms[0].elements.polyRational_X_N" + document.layers[i].id.toString().substring(5) + ".value = 'True'");
-	            }
-	            else
-	            {
-	                eval("document.forms[0].elements.polyRational_X_N" + document.layers[i].id.toString().substring(5) + ".value = 'False'");
-	            }
-	        }
-        	if(document.layers[i].id.toString().substring(0,5) == 'CPX_D')
-        	{
-	            if (document.layers[i].style.backgroundColor.replace(/\s/g, '') == w)
-	            {
-	                eval("document.forms[0].elements.polyRational_X_D" + document.layers[i].id.toString().substring(5) + ".value = 'True'");
-	            }
-	            else
-	            {
-	                eval("document.forms[0].elements.polyRational_X_D" + document.layers[i].id.toString().substring(5) + ".value = 'False'");
-	            }
-	        }
-        	if(document.layers[i].id.toString().substring(0,5) == 'CPX_O')
-        	{
-	            if (document.layers[i].style.backgroundColor.replace(/\s/g, '') == w)
-	            {
-	                eval("document.forms[0].elements.polyRational_OFFSET.value = 'True'");
-	            }
-	            else
-	            {
-	                eval("document.forms[0].elements.polyRational_OFFSET.value = 'False'");
-	            }
-	        }
+            document.forms[0].elements['polyRational_X_N' + cells[i].id.toString().substring(5)].value = value;
         }
-    }
-
-    if (ie4)
-    {
-        len = document.all.length;
-        for (i=0; i<len; i++)
+        if (cells[i].id.toString().substring(0,5) == 'CPX_D')
         {
-        	if(document.all[i].id.toString().substring(0,5) == 'CPX_N')
-        	{
-	            if (document.all[i].style.backgroundColor.replace(/\s/g, '') == w)
-	            {
-	                eval("document.forms[0].elements.polyRational_X_N" + document.all[i].id.toString().substring(5) + ".value = 'True'");
-	            }
-	            else
-	            {
-	                eval("document.forms[0].elements.polyRational_X_N" + document.all[i].id.toString().substring(5) + ".value = 'False'");
-	            }
-            }
-        	if(document.all[i].id.toString().substring(0,5) == 'CPX_D')
-        	{
-	            if (document.all[i].style.backgroundColor.replace(/\s/g, '') == w)
-	            {
-	                eval("document.forms[0].elements.polyRational_X_D" + document.all[i].id.toString().substring(5) + ".value = 'True'");
-	            }
-	            else
-	            {
-	                eval("document.forms[0].elements.polyRational_X_D" + document.all[i].id.toString().substring(5) + ".value = 'False'");
-	            }
-            }
-        	if(document.all[i].id.toString().substring(0,5) == 'CPX_O')
-        	{
-	            if (document.all[i].style.backgroundColor.replace(/\s/g, '') == w)
-	            {
-	                eval("document.forms[0].elements.polyRational_OFFSET.value = 'True'");
-	            }
-	            else
-	            {
-	                eval("document.forms[0].elements.polyRational_OFFSET.value = 'False'");
-	            }
-            }
+            document.forms[0].elements['polyRational_X_D' + cells[i].id.toString().substring(5)].value = value;
+        }
+        if (cells[i].id.toString().substring(0,5) == 'CPX_O')
+        {
+            document.forms[0].elements['polyRational_OFFSET'].value = value;
         }
     }
  }

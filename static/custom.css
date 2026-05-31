@@ -301,6 +301,32 @@ header h1 .brand-logo {
 }
 
 /* ------------------------------------------------------------------------ */
+/*   MATRIX PICKER CELLS                                                     */
+/*   Clickable coefficient cells in the polyfunctional / polynomial-        */
+/*   customization / polyrational selection matrices. The "selected" class  */
+/*   IS the selection state: JavascriptCommonToFunctionMatrices.js reads it  */
+/*   via isSelected() and toggles it via setSelected(); readPolyFlags()      */
+/*   then maps it onto the hidden polyFunctional_*/polyRational_* inputs at  */
+/*   submit. Default (unselected) = lightgray + outset border; selected =    */
+/*   white + inset border (replaces the legacy inline                        */
+/*   style="background-color:rgb(...)" that used to carry this state).       */
+/* ------------------------------------------------------------------------ */
+td.pick {
+  background-color: rgb(211, 211, 211);
+  border: medium solid;
+  border-style: outset;
+  cursor: default;
+  font-size: 75%;
+  text-align: center;
+  white-space: nowrap;
+}
+
+td.pick.selected {
+  background-color: rgb(255, 255, 255);
+  border-style: inset;
+}
+
+/* ------------------------------------------------------------------------ */
 /*   FORM COLUMNS                                                           */
 /*   Responsive multi-column layout for X/Y/Z form-field groups. On wide    */
 /*   viewports each axis occupies its own column; on narrow viewports they  */

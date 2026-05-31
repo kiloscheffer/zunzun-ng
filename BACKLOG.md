@@ -1134,7 +1134,55 @@ accessibility polish.
 ergonomic improvements rather than bug fixes; pick them up
 individually as small focused commits when convenient.
 
-## Modernize legacy DOM access in matrix-selector JavaScript
+## ~~Modernize legacy DOM access in matrix-selector JavaScript~~ RESOLVED 2026-05-31
+
+> **Resolution.** Landed on `feat/matrix-selector-js-modernization`. Spec:
+> `docs/superpowers/specs/2026-05-31-matrix-selector-js-modernization-design.md`
+> (local / gitignored per repo convention). The selection state moved off the
+> inline `style="background-color:rgb(...)"` attribute and onto a `selected`
+> CSS class; the legacy Netscape/IE branches and both `eval()` calls are gone.
+>
+> **As-built (deviates from the recipe below — corrections noted):**
+> - **The recipe's white/lightgray semantics were inverted.** It said white
+>   `rgb(255,255,255)` = unselected and lightgray `rgb(211,211,211)` =
+>   selected. The live code (all 4 JS files + the 3 Python builders) is the
+>   opposite: **white = SELECTED** (hidden input `'True'`, inset border,
+>   included in the equation), **lightgray = unselected** (`'False'`, outset).
+>   Following the recipe's `classList.add('selected')` mapping literally would
+>   have silently flipped every coefficient selection. The bool->class mapping
+>   is now pinned by `tests/test_matrix_selector.py`.
+> - **The cells are built in-repo, not by pyeq3.** The clickable `<td>`s come
+>   from the Django templates' `*ColorList` context vars, populated by
+>   `FitUserSelectablePolyfunctional.py`, `FitUserCustomizablePolynomial.py`,
+>   and `FitUserSelectableRational.py`. Each `*ColorList` tuple's first element
+>   changed from an rgb string to a `selected` bool; `colorOffset` (string) ->
+>   `offsetSelected` (bool). No pyeq3-ng release was needed.
+> - **State is a class toggle, not add/remove against a no-default.** Default
+>   `td.pick` now carries the lightgray + outset look (the inline style used to
+>   supply the background); `td.pick.selected` is white + inset. The
+>   single-source read/write helpers `isSelected()` / `setSelected()` live in
+>   `JavascriptCommonToFunctionMatrices.js`, trimmed to just `c`, `maxCoeffs`,
+>   `warning` plus those helpers (the `ns4`/`ie4`/`d`/`w`/`lg`/`ins`/`os`
+>   globals are gone).
+> - **CSS consolidated; legacy partial deleted.** The `td.pick` rule moved
+>   into `static/custom.css` (new MATRIX PICKER CELLS section) and the
+>   Netscape-era `templates/zunzun/polyfunctional_css_style.html`
+>   `<style><!-- ... --></style>` partial + its `css_definitions` include were
+>   removed.
+>
+> **This unblocks** HTML-modernization remaining item #3 (inline
+> `style="background-color"` on coefficient-picker `<td>`s) — now done. Step 7
+> below (lowercasing `id='FUNCTION'` now that the JS no longer keys on it) is
+> left as optional future polish.
+>
+> **Verification:** `tests/test_matrix_selector.py` (7 tests) green; full
+> `pytest` green; `ruff format` clean. Smoke does not exercise the click UI
+> (it POSTs the hidden fields directly), so a manual click-through across 2D +
+> 3D polyfunctional / polynomial-customization / polyrational pickers is the
+> coverage for the interaction itself.
+>
+> Historical notes below, preserved for reference (including the inverted
+> white/lightgray semantics in the original recipe — see the correction above).
 
 **Symptom / exposure.** Four JS files in
 `templates/zunzun/javascript/`:
