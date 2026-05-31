@@ -2078,3 +2078,51 @@ long-running FunctionFinder must survive a restart), the cleanest path is a
 one-shot data migration that mints an `LRPStatus` row from any live
 `session_key_status` blob and stamps `lrp_status_pk` into that session —
 transitional and removable — rather than a permanent dual-read in the views.
+
+## True per-dispatch isolation for ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER=True
+
+**Symptom.** With `ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER=True` (the dev
+default), two fits in one browser session interfere in two ways Codex flagged
+on PR #21 (comments 3329374711 and 3329374713):
+
+1. **Shared result blobs (3329374711).** `data` and `functionfinder` are
+   per-SESSION SessionStores, not per-dispatch. The supersession guard in
+   `RenderOutputHTMLToAFileAndSetStatusRedirect` (skip-when-row-missing) only
+   fires when a row was deleted; in concurrent mode the prior row is now
+   preserved (commit 92c6075), so an older concurrent child still has a live
+   `process_id`, passes the guard, and can overwrite the shared `data` blob
+   that `/EvaluateAtAPoint/` reads — yielding stale/mixed follow-up
+   evaluations against whichever result `lrp_status_pk` currently points at.
+
+2. **Single status pointer (3329374713).** There is one `lrp_status_pk` per
+   browser session. A second concurrent dispatch overwrites it, so the first
+   fit's already-open status tab begins polling the newer row; the first row
+   stops receiving `StatusUpdateView` heartbeats and, after 300s,
+   `CheckIfStillUsed` tears the first (wanted) child down — or its terminal
+   redirect is simply never served.
+
+**Scope / why deferred.** Both are inherent to concurrent mode and were out
+of scope for the status-table cutover (`2026-05-29-lrp-status-table-design.md`,
+which explicitly kept `data`/`functionfinder` as session blobs and the status
+pointer as a single session key). The **production-recommended setting is
+`ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER=False`**, under which the per-user
+gate admits only one live fit at a time and neither issue can arise. The
+`True` default is a single-user local-dev convenience.
+
+**What we did NOT do, and why.** Did not make `data`/`functionfinder`
+per-dispatch or give each status page its own dispatch-scoped id this round —
+that is a genuine architecture change (new per-dispatch stores or a
+DB-backed data row keyed by dispatch pk, plus a status URL that carries the
+dispatch id instead of reading the mutable session pointer), not a localized
+fix, and it would expand PR #21 well past its stated scope.
+
+**Where to pick up.** Two coordinated pieces: (a) move the `data`/
+`functionfinder` payloads to per-dispatch storage (e.g. keyed by the
+`LRPStatus` pk, or folded into the row) so a superseded child cannot clobber
+the winner; (b) make the status page address its dispatch's row by id in the
+URL (e.g. `/StatusAndResults/<pk>/`) rather than the single
+`request.session['lrp_status_pk']`, so concurrent fits each keep a live,
+independently-heartbeated status view. With (b), the housekeeping/abandonment
+thresholds also need revisiting so a backgrounded-but-wanted concurrent fit
+isn't reaped. Until then, document `False` as the supported multi-user
+posture.
