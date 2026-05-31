@@ -27,9 +27,13 @@ old picker pattern, so that is what the integration test guards against.)
 import types
 
 import pytest
+from django.test import RequestFactory
 from django.template.loader import render_to_string
 
 from zunzun.LongRunningProcess.FittingBaseClass import FittingBaseClass
+from zunzun.LongRunningProcess.FitUserSelectablePolyfunctional import (
+    FitUserSelectablePolyfunctional,
+)
 
 
 def _polyfunctional_2d(selected_first):
@@ -205,6 +209,9 @@ def test_polyfunctional_interface_renders_class_driven(client):
     assert "cT(this.id" in body
     # ...but no inline picker background-color survives.
     assert "background-color:rgb(" not in body
+    # readPolyFlags was deleted; submit is now a plain <input type="submit">.
+    assert "readPolyFlags" not in body
+    assert '<input type="submit" value="Submit">' in body
 
 
 class _HtmlStub:
@@ -254,3 +261,59 @@ def test_build_3d_color_list_predicate_selects_offset_and_axis_cells():
         (True, 1, 0, "X", ""),  # X-only branch
         (False, 1, 1, "X", "Y"),  # general branch, not selected
     ]
+
+
+def test_polyrational_3d_data_flag_and_initial_value():
+    """Polyrational 3D uses the polyfunctional matrix names (polyFunctional_XiYj);
+    data-flag and hidden-input initial value must be present and correct."""
+    html = render_to_string(
+        "zunzun/divs/polyrational_selection_div.html",
+        {
+            "dimensionality": "3",
+            "equationHTML": "",
+            "maxPolyfunctionalListIndex": 1,
+            "Polyfun3DColorList": [
+                (True, 0, 0, "Offset", ""),
+                (False, 0, 1, "", "Y"),
+                (False, 1, 0, "X", ""),
+                (False, 1, 1, "X", "Y"),
+            ],
+        },
+    )
+    assert 'data-flag="polyFunctional_X0Y0"' in html
+    assert 'data-flag="polyFunctional_X1Y1"' in html
+    assert 'name="polyFunctional_X0Y0" value="True"' in html
+    assert 'name="polyFunctional_X1Y1" value="False"' in html
+
+
+class _FakeBoundField:
+    required = False
+
+
+class _FakeBoundForm:
+    """Minimal stand-in for the bound Equation_3D form: supports item access
+    (each access returns a throwaway field, matching how form[name] works) and
+    carries the .equation the parser writes flags onto."""
+
+    def __init__(self):
+        self.equation = types.SimpleNamespace()
+
+    def __getitem__(self, key):
+        return _FakeBoundField()
+
+
+def test_bound_interface_3d_maps_posted_flag_to_equation_flags():
+    """SpecificEquationBoundInterfaceCode correctly maps a POSTed
+    polyFunctional_XiYj=True into equation.polyfunctional3DFlags — no fit
+    spawned, no real form, no DB."""
+    lrp = FitUserSelectablePolyfunctional()
+    lrp.dimensionality = 3
+    lrp.boundForm = _FakeBoundForm()
+    # Build the full 3D grid POST, all False except cell (1, 1).
+    post = {}
+    for i in range(len(lrp.X3DList)):
+        for j in range(len(lrp.Y3DList)):
+            post[f"polyFunctional_X{i}Y{j}"] = "True" if (i, j) == (1, 1) else "False"
+    request = RequestFactory().post("/", data=post)
+    lrp.SpecificEquationBoundInterfaceCode(request)
+    assert lrp.boundForm.equation.polyfunctional3DFlags == [[1, 1]]
