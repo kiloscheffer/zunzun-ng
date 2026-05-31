@@ -27,8 +27,8 @@ old picker pattern, so that is what the integration test guards against.)
 import types
 
 import pytest
-from django.test import RequestFactory
 from django.template.loader import render_to_string
+from django.test import RequestFactory
 
 from zunzun.LongRunningProcess.FittingBaseClass import FittingBaseClass
 from zunzun.LongRunningProcess.FitUserSelectablePolyfunctional import (
