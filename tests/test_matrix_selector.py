@@ -94,6 +94,93 @@ def test_polyrational_selected_bool_and_offset_map_to_class():
     assert "background-color" not in html
 
 
+def test_polyfunctional_2d_data_flag_and_initial_value():
+    """Each cell names its hidden field via data-flag; the hidden input's
+    initial value mirrors the selected bool (so rank pre-fill survives the
+    later deletion of readPolyFlags)."""
+    html = _polyfunctional_2d(selected_first=True)
+    assert 'data-flag="polyFunctional_X0"' in html
+    assert 'data-flag="polyFunctional_X1"' in html
+    assert 'name="polyFunctional_X0" value="True"' in html
+    assert 'name="polyFunctional_X1" value="False"' in html
+
+
+def test_polynomial_customization_2d_data_flag_and_initial_value():
+    html = render_to_string(
+        "zunzun/divs/polynomial_customization_div.html",
+        {
+            "dimensionality": "2",
+            "equationHTML": "",
+            "Polynomial2DColorList": [(True, 0, "1"), (False, 1, "X")],
+        },
+    )
+    assert 'data-flag="polyFunctional_X0"' in html
+    assert 'data-flag="polyFunctional_X1"' in html
+    assert 'name="polyFunctional_X0" value="True"' in html
+    assert 'name="polyFunctional_X1" value="False"' in html
+
+
+def test_polyrational_2d_data_flag_and_initial_value():
+    html = render_to_string(
+        "zunzun/divs/polyrational_selection_div.html",
+        {
+            "dimensionality": "2",
+            "equationHTML": "",
+            "Polyrat2DNumeratorColorList": [(True, 0, "X")],
+            "Polyrat2DDenominatorColorList": [(False, 0, "X")],
+            "offsetSelected": True,
+        },
+    )
+    assert 'data-flag="polyRational_X_N0"' in html
+    assert 'data-flag="polyRational_X_D0"' in html
+    assert 'data-flag="polyRational_OFFSET"' in html
+    assert 'name="polyRational_X_N0" value="True"' in html
+    assert 'name="polyRational_X_D0" value="False"' in html
+    assert 'name="polyRational_OFFSET" value="True"' in html
+
+
+def test_polyfunctional_3d_data_flag_and_initial_value():
+    html = render_to_string(
+        "zunzun/divs/polyfunctional_selection_div.html",
+        {
+            "dimensionality": "3",
+            "equationHTML": "",
+            "maxPolyfunctionalListIndex": 1,
+            "Polyfun3DColorList": [
+                (True, 0, 0, "Offset", ""),
+                (False, 0, 1, "", "Y"),
+                (False, 1, 0, "X", ""),
+                (False, 1, 1, "X", "Y"),
+            ],
+        },
+    )
+    assert 'data-flag="polyFunctional_X0Y0"' in html
+    assert 'data-flag="polyFunctional_X1Y1"' in html
+    assert 'name="polyFunctional_X0Y0" value="True"' in html
+    assert 'name="polyFunctional_X1Y1" value="False"' in html
+
+
+def test_polynomial_customization_3d_data_flag_and_initial_value():
+    html = render_to_string(
+        "zunzun/divs/polynomial_customization_div.html",
+        {
+            "dimensionality": "3",
+            "equationHTML": "",
+            "maxPolyfunctionalListIndex": 1,
+            "Polyfun3DColorList": [
+                (True, 0, 0, "Offset", ""),
+                (False, 0, 1, "", "Y"),
+                (False, 1, 0, "X", ""),
+                (False, 1, 1, "X", "Y"),
+            ],
+        },
+    )
+    assert 'data-flag="polyFunctional_X0Y0"' in html
+    assert 'data-flag="polyFunctional_X1Y1"' in html
+    assert 'name="polyFunctional_X0Y0" value="True"' in html
+    assert 'name="polyFunctional_X1Y1" value="False"' in html
+
+
 @pytest.mark.django_db
 def test_polyfunctional_interface_renders_class_driven(client):
     """Full URL -> view -> template path renders the picker, class-driven.
