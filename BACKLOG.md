@@ -1361,6 +1361,50 @@ positively confirmed — the smoke suite exercises the customizable-polynomial
 **Not in scope of the round-1 branch.** Pre-existing; orthogonal to the
 matrix-selector cleanup. Worth a small focused investigation commit.
 
+## 3D picker templates' `</tr>` row-close depends on an unset `maxPolyfunctionalListIndex`
+
+**Surfaced by** the `/code-review xhigh` pass on
+`feat/matrix-selector-followups` (2026-06-01). **Pre-existing — NOT introduced
+by that branch** (the branch added `data-flag`/`value` to the cells but never
+touched the row-break logic or this variable). Filed as low-severity cleanup.
+
+**Symptom.** The 3D branch of all three picker templates
+(`templates/zunzun/divs/{polyfunctional_selection_div,polynomial_customization_div,polyrational_selection_div}.html`)
+closes each grid row with
+`{% if indexY == maxPolyfunctionalListIndex %}</tr>{% endif %}`. But
+`maxPolyfunctionalListIndex` is **never set in any production code path** — a
+repo-wide grep finds it only in these three templates (consuming it) and in
+`tests/test_matrix_selector.py` (which supplies it explicitly so the templates
+render). So in production the variable resolves to Django's
+`string_if_invalid` (empty), the `{% if %}` is always False, and the explicit
+`</tr>` is never emitted.
+
+**Why it's currently harmless.** Each row is still *opened* by
+`{% if indexY == 0 %}<tr>{% endif %}`, and HTML parsers auto-close an open
+`<tr>` when they hit the next `<tr>` (or `</table>`). So the grid renders with
+correct row boundaries despite the missing explicit close — the
+`{% if indexY == maxPolyfunctionalListIndex %}</tr>` line is effectively dead.
+This is sloppy (relies on tag-soup auto-closing) but not a visible defect.
+
+**Note on the tests.** The 3D render tests in `tests/test_matrix_selector.py`
+pass `maxPolyfunctionalListIndex=1` in their context purely so `render_to_string`
+produces well-formed markup for the `data-flag`/`value` assertions; they do not
+assert on row structure, so they neither catch nor mask this (they just don't
+cover it). A full-stack `client.get()` against a 3D picker URL would render the
+production (auto-closed) markup.
+
+**Where to pick up.** Pick one:
+1. **Set the variable** — have the 3D unbound-interface code (or a shared spot)
+   put `maxPolyfunctionalListIndex = len(self.Y3DList) - 1` into
+   `dictionaryToReturn`, making the explicit `</tr>` fire as intended.
+2. **Delete the dead close** — drop the
+   `{% if indexY == maxPolyfunctionalListIndex %}</tr>{% endif %}` from all three
+   templates and document that rows rely on the next `<tr>` / `</table>` to
+   close. Cosmetic either way.
+
+**Not in scope of the round-1 branch.** Pre-existing dead template logic;
+orthogonal to the submit-sync/dedup cleanup.
+
 ## ~~Matrix-selector follow-ups (duplication + submit-sync) — deferred from JS modernization~~ RESOLVED 2026-06-01
 
 > **Resolution.** All four items landed on `feat/matrix-selector-followups`.
