@@ -45,13 +45,15 @@ def test_concurrent_fit_allowed_when_flag_true(client, mocked_process_start):
 @pytest.mark.django_db
 def test_concurrent_fit_refused_when_flag_false_and_recent_fit(client):
     """ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER=False — refuse second POST."""
+    from zunzun.models import LRPStatus
+
     with mock.patch("settings.ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER", False, create=True):
         client.get("/")
         # process_id is this (live) process: the gate's dead-child backstop
         # probes pid_is_alive and, finding the owner alive, leaves the row
         # active so the cap blocks. (A bogus dead pid would now be finalized
         # and the fit allowed — see test_concurrent_fit_allowed_when_pid_dead.)
-        _plant_status_row(client, process_id=os.getpid(), last_status_check=time.time())
+        _plant_status_row(client, process_id=os.getpid(), state=LRPStatus.State.RUNNING, last_status_check=time.time())
 
         response = client.post(
             "/FitEquation__F__/2/Polynomial/Linear%20Polynomial/",
@@ -76,6 +78,8 @@ def test_concurrent_fit_refused_for_active_fit_without_polling(client):
     start_time and last_status_check both at dispatch time (well past the
     60s pending window, well within the 300s active window), process_id set.
     """
+    from zunzun.models import LRPStatus
+
     with mock.patch("settings.ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER", False, create=True):
         client.get("/")
         dispatch_time = time.time() - 120  # 2 min ago; never polled since
@@ -84,6 +88,7 @@ def test_concurrent_fit_refused_for_active_fit_without_polling(client):
         _plant_status_row(
             client,
             process_id=os.getpid(),
+            state=LRPStatus.State.RUNNING,
             start_time=dispatch_time,
             last_status_check=dispatch_time,
         )
@@ -256,7 +261,7 @@ def test_dispatch_deletes_prior_row_when_concurrent_disallowed(client, mocked_pr
         old = _plant_status_row(
             client,
             process_id=0,
-            completed=True,
+            state=LRPStatus.State.TERMINAL,
             start_time=time.time() - 100,
             last_status_check=time.time() - 100,
             current_status="prior fit done",
@@ -285,10 +290,12 @@ def test_concurrent_fit_allowed_when_stale_process_id(client, mocked_process_sta
     """ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER=False — but the previous fit
     is stale (last status check >300s ago, matching CheckIfStillUsed's
     abandoned-fit threshold) → allow."""
+    from zunzun.models import LRPStatus
+
     with mock.patch("settings.ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER", False, create=True):
         client.get("/")
         # last_status_check ~7 minutes ago (> 300s threshold)
-        _plant_status_row(client, process_id=12345, last_status_check=time.time() - 400)
+        _plant_status_row(client, process_id=12345, state=LRPStatus.State.RUNNING, last_status_check=time.time() - 400)
 
         response = client.post(
             "/FitEquation__F__/2/Polynomial/Linear%20Polynomial/",
@@ -303,6 +310,8 @@ def test_concurrent_fit_allowed_after_clean_completion(client, mocked_process_st
     """ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER=False — after a fit completes
     cleanly, process_id is reset to 0 by PerformAllWork's exit path. The next
     POST must not be blocked."""
+    from zunzun.models import LRPStatus
+
     with mock.patch("settings.ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER", False, create=True):
         client.get("/")
         # Simulate the state AFTER a successful fit: process_id was set during
@@ -312,6 +321,7 @@ def test_concurrent_fit_allowed_after_clean_completion(client, mocked_process_st
         _plant_status_row(
             client,
             process_id=0,
+            state=LRPStatus.State.TERMINAL,
             start_time=time.time() - 120,
             last_status_check=time.time(),
         )
@@ -357,6 +367,8 @@ def test_concurrent_fit_allowed_after_fast_completion(client, mocked_process_sta
     start_time is still recent and redirect_to_results is still present (not
     yet consumed by StatusView), the next POST must NOT be blocked: the
     completed row is excluded from the pending check."""
+    from zunzun.models import LRPStatus
+
     with mock.patch("settings.ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER", False, create=True):
         client.get("/")
         # State immediately after a fast successful fit: process_id cleared,
@@ -364,7 +376,7 @@ def test_concurrent_fit_allowed_after_fast_completion(client, mocked_process_sta
         _plant_status_row(
             client,
             process_id=0,
-            completed=True,
+            state=LRPStatus.State.TERMINAL,
             start_time=time.time() - 30,
             last_status_check=time.time() - 5,
             redirect_to_results="/temp/abc.html",
@@ -393,12 +405,14 @@ def test_concurrent_fit_allowed_after_fast_completion_when_redirect_consumed(
 
     Fails on the pre-fix code (redirect-clause gate); passes with the flag.
     """
+    from zunzun.models import LRPStatus
+
     with mock.patch("settings.ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER", False, create=True):
         client.get("/")
         _plant_status_row(
             client,
             process_id=0,
-            completed=True,
+            state=LRPStatus.State.TERMINAL,
             start_time=time.time() - 20,  # within the 60s pending window
             last_status_check=time.time() - 5,
             redirect_to_results="",  # StatusView already consumed it
@@ -410,4 +424,48 @@ def test_concurrent_fit_allowed_after_fast_completion_when_redirect_consumed(
         )
         # Completed (flag set) → gate must NOT block even though redirect was
         # consumed and start_time is still inside the pending window.
+        assert b"already in progress" not in response.content
+
+
+@pytest.mark.django_db
+def test_gate_blocks_initializing_row_in_pending_window(client):
+    """state=INITIALIZING within the 60s pending window blocks a second POST
+    (the child was dispatched but hasn't claimed the row yet)."""
+    from zunzun.models import LRPStatus
+
+    with mock.patch("settings.ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER", False, create=True):
+        client.get("/")
+        _plant_status_row(
+            client,
+            state=LRPStatus.State.INITIALIZING,
+            process_id=0,
+            start_time=time.time(),
+            last_status_check=time.time(),
+        )
+        response = client.post(
+            "/FitEquation__F__/2/Polynomial/Linear%20Polynomial/",
+            data={"IndependentData": "1 2 3", "DependentData": "1 2 3"},
+        )
+        assert b"already in progress" in response.content
+
+
+@pytest.mark.django_db
+def test_gate_allows_terminal_row(client, mocked_process_start):
+    """state=TERMINAL is never active or pending, so a finished fit never
+    blocks the next POST."""
+    from zunzun.models import LRPStatus
+
+    with mock.patch("settings.ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER", False, create=True):
+        client.get("/")
+        _plant_status_row(
+            client,
+            state=LRPStatus.State.TERMINAL,
+            process_id=0,
+            start_time=time.time(),  # recent — would falsely "pend" without state
+            last_status_check=time.time(),
+        )
+        response = client.post(
+            "/FitEquation__F__/2/Polynomial/Linear%20Polynomial/",
+            data={"IndependentData": "1 2 3", "DependentData": "1 2 3"},
+        )
         assert b"already in progress" not in response.content
