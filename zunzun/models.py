@@ -32,9 +32,7 @@ class LRPStatus(models.Model):
     redirect_to_results = models.TextField(default="")
     parallel_count = models.IntegerField(default=0)
     process_id = models.IntegerField(default=0)
-    state = models.CharField(
-        max_length=12, choices=State.choices, default=State.INITIALIZING
-    )
+    state = models.CharField(max_length=12, choices=State.choices, default=State.INITIALIZING)
 
     @classmethod
     def mark_running(cls, pk, pid):

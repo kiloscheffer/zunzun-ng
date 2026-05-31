@@ -53,7 +53,12 @@ def test_concurrent_fit_refused_when_flag_false_and_recent_fit(client):
         # probes pid_is_alive and, finding the owner alive, leaves the row
         # active so the cap blocks. (A bogus dead pid would now be finalized
         # and the fit allowed — see test_concurrent_fit_allowed_when_pid_dead.)
-        _plant_status_row(client, process_id=os.getpid(), state=LRPStatus.State.RUNNING, last_status_check=time.time())
+        _plant_status_row(
+            client,
+            process_id=os.getpid(),
+            state=LRPStatus.State.RUNNING,
+            last_status_check=time.time(),
+        )
 
         response = client.post(
             "/FitEquation__F__/2/Polynomial/Linear%20Polynomial/",
@@ -297,7 +302,12 @@ def test_concurrent_fit_allowed_when_stale_process_id(client, mocked_process_sta
     with mock.patch("settings.ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER", False, create=True):
         client.get("/")
         # last_status_check ~7 minutes ago (> 300s threshold)
-        _plant_status_row(client, process_id=12345, state=LRPStatus.State.RUNNING, last_status_check=time.time() - 400)
+        _plant_status_row(
+            client,
+            process_id=12345,
+            state=LRPStatus.State.RUNNING,
+            last_status_check=time.time() - 400,
+        )
 
         response = client.post(
             "/FitEquation__F__/2/Polynomial/Linear%20Polynomial/",

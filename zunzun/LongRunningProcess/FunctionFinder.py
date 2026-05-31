@@ -630,8 +630,7 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
                             "fitting. Please try again or contact the administrator."
                         )
                         self.mark_terminal(
-                            redirect=self._write_terminal_error_html(error_message)
-                            or "",
+                            redirect=self._write_terminal_error_html(error_message) or "",
                             current_status=error_message,
                             parallel_count=0,
                         )
@@ -652,8 +651,7 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
                                 "fitting. Please try again or contact the administrator."
                             )
                             self.mark_terminal(
-                                redirect=self._write_terminal_error_html(error_message)
-                                or "",
+                                redirect=self._write_terminal_error_html(error_message) or "",
                                 current_status=error_message,
                                 parallel_count=0,
                             )
