@@ -381,8 +381,8 @@ def StatusView(request):
     # falling through to the in-progress render forever.
     _finalize_row_if_child_dead(row)
 
-    # Terminal without a deliverable redirect: the fit finished (the durable
-    # terminal signal (state == TERMINAL)) but there is nothing to serve — a
+    # Terminal without a deliverable redirect: the fit finished (state ==
+    # TERMINAL is the durable terminal signal) but there is nothing to serve — a
     # mid-fit crash whose error page could not be written, or a success whose
     # redirect was already served & cleared in another tab. Serve a terminal
     # page so the poll loop ends; without this the request falls through to the
@@ -554,11 +554,11 @@ def LongRunningProcessView(
             # fresh for up to 300s, which would block this user's retry even
             # though no fit is running. _finalize_row_if_child_dead promotes such
             # a row to state=TERMINAL (process_id=0) in place, so the
-            # is_active/is_pending checks below see the released state. Mirrors
-            # what the status views already do
-            # on the poll path; without it the gate is the one place a provably-
-            # dead fit still gates. (A live fit's pid passes the probe and is
-            # left untouched, so genuine in-progress fits still block.)
+            # is_active/is_pending checks below see the released state. This
+            # mirrors what the status views already do on the poll path; without
+            # it the gate is the one place a provably-dead fit still gates. (A
+            # live fit's pid passes the probe and is left untouched, so genuine
+            # in-progress fits still block.)
             if row is not None:
                 _finalize_row_if_child_dead(row)
             now = time.time()
