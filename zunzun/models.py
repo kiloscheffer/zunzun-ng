@@ -32,12 +32,6 @@ class LRPStatus(models.Model):
     redirect_to_results = models.TextField(default="")
     parallel_count = models.IntegerField(default=0)
     process_id = models.IntegerField(default=0)
-    # True once the fit reaches a terminal state (success OR failure). The
-    # per-user gate's pending-window check reads this instead of
-    # redirect_to_results, because StatusView clears redirect_to_results the
-    # moment it serves the result — which would otherwise re-enable the
-    # pending window for a fast fit and falsely block the user's next POST.
-    completed = models.BooleanField(default=False)
     state = models.CharField(
         max_length=12, choices=State.choices, default=State.INITIALIZING
     )
@@ -56,11 +50,8 @@ class LRPStatus(models.Model):
         .filter(pk).update() (not instance.save()): a no-op if a superseding
         dispatch deleted the row.
 
-        TEMPORARY: also writes completed=True so readers still on the
-        `completed` boolean stay correct during the expand/contract migration.
-        The completed write is removed in Task 4 once every reader uses `state`.
         """
-        fields = {"state": cls.State.TERMINAL, "process_id": 0, "completed": True}
+        fields = {"state": cls.State.TERMINAL, "process_id": 0}
         if redirect is not None:
             fields["redirect_to_results"] = redirect
         if current_status is not None:

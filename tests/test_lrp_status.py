@@ -15,7 +15,7 @@ def test_lrpstatus_defaults_and_roundtrip():
     assert row.redirect_to_results == ""
     assert row.parallel_count == 0
     assert row.process_id == 0
-    assert row.completed is False
+    assert row.state == LRPStatus.State.INITIALIZING
 
     LRPStatus.objects.filter(pk=row.pk).update(process_id=4321, current_status="Fitting Data")
     reloaded = LRPStatus.objects.get(pk=row.pk)
@@ -208,19 +208,6 @@ def test_mark_terminal_writes_optional_fields_when_passed():
     assert row.redirect_to_results == "/temp/result.html"
     assert row.current_status == "done"
     assert row.parallel_count == 4
-
-
-@pytest.mark.django_db
-def test_mark_terminal_dual_writes_completed_scaffolding():
-    """TEMPORARY (removed in Task 4): mark_terminal also sets the legacy
-    completed=True so readers still on the boolean stay correct during the
-    expand/contract migration."""
-    from zunzun.models import LRPStatus
-
-    row = LRPStatus.objects.create()
-    LRPStatus.mark_terminal(row.pk)
-    row.refresh_from_db()
-    assert row.completed is True
 
 
 @pytest.mark.django_db
