@@ -1,3 +1,4 @@
+import logging
 import multiprocessing
 import os
 import time
@@ -21,6 +22,8 @@ import settings
 from . import LongRunningProcess, forms, middleware, platform_compat
 from .LongRunningProcess.child_payload import _run_fit_child
 from .session_helpers import save_with_retry
+
+_logger = logging.getLogger(__name__)
 
 
 def _housekeeping_child(temp_dir: str, max_size_mb: int) -> None:
@@ -253,9 +256,12 @@ def EvaluateAtAPointView(request):
         exceptionString += inEquationName + "\n"
         exceptionString += str(equation.solvedCoefficients) + "\n"
         exceptionString += str(equation.dataCache.allDataCacheDictionary["IndependentData"])
-        pointValueAsString = (
-            "Exception in evaluation, please check the data. Exception text: " + exceptionString
-        )
+        # Full detail (exception type/text, equation internals, the data-cache
+        # dump) goes to the server log and the admin email only. The user gets a
+        # generic message — echoing exceptionString into the response is the
+        # CodeQL py/stack-trace-exposure finding.
+        _logger.exception("Exception evaluating equation at a point")
+        pointValueAsString = "Exception in evaluation, please check the data."
         if settings.EXCEPTION_EMAIL_ADDRESS:
             EmailMessage(
                 "Site exception in evaluation at a point",
@@ -647,7 +653,11 @@ def LongRunningProcessView(
                 )
                 # return render_to_response(LRP.interfaceString, LRP.CreateUnboundInterfaceForm(request))
             except:
-                return HttpResponse(repr(sys.exc_info()[0]) + "<br>" + repr(sys.exc_info()[1]))
+                _logger.exception("Failed to render unbound interface form")
+                return HttpResponse(
+                    "An error occurred while building the form. "
+                    "Please reload the home page and try again."
+                )
 
     if "cookie_test" not in list(request.session.keys()):
         return HttpResponse(
@@ -658,7 +668,11 @@ def LongRunningProcessView(
         try:
             LRP.CreateBoundInterfaceForm(request)
         except:
-            return HttpResponse(str(sys.exc_info()[0]) + str(sys.exc_info()[1]))
+            _logger.exception("CreateBoundInterfaceForm raised")
+            return HttpResponse(
+                "An error occurred while processing your input. "
+                "Please check the form and try again."
+            )
         if not LRP.boundForm.is_valid():
             LRP.items_to_render = {}
             LRP.items_to_render["mainForm"] = LRP.boundForm
