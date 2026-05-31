@@ -1319,6 +1319,48 @@ which brace-expands to a non-existent `polynomial_customization_selection_div.ht
 coverage hardening and cosmetic/dedup cleanup — and were deferred from the PR
 review rather than fixed inline to keep that branch's diff scoped.
 
+## Is `FitUserCustomizablePolynomial`'s 3D path dead code or a latent crash?
+
+**Surfaced by** the `/code-review` pass on `feat/matrix-selector-followups`
+(2026-06-01). **Pre-existing — NOT introduced by that branch** (the branch only
+moved the `self.X3DList` access from an inline ladder into the shared
+`FittingBaseClass._build_3d_color_list` helper; the access itself is unchanged).
+Filed for investigation, not as a regression.
+
+**Symptom / question.** `FitUserCustomizablePolynomial.__init__`
+(`zunzun/LongRunningProcess/FitUserCustomizablePolynomial.py`) builds only
+`self.X2DList` (`GenerateListForCustomPolynomials_2D()`) — it never sets
+`self.X3DList` / `self.Y3DList`. Yet `SpecificEquationUnboundInterfaceCode` has
+an `else:  # 3D` branch (both the rank and no-rank paths) that calls
+`self._build_3d_color_list(...)`, which evaluates `range(len(self.X3DList))`. If
+that 3D branch is ever reached, it raises
+`AttributeError: 'FitUserCustomizablePolynomial' object has no attribute 'X3DList'`
+and the picker render returns a 500.
+
+**Hypothesis.** It is almost certainly **unreachable dead code** — customizable
+polynomial is 2D-only by design, mirroring `FitUserSelectableRational` (also
+2D-only, also carrying a dead 3D template branch). If pyeq3 exposes no 3D
+user-customizable-polynomial equation, `userCustomizablePolynomialFlag` is never
+set on a 3D equation and the 3D branch never runs. But this has not been
+positively confirmed — the smoke suite exercises the customizable-polynomial
+*fit* path, not necessarily a GET of its 3D *picker interface*.
+
+**Where to pick up.**
+1. Confirm reachability: does any equation class with `dimensionality == 3` set
+   `userCustomizablePolynomialFlag` (i.e., does `/Equation/3/.../...` ever route
+   to `FitUserCustomizablePolynomial`)? Check the equation registry / home-page
+   listing for a 3D customizable polynomial.
+2. **If unreachable:** delete the dead 3D branches in
+   `FitUserCustomizablePolynomial.SpecificEquationUnboundInterfaceCode` (and the
+   dead 3D branch in `polynomial_customization_div.html` if it has no producer),
+   the same way the rational 3D dead branch could be cleaned. Cosmetic.
+3. **If reachable:** it is a real pre-existing crash — add `self.X3DList` /
+   `self.Y3DList` in `__init__` (as `FitUserSelectablePolyfunctional` does) and a
+   smoke/render test for the 3D customizable-polynomial picker.
+
+**Not in scope of the round-1 branch.** Pre-existing; orthogonal to the
+matrix-selector cleanup. Worth a small focused investigation commit.
+
 ## ~~Matrix-selector follow-ups (duplication + submit-sync) — deferred from JS modernization~~ RESOLVED 2026-06-01
 
 > **Resolution.** All four items landed on `feat/matrix-selector-followups`.
