@@ -178,6 +178,23 @@ def test_mark_running_noop_on_missing_row():
 
 
 @pytest.mark.django_db
+def test_mark_running_does_not_resurrect_terminal_row():
+    """TERMINAL is absorbing: a late claim on a row the dead-pid backstop already
+    finalized (slow child that missed the 60s pending window) must NOT flip it
+    back to RUNNING. mark_running filters on state=INITIALIZING, so the claim is
+    a no-op and the terminal row stays terminal."""
+    from zunzun.models import LRPStatus
+
+    row = LRPStatus.objects.create(state=LRPStatus.State.TERMINAL)
+
+    LRPStatus.mark_running(row.pk, 4242)
+
+    row.refresh_from_db()
+    assert row.state == LRPStatus.State.TERMINAL
+    assert row.process_id == 0  # claim no-op'd; pid not written onto a terminal row
+
+
+@pytest.mark.django_db
 def test_mark_terminal_sets_terminal_and_clears_pid():
     from zunzun.models import LRPStatus
 

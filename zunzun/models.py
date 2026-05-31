@@ -36,8 +36,19 @@ class LRPStatus(models.Model):
 
     @classmethod
     def mark_running(cls, pk, pid):
-        """INITIALIZING -> RUNNING. The child claims the row with its pid."""
-        cls.objects.filter(pk=pk).update(state=cls.State.RUNNING, process_id=pid)
+        """INITIALIZING -> RUNNING. The child claims the row with its pid.
+
+        Filtered on state=INITIALIZING so TERMINAL stays absorbing: if the
+        dead-pid backstop (views._finalize_row_if_child_dead) already finalized
+        this row -- because a slow-starting child had not written its pid within
+        the 60s pending window -- a late claim is a no-op rather than
+        resurrecting the terminal row back to RUNNING. Restores the
+        pre-state-field behavior, where the claim wrote only process_id and never
+        cleared the durable terminal flag.
+        """
+        cls.objects.filter(pk=pk, state=cls.State.INITIALIZING).update(
+            state=cls.State.RUNNING, process_id=pid
+        )
 
     @classmethod
     def mark_terminal(cls, pk, *, redirect=None, current_status=None, parallel_count=None):
