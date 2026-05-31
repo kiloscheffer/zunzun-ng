@@ -13,4 +13,7 @@
  }
  function setSelected(cell, on) {
      cell.classList.toggle('selected', on);
+     if (cell.dataset.flag) {
+         document.forms[0].elements[cell.dataset.flag].value = on ? 'True' : 'False';
+     }
  }

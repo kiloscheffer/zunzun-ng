@@ -56,16 +56,3 @@
             tstr += "&nbsp;<b>+</b> " + str;
     document.getElementById('FUNCTION').innerHTML = tstr;
  }
-
- function readPolyFlags()
- {
-    cells = pickCells();
-    for (i=0; i<cells.length; i++)
-    {
-        if (cells[i].id.toString().substring(0,3) == 'CPX')
-        {
-            value = isSelected(cells[i]) ? 'True' : 'False';
-            document.forms[0].elements['polyFunctional_X' + cells[i].id.toString().substring(3)].value = value;
-        }
-    }
-}

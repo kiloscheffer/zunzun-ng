@@ -79,24 +79,3 @@
 
     document.getElementById('FUNCTION').innerHTML = tstr;
  }
-
- function readPolyFlags()
- {
-    cells = pickCells();
-    for (i=0; i<cells.length; i++)
-    {
-        value = isSelected(cells[i]) ? 'True' : 'False';
-        if (cells[i].id.toString().substring(0,5) == 'CPX_N')
-        {
-            document.forms[0].elements['polyRational_X_N' + cells[i].id.toString().substring(5)].value = value;
-        }
-        if (cells[i].id.toString().substring(0,5) == 'CPX_D')
-        {
-            document.forms[0].elements['polyRational_X_D' + cells[i].id.toString().substring(5)].value = value;
-        }
-        if (cells[i].id.toString().substring(0,5) == 'CPX_O')
-        {
-            document.forms[0].elements['polyRational_OFFSET'].value = value;
-        }
-    }
- }

@@ -126,11 +126,7 @@ $('*[name^="nameOfCoefficientBound"]').slice(selected+1).each(function(index){$(
             </select>
         </div>
         <div>
-            {% if equationInstance.userSelectablePolyfunctionalFlag or equationInstance.userCustomizablePolynomialFlag or equationInstance.userSelectableRationalFlag %}
-            <button type="button" onClick="javascript:readPolyFlags();document.forms[0].submit();">Submit</button>
-            {% else %}
             <input type="submit" value="Submit">
-            {% endif %}
         </div>
         {% if equationInstance.userDefinedFunctionFlag %}
         <div>
