@@ -252,11 +252,13 @@ def test_status_update_returns_completed_when_completed_flag_set_without_redirec
     redirect_to_results, so this state reported completed=False forever and the
     status page heartbeated indefinitely.
     """
+    from zunzun.models import LRPStatus
+
     row = _make_status_row(
         current_status="An unknown exception has occurred.",
         start_time=time.time(),
         last_status_check=time.time(),
-        completed=True,
+        state=LRPStatus.State.TERMINAL,
         redirect_to_results="",
     )
     _wire_status_row(client, row)
@@ -274,11 +276,13 @@ def test_status_view_serves_terminal_page_when_completed_without_redirect(client
     (now reporting completed) and StatusView (re-rendering the working page)
     forever.
     """
+    from zunzun.models import LRPStatus
+
     row = _make_status_row(
         current_status="An unknown exception has occurred.",
         start_time=time.time(),
         last_status_check=time.time(),
-        completed=True,
+        state=LRPStatus.State.TERMINAL,
         redirect_to_results="",
     )
     _wire_status_row(client, row)
@@ -309,7 +313,7 @@ def test_status_update_finalizes_dead_child_pid(client, monkeypatch):
         start_time=time.time() - 5.0,
         last_status_check=time.time(),
         process_id=4242,
-        completed=False,
+        state=LRPStatus.State.RUNNING,
         redirect_to_results="",
     )
     _wire_status_row(client, row)
@@ -319,7 +323,7 @@ def test_status_update_finalizes_dead_child_pid(client, monkeypatch):
     assert response.json() == {"completed": True}
 
     reloaded = LRPStatus.objects.get(pk=row.pk)
-    assert reloaded.completed is True
+    assert reloaded.state == LRPStatus.State.TERMINAL
     assert reloaded.process_id == 0
 
 
@@ -328,6 +332,8 @@ def test_status_view_serves_terminal_page_for_dead_child_pid(client, monkeypatch
     """StatusView must serve the terminal page (no poll script) for a dead-pid
     in-progress row, not the in-progress template that re-arms the poll loop.
     """
+    from zunzun.models import LRPStatus
+
     monkeypatch.setattr("zunzun.platform_compat.pid_is_alive", lambda pid: False)
 
     row = _make_status_row(
@@ -335,7 +341,7 @@ def test_status_view_serves_terminal_page_for_dead_child_pid(client, monkeypatch
         start_time=time.time() - 5.0,
         last_status_check=time.time(),
         process_id=4242,
-        completed=False,
+        state=LRPStatus.State.RUNNING,
         redirect_to_results="",
     )
     _wire_status_row(client, row)
@@ -361,7 +367,7 @@ def test_status_update_does_not_finalize_live_child_pid(client, monkeypatch):
         start_time=time.time() - 5.0,
         last_status_check=time.time(),
         process_id=4242,
-        completed=False,
+        state=LRPStatus.State.RUNNING,
         redirect_to_results="",
     )
     _wire_status_row(client, row)
@@ -371,7 +377,7 @@ def test_status_update_does_not_finalize_live_child_pid(client, monkeypatch):
     assert response.json()["completed"] is False
 
     reloaded = LRPStatus.objects.get(pk=row.pk)
-    assert reloaded.completed is False
+    assert reloaded.state == LRPStatus.State.RUNNING
     assert reloaded.process_id == 4242
 
 
@@ -397,7 +403,7 @@ def test_backstop_ignores_pending_row_with_unset_process_id(client, monkeypatch)
         start_time=time.time(),
         last_status_check=time.time(),
         process_id=0,
-        completed=False,
+        state=LRPStatus.State.INITIALIZING,
         redirect_to_results="",
     )
     _wire_status_row(client, row)
@@ -408,7 +414,7 @@ def test_backstop_ignores_pending_row_with_unset_process_id(client, monkeypatch)
     assert called["n"] == 0  # short-circuited before the liveness check
 
     reloaded = LRPStatus.objects.get(pk=row.pk)
-    assert reloaded.completed is False
+    assert reloaded.state == LRPStatus.State.INITIALIZING
 
 
 @pytest.mark.django_db
@@ -436,7 +442,7 @@ def test_backstop_finalizes_unset_pid_row_past_pending_window(client, monkeypatc
         start_time=time.time() - 120,  # well past the 60s pending window
         last_status_check=time.time() - 120,
         process_id=0,
-        completed=False,
+        state=LRPStatus.State.INITIALIZING,
         redirect_to_results="",
     )
     _wire_status_row(client, row)
@@ -447,5 +453,5 @@ def test_backstop_finalizes_unset_pid_row_past_pending_window(client, monkeypatc
     assert called["n"] == 0  # no pid to probe — finalized on start_time age
 
     reloaded = LRPStatus.objects.get(pk=row.pk)
-    assert reloaded.completed is True
+    assert reloaded.state == LRPStatus.State.TERMINAL
     assert reloaded.process_id == 0

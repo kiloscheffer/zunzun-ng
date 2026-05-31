@@ -237,12 +237,11 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
                 "data", {"logLinX": self.dataObject.logLinX, "logLinY": self.dataObject.logLinY}
             )
 
-        self.update_status(
-            redirect_to_results="/FunctionFinderResults/"
+        self.mark_terminal(
+            redirect="/FunctionFinderResults/"
             + str(self.dataObject.dimensionality)
             + "/?RANK=1&unused="
             + str(time.time()),
-            completed=True,
         )
 
     def AddEquationInfoToLinearAndParallelFittingListsAndCheckOneSecond(self):
@@ -630,11 +629,8 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
                             "An internal error occurred during equation "
                             "fitting. Please try again or contact the administrator."
                         )
-                        self.update_status(
-                            redirect_to_results=self._write_terminal_error_html(error_message)
-                            or "",
-                            process_id=0,
-                            completed=True,
+                        self.mark_terminal(
+                            redirect=self._write_terminal_error_html(error_message) or "",
                             current_status=error_message,
                             parallel_count=0,
                         )
@@ -654,11 +650,8 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
                                 "An internal error occurred during equation "
                                 "fitting. Please try again or contact the administrator."
                             )
-                            self.update_status(
-                                redirect_to_results=self._write_terminal_error_html(error_message)
-                                or "",
-                                process_id=0,
-                                completed=True,
+                            self.mark_terminal(
+                                redirect=self._write_terminal_error_html(error_message) or "",
                                 current_status=error_message,
                                 parallel_count=0,
                             )

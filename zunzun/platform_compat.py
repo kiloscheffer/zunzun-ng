@@ -115,8 +115,8 @@ def pid_is_alive(pid: int) -> bool:
     Backstop for the status views: a fit child that vanished WITHOUT finalizing
     its ``LRPStatus`` row (SIGKILL / OOM kill / segfault, or a terminal status
     write that itself failed under DB lock) leaves the row showing an
-    in-progress fit forever — ``process_id`` set, ``completed`` False — so the
-    poll loop never ends and the per-user gate's ``is_active`` check blocks the
+    in-progress fit forever — ``process_id`` set, ``state`` non-terminal — so
+    the poll loop never ends and the per-user gate's ``is_active`` check blocks
     user's retry for up to 300s. The views call this to detect that the owning
     pid is gone and finalize the row instead of polling indefinitely.
 

@@ -20,10 +20,13 @@ def test_perform_all_work_aborts_pipeline_on_reports_failure():
 
     lrp = StatusMonitoredLongRunningProcessPage()
 
-    # Stub out methods that PerformAllWork calls. update_status is mocked so
-    # the test doesn't need a real LRPStatus row / DB.
+    # Stub out methods that PerformAllWork calls. update_status, mark_running,
+    # and mark_terminal are mocked so the test doesn't need a real LRPStatus
+    # row / DB.
     with (
         mock.patch.object(lrp, "update_status"),
+        mock.patch.object(lrp, "mark_running"),
+        mock.patch.object(lrp, "mark_terminal"),
         mock.patch.object(lrp, "GenerateListOfWorkItems"),
         mock.patch.object(lrp, "PerformWorkInParallel"),
         mock.patch.object(lrp, "GenerateListOfOutputReports"),
@@ -196,7 +199,7 @@ def test_broken_process_pool_publishes_terminal_redirect(monkeypatch, tmp_path):
 
 def test_all_broken_process_pool_sites_use_terminal_helpers():
     """Structural guard: all BrokenProcessPool handlers route through
-    update_status() + _write_terminal_error_html(). If a future edit
+    mark_terminal() + _write_terminal_error_html(). If a future edit
     open-codes a save at one of these sites, this catches it without
     needing near-duplicate integration tests.
 
@@ -220,23 +223,24 @@ def test_all_broken_process_pool_sites_use_terminal_helpers():
         inspect.getsource(StatisticalDistributions.StatisticalDistributions.PerformWorkInParallel),
     ]
     for src in sources:
-        assert "update_status" in src
+        assert "mark_terminal" in src
         assert "_write_terminal_error_html" in src
 
 
-def test_all_success_terminal_writes_set_completed():
+def test_all_success_terminal_writes_call_mark_terminal():
     """Structural guard: every SUCCESS terminal write (the RenderOutputHTML
-    redirect publish on the base + the two FunctionFinder variants) sets
-    completed=True.
+    redirect publish on the base + the two FunctionFinder variants) calls
+    `mark_terminal`.
 
-    The per-user gate's is_pending check keys on `completed` (NOT
-    redirect_to_results, which StatusView clears on serve). If a future edit
-    drops `completed=True` from one of these success paths, a fast fit the
-    user views within 60s would re-enter the pending window and falsely block
-    the next POST — exactly the regression the completed flag exists to fix.
-    These methods write a redirect from the parent/child success path and are
-    never exercised end-to-end in the unit suite (smoke covers the live
-    pipeline), so a source-level guard is the cheapest non-flaky protection.
+    The per-user gate's is_pending check keys on `state == TERMINAL` (NOT
+    redirect_to_results, which StatusView clears on serve). Every success
+    terminal write must call `mark_terminal` (which sets state=TERMINAL). If a
+    future edit drops the `mark_terminal` call from one of these success paths,
+    a fast fit the user views within 60s would re-enter the pending window and
+    falsely block the next POST — exactly the regression the `state` field
+    exists to fix. These methods write a redirect from the parent/child success
+    path and are never exercised end-to-end in the unit suite (smoke covers the
+    live pipeline), so a source-level guard is the cheapest non-flaky protection.
     """
     import inspect
 
@@ -258,4 +262,4 @@ def test_all_success_terminal_writes_set_completed():
         ),
     ]
     for src in sources:
-        assert "completed=True" in src
+        assert "mark_terminal" in src

@@ -1526,7 +1526,25 @@ the blob→row cutover and closing the ownership race; it preserved the
 existing (main) completion-signal behavior. Tightening the
 completion signal onto `completed` is separable polish.
 
-## Model LRPStatus lifecycle as an explicit state field
+## ~~Model LRPStatus lifecycle as an explicit state field~~ RESOLVED 2026-05-31
+
+> **Resolution.** A `state` `TextChoices` field (`INITIALIZING` / `RUNNING` /
+> `TERMINAL`, default `INITIALIZING`) replaced the derived `completed` boolean.
+> Two classmethods centralize the lifecycle tuple on `LRPStatus`: `mark_running(pk,
+> pid)` (INITIALIZING → RUNNING) and `mark_terminal(pk, ...)` (→ TERMINAL, always
+> sets `state=TERMINAL` + `process_id=0` atomically; optional `redirect` /
+> `current_status` / `parallel_count` written only when passed). The per-user gate
+> (`is_active` reads `state == RUNNING` + heartbeat; `is_pending` reads
+> `state == INITIALIZING` + 60s start-time window), `StatusView`, `StatusUpdateView`,
+> and the `_finalize_row_if_child_dead` backstop all read `state`. The
+> `PerformAllWork` `finally` stays non-terminal by design so `_run_fit_child`'s
+> exception handler can still publish the error redirect without clobbering a
+> served success. Two append-only migrations: `0004_lrpstatus_state` (add `state` +
+> backfill from `completed`) and `0005_remove_lrpstatus_completed` (remove
+> `completed`). The two source-inspection structural guards now assert
+> `mark_terminal`, backed by new behavioral tests on the classmethods.
+> Design: `docs/superpowers/specs/2026-05-31-lrpstatus-state-field-design.md`;
+> plan: `docs/superpowers/plans/2026-05-31-lrpstatus-state-field.md`.
 
 **Symptom / exposure.** Type-design observation from the comprehensive PR
 review of the LRP-status-table branch (`feat/lrp-status-table`, PR #21,

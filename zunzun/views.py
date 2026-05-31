@@ -283,12 +283,12 @@ def _finalize_row_if_child_dead(row) -> bool:
     """Terminal backstop for a fit child that died WITHOUT finalizing its row.
 
     The normal terminal paths (success, abort, the _run_fit_child exception
-    handler) set completed=True and clear process_id. But a child killed by
+    handler) set state=TERMINAL and clear process_id. But a child killed by
     SIGKILL / OOM / segfault — or one whose terminal LRPStatus write itself
-    failed under sustained DB lock past busy_timeout — leaves the row showing an
-    in-progress fit forever (process_id set, completed False). The poll loop
-    would then never end and the per-user is_active gate would block the user's
-    retry for up to 300s. This is the one unrecoverable-write gap the LRPStatus
+    failed under sustained DB lock past busy_timeout — leaves the row non-terminal
+    forever (state still RUNNING or INITIALIZING, process_id possibly set). The
+    poll loop would then never end and the per-user is_active gate would block the
+    user's retry for up to 300s. This is the one unrecoverable-write gap the LRPStatus
     busy_timeout (no retry loop, by design) cannot close on the writer side, so
     it is closed here on the reader side — which additionally catches every
     no-handler-ran crash (SIGKILL/OOM/segfault) a writer-side retry never could.
@@ -308,11 +308,13 @@ def _finalize_row_if_child_dead(row) -> bool:
 
     If the row looks abandoned, mark it terminal so StatusView serves the
     "no results" page and the gate releases. Mutates the passed-in ``row`` in
-    place so the caller's subsequent ``row.completed`` check sees the update.
+    place so the caller's subsequent ``row.state`` check sees the update.
     Returns True iff it finalized. See platform_compat.pid_is_alive for the
     co-location and pid-reuse caveats.
     """
-    if row.completed:
+    from zunzun.models import LRPStatus
+
+    if row.state == LRPStatus.State.TERMINAL:
         return False
     if row.process_id:
         # Child claimed the row: a live pid means the fit is genuinely still
@@ -334,15 +336,12 @@ def _finalize_row_if_child_dead(row) -> bool:
         row.pk,
         row.process_id,
     )
-    from zunzun.models import LRPStatus
-
-    LRPStatus.objects.filter(pk=row.pk).update(
-        process_id=0,
-        completed=True,
+    LRPStatus.mark_terminal(
+        row.pk,
         current_status="The fit process ended unexpectedly. Please try again.",
     )
     row.process_id = 0
-    row.completed = True
+    row.state = LRPStatus.State.TERMINAL
     return True
 
 
@@ -382,14 +381,14 @@ def StatusView(request):
     # falling through to the in-progress render forever.
     _finalize_row_if_child_dead(row)
 
-    # Terminal without a deliverable redirect: the fit finished (completed=True
-    # is the durable terminal flag) but there is nothing to serve — a mid-fit
-    # crash whose error page could not be written, or a success whose redirect
-    # was already served & cleared in another tab. Serve a terminal page so the
-    # poll loop ends; without this the request falls through to the in-progress
-    # render and StatusUpdateView (also keyed on completed) bounces the browser
-    # back here indefinitely.
-    if row.completed:
+    # Terminal without a deliverable redirect: the fit finished (state ==
+    # TERMINAL is the durable terminal signal) but there is nothing to serve — a
+    # mid-fit crash whose error page could not be written, or a success whose
+    # redirect was already served & cleared in another tab. Serve a terminal
+    # page so the poll loop ends; without this the request falls through to the
+    # in-progress render and StatusUpdateView (also keyed on state) bounces the
+    # browser back here indefinitely.
+    if row.state == LRPStatus.State.TERMINAL:
         return render(
             request,
             "zunzun/generic_error.html",
@@ -443,15 +442,15 @@ def StatusUpdateView(request):
     # forever against a row whose owner is already gone.
     _finalize_row_if_child_dead(row)
 
-    # Completion: report immediately. `completed` is the durable terminal
-    # signal — every terminal path (success, abort, mid-fit crash) sets it,
-    # and unlike redirect_to_results it survives StatusView clearing the
-    # redirect on serve. Keying off it (not the redirect) means a fit that
+    # Completion: report immediately. The durable terminal signal
+    # (state == TERMINAL) — every terminal path (success, abort, mid-fit crash)
+    # sets it, and unlike redirect_to_results it survives StatusView clearing
+    # the redirect on serve. Keying off it (not the redirect) means a fit that
     # finished without a deliverable redirect — a crash whose error page could
     # not be linked, or a result already served & cleared in another tab —
     # still ends the poll instead of heartbeating forever. Do NOT clear the
     # redirect; that's StatusView's job when the browser follows up.
-    if row.completed or row.redirect_to_results:
+    if row.state == LRPStatus.State.TERMINAL or row.redirect_to_results:
         return JsonResponse({"completed": True})
 
     # Heartbeat write: the only RECURRING writer of last_status_check (it is
@@ -551,15 +550,15 @@ def LongRunningProcessView(
             row = LRPStatus.objects.filter(pk=request.session.get("lrp_status_pk")).first()
             # Apply the dead-child backstop before judging the prior fit: a
             # child killed by SIGKILL/OOM/segfault (or one whose terminal write
-            # failed) leaves the row process_id-set / completed-False with a
-            # heartbeat that can stay fresh for up to 300s, which would block
-            # this user's retry even though no fit is running. _finalize_row_if_
-            # child_dead promotes such a row to terminal (process_id=0,
-            # completed=True) in place, so the is_active/is_pending checks below
-            # see the released state. Mirrors what the status views already do
-            # on the poll path; without it the gate is the one place a provably-
-            # dead fit still gates. (A live fit's pid passes the probe and is
-            # left untouched, so genuine in-progress fits still block.)
+            # failed) leaves the row state=RUNNING with a heartbeat that can stay
+            # fresh for up to 300s, which would block this user's retry even
+            # though no fit is running. _finalize_row_if_child_dead promotes such
+            # a row to state=TERMINAL (process_id=0) in place, so the
+            # is_active/is_pending checks below see the released state. This
+            # mirrors what the status views already do on the poll path; without
+            # it the gate is the one place a provably-dead fit still gates. (A
+            # live fit's pid passes the probe and is left untouched, so genuine
+            # in-progress fits still block.)
             if row is not None:
                 _finalize_row_if_child_dead(row)
             now = time.time()
@@ -569,39 +568,29 @@ def LongRunningProcessView(
             #    threshold so the gate stays consistent: if the system
             #    considers a fit alive, the cap blocks; once the system
             #    considers it abandoned, the cap allows replacement).
+            #    `state == RUNNING` excludes terminal rows so a finished fit —
+            #    result already deliverable — never registers as active and
+            #    blocks the user's next POST for the 300s heartbeat window.
             #  - a fit was just dispatched (start_time recent) but the child
             #    hasn't yet written process_id — the race window between the
             #    parent creating the row and the child's first PerformAllWork
-            #    status write (~50-500ms). start_time covers the pending
-            #    window that the dispatch-id float used to cover. The 60s bound
-            #    is a deliberately generous upper limit on that sub-second gap
-            #    (slack absorbs a heavily-loaded box where the child's first
+            #    status write (~50-500ms). `state == INITIALIZING` means the
+            #    child has not claimed the row and it is not terminal. The 60s
+            #    bound is a deliberately generous upper limit on that sub-second
+            #    gap (slack absorbs a heavily-loaded box where the child's first
             #    status write is delayed); it debounces double-clicks, not
-            #    long-running fits, which are caught by is_active instead. A completed
-            #    fit is excluded via the explicit `completed` flag: start_time
-            #    is NOT cleared on completion, so a fast (<60s) fit would
-            #    otherwise falsely register as pending and block the next POST.
-            #    The `completed` flag (set at every terminal write) is the
-            #    "no longer in progress" signal — NOT redirect_to_results,
-            #    which StatusView clears the moment it serves the result.
+            #    long-running fits, which are caught by is_active instead.
             # Missing row → no active fit → allow.
-            # `not row.completed` guards the narrow window where a terminal
-            # write set completed=True but the child died before clearing
-            # process_id (e.g. killed between RenderOutputHTML's completed=True
-            # write and PerformAllWork's process_id=0 clear). A finished fit —
-            # result already deliverable — must not register as an active fit
-            # and block the user's next POST for the 300s heartbeat window.
             is_active = (
                 bool(row)
+                and row.state == LRPStatus.State.RUNNING
                 and row.process_id
                 and (now - row.last_status_check) < 300
-                and not row.completed
             )
             is_pending = (
                 bool(row)
+                and row.state == LRPStatus.State.INITIALIZING
                 and (now - row.start_time) < 60
-                and not row.process_id
-                and not row.completed
             )
             if is_active or is_pending:
                 return HttpResponse(

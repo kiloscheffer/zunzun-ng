@@ -56,12 +56,12 @@ def test_functionfinder_writes_shared_blob_when_row_present():
 
     with (
         mock.patch.object(lrp, "SaveDictionaryOfItemsToSessionStore") as mock_save,
-        mock.patch.object(lrp, "update_status") as mock_update,
+        mock.patch.object(lrp, "mark_terminal") as mock_terminal,
     ):
         lrp.RenderOutputHTMLToAFileAndSetStatusRedirect()
 
     assert mock_save.called
-    assert mock_update.called
+    assert mock_terminal.called
 
 
 @pytest.mark.django_db

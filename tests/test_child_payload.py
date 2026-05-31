@@ -196,10 +196,10 @@ def test_run_fit_child_does_not_clobber_an_already_completed_row(tmp_path, monke
     """A late exception after the fit already finalized must NOT overwrite a
     served-and-cleared success with an error redirect.
 
-    Scenario: RenderOutputHTML succeeded (set completed=True + a redirect),
+    Scenario: RenderOutputHTML succeeded (called mark_terminal + set a redirect),
     StatusView then served the result and CLEARED redirect_to_results to "",
     and only afterwards a post-completion line in the child raised. The
-    terminal handler guards on the durable `completed` flag — NOT on
+    terminal handler guards on the durable `state == TERMINAL` flag — NOT on
     redirect_to_results (which StatusView blanks on serve) — so it leaves the
     finished row alone. With the old redirect-based guard this test fails (the
     empty redirect reads as "nothing set yet" and the handler clobbers it).
@@ -207,7 +207,10 @@ def test_run_fit_child_does_not_clobber_an_already_completed_row(tmp_path, monke
     from zunzun.models import LRPStatus
 
     row = LRPStatus.objects.create(
-        start_time=1.0, current_status="done", completed=True, redirect_to_results=""
+        start_time=1.0,
+        current_status="done",
+        state=LRPStatus.State.TERMINAL,
+        redirect_to_results="",
     )
 
     fake_module = _build_fake_lrp_module(
@@ -218,7 +221,7 @@ def test_run_fit_child_does_not_clobber_an_already_completed_row(tmp_path, monke
     reloaded = LRPStatus.objects.get(pk=row.pk)
     assert reloaded.redirect_to_results == ""  # not clobbered with an error page
     assert reloaded.current_status == "done"  # not clobbered with the error message
-    assert reloaded.completed is True
+    assert reloaded.state == LRPStatus.State.TERMINAL
 
 
 @pytest.mark.django_db
@@ -296,14 +299,14 @@ def test_run_fit_child_publishes_redirect_after_real_base_finally(tmp_path, monk
     the REAL base-class PerformAllWork runs its `finally`, which clears
     process_id to release the per-user gate. The _run_fit_child handler must
     STILL publish the terminal error redirect — i.e. the finally must NOT
-    pre-set completed=True, or the handler's `already_completed` guard skips the
+    pre-set state=TERMINAL, or the handler's `already terminal` guard skips the
     redirect and orphans the error artifact (the user then lands on the generic
     "no results" page instead of the specific error page).
 
     Unlike the FakeLRP/FailingLRP stubs above (which replace PerformAllWork
     wholesale, so the genuine try/finally never runs), this subclass overrides
     only an inner work step — exercising the exact finally -> child-handler
-    ordering the `completed`-flag interaction depends on.
+    ordering the state=TERMINAL interaction depends on.
     """
     import os
 
@@ -350,5 +353,5 @@ def test_run_fit_child_publishes_redirect_after_real_base_finally(tmp_path, monk
     # The error artifact must be LINKED, not orphaned on disk.
     assert reloaded.redirect_to_results.endswith(".html")
     assert os.path.exists(reloaded.redirect_to_results)
-    assert reloaded.completed is True
+    assert reloaded.state == LRPStatus.State.TERMINAL
     assert reloaded.current_status  # carries the user-facing error text

@@ -15,7 +15,7 @@ def test_lrpstatus_defaults_and_roundtrip():
     assert row.redirect_to_results == ""
     assert row.parallel_count == 0
     assert row.process_id == 0
-    assert row.completed is False
+    assert row.state == LRPStatus.State.INITIALIZING
 
     LRPStatus.objects.filter(pk=row.pk).update(process_id=4321, current_status="Fitting Data")
     reloaded = LRPStatus.objects.get(pk=row.pk)
@@ -153,3 +153,100 @@ def test_housekeeping_initializes_django_before_model_access(monkeypatch, tmp_pa
     views._housekeeping_child(str(tmp_path), 500)
 
     assert calls, "_housekeeping_child must call django.setup() before model/session access"
+
+
+@pytest.mark.django_db
+def test_mark_running_sets_state_and_pid():
+    from zunzun.models import LRPStatus
+
+    row = LRPStatus.objects.create()
+    assert row.state == LRPStatus.State.INITIALIZING
+
+    LRPStatus.mark_running(row.pk, 4242)
+
+    row.refresh_from_db()
+    assert row.state == LRPStatus.State.RUNNING
+    assert row.process_id == 4242
+
+
+@pytest.mark.django_db
+def test_mark_running_noop_on_missing_row():
+    """A keyed update on a deleted/missing row matches zero rows and must not raise."""
+    from zunzun.models import LRPStatus
+
+    LRPStatus.mark_running(999999, 4242)  # nonexistent pk — harmless no-op
+
+
+@pytest.mark.django_db
+def test_mark_running_does_not_resurrect_terminal_row():
+    """TERMINAL is absorbing: a late claim on a row the dead-pid backstop already
+    finalized (slow child that missed the 60s pending window) must NOT flip it
+    back to RUNNING. mark_running filters on state=INITIALIZING, so the claim is
+    a no-op and the terminal row stays terminal."""
+    from zunzun.models import LRPStatus
+
+    row = LRPStatus.objects.create(state=LRPStatus.State.TERMINAL)
+
+    LRPStatus.mark_running(row.pk, 4242)
+
+    row.refresh_from_db()
+    assert row.state == LRPStatus.State.TERMINAL
+    assert row.process_id == 0  # claim no-op'd; pid not written onto a terminal row
+
+
+@pytest.mark.django_db
+def test_mark_terminal_sets_terminal_and_clears_pid():
+    from zunzun.models import LRPStatus
+
+    row = LRPStatus.objects.create()
+    LRPStatus.mark_running(row.pk, 4242)
+
+    LRPStatus.mark_terminal(row.pk)
+
+    row.refresh_from_db()
+    assert row.state == LRPStatus.State.TERMINAL
+    assert row.process_id == 0
+
+
+@pytest.mark.django_db
+def test_mark_terminal_writes_optional_fields_when_passed():
+    from zunzun.models import LRPStatus
+
+    row = LRPStatus.objects.create()
+
+    LRPStatus.mark_terminal(
+        row.pk,
+        redirect="/temp/result.html",
+        current_status="done",
+        parallel_count=4,
+    )
+
+    row.refresh_from_db()
+    assert row.redirect_to_results == "/temp/result.html"
+    assert row.current_status == "done"
+    assert row.parallel_count == 4
+
+
+@pytest.mark.django_db
+def test_mark_terminal_omitted_redirect_does_not_clobber():
+    """A bare mark_terminal(pk) must not overwrite a redirect a prior
+    successful stage published — the _run_fit_child already-terminal guard
+    relies on this."""
+    from zunzun.models import LRPStatus
+
+    row = LRPStatus.objects.create(redirect_to_results="/temp/already.html")
+
+    LRPStatus.mark_terminal(row.pk)  # no redirect kwarg
+
+    row.refresh_from_db()
+    assert row.redirect_to_results == "/temp/already.html"
+    assert row.state == LRPStatus.State.TERMINAL
+
+
+@pytest.mark.django_db
+def test_mark_terminal_noop_on_missing_row():
+    """A superseding dispatch may have deleted the row; the keyed update
+    matches zero rows and must not raise."""
+    from zunzun.models import LRPStatus
+
+    LRPStatus.mark_terminal(999999)  # nonexistent pk — harmless no-op

@@ -151,7 +151,7 @@ class FunctionFinderResults(FittingBaseClass.FittingBaseClass):
         fileLocation = page_artifact_path(self.dataObject.uniqueString, "html")
         with open(fileLocation, "w", encoding="utf-8") as f:
             f.write(tempString)
-        self.update_status(redirect_to_results=fileLocation, completed=True)
+        self.mark_terminal(redirect=fileLocation)
 
     def SetInitialStatusDataIntoSessionVariables(self, request):
         # The status row is created by the parent (views.LongRunningProcessView)
