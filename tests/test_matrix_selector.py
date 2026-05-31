@@ -24,14 +24,8 @@ contains the substring ``background-color`` from the unrelated
 old picker pattern, so that is what the integration test guards against.)
 """
 
-import django
 import pytest
 from django.template.loader import render_to_string
-
-
-@pytest.fixture(autouse=True)
-def _django_setup():
-    django.setup()
 
 
 def _polyfunctional_2d(selected_first):
