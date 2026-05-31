@@ -234,9 +234,7 @@ def test_build_3d_color_list_no_rank_all_unselected():
 
 def test_build_3d_color_list_rank_predicate_marks_selected_cells():
     flags = [[1, 1]]
-    result = FittingBaseClass._build_3d_color_list(
-        _fake_3d_self(), lambda i, j: [i, j] in flags
-    )
+    result = FittingBaseClass._build_3d_color_list(_fake_3d_self(), lambda i, j: [i, j] in flags)
     assert result == [
         (False, 0, 0, "Offset", ""),
         (False, 0, 1, "", "Y"),
@@ -249,12 +247,10 @@ def test_build_3d_color_list_predicate_selects_offset_and_axis_cells():
     # selected=True must thread through every positional branch, not just the
     # general (i>0, j>0) cell.
     flags = [[0, 0], [1, 0], [0, 1]]
-    result = FittingBaseClass._build_3d_color_list(
-        _fake_3d_self(), lambda i, j: [i, j] in flags
-    )
+    result = FittingBaseClass._build_3d_color_list(_fake_3d_self(), lambda i, j: [i, j] in flags)
     assert result == [
-        (True, 0, 0, "Offset", ""),   # offset branch
-        (True, 0, 1, "", "Y"),        # Y-only branch
-        (True, 1, 0, "X", ""),        # X-only branch
-        (False, 1, 1, "X", "Y"),      # general branch, not selected
+        (True, 0, 0, "Offset", ""),  # offset branch
+        (True, 0, 1, "", "Y"),  # Y-only branch
+        (True, 1, 0, "X", ""),  # X-only branch
+        (False, 1, 1, "X", "Y"),  # general branch, not selected
     ]

@@ -75,9 +75,7 @@ You must provide any weights you wish to use.
                 elif i == 0 and j > 0:
                     color_list.append((selected, i, j, "", self.Y3DList[j].HTML))
                 else:
-                    color_list.append(
-                        (selected, i, j, self.X3DList[i].HTML, self.Y3DList[j].HTML)
-                    )
+                    color_list.append((selected, i, j, self.X3DList[i].HTML, self.Y3DList[j].HTML))
         return color_list
 
     def CheckDataForZeroAndPositiveAndNegative(self):
