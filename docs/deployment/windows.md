@@ -189,10 +189,29 @@ settings → Exclusions → Add `C:\sites\zunzun-ng\.venv\`.
 
 ### Expected fit runtime
 
-A 2D polynomial-quadratic fit on the sample data completes in
-~60–120 seconds on a typical developer box. Compare to Linux fork:
-~10–30 seconds on the same hardware. The 2–3× overhead is the cost
-of spawn-based per-worker imports; intrinsic to Windows, not a bug.
+Windows and WSL/Linux run the identical `spawn`-based multiprocessing
+architecture — there is no `fork` path — so fit times are close to
+platform-parity once the persistent worker pool is warm. The heavy work
+is CPU-bound numpy/scipy/pyeq3 number-crunching, the same on both.
+
+Reference benchmark — the **2D Function Finder** over all equation
+families and extended types (863 non-linear + 263 linear fits) with 22
+parallel workers, same physical box:
+
+| Build / environment      | Workers | Wall-clock |
+| ------------------------ | ------- | ---------- |
+| ZunZunNG, WSL (Linux)    | 22      | `00:00:54` |
+| ZunZunNG, native Windows | 22      | `00:01:00` |
+| old fork-based, WSL      | 22      | `00:01:08` |
+
+Native Windows came in ~10% behind WSL here — not the multiples often
+assumed for spawn, because the persistent pool pays each worker's import
+cost only once. The new spawn-based build even beat the *old* fork-based
+code on the same WSL box, so the cross-platform rewrite gained
+performance rather than costing it. Absolute times scale with core count
+(this box ran 22 workers); the WSL-vs-Windows gap on one machine is the
+platform signal. Windows' one extra cost is Defender scanning `.venv`
+during imports — the exclusion above removes most of it.
 
 ## Deployment verification
 
