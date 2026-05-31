@@ -199,7 +199,7 @@ def test_broken_process_pool_publishes_terminal_redirect(monkeypatch, tmp_path):
 
 def test_all_broken_process_pool_sites_use_terminal_helpers():
     """Structural guard: all BrokenProcessPool handlers route through
-    update_status() + _write_terminal_error_html(). If a future edit
+    mark_terminal() + _write_terminal_error_html(). If a future edit
     open-codes a save at one of these sites, this catches it without
     needing near-duplicate integration tests.
 
@@ -232,14 +232,15 @@ def test_all_success_terminal_writes_call_mark_terminal():
     redirect publish on the base + the two FunctionFinder variants) calls
     `mark_terminal`.
 
-    The per-user gate's is_pending check keys on `completed` (NOT
-    redirect_to_results, which StatusView clears on serve). If a future edit
-    drops the `mark_terminal` call from one of these success paths, a fast fit
-    the user views within 60s would re-enter the pending window and falsely
-    block the next POST — exactly the regression the completed flag exists to
-    fix. These methods write a redirect from the parent/child success path and
-    are never exercised end-to-end in the unit suite (smoke covers the live
-    pipeline), so a source-level guard is the cheapest non-flaky protection.
+    The per-user gate's is_pending check keys on `state == TERMINAL` (NOT
+    redirect_to_results, which StatusView clears on serve). Every success
+    terminal write must call `mark_terminal` (which sets state=TERMINAL). If a
+    future edit drops the `mark_terminal` call from one of these success paths,
+    a fast fit the user views within 60s would re-enter the pending window and
+    falsely block the next POST — exactly the regression the `state` field
+    exists to fix. These methods write a redirect from the parent/child success
+    path and are never exercised end-to-end in the unit suite (smoke covers the
+    live pipeline), so a source-level guard is the cheapest non-flaky protection.
     """
     import inspect
 
