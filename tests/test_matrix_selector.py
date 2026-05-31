@@ -100,8 +100,8 @@ def test_polyrational_selected_bool_and_offset_map_to_class():
 
 def test_polyfunctional_2d_data_flag_and_initial_value():
     """Each cell names its hidden field via data-flag; the hidden input's
-    initial value mirrors the selected bool (so rank pre-fill survives the
-    later deletion of readPolyFlags)."""
+    initial value mirrors the selected bool (so rank pre-fill survives
+    without readPolyFlags)."""
     html = _polyfunctional_2d(selected_first=True)
     assert 'data-flag="polyFunctional_X0"' in html
     assert 'data-flag="polyFunctional_X1"' in html

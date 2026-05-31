@@ -313,12 +313,13 @@ header h1 .brand-logo {
 /*   Clickable coefficient cells in the polyfunctional / polynomial-        */
 /*   customization / polyrational selection matrices. The "selected" class  */
 /*   IS the selection state: JavascriptCommonToFunctionMatrices.js reads it  */
-/*   via isSelected() and toggles it via setSelected(); readPolyFlags()      */
-/*   then maps it onto the hidden polyFunctional / polyRational inputs at     */
-/*   submit. Both states share a silver face; unselected = raised (outset)   */
-/*   bevel, selected = pushed-in (inset) bevel -- selection reads from the    */
-/*   bevel direction alone, replacing the legacy inline white/lightgray       */
-/*   style="background-color:rgb(...)" that used to carry this state.         */
+/*   via isSelected() and toggles it via setSelected(); setSelected() also   */
+/*   writes the cell's data-flag hidden input at click time, keeping the     */
+/*   form submit-ready at rest (no submit-time sweep). Both states share a   */
+/*   silver face; unselected = raised (outset) bevel, selected = pushed-in   */
+/*   (inset) bevel -- selection reads from the bevel direction alone,        */
+/*   replacing the legacy inline white/lightgray                             */
+/*   style="background-color:rgb(...)" that used to carry this state.        */
 /* ------------------------------------------------------------------------ */
 td.pick {
   /* Classic raised push-button. The bevel uses EXPLICIT per-edge colors

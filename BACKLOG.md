@@ -1278,7 +1278,27 @@ and `'rgb(211,211,211)'` (lightgray = selected).
 behavior change. Worth a small focused commit; ~50% line reduction
 across 4 JS files plus the paired `<td>` template cleanup.
 
-## Matrix-selector follow-ups (duplication + submit-sync) — deferred from JS modernization
+## ~~Matrix-selector follow-ups (duplication + submit-sync) — deferred from JS modernization~~ RESOLVED 2026-06-01
+
+> **Resolution.** All four items landed on `feat/matrix-selector-followups`.
+> #4 (submit-sync): each picker `<td>` carries a `data-flag` naming its hidden
+> input; `setSelected` writes it on every toggle and the initial value is
+> server-rendered from the `selected` bool, so the form is correct at rest.
+> `readPolyFlags()` deleted from all four matrix scripts and Submit is a plain
+> `<input type="submit">` — Enter and programmatic submits no longer discard
+> selections. #1: the count→cap→toggle prologue moved into a shared
+> `toggleWithLimit(id)` in the common JS. #2: the dead `unusedFor3D` param and
+> its `,1`/`,0` call literals removed. #3: the byte-identical 3D color-list
+> ladder collapsed to `FittingBaseClass._build_3d_color_list(selected_predicate)`
+> with the first 3D-builder unit tests. `FitUserSelectableRational` confirmed
+> 2D-only (not a #3 caller). Verified by manual click-through across the
+> reachable pickers (2D/3D) plus `uv run pytest` and the smoke suite. The stale
+> `active-gotchas.md` picker note and a `custom.css` comment were refreshed off
+> the deleted `readPolyFlags`.
+> Spec: `docs/superpowers/specs/2026-05-31-matrix-selector-followups-design.md`;
+> plan: `docs/superpowers/plans/2026-05-31-matrix-selector-followups.md`.
+>
+> Historical notes below, preserved for reference.
 
 **Surfaced by** the `/code-review xhigh` pass on
 `feat/matrix-selector-js-modernization` (2026-05-31). None are regressions
