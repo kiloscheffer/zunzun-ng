@@ -306,7 +306,7 @@ header h1 .brand-logo {
 /*   customization / polyrational selection matrices. The "selected" class  */
 /*   IS the selection state: JavascriptCommonToFunctionMatrices.js reads it  */
 /*   via isSelected() and toggles it via setSelected(); readPolyFlags()      */
-/*   then maps it onto the hidden polyFunctional_*/polyRational_* inputs at  */
+/*   then maps it onto the hidden polyFunctional / polyRational inputs at     */
 /*   submit. Default (unselected) = lightgray + outset border; selected =    */
 /*   white + inset border (replaces the legacy inline                        */
 /*   style="background-color:rgb(...)" that used to carry this state).       */
