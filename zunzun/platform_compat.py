@@ -109,6 +109,38 @@ def reap_completed_children() -> None:
             child.join(timeout=0)
 
 
+def pid_is_alive(pid: int) -> bool:
+    """True iff a process with ``pid`` exists on this host and is not a zombie.
+
+    Backstop for the status views: a fit child that vanished WITHOUT finalizing
+    its ``LRPStatus`` row (SIGKILL / OOM kill / segfault, or a terminal status
+    write that itself failed under DB lock) leaves the row showing an
+    in-progress fit forever — ``process_id`` set, ``completed`` False — so the
+    poll loop never ends and the per-user gate's ``is_active`` check blocks the
+    user's retry for up to 300s. The views call this to detect that the owning
+    pid is gone and finalize the row instead of polling indefinitely.
+
+    A zombie (Unix: exited but not yet reaped) counts as NOT alive — the child
+    has finished and is only awaiting reap, so the backstop fires on the next
+    poll rather than waiting for ``reap_completed_children``. On Windows there
+    are no zombies and ``status()`` simply never returns ``STATUS_ZOMBIE``.
+    ``pid`` 0 is the cleared sentinel, never a live child, and returns False
+    without a syscall. Valid only because the spawn children are co-located
+    with the web worker on the same host. A reused pid (rare) makes this MISS
+    (a live unrelated process leaves the fit polling as before), never misfire.
+    """
+    if not pid:
+        return False
+    try:
+        return psutil.Process(pid).status() != psutil.STATUS_ZOMBIE
+    except psutil.NoSuchProcess:
+        return False
+    except psutil.Error:
+        # AccessDenied or any other psutil failure on a foreign pid: err toward
+        # "alive" so we never falsely finalize a fit that is actually running.
+        return True
+
+
 def set_process_niceness(pid: int, niceness: int) -> None:
     """Set the OS-level scheduling priority of a process.
 

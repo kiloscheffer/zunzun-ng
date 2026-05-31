@@ -33,29 +33,41 @@ def _housekeeping_child(temp_dir: str, max_size_mb: int) -> None:
     # Spawn starts a fresh interpreter that does NOT inherit the parent's
     # Django bootstrap (same constraint _run_fit_child documents). Without
     # django.setup() here, the first ORM/session call below raises
-    # AppRegistryNotReady, the broad except swallows it, and ALL housekeeping
-    # — session-clear, the LRPStatus sweep, and the temp-dir prune — is
-    # silently skipped in production spawn mode. setup() is idempotent (a safe
-    # near-no-op when the registry is already populated, e.g. under pytest).
-    import os as _os
+    # AppRegistryNotReady. setup() is idempotent (a safe near-no-op when the
+    # registry is already populated, e.g. under pytest).
+    import logging
 
     import django
 
-    _os.environ.setdefault("DJANGO_SETTINGS_MODULE", "settings")
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "settings")
     django.setup()
 
     from django.contrib.sessions.backends.db import SessionStore as _SessionStore
 
+    # Each housekeeping job runs in its OWN try/except so a failure in one
+    # (e.g. a transient SQLite lock on the DB-backed jobs) does not skip the
+    # others. In particular the temp-dir prune — the job that bounds disk to
+    # MAX_TEMP_DIR_SIZE_IN_MBYTES — must still run if the session-clear or the
+    # LRPStatus sweep raises. Failures are logged rather than silently
+    # swallowed so a recurring fault surfaces in the logs instead of presenting
+    # as housekeeping that mysteriously stopped working.
     try:
         _SessionStore().clear_expired()
+    except Exception:
+        logging.exception("Housekeeping: clear_expired() failed")
 
-        # Reclaim LRPStatus rows whose user session has expired without a new
-        # dispatch (delete-prior-row on dispatch handles the common case).
+    # Reclaim LRPStatus rows whose user session has expired without a new
+    # dispatch (delete-prior-row on dispatch handles the common case).
+    try:
         from zunzun.models import LRPStatus as _LRPStatus
 
         cutoff = time.time() - settings.SESSION_COOKIE_AGE
         _LRPStatus.objects.filter(last_status_check__lt=cutoff, start_time__lt=cutoff).delete()
+    except Exception:
+        logging.exception("Housekeeping: LRPStatus age-sweep failed")
 
+    # Trim temp/ when it exceeds max_size_mb.
+    try:
         totalDirSize = 0
         dirInfo = []
         for item in os.listdir(temp_dir):
@@ -78,11 +90,15 @@ def _housekeeping_child(temp_dir: str, max_size_mb: int) -> None:
                     try:
                         os.remove(os.path.join(temp_dir, fileItem[2]))
                     except Exception:
-                        pass
+                        # A single locked/vanished file shouldn't stop the
+                        # prune; log at debug and move to the next candidate.
+                        logging.debug(
+                            "Housekeeping: could not remove %s", fileItem[2], exc_info=True
+                        )
                 else:
                     break
     except Exception:
-        pass
+        logging.exception("Housekeeping: temp-dir prune failed")
 
 
 @cache_control(no_cache=True)
@@ -257,6 +273,52 @@ def ConvertSecondsToHMS(seconds):
     return "%02d:%02d:%02d" % (hours, minutes, seconds)
 
 
+def _finalize_row_if_child_dead(row) -> bool:
+    """Terminal backstop for a fit child that died WITHOUT finalizing its row.
+
+    The normal terminal paths (success, abort, the _run_fit_child exception
+    handler) set completed=True and clear process_id. But a child killed by
+    SIGKILL / OOM / segfault — or one whose terminal LRPStatus write itself
+    failed under sustained DB lock past busy_timeout — leaves the row showing an
+    in-progress fit forever (process_id set, completed False). The poll loop
+    would then never end and the per-user is_active gate would block the user's
+    retry for up to 300s. This is the one unrecoverable-write gap the LRPStatus
+    busy_timeout (no retry loop, by design) cannot close on the writer side, so
+    it is closed here on the reader side — which additionally catches every
+    no-handler-ran crash (SIGKILL/OOM/segfault) a writer-side retry never could.
+
+    If the row looks in-progress but its owning pid is no longer alive on this
+    host, mark it terminal so StatusView serves the "no results" page and the
+    gate releases. Mutates the passed-in ``row`` in place so the caller's
+    subsequent ``row.completed`` check sees the update. Returns True iff it
+    finalized. See platform_compat.pid_is_alive for the co-location and
+    pid-reuse caveats.
+    """
+    if not row.process_id or row.completed:
+        return False
+    if platform_compat.pid_is_alive(row.process_id):
+        return False
+
+    import logging
+
+    logging.warning(
+        "Fit child pid %s for LRPStatus row %s vanished without finalizing; "
+        "marking the row terminal so the poll loop ends",
+        row.process_id,
+        row.pk,
+    )
+    from zunzun.models import LRPStatus
+
+    LRPStatus.objects.filter(pk=row.pk).update(
+        process_id=0,
+        completed=True,
+        current_status="The fit process ended unexpectedly. Please try again.",
+    )
+    row.process_id = 0
+    row.completed = True
+    return True
+
+
 @cache_control(no_cache=True)
 def StatusView(request):
     from zunzun.models import LRPStatus
@@ -286,6 +348,12 @@ def StatusView(request):
             return HttpResponse(s)
         else:
             return HttpResponseRedirect(redirect)
+
+    # Backstop: a child that died without finalizing its row (SIGKILL / OOM /
+    # crash, or a failed terminal write) is detected here and promoted to
+    # terminal so the request takes the completed branch below instead of
+    # falling through to the in-progress render forever.
+    _finalize_row_if_child_dead(row)
 
     # Terminal without a deliverable redirect: the fit finished (completed=True
     # is the durable terminal flag) but there is nothing to serve — a mid-fit
@@ -341,6 +409,12 @@ def StatusUpdateView(request):
         # session, or never dispatched. JS treats any non-2xx as "wait and
         # retry" so this is graceful.
         return JsonResponse({"error": "stale_session"}, status=400)
+
+    # Backstop for a child that died without finalizing — see
+    # _finalize_row_if_child_dead. Promotes a dead-pid in-progress row to
+    # terminal so the completion check below returns instead of heartbeating
+    # forever against a row whose owner is already gone.
+    _finalize_row_if_child_dead(row)
 
     # Completion: report immediately. `completed` is the durable terminal
     # signal — every terminal path (success, abort, mid-fit crash) sets it,
@@ -459,7 +533,11 @@ def LongRunningProcessView(
             #    hasn't yet written process_id — the race window between the
             #    parent creating the row and the child's first PerformAllWork
             #    status write (~50-500ms). start_time covers the pending
-            #    window that the dispatch-id float used to cover. A completed
+            #    window that the dispatch-id float used to cover. The 60s bound
+            #    is a deliberately generous upper limit on that sub-second gap
+            #    (slack absorbs a heavily-loaded box where the child's first
+            #    status write is delayed); it debounces double-clicks, not
+            #    long-running fits, which are caught by is_active instead. A completed
             #    fit is excluded via the explicit `completed` flag: start_time
             #    is NOT cleared on completion, so a fast (<60s) fit would
             #    otherwise falsely register as pending and block the next POST.
@@ -481,7 +559,14 @@ def LongRunningProcessView(
                     "<a href='/StatusAndResults/'>view its status</a>."
                 )
         except Exception:
-            pass  # row read failure → fall through and allow new fit
+            # Row read failure → fail OPEN (allow the new fit): the cap is soft
+            # anti-abuse, not a correctness invariant, so a transient SQLite
+            # lock shouldn't block a legitimate user. Log it, though — a
+            # PERSISTENT fault would otherwise silently defeat the cap entirely
+            # with no operator signal.
+            import logging
+
+            logging.exception("Per-user fit gate row read failed; allowing new fit")
 
     if "session_key_data" not in list(request.session.keys()):
         # sometimes database is momentarily locked, so retry on exception to mitigate

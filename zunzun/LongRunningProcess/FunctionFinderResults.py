@@ -119,6 +119,17 @@ class FunctionFinderResults(FittingBaseClass.FittingBaseClass):
 
         import time  # acts strangely if import is at top of file
 
+        # Supersession guard, for parity with the base class and FunctionFinder
+        # overrides: a newer dispatch in concurrent-disallowed mode deletes our
+        # status row, and get_status -> None is that signal. This override
+        # writes only a disk artifact + update_status (no shared `data` blob),
+        # so a superseded run here is already harmless — but bail anyway to skip
+        # the wasted render and keep every RenderOutputHTML override
+        # structurally identical, so any shared-state write added here later is
+        # automatically gated.
+        if self.get_status("process_id") is None:
+            return
+
         self.update_status(current_status="Generating Output HTML")
 
         itemsToRender = {}

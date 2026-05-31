@@ -109,9 +109,9 @@ def _run_fit_child(payload: ChildPayload) -> None:
     Executes in the spawned child process. Reconstructs an LRP
     instance from the payload, runs PerformAllWork(), then returns.
 
-    Any uncaught exception is logged to temp/{pid}.log (matching the
-    existing logging pattern in views.LongRunningProcessView) before
-    the child exits.
+    Any uncaught exception is logged via the per-pid root FileHandler
+    installed by _setup_child_root_logging() (which writes to
+    temp/{pid}.log) before the child exits.
     """
     # Spawn starts a fresh Python interpreter — it does not inherit the
     # parent's Django bootstrap. Without this setup, any ORM access
@@ -230,7 +230,21 @@ def _run_fit_child(payload: ChildPayload) -> None:
                 )
             LRPStatus.objects.filter(pk=payload.status_row_pk).update(**update_fields)
         except Exception:
-            _logging.exception("Also failed to write terminal error status after child exception")
+            # The single poll-terminating LRPStatus write failed (a SQLite lock
+            # past busy_timeout is the realistic trigger). The row stays
+            # process_id-set / completed-False, so the browser would poll
+            # forever — EXCEPT the status views' _finalize_row_if_child_dead
+            # backstop catches it once this child's pid goes away (which it is
+            # about to, on return). Distinct, greppable message so a postmortem
+            # can separate "terminal status write failed" from the earlier
+            # "couldn't write the HTML artifact" log above. No retry here: per
+            # the LRPStatus design these writes lean on busy_timeout, not a
+            # retry loop, and the reader-side backstop is the safety net.
+            _logging.exception(
+                "TERMINAL LRPStatus write FAILED for row pk=%s after child "
+                "exception; relying on the dead-pid reader backstop to end the poll",
+                payload.status_row_pk,
+            )
     finally:
         time.sleep(1.0)  # match the existing post-work sleep
         # Child returns (implicit); multiprocessing handles exit code.

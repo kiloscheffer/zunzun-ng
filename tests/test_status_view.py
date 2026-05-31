@@ -284,3 +284,122 @@ def test_status_view_serves_terminal_page_when_completed_without_redirect(client
     # the browser does not re-enter the status loop.
     assert "StatusPoll.js" not in body
     assert "no results to display" in body
+
+
+@pytest.mark.django_db
+def test_status_update_finalizes_dead_child_pid(client, monkeypatch):
+    """Backstop: a child that died WITHOUT finalizing (process_id still set,
+    completed False) but whose pid is gone must be promoted to terminal so the
+    poller stops instead of heartbeating forever against a dead owner. Covers
+    the SIGKILL/OOM/segfault case and the failed-terminal-write case the
+    LRPStatus busy_timeout (no retry) cannot close on the writer side.
+    """
+    from zunzun.models import LRPStatus
+
+    monkeypatch.setattr("zunzun.platform_compat.pid_is_alive", lambda pid: False)
+
+    row = _make_status_row(
+        current_status="Running All Reports",
+        start_time=time.time() - 5.0,
+        last_status_check=time.time(),
+        process_id=4242,
+        completed=False,
+        redirect_to_results="",
+    )
+    _wire_status_row(client, row)
+
+    response = client.get("/StatusUpdate/")
+    assert response.status_code == 200
+    assert response.json() == {"completed": True}
+
+    reloaded = LRPStatus.objects.get(pk=row.pk)
+    assert reloaded.completed is True
+    assert reloaded.process_id == 0
+
+
+@pytest.mark.django_db
+def test_status_view_serves_terminal_page_for_dead_child_pid(client, monkeypatch):
+    """StatusView must serve the terminal page (no poll script) for a dead-pid
+    in-progress row, not the in-progress template that re-arms the poll loop.
+    """
+    monkeypatch.setattr("zunzun.platform_compat.pid_is_alive", lambda pid: False)
+
+    row = _make_status_row(
+        current_status="Running All Reports",
+        start_time=time.time() - 5.0,
+        last_status_check=time.time(),
+        process_id=4242,
+        completed=False,
+        redirect_to_results="",
+    )
+    _wire_status_row(client, row)
+
+    response = client.get("/StatusAndResults/")
+    assert response.status_code == 200
+    body = response.content.decode("utf-8")
+    assert "StatusPoll.js" not in body
+    assert "no results to display" in body
+
+
+@pytest.mark.django_db
+def test_status_update_does_not_finalize_live_child_pid(client, monkeypatch):
+    """A live owning pid (the fit is genuinely still running) must NOT be
+    finalized — the poll continues to report in-progress.
+    """
+    from zunzun.models import LRPStatus
+
+    monkeypatch.setattr("zunzun.platform_compat.pid_is_alive", lambda pid: True)
+
+    row = _make_status_row(
+        current_status="Running All Reports",
+        start_time=time.time() - 5.0,
+        last_status_check=time.time(),
+        process_id=4242,
+        completed=False,
+        redirect_to_results="",
+    )
+    _wire_status_row(client, row)
+
+    response = client.get("/StatusUpdate/")
+    assert response.status_code == 200
+    assert response.json()["completed"] is False
+
+    reloaded = LRPStatus.objects.get(pk=row.pk)
+    assert reloaded.completed is False
+    assert reloaded.process_id == 4242
+
+
+@pytest.mark.django_db
+def test_backstop_ignores_pending_row_with_unset_process_id(client, monkeypatch):
+    """A freshly-dispatched fit whose child hasn't written its pid yet
+    (process_id=0, not completed) must NOT be finalized — that would kill a fit
+    during the pending window. The liveness check must not even be consulted
+    (the process_id=0 short-circuit fires first).
+    """
+    from zunzun.models import LRPStatus
+
+    called = {"n": 0}
+
+    def _spy(pid):
+        called["n"] += 1
+        return False
+
+    monkeypatch.setattr("zunzun.platform_compat.pid_is_alive", _spy)
+
+    row = _make_status_row(
+        current_status="Initializing",
+        start_time=time.time(),
+        last_status_check=time.time(),
+        process_id=0,
+        completed=False,
+        redirect_to_results="",
+    )
+    _wire_status_row(client, row)
+
+    response = client.get("/StatusUpdate/")
+    assert response.status_code == 200
+    assert response.json()["completed"] is False
+    assert called["n"] == 0  # short-circuited before the liveness check
+
+    reloaded = LRPStatus.objects.get(pk=row.pk)
+    assert reloaded.completed is False
