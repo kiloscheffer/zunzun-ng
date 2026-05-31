@@ -279,6 +279,14 @@ header h1 .brand-logo {
 
 .function-matrix {
   margin-top: 0.5rem;
+  /* Separate (not collapsed) borders so each picker cell owns all four of
+     its edges -- a prerequisite for the per-cell outset/inset 3D bevel in
+     the MATRIX PICKER CELLS section. simple.css sets table borders to
+     collapse, which merges shared edges into one flat line and defeats the
+     bevel; .function-matrix beats it on specificity. border-spacing gives
+     the gap between buttons that the collapsed layout had no room for. */
+  border-collapse: separate;
+  border-spacing: 0.35rem;
 }
 
 .matrix-layout > .function-matrix {
@@ -312,17 +320,28 @@ header h1 .brand-logo {
 /*   style="background-color:rgb(...)" that used to carry this state).       */
 /* ------------------------------------------------------------------------ */
 td.pick {
-  background-color: rgb(211, 211, 211);
-  border: medium solid;
-  border-style: outset;
-  cursor: default;
+  /* Classic raised push-button: a silver button-face with an outset bevel.
+     border-color is set to the same gray as the face so the browser derives
+     the highlight (top/left) and shadow (bottom/right) edges from it. */
+  background-color: #d3d3d3;
+  border: 3px outset #d3d3d3;
+  cursor: pointer;
   font-size: 75%;
+  padding: 0.5rem 0.75rem;
   text-align: center;
   white-space: nowrap;
 }
 
+/* Mouse-down: depress the button (invert the bevel) for tactile feedback,
+   independent of whether the click ends up selecting it. */
+td.pick:active {
+  border-style: inset;
+}
+
+/* Selected = pushed in: inset bevel + white face so picked terms read as
+   "engaged" against the raised, gray, unselected cells. */
 td.pick.selected {
-  background-color: rgb(255, 255, 255);
+  background-color: #fff;
   border-style: inset;
 }
 
