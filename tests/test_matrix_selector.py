@@ -309,11 +309,14 @@ def test_bound_interface_3d_maps_posted_flag_to_equation_flags():
     lrp = FitUserSelectablePolyfunctional()
     lrp.dimensionality = 3
     lrp.boundForm = _FakeBoundForm()
-    # Build the full 3D grid POST, all False except cell (1, 1).
+    # Build the full 3D grid POST, all False except the ASYMMETRIC cell (i=1,
+    # j=0). Asymmetric on purpose: a symmetric cell like (1, 1) could not
+    # distinguish a correct append([i, j]) from a transposed append([j, i]).
     post = {}
     for i in range(len(lrp.X3DList)):
         for j in range(len(lrp.Y3DList)):
-            post[f"polyFunctional_X{i}Y{j}"] = "True" if (i, j) == (1, 1) else "False"
+            post[f"polyFunctional_X{i}Y{j}"] = "True" if (i, j) == (1, 0) else "False"
     request = RequestFactory().post("/", data=post)
     lrp.SpecificEquationBoundInterfaceCode(request)
-    assert lrp.boundForm.equation.polyfunctional3DFlags == [[1, 1]]
+    # [[1, 0]], not [[0, 1]] — pins the (i, j) ordering against transposition.
+    assert lrp.boundForm.equation.polyfunctional3DFlags == [[1, 0]]
