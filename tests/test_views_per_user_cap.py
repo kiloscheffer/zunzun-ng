@@ -104,11 +104,13 @@ def test_concurrent_fit_refused_for_active_fit_without_polling(client):
 @pytest.mark.django_db
 def test_concurrent_fit_allowed_when_pid_dead(client, monkeypatch):
     """ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER=False — a prior fit whose child
-    died WITHOUT finalizing (process_id still set, completed False, heartbeat
-    still fresh) must NOT block the user's next fit. The gate applies the
-    dead-child backstop (_finalize_row_if_child_dead): finding the owning pid
-    gone, it promotes the row to terminal so is_active releases, instead of
-    blocking the retry for up to 300s while the fresh heartbeat ages out.
+    died WITHOUT finalizing (process_id still set, state not yet TERMINAL,
+    heartbeat still fresh) must NOT block the user's next fit. The gate applies
+    the dead-child backstop (_finalize_row_if_child_dead): finding the owning pid
+    gone, it promotes the row to state=TERMINAL so neither is_active (state ==
+    RUNNING) nor is_pending (state == INITIALIZING, and start_time is still
+    inside the 60s pending window here) fires, instead of blocking the retry for
+    up to 300s while the fresh heartbeat ages out.
 
     Regression guard for wiring the backstop into the gate (previously the
     gate trusted the heartbeat alone, so a SIGKILL/OOM-killed child blocked

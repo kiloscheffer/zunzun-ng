@@ -283,12 +283,12 @@ def _finalize_row_if_child_dead(row) -> bool:
     """Terminal backstop for a fit child that died WITHOUT finalizing its row.
 
     The normal terminal paths (success, abort, the _run_fit_child exception
-    handler) set completed=True and clear process_id. But a child killed by
+    handler) set state=TERMINAL and clear process_id. But a child killed by
     SIGKILL / OOM / segfault — or one whose terminal LRPStatus write itself
-    failed under sustained DB lock past busy_timeout — leaves the row showing an
-    in-progress fit forever (process_id set, completed False). The poll loop
-    would then never end and the per-user is_active gate would block the user's
-    retry for up to 300s. This is the one unrecoverable-write gap the LRPStatus
+    failed under sustained DB lock past busy_timeout — leaves the row non-terminal
+    forever (state still RUNNING or INITIALIZING, process_id possibly set). The
+    poll loop would then never end and the per-user is_active gate would block the
+    user's retry for up to 300s. This is the one unrecoverable-write gap the LRPStatus
     busy_timeout (no retry loop, by design) cannot close on the writer side, so
     it is closed here on the reader side — which additionally catches every
     no-handler-ran crash (SIGKILL/OOM/segfault) a writer-side retry never could.
@@ -550,12 +550,12 @@ def LongRunningProcessView(
             row = LRPStatus.objects.filter(pk=request.session.get("lrp_status_pk")).first()
             # Apply the dead-child backstop before judging the prior fit: a
             # child killed by SIGKILL/OOM/segfault (or one whose terminal write
-            # failed) leaves the row process_id-set / completed-False with a
-            # heartbeat that can stay fresh for up to 300s, which would block
-            # this user's retry even though no fit is running. _finalize_row_if_
-            # child_dead promotes such a row to terminal (process_id=0,
-            # completed=True) in place, so the is_active/is_pending checks below
-            # see the released state. Mirrors what the status views already do
+            # failed) leaves the row state=RUNNING with a heartbeat that can stay
+            # fresh for up to 300s, which would block this user's retry even
+            # though no fit is running. _finalize_row_if_child_dead promotes such
+            # a row to state=TERMINAL (process_id=0) in place, so the
+            # is_active/is_pending checks below see the released state. Mirrors
+            # what the status views already do
             # on the poll path; without it the gate is the one place a provably-
             # dead fit still gates. (A live fit's pid passes the probe and is
             # left untouched, so genuine in-progress fits still block.)
