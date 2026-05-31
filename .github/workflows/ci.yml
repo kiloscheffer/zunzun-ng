@@ -21,6 +21,13 @@ on:
     - cron: "0 6 * * 1"
   workflow_dispatch:
 
+# GITHUB_TOKEN least privilege: every job here only checks out the repo and
+# runs tests — none write to contents, releases, checks, or packages. A
+# read-only default at the top level is inherited by all jobs (resolves CodeQL
+# actions/missing-workflow-permissions).
+permissions:
+  contents: read
+
 # Action version pinning rationale:
 #   - actions/checkout@v6.0.2: v6+ natively targets Node.js 24 (per the
 #     v6.0.0 release notes). Pinned to a full version rather than @v6
