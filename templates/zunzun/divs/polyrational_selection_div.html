@@ -11,9 +11,9 @@
         <tr>
           {% for selected, index, html in Polyrat2DNumeratorColorList %}
               {% if html == '' %}
-                  <td class="pick math{% if selected %} selected{% endif %}" id='CPX_N{{ index }}' onClick='cT(this.id)'>&nbsp;constant&nbsp;</td>
+                  <td class="pick math{% if selected %} selected{% endif %}" id='CPX_N{{ index }}' data-flag="polyRational_X_N{{ index }}" onClick='cT(this.id)'>&nbsp;constant&nbsp;</td>
               {% else %}
-                  <td class="pick math{% if selected %} selected{% endif %}" id='CPX_N{{ index }}' onClick='cT(this.id)'>&nbsp;{{ html }}&nbsp;</td>
+                  <td class="pick math{% if selected %} selected{% endif %}" id='CPX_N{{ index }}' data-flag="polyRational_X_N{{ index }}" onClick='cT(this.id)'>&nbsp;{{ html }}&nbsp;</td>
               {% endif %}
           {% endfor %}
         </tr>
@@ -26,9 +26,9 @@
         <tr>
           {% for selected, index, html in Polyrat2DDenominatorColorList %}
               {% if html == '' %}
-                  <td class="pick math{% if selected %} selected{% endif %}" id='CPX_D{{ index }}' onClick='cT(this.id)'>&nbsp;constant&nbsp;</td>
+                  <td class="pick math{% if selected %} selected{% endif %}" id='CPX_D{{ index }}' data-flag="polyRational_X_D{{ index }}" onClick='cT(this.id)'>&nbsp;constant&nbsp;</td>
               {% else %}
-                  <td class="pick math{% if selected %} selected{% endif %}" id='CPX_D{{ index }}' onClick='cT(this.id)'>&nbsp;{{ html }}&nbsp;</td>
+                  <td class="pick math{% if selected %} selected{% endif %}" id='CPX_D{{ index }}' data-flag="polyRational_X_D{{ index }}" onClick='cT(this.id)'>&nbsp;{{ html }}&nbsp;</td>
               {% endif %}
           {% endfor %}
         </tr>
@@ -39,18 +39,18 @@
     <div class="function-matrix-scroll">
       <table class="function-matrix">
         <tr>
-          <td class="pick math{% if offsetSelected %} selected{% endif %}" id='CPX_OFFSET' onClick='cT(this.id)'>&nbsp;Offset Term&nbsp;</td>
+          <td class="pick math{% if offsetSelected %} selected{% endif %}" id='CPX_OFFSET' data-flag="polyRational_OFFSET" onClick='cT(this.id)'>&nbsp;Offset Term&nbsp;</td>
         </tr>
       </table>
     </div>
 
     {% for selected, index, html in Polyrat2DNumeratorColorList %}
-    	<input type="hidden" name="polyRational_X_N{{ index }}" value="False" id="id_polyRational_X_N{{ index }}">
+    	<input type="hidden" name="polyRational_X_N{{ index }}" value="{% if selected %}True{% else %}False{% endif %}" id="id_polyRational_X_N{{ index }}">
     {% endfor %}
     {% for selected, index, html in Polyrat2DDenominatorColorList %}
-    	<input type="hidden" name="polyRational_X_D{{ index }}" value="False" id="id_polyRational_X_D{{ index }}">
+    	<input type="hidden" name="polyRational_X_D{{ index }}" value="{% if selected %}True{% else %}False{% endif %}" id="id_polyRational_X_D{{ index }}">
     {% endfor %}
-    <input type="hidden" name="polyRational_OFFSET" value="False" id="id_polyRational_OFFSET">
+    <input type="hidden" name="polyRational_OFFSET" value="{% if offsetSelected %}True{% else %}False{% endif %}" id="id_polyRational_OFFSET">
 
 {% else %}
     <h3>Matrix of Functions</h3>
@@ -69,22 +69,22 @@
               {% endif %}
               {% if htmlX == '' %}{# Both X and Y have empty HTML, yield constant #}
                   {% if htmlY == '' %}
-                      <td class="pick math{% if selected %} selected{% endif %}" id='CPX{{ indexX }}Y{{ indexY }}' onClick='cT(this.id)'>&nbsp;constant&nbsp;</td>
+                      <td class="pick math{% if selected %} selected{% endif %}" id='CPX{{ indexX }}Y{{ indexY }}' data-flag="polyFunctional_X{{ indexX }}Y{{ indexY }}" onClick='cT(this.id)'>&nbsp;constant&nbsp;</td>
                   {% endif %}
               {% endif %}
               {% if htmlX != '' %}{# Neither X nor Y has empty HTML, yield XY #}
                   {% if htmlY != '' %}
-                      <td class="pick math{% if selected %} selected{% endif %}" id='CPX{{ indexX }}Y{{ indexY }}' onClick='cT(this.id)'>&nbsp;{{ htmlX }}{{ htmlY }}&nbsp;</td>
+                      <td class="pick math{% if selected %} selected{% endif %}" id='CPX{{ indexX }}Y{{ indexY }}' data-flag="polyFunctional_X{{ indexX }}Y{{ indexY }}" onClick='cT(this.id)'>&nbsp;{{ htmlX }}{{ htmlY }}&nbsp;</td>
                   {% endif %}
               {% endif %}
               {% if htmlX != '' %}{# Only Y has empty HTML, yield X #}
                   {% if htmlY == '' %}
-                      <td class="pick math{% if selected %} selected{% endif %}" id='CPX{{ indexX }}Y{{ indexY }}' onClick='cT(this.id)'>&nbsp;{{ htmlX }}&nbsp;</td>
+                      <td class="pick math{% if selected %} selected{% endif %}" id='CPX{{ indexX }}Y{{ indexY }}' data-flag="polyFunctional_X{{ indexX }}Y{{ indexY }}" onClick='cT(this.id)'>&nbsp;{{ htmlX }}&nbsp;</td>
                   {% endif %}
               {% endif %}
               {% if htmlX == '' %}{# Only X has empty HTML, yield Y #}
                   {% if htmlY != '' %}
-                      <td class="pick math{% if selected %} selected{% endif %}" id='CPX{{ indexX }}Y{{ indexY }}' onClick='cT(this.id)'>&nbsp;{{ htmlY }}&nbsp;</td>
+                      <td class="pick math{% if selected %} selected{% endif %}" id='CPX{{ indexX }}Y{{ indexY }}' data-flag="polyFunctional_X{{ indexX }}Y{{ indexY }}" onClick='cT(this.id)'>&nbsp;{{ htmlY }}&nbsp;</td>
                   {% endif %}
               {% endif %}
               {% if indexY == maxPolyfunctionalListIndex %}
@@ -96,7 +96,7 @@
     </div>
 
     {% for selected, indexX, indexY, htmlX, htmlY in Polyfun3DColorList %}
-        <input type="hidden" name="polyFunctional_X{{ indexX }}Y{{ indexY }}" value="False" id="id_polyFunctional_X{{ indexX }}Y{{ indexY }}">
+        <input type="hidden" name="polyFunctional_X{{ indexX }}Y{{ indexY }}" value="{% if selected %}True{% else %}False{% endif %}" id="id_polyFunctional_X{{ indexX }}Y{{ indexY }}">
     {% endfor %}
 
 {% endif %}

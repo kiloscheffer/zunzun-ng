@@ -24,8 +24,16 @@ contains the substring ``background-color`` from the unrelated
 old picker pattern, so that is what the integration test guards against.)
 """
 
+import types
+
 import pytest
 from django.template.loader import render_to_string
+from django.test import RequestFactory
+
+from zunzun.LongRunningProcess.FittingBaseClass import FittingBaseClass
+from zunzun.LongRunningProcess.FitUserSelectablePolyfunctional import (
+    FitUserSelectablePolyfunctional,
+)
 
 
 def _polyfunctional_2d(selected_first):
@@ -94,6 +102,93 @@ def test_polyrational_selected_bool_and_offset_map_to_class():
     assert "background-color" not in html
 
 
+def test_polyfunctional_2d_data_flag_and_initial_value():
+    """Each cell names its hidden field via data-flag; the hidden input's
+    initial value mirrors the selected bool (so rank pre-fill survives
+    without readPolyFlags)."""
+    html = _polyfunctional_2d(selected_first=True)
+    assert 'data-flag="polyFunctional_X0"' in html
+    assert 'data-flag="polyFunctional_X1"' in html
+    assert 'name="polyFunctional_X0" value="True"' in html
+    assert 'name="polyFunctional_X1" value="False"' in html
+
+
+def test_polynomial_customization_2d_data_flag_and_initial_value():
+    html = render_to_string(
+        "zunzun/divs/polynomial_customization_div.html",
+        {
+            "dimensionality": "2",
+            "equationHTML": "",
+            "Polynomial2DColorList": [(True, 0, "1"), (False, 1, "X")],
+        },
+    )
+    assert 'data-flag="polyFunctional_X0"' in html
+    assert 'data-flag="polyFunctional_X1"' in html
+    assert 'name="polyFunctional_X0" value="True"' in html
+    assert 'name="polyFunctional_X1" value="False"' in html
+
+
+def test_polyrational_2d_data_flag_and_initial_value():
+    html = render_to_string(
+        "zunzun/divs/polyrational_selection_div.html",
+        {
+            "dimensionality": "2",
+            "equationHTML": "",
+            "Polyrat2DNumeratorColorList": [(True, 0, "X")],
+            "Polyrat2DDenominatorColorList": [(False, 0, "X")],
+            "offsetSelected": True,
+        },
+    )
+    assert 'data-flag="polyRational_X_N0"' in html
+    assert 'data-flag="polyRational_X_D0"' in html
+    assert 'data-flag="polyRational_OFFSET"' in html
+    assert 'name="polyRational_X_N0" value="True"' in html
+    assert 'name="polyRational_X_D0" value="False"' in html
+    assert 'name="polyRational_OFFSET" value="True"' in html
+
+
+def test_polyfunctional_3d_data_flag_and_initial_value():
+    html = render_to_string(
+        "zunzun/divs/polyfunctional_selection_div.html",
+        {
+            "dimensionality": "3",
+            "equationHTML": "",
+            "maxPolyfunctionalListIndex": 1,
+            "Polyfun3DColorList": [
+                (True, 0, 0, "Offset", ""),
+                (False, 0, 1, "", "Y"),
+                (False, 1, 0, "X", ""),
+                (False, 1, 1, "X", "Y"),
+            ],
+        },
+    )
+    assert 'data-flag="polyFunctional_X0Y0"' in html
+    assert 'data-flag="polyFunctional_X1Y1"' in html
+    assert 'name="polyFunctional_X0Y0" value="True"' in html
+    assert 'name="polyFunctional_X1Y1" value="False"' in html
+
+
+def test_polynomial_customization_3d_data_flag_and_initial_value():
+    html = render_to_string(
+        "zunzun/divs/polynomial_customization_div.html",
+        {
+            "dimensionality": "3",
+            "equationHTML": "",
+            "maxPolyfunctionalListIndex": 1,
+            "Polyfun3DColorList": [
+                (True, 0, 0, "Offset", ""),
+                (False, 0, 1, "", "Y"),
+                (False, 1, 0, "X", ""),
+                (False, 1, 1, "X", "Y"),
+            ],
+        },
+    )
+    assert 'data-flag="polyFunctional_X0Y0"' in html
+    assert 'data-flag="polyFunctional_X1Y1"' in html
+    assert 'name="polyFunctional_X0Y0" value="True"' in html
+    assert 'name="polyFunctional_X1Y1" value="False"' in html
+
+
 @pytest.mark.django_db
 def test_polyfunctional_interface_renders_class_driven(client):
     """Full URL -> view -> template path renders the picker, class-driven.
@@ -114,3 +209,114 @@ def test_polyfunctional_interface_renders_class_driven(client):
     assert "cT(this.id" in body
     # ...but no inline picker background-color survives.
     assert "background-color:rgb(" not in body
+    # readPolyFlags was deleted; submit is now a plain <input type="submit">.
+    assert "readPolyFlags" not in body
+    assert '<input type="submit" value="Submit">' in body
+
+
+class _HtmlStub:
+    def __init__(self, html):
+        self.HTML = html
+
+
+def _fake_3d_self():
+    # _build_3d_color_list reads only self.X3DList / self.Y3DList and each
+    # item's .HTML. Index 0 of each axis is the offset position; its .HTML is
+    # never read (the (0,0) cell is hardcoded "Offset").
+    return types.SimpleNamespace(
+        X3DList=[_HtmlStub("x0"), _HtmlStub("X")],
+        Y3DList=[_HtmlStub("y0"), _HtmlStub("Y")],
+    )
+
+
+def test_build_3d_color_list_no_rank_all_unselected():
+    result = FittingBaseClass._build_3d_color_list(_fake_3d_self(), lambda i, j: False)
+    assert result == [
+        (False, 0, 0, "Offset", ""),
+        (False, 0, 1, "", "Y"),
+        (False, 1, 0, "X", ""),
+        (False, 1, 1, "X", "Y"),
+    ]
+
+
+def test_build_3d_color_list_rank_predicate_marks_selected_cells():
+    flags = [[1, 1]]
+    result = FittingBaseClass._build_3d_color_list(_fake_3d_self(), lambda i, j: [i, j] in flags)
+    assert result == [
+        (False, 0, 0, "Offset", ""),
+        (False, 0, 1, "", "Y"),
+        (False, 1, 0, "X", ""),
+        (True, 1, 1, "X", "Y"),
+    ]
+
+
+def test_build_3d_color_list_predicate_selects_offset_and_axis_cells():
+    # selected=True must thread through every positional branch, not just the
+    # general (i>0, j>0) cell.
+    flags = [[0, 0], [1, 0], [0, 1]]
+    result = FittingBaseClass._build_3d_color_list(_fake_3d_self(), lambda i, j: [i, j] in flags)
+    assert result == [
+        (True, 0, 0, "Offset", ""),  # offset branch
+        (True, 0, 1, "", "Y"),  # Y-only branch
+        (True, 1, 0, "X", ""),  # X-only branch
+        (False, 1, 1, "X", "Y"),  # general branch, not selected
+    ]
+
+
+def test_polyrational_3d_data_flag_and_initial_value():
+    """Polyrational 3D uses the polyfunctional matrix names (polyFunctional_XiYj);
+    data-flag and hidden-input initial value must be present and correct."""
+    html = render_to_string(
+        "zunzun/divs/polyrational_selection_div.html",
+        {
+            "dimensionality": "3",
+            "equationHTML": "",
+            "maxPolyfunctionalListIndex": 1,
+            "Polyfun3DColorList": [
+                (True, 0, 0, "Offset", ""),
+                (False, 0, 1, "", "Y"),
+                (False, 1, 0, "X", ""),
+                (False, 1, 1, "X", "Y"),
+            ],
+        },
+    )
+    assert 'data-flag="polyFunctional_X0Y0"' in html
+    assert 'data-flag="polyFunctional_X1Y1"' in html
+    assert 'name="polyFunctional_X0Y0" value="True"' in html
+    assert 'name="polyFunctional_X1Y1" value="False"' in html
+
+
+class _FakeBoundField:
+    required = False
+
+
+class _FakeBoundForm:
+    """Minimal stand-in for the bound Equation_3D form: supports item access
+    (each access returns a throwaway field, matching how form[name] works) and
+    carries the .equation the parser writes flags onto."""
+
+    def __init__(self):
+        self.equation = types.SimpleNamespace()
+
+    def __getitem__(self, key):
+        return _FakeBoundField()
+
+
+def test_bound_interface_3d_maps_posted_flag_to_equation_flags():
+    """SpecificEquationBoundInterfaceCode correctly maps a POSTed
+    polyFunctional_XiYj=True into equation.polyfunctional3DFlags — no fit
+    spawned, no real form, no DB."""
+    lrp = FitUserSelectablePolyfunctional()
+    lrp.dimensionality = 3
+    lrp.boundForm = _FakeBoundForm()
+    # Build the full 3D grid POST, all False except the ASYMMETRIC cell (i=1,
+    # j=0). Asymmetric on purpose: a symmetric cell like (1, 1) could not
+    # distinguish a correct append([i, j]) from a transposed append([j, i]).
+    post = {}
+    for i in range(len(lrp.X3DList)):
+        for j in range(len(lrp.Y3DList)):
+            post[f"polyFunctional_X{i}Y{j}"] = "True" if (i, j) == (1, 0) else "False"
+    request = RequestFactory().post("/", data=post)
+    lrp.SpecificEquationBoundInterfaceCode(request)
+    # [[1, 0]], not [[0, 1]] — pins the (i, j) ordering against transposition.
+    assert lrp.boundForm.equation.polyfunctional3DFlags == [[1, 0]]

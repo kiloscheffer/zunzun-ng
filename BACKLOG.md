@@ -1278,7 +1278,154 @@ and `'rgb(211,211,211)'` (lightgray = selected).
 behavior change. Worth a small focused commit; ~50% line reduction
 across 4 JS files plus the paired `<td>` template cleanup.
 
-## Matrix-selector follow-ups (duplication + submit-sync) — deferred from JS modernization
+## Matrix-selector round-2 follow-ups (from PR review of feat/matrix-selector-followups)
+
+**Surfaced by** the `/pr-review-toolkit:review-pr` pass on
+`feat/matrix-selector-followups` (2026-06-01). None block that branch (the
+review found zero Critical/Important *code* defects); these are residual
+coverage/dedup items deferred from it.
+
+**1. 2D color-list builder is untested and still inline.** The #3 work
+extracted the 3D ladder into `FittingBaseClass._build_3d_color_list` with unit
+tests, but the parallel 2D rank-prefill loops in
+`FitUserSelectablePolyfunctional.py` (`SpecificEquationUnboundInterfaceCode`,
+the `Polyfun2DColorList` block) and the `Polynomial2DColorList` block in
+`FitUserCustomizablePolynomial.py` remain inline and uncovered. They are
+simpler (one axis, no offset/axis branches) so risk is low, but the asymmetry
+means a 2D rank-prefill regression (e.g. `i in flags` vs `[i] in flags`) ships
+silently. If touched, extract a `_build_2d_color_list(self, selected_predicate)`
+mirroring the 3D helper and add the mirror tests. Note the 2D var names differ
+(`Polyfun2DColorList` vs `Polynomial2DColorList`), so the helper would assign
+into a caller-supplied key.
+
+**2. The two 3D matrix JS files are now byte-identical.** After the prologue
+hoist, `templates/zunzun/javascript/JavascriptForFunctionMatrix3D.js` and
+`JavascriptForRationalMatrix3D.js` are the same git blob. Merging them to a
+single included file (or having both `<script>` includes point at one file)
+removes a maintain-in-parallel hazard. Was a non-goal of the round-1 branch
+(template `<script>` include rewiring); pick up as its own small commit. Verify
+with a manual click-through of both the polyfunctional-3D and rational-3D
+pickers after rewiring the includes.
+
+**3. `AGENTS.md` brace-pattern filename imprecision.** `AGENTS.md` (the
+coefficient-picker-templates section) lists the three divs as
+`{polyfunctional,polyrational,polynomial_customization}_selection_div.html`,
+which brace-expands to a non-existent `polynomial_customization_selection_div.html`
+(the real file is `polynomial_customization_div.html`). The same wording in
+`docs/internals/active-gotchas.md` was corrected on the round-1 branch; fix
+`AGENTS.md` to match in a docs pass.
+
+**Not in scope of the round-1 branch.** All three are below the merge bar —
+coverage hardening and cosmetic/dedup cleanup — and were deferred from the PR
+review rather than fixed inline to keep that branch's diff scoped.
+
+## Is `FitUserCustomizablePolynomial`'s 3D path dead code or a latent crash?
+
+**Surfaced by** the `/code-review` pass on `feat/matrix-selector-followups`
+(2026-06-01). **Pre-existing — NOT introduced by that branch** (the branch only
+moved the `self.X3DList` access from an inline ladder into the shared
+`FittingBaseClass._build_3d_color_list` helper; the access itself is unchanged).
+Filed for investigation, not as a regression.
+
+**Symptom / question.** `FitUserCustomizablePolynomial.__init__`
+(`zunzun/LongRunningProcess/FitUserCustomizablePolynomial.py`) builds only
+`self.X2DList` (`GenerateListForCustomPolynomials_2D()`) — it never sets
+`self.X3DList` / `self.Y3DList`. Yet `SpecificEquationUnboundInterfaceCode` has
+an `else:  # 3D` branch (both the rank and no-rank paths) that calls
+`self._build_3d_color_list(...)`, which evaluates `range(len(self.X3DList))`. If
+that 3D branch is ever reached, it raises
+`AttributeError: 'FitUserCustomizablePolynomial' object has no attribute 'X3DList'`
+and the picker render returns a 500.
+
+**Hypothesis.** It is almost certainly **unreachable dead code** — customizable
+polynomial is 2D-only by design, mirroring `FitUserSelectableRational` (also
+2D-only, also carrying a dead 3D template branch). If pyeq3 exposes no 3D
+user-customizable-polynomial equation, `userCustomizablePolynomialFlag` is never
+set on a 3D equation and the 3D branch never runs. But this has not been
+positively confirmed — the smoke suite exercises the customizable-polynomial
+*fit* path, not necessarily a GET of its 3D *picker interface*.
+
+**Where to pick up.**
+1. Confirm reachability: does any equation class with `dimensionality == 3` set
+   `userCustomizablePolynomialFlag` (i.e., does `/Equation/3/.../...` ever route
+   to `FitUserCustomizablePolynomial`)? Check the equation registry / home-page
+   listing for a 3D customizable polynomial.
+2. **If unreachable:** delete the dead 3D branches in
+   `FitUserCustomizablePolynomial.SpecificEquationUnboundInterfaceCode` (and the
+   dead 3D branch in `polynomial_customization_div.html` if it has no producer),
+   the same way the rational 3D dead branch could be cleaned. Cosmetic.
+3. **If reachable:** it is a real pre-existing crash — add `self.X3DList` /
+   `self.Y3DList` in `__init__` (as `FitUserSelectablePolyfunctional` does) and a
+   smoke/render test for the 3D customizable-polynomial picker.
+
+**Not in scope of the round-1 branch.** Pre-existing; orthogonal to the
+matrix-selector cleanup. Worth a small focused investigation commit.
+
+## 3D picker templates' `</tr>` row-close depends on an unset `maxPolyfunctionalListIndex`
+
+**Surfaced by** the `/code-review xhigh` pass on
+`feat/matrix-selector-followups` (2026-06-01). **Pre-existing — NOT introduced
+by that branch** (the branch added `data-flag`/`value` to the cells but never
+touched the row-break logic or this variable). Filed as low-severity cleanup.
+
+**Symptom.** The 3D branch of all three picker templates
+(`templates/zunzun/divs/{polyfunctional_selection_div,polynomial_customization_div,polyrational_selection_div}.html`)
+closes each grid row with
+`{% if indexY == maxPolyfunctionalListIndex %}</tr>{% endif %}`. But
+`maxPolyfunctionalListIndex` is **never set in any production code path** — a
+repo-wide grep finds it only in these three templates (consuming it) and in
+`tests/test_matrix_selector.py` (which supplies it explicitly so the templates
+render). So in production the variable resolves to Django's
+`string_if_invalid` (empty), the `{% if %}` is always False, and the explicit
+`</tr>` is never emitted.
+
+**Why it's currently harmless.** Each row is still *opened* by
+`{% if indexY == 0 %}<tr>{% endif %}`, and HTML parsers auto-close an open
+`<tr>` when they hit the next `<tr>` (or `</table>`). So the grid renders with
+correct row boundaries despite the missing explicit close — the
+`{% if indexY == maxPolyfunctionalListIndex %}</tr>` line is effectively dead.
+This is sloppy (relies on tag-soup auto-closing) but not a visible defect.
+
+**Note on the tests.** The 3D render tests in `tests/test_matrix_selector.py`
+pass `maxPolyfunctionalListIndex=1` in their context purely so `render_to_string`
+produces well-formed markup for the `data-flag`/`value` assertions; they do not
+assert on row structure, so they neither catch nor mask this (they just don't
+cover it). A full-stack `client.get()` against a 3D picker URL would render the
+production (auto-closed) markup.
+
+**Where to pick up.** Pick one:
+1. **Set the variable** — have the 3D unbound-interface code (or a shared spot)
+   put `maxPolyfunctionalListIndex = len(self.Y3DList) - 1` into
+   `dictionaryToReturn`, making the explicit `</tr>` fire as intended.
+2. **Delete the dead close** — drop the
+   `{% if indexY == maxPolyfunctionalListIndex %}</tr>{% endif %}` from all three
+   templates and document that rows rely on the next `<tr>` / `</table>` to
+   close. Cosmetic either way.
+
+**Not in scope of the round-1 branch.** Pre-existing dead template logic;
+orthogonal to the submit-sync/dedup cleanup.
+
+## ~~Matrix-selector follow-ups (duplication + submit-sync) — deferred from JS modernization~~ RESOLVED 2026-06-01
+
+> **Resolution.** All four items landed on `feat/matrix-selector-followups`.
+> #4 (submit-sync): each picker `<td>` carries a `data-flag` naming its hidden
+> input; `setSelected` writes it on every toggle and the initial value is
+> server-rendered from the `selected` bool, so the form is correct at rest.
+> `readPolyFlags()` deleted from all four matrix scripts and Submit is a plain
+> `<input type="submit">` — Enter and programmatic submits no longer discard
+> selections. #1: the count→cap→toggle prologue moved into a shared
+> `toggleWithLimit(id)` in the common JS. #2: the dead `unusedFor3D` param and
+> its `,1`/`,0` call literals removed. #3: the byte-identical 3D color-list
+> ladder collapsed to `FittingBaseClass._build_3d_color_list(selected_predicate)`
+> with the first 3D-builder unit tests. `FitUserSelectableRational` confirmed
+> 2D-only (not a #3 caller). Verified by manual click-through across the
+> reachable pickers (2D/3D) plus `uv run pytest` and the smoke suite. The stale
+> `active-gotchas.md` picker note and a `custom.css` comment were refreshed off
+> the deleted `readPolyFlags`.
+> Spec: `docs/superpowers/specs/2026-05-31-matrix-selector-followups-design.md`;
+> plan: `docs/superpowers/plans/2026-05-31-matrix-selector-followups.md`.
+>
+> Historical notes below, preserved for reference.
 
 **Surfaced by** the `/code-review xhigh` pass on
 `feat/matrix-selector-js-modernization` (2026-05-31). None are regressions

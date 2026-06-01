@@ -11,9 +11,9 @@
         <tr>
           {% for selected, index, html in Polyfun2DColorList %}
               {% if html == '' %}
-                  <td class="pick math{% if selected %} selected{% endif %}" id='CPX{{ index }}' onClick='cT(this.id,1)'>&nbsp;offset&nbsp;</td>
+                  <td class="pick math{% if selected %} selected{% endif %}" id='CPX{{ index }}' data-flag="polyFunctional_X{{ index }}" onClick='cT(this.id,1)'>&nbsp;offset&nbsp;</td>
               {% else %}
-                  <td class="pick math{% if selected %} selected{% endif %}" id='CPX{{ index }}' onClick='cT(this.id,1)'>&nbsp;{{ html }}&nbsp;</td>
+                  <td class="pick math{% if selected %} selected{% endif %}" id='CPX{{ index }}' data-flag="polyFunctional_X{{ index }}" onClick='cT(this.id,1)'>&nbsp;{{ html }}&nbsp;</td>
               {% endif %}
           {% endfor %}
         </tr>
@@ -21,7 +21,7 @@
     </div>
 
     {% for selected, index, html in Polyfun2DColorList %}
-    	<input type="hidden" name="polyFunctional_X{{ index }}" value="False" id="id_polyFunctional_X{{ index }}">
+    	<input type="hidden" name="polyFunctional_X{{ index }}" value="{% if selected %}True{% else %}False{% endif %}" id="id_polyFunctional_X{{ index }}">
     {% endfor %}
 
 {% else %}
@@ -42,22 +42,22 @@
               {% endif %}
               {% if htmlX == '' %}{# Both X and Y have empty HTML, yield offset #}
                   {% if htmlY == '' %}
-                      <td class="pick math{% if selected %} selected{% endif %}" id='CPX{{ indexX }}Y{{ indexY }}' onClick='cT(this.id,1)'>&nbsp;offset&nbsp;</td>
+                      <td class="pick math{% if selected %} selected{% endif %}" id='CPX{{ indexX }}Y{{ indexY }}' data-flag="polyFunctional_X{{ indexX }}Y{{ indexY }}" onClick='cT(this.id)'>&nbsp;offset&nbsp;</td>
                   {% endif %}
               {% endif %}
               {% if htmlX != '' %}{# Neither X nor Y has empty HTML, yield XY #}
                   {% if htmlY != '' %}
-                      <td class="pick math{% if selected %} selected{% endif %}" id='CPX{{ indexX }}Y{{ indexY }}' onClick='cT(this.id,1)'>&nbsp;{{ htmlX }}{{ htmlY }}&nbsp;</td>
+                      <td class="pick math{% if selected %} selected{% endif %}" id='CPX{{ indexX }}Y{{ indexY }}' data-flag="polyFunctional_X{{ indexX }}Y{{ indexY }}" onClick='cT(this.id)'>&nbsp;{{ htmlX }}{{ htmlY }}&nbsp;</td>
                   {% endif %}
               {% endif %}
               {% if htmlX != '' %}{# Only Y has empty HTML, yield X #}
                   {% if htmlY == '' %}
-                      <td class="pick math{% if selected %} selected{% endif %}" id='CPX{{ indexX }}Y{{ indexY }}' onClick='cT(this.id,1)'>&nbsp;{{ htmlX }}&nbsp;</td>
+                      <td class="pick math{% if selected %} selected{% endif %}" id='CPX{{ indexX }}Y{{ indexY }}' data-flag="polyFunctional_X{{ indexX }}Y{{ indexY }}" onClick='cT(this.id)'>&nbsp;{{ htmlX }}&nbsp;</td>
                   {% endif %}
               {% endif %}
               {% if htmlX == '' %}{# Only X has empty HTML, yield Y #}
                   {% if htmlY != '' %}
-                      <td class="pick math{% if selected %} selected{% endif %}" id='CPX{{ indexX }}Y{{ indexY }}' onClick='cT(this.id,1)'>&nbsp;{{ htmlY }}&nbsp;</td>
+                      <td class="pick math{% if selected %} selected{% endif %}" id='CPX{{ indexX }}Y{{ indexY }}' data-flag="polyFunctional_X{{ indexX }}Y{{ indexY }}" onClick='cT(this.id)'>&nbsp;{{ htmlY }}&nbsp;</td>
                   {% endif %}
               {% endif %}
               {% if indexY == maxPolyfunctionalListIndex %}
@@ -69,7 +69,7 @@
     </div>
 
     {% for selected, indexX, indexY, htmlX, htmlY in Polyfun3DColorList %}
-        <input type="hidden" name="polyFunctional_X{{ indexX }}Y{{ indexY }}" value="False" id="id_polyFunctional_X{{ indexX }}Y{{ indexY }}">
+        <input type="hidden" name="polyFunctional_X{{ indexX }}Y{{ indexY }}" value="{% if selected %}True{% else %}False{% endif %}" id="id_polyFunctional_X{{ indexX }}Y{{ indexY }}">
     {% endfor %}
 
 {% endif %}
