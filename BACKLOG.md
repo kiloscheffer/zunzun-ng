@@ -918,7 +918,53 @@ mechanism for "do something on every request." Converting:
 **Not in scope of any current branch.** Pure refactor; no behavior
 change visible to users.
 
-## Modernize HTML/CSS in templates (substantially complete)
+## ~~Modernize HTML/CSS in templates~~ RESOLVED 2026-06-01
+
+> **Resolution.** Closed on `feat/form-control-labels`. Spec:
+> `docs/superpowers/specs/2026-06-01-form-control-labels-design.md`; plan:
+> `docs/superpowers/plans/2026-06-01-form-control-labels.md` (both
+> gitignored/local). A re-audit of current `main` found five of the seven
+> deferred items already done by the 71 commits that touched `templates/`
+> after the `d61b2c7` snapshot below: **#1** (`<br><br>` runs — 0 consecutive
+> runs remain), **#2** (`<hr style="width">` — gone), **#3** (inline picker
+> `background-color` — folded into the `selected` class by the matrix-selector
+> JS work), **#5** (results-page nav table — already converted), **#6**
+> (`function_finder_results` data table — already has `<thead>`/`<tbody>`/`<th>`).
+>
+> This branch closed the remaining two:
+> - **#4 (leftover tables).** Deleted the dead `divs/graph_colors_div.html`
+>   (orphaned since the initial fork commit — never `{% include %}`d, its
+>   `graph*Color` fields defined nowhere). Kept the three coefficient-entry
+>   tables as tables (genuinely tabular) and made them screen-reader navigable:
+>   `scope="col"` column headers + per-row coefficient name as `<th scope="row">`;
+>   `fixed`/`estimated` (which lacked one) gained a visible `Coefficient | Value`
+>   header row. The load-bearing `name="nameOf…"` attributes (read by jQuery
+>   show/hide selectors in `equation_fit_interface.html`) were preserved on the
+>   new `<th>`s.
+> - **#7 (labels).** Per-widget pass across the form-field partials, keyed on
+>   `field.id_for_label`: `<label for="id_X">` for single labelable controls
+>   (`Select`/`Textarea`), `<fieldset class="field-group"><legend>` for
+>   `RadioSelect`/`CheckboxSelectMultiple` groups (Django renders those as a
+>   non-labelable `<div id="id_X">` wrapper, so `<label for>` on them was dead).
+>   Legends are `visually-hidden` where the section already has a visible `<h2>`
+>   (zero visual change) and visible where they replaced a visible inline label.
+>   Also fixed three pre-existing dangling-`for`-on-radio-group bugs in
+>   `graph_scale_div.html`, `scientific_notation_div.html`, and
+>   `function_finder_interface.html`. Added `.visually-hidden` +
+>   `fieldset.field-group` utilities to `static/custom.css`.
+>
+> Regression-guarded by `tests/test_form_labels.py` (28 cases): it renders the
+> form interfaces and asserts no `<label for>` targets a non-labelable element,
+> plus per-field fieldset/label presence and coefficient-table structure.
+> Full suite 212 → 240 pytest, all green; `ruff` clean. Visual neutrality is
+> the branch's pre-merge manual-browser check (the one intended visible change
+> is the coefficient `Coefficient | Value` header row).
+>
+> Out of scope, still open: lowercasing `id='FUNCTION'` in the picker markup —
+> see the "Modernize legacy DOM access in matrix-selector JavaScript" resolved
+> entry, Step 7 ("optional future polish").
+>
+> Historical status and remaining-work list below, preserved for reference.
 
 **Status:** ten passes landed between 2026-04-28 and 2026-04-30. The
 site now renders in HTML5 with semantic landmarks (`<header>` /
@@ -2745,3 +2791,32 @@ independently-heartbeated status view. With (b), the housekeeping/abandonment
 thresholds also need revisiting so a backgrounded-but-wanted concurrent fit
 isn't reaped. Until then, document `False` as the supported multi-user
 posture.
+
+## Lowercase `id='FUNCTION'` in the coefficient-picker markup
+
+**Symptom / exposure.** The three coefficient-picker partials
+(`divs/polyfunctional_selection_div.html`,
+`divs/polyrational_selection_div.html`,
+`divs/polynomial_customization_div.html`) render the live equation preview
+into `<div id='FUNCTION' class="math">`, and the matrix JS
+(`javascript/JavascriptForFunctionMatrix2D.js`,
+`JavascriptForFunctionMatrix3D.js`, `JavascriptForRationalMatrix2D.js`)
+updates it via `document.getElementById('FUNCTION')`. The uppercase id is a
+holdover from the Netscape/IE-era `document.all['FUNCTION']` /
+`document.layers['FUNCTION']` access that the matrix-selector JS modernization
+(RESOLVED 2026-05-31, Step 7) removed. With the legacy branches gone the
+uppercasing is no longer load-bearing, but `getElementById` is case-sensitive,
+so it stays uppercase until both sides change together.
+
+**Why it's worth fixing.** Cosmetic consistency — every other id on the site is
+lowerCamel / lowercase; a lone screaming-caps `FUNCTION` reads as vestigial and
+invites "is this special?" confusion.
+
+**Where to pick up.** Rename `id='FUNCTION'` → `id='equationPreview'` (or
+similar) in the three templates AND the matching `getElementById(...)` calls in
+the three JS files, in one commit. No behavior change; verify with a manual
+click-through of the polyfunctional / polynomial-customization / polyrational
+pickers (the JS rewrites that div's innerHTML on each cell toggle).
+
+**Not in scope of any current branch.** Optional polish; deferred from both the
+matrix-selector JS modernization and the 2026-06-01 form-control-labels work.
