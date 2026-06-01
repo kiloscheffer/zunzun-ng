@@ -371,27 +371,12 @@ def StatusView(request, pk):
     if row is None:
         raise Http404
 
-    # Completion handoff: read, clear, serve file body OR HttpResponseRedirect.
-    # Behavior unchanged from the original implementation (only the backing
-    # store moved from the session blob to the LRPStatus row).
-    if row.redirect_to_results:
-        redirect = row.redirect_to_results
-        LRPStatus.objects.filter(pk=row.pk).update(redirect_to_results="")
-
-        db.connections.close_all()
-        close_old_connections()
-
-        if redirect.startswith(settings.TEMP_FILES_DIR):
-            # encoding="utf-8" matches the writer in
-            # RenderOutputHTMLToAFileAndSetStatusRedirect and
-            # _run_fit_child's terminal-error fallback. Without it,
-            # the default locale encoding (cp1252 on Windows) would
-            # mis-decode any non-ASCII byte in the result HTML.
-            with open(redirect, "r", encoding="utf-8") as f:
-                s = f.read()
-            return HttpResponse(s)
-        else:
-            return HttpResponseRedirect(redirect)
+    # Completion handoff: redirect owner to the shareable ResultsView URL.
+    # ResultsView serves the result HTML by token — no cookie check, so the
+    # link is bookmarkable. Do NOT clear redirect_to_results here; ResultsView
+    # reads it directly and is idempotent (reloading the shareable URL works).
+    if row.state == LRPStatus.State.TERMINAL and row.redirect_to_results:
+        return HttpResponseRedirect(f"/Results/{row.result_token}/")
 
     # Backstop: a child that died without finalizing its row (SIGKILL / OOM /
     # crash, or a failed terminal write) is detected here and promoted to
@@ -512,6 +497,36 @@ def StatusRedirectView(request):
             {"error": "No fit in progress for your session."},
         )
     return HttpResponseRedirect(f"/StatusAndResults/{row.pk}/")
+
+
+@cache_control(no_cache=True)
+def ResultsView(request, token):
+    """Serve the finished result HTML for a shareable capability token. No
+    cookie check — possession of the token grants access. Aged-out token or
+    missing result file renders a clean 'expired' page."""
+    from django.conf import settings as conf_settings
+
+    from zunzun.models import LRPStatus
+
+    row = LRPStatus.objects.filter(result_token=token).first()
+    if row is None or not row.redirect_to_results:
+        return render(
+            request,
+            "zunzun/generic_error.html",
+            {"error": "This result has expired or is not yet ready."},
+        )
+    target = row.redirect_to_results
+    if target.startswith(conf_settings.TEMP_FILES_DIR):
+        try:
+            with open(target, "r", encoding="utf-8") as f:
+                return HttpResponse(f.read())
+        except OSError:
+            return render(
+                request,
+                "zunzun/generic_error.html",
+                {"error": "This result has expired."},
+            )
+    return HttpResponseRedirect(target)
 
 
 @cache_control(no_cache=True)

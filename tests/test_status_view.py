@@ -35,49 +35,79 @@ def _wire_status_row(client, row):
 
 
 @pytest.mark.django_db
-def test_status_view_serves_file_body_on_completion(client, tmp_path, monkeypatch):
-    """When redirect_to_results is a path inside TEMP_FILES_DIR, StatusView
-    reads the file and returns its contents as the response body.
+def test_status_view_redirects_to_results_token_on_completion(client, tmp_path, monkeypatch):
+    """When redirect_to_results is set and the row is TERMINAL, StatusView
+    redirects to /Results/<token>/ rather than inlining the file. ResultsView
+    at that URL serves the body — the completion handoff still works, just via
+    redirect + ResultsView.
     """
+    import django.conf
+
+    from zunzun.models import LRPStatus
+
+    # Patch the raw settings module (used by StatusView) and also
+    # django.conf.settings (used by ResultsView via conf_settings) so both
+    # views agree on TEMP_FILES_DIR for the Windows-absolute-path startswith check.
     monkeypatch.setattr(settings, "TEMP_FILES_DIR", str(tmp_path))
+    monkeypatch.setattr(django.conf.settings, "TEMP_FILES_DIR", str(tmp_path))
     result_file = tmp_path / "result.html"
     result_file.write_text("<html><body>FAKE RESULT</body></html>")
 
-    row = _make_status_row(redirect_to_results=str(result_file))
+    row = _make_status_row(
+        redirect_to_results=str(result_file),
+        state=LRPStatus.State.TERMINAL,
+    )
     _wire_status_row(client, row)
 
+    # StatusView redirects to the shareable token URL (302).
     response = client.get(f"/StatusAndResults/{row.pk}/")
-    assert response.status_code == 200
-    assert b"FAKE RESULT" in response.content
+    assert response.status_code == 302
+    assert response.url == f"/Results/{row.result_token}/"
+
+    # ResultsView at that URL serves the actual file body.
+    result_response = client.get(f"/Results/{row.result_token}/")
+    assert result_response.status_code == 200
+    assert b"FAKE RESULT" in result_response.content
 
 
 @pytest.mark.django_db
 def test_status_view_redirects_on_completion_url(client):
-    """When redirect_to_results is a site-relative URL (does NOT start with
-    TEMP_FILES_DIR), StatusView returns HttpResponseRedirect.
+    """When redirect_to_results is a site-relative URL and the row is TERMINAL,
+    StatusView redirects to /Results/<token>/ (the shareable link). ResultsView
+    then issues the further redirect to the actual URL (e.g. FunctionFinder results).
     """
-    row = _make_status_row(redirect_to_results="/FunctionFinderResults/2/?RANK=1&unused=1")
+    from zunzun.models import LRPStatus
+
+    row = _make_status_row(
+        redirect_to_results="/FunctionFinderResults/2/?RANK=1&unused=1",
+        state=LRPStatus.State.TERMINAL,
+    )
     _wire_status_row(client, row)
 
     response = client.get(f"/StatusAndResults/{row.pk}/")
     assert response.status_code == 302
-    assert response.url == "/FunctionFinderResults/2/?RANK=1&unused=1"
+    assert response.url == f"/Results/{row.result_token}/"
 
 
 @pytest.mark.django_db
-def test_status_view_clears_redirect_after_consuming(client):
-    """StatusView must clear redirect_to_results after using it, so a
-    subsequent GET to /StatusAndResults/<pk>/ does not re-fire the redirect.
+def test_status_view_does_not_clear_redirect_after_completion(client):
+    """StatusView must NOT clear redirect_to_results after redirecting to
+    /Results/<token>/ — ResultsView reads it directly and is idempotent, so
+    the shareable link must keep working on refresh.
     """
     from zunzun.models import LRPStatus
 
-    row = _make_status_row(redirect_to_results="/FunctionFinderResults/2/?RANK=1&unused=1")
+    original_redirect = "/FunctionFinderResults/2/?RANK=1&unused=1"
+    row = _make_status_row(
+        redirect_to_results=original_redirect,
+        state=LRPStatus.State.TERMINAL,
+    )
     _wire_status_row(client, row)
 
     client.get(f"/StatusAndResults/{row.pk}/")
 
     reloaded = LRPStatus.objects.get(pk=row.pk)
-    assert reloaded.redirect_to_results == ""
+    assert reloaded.redirect_to_results == original_redirect
 
 
 @pytest.mark.django_db

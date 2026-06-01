@@ -5,6 +5,7 @@ import os
 
 import pytest
 from django.test import Client, RequestFactory
+
 from zunzun.models import LRPStatus
 from zunzun.views import _load_owned_status_row
 
@@ -40,6 +41,25 @@ def test_status_page_requires_ownership():
     c.get("/")  # establishes a session with a different key
     resp = c.get(f"/StatusAndResults/{row.pk}/")
     assert resp.status_code == 404
+
+
+@pytest.mark.django_db
+def test_results_page_served_by_token_without_cookie(tmp_path, settings):
+    settings.TEMP_FILES_DIR = str(tmp_path)
+    settings.MEDIA_ROOT = str(tmp_path)
+    result_file = tmp_path / "result.html"
+    result_file.write_text("<html>RESULT-OK</html>", encoding="utf-8")
+    row = LRPStatus.objects.create(  # noqa: F841
+        start_time=1.0,
+        result_token="share-tok",
+        owner_session_key="someone",
+        state=LRPStatus.State.TERMINAL,
+        redirect_to_results=str(result_file),
+    )
+    c = Client()  # fresh, no matching cookie
+    resp = c.get("/Results/share-tok/")
+    assert resp.status_code == 200
+    assert b"RESULT-OK" in resp.content
 
 
 @pytest.mark.django_db
