@@ -357,7 +357,8 @@ def _load_owned_status_row(request, pk):
     from zunzun.models import LRPStatus
 
     row = LRPStatus.objects.filter(pk=pk).first()
-    if row is None or row.owner_session_key != (request.session.session_key or ""):
+    session_key = request.session.session_key
+    if row is None or not session_key or row.owner_session_key != session_key:
         return None
     return row
 
