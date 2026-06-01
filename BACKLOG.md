@@ -1479,6 +1479,18 @@ positively confirmed — the smoke suite exercises the customizable-polynomial
 **Not in scope of the round-1 branch.** Pre-existing; orthogonal to the
 matrix-selector cleanup. Worth a small focused investigation commit.
 
+## Fold `FitUserSelectableRational`'s color-list loops into `_build_2d_color_list`
+
+**Surfaced by** the `/code-review high` pass on `feat/customizable-polynomial-3d-cleanup` (2026-06-01), as the residual reuse opportunity after that branch unified the polyfunctional + customizable-polynomial pickers onto the shared `FittingBaseClass` color-list helpers.
+
+**Symptom / cost.** `FitUserSelectableRational.SpecificEquationUnboundInterfaceCode` (`zunzun/LongRunningProcess/FitUserSelectableRational.py:89-118`) builds its numerator and denominator color lists with four hand-written loops — rank numerator (90-94), rank denominator (97-101), no-rank numerator (111-112), no-rank denominator (115-116). Each emits exactly `(selected, i, self.X2DList[i].HTML)` over `range(len(self.X2DList))` — byte-for-byte the body of `FittingBaseClass._build_2d_color_list(self, selected_predicate)`. They are a third, uncaptured copy of that per-cell builder; a future change to the 2D color-list tuple shape would update `_build_2d_color_list` and the two subclasses extracted onto it, but silently leave the rational picker out of sync.
+
+**Why it was left out.** The picker-unification branch deliberately scoped rational separate because its `_assign_2d_picker_color_list` analogue does NOT fit — rational reads two flag lists (FF result indices [8] numerator / [9] denominator), writes two dict keys, and computes a separate `offsetSelected` from `solvedCoefficients` length. So `_assign_2d_picker_color_list` (hardcoded to FF index [4], one key, one equation attr) cannot serve it. But the lower-level `_build_2d_color_list` CAN — it is only the per-cell loop.
+
+**Where to pick up.** Replace the four loops with `_build_2d_color_list` calls, keeping rational's offset/index logic in place: rank numerator → `self._build_2d_color_list(lambda i: i in self.functionFinderResultsList[self.rank - 1][8])`; rank denominator → `... [9])`; both no-rank → `self._build_2d_color_list(lambda i: False)`. The `offsetSelected` computation and the FF-index reads ([8]/[9]/[11]) stay. The existing `tests/test_matrix_selector.py` `test_polyrational_*` render tests are the behavior oracle.
+
+**Not in scope of the customizable-polynomial cleanup branch.** That branch unified the two pickers whose `_assign_*` shape matched; rational's numerator/denominator/offset structure differs at the `_assign` level. Folding its loops into `_build_2d_color_list` is a separate, smaller dedup worth its own focused commit.
+
 ## 3D picker templates' `</tr>` row-close depends on an unset `maxPolyfunctionalListIndex`
 
 > **Partial update 2026-06-01.** Resolved for `polynomial_customization_div.html`:
