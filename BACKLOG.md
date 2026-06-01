@@ -1479,7 +1479,34 @@ positively confirmed — the smoke suite exercises the customizable-polynomial
 **Not in scope of the round-1 branch.** Pre-existing; orthogonal to the
 matrix-selector cleanup. Worth a small focused investigation commit.
 
-## Fold `FitUserSelectableRational`'s color-list loops into `_build_2d_color_list`
+## ~~Fold `FitUserSelectableRational`'s color-list loops into `_build_2d_color_list`~~ RESOLVED 2026-06-01
+
+> **Resolution.** Landed on `chore/fold-rational-color-list`. The four
+> hand-written loops in
+> `FitUserSelectableRational.SpecificEquationUnboundInterfaceCode` (rank
+> numerator/denominator + no-rank numerator/denominator) now delegate to
+> `FittingBaseClass._build_2d_color_list`: the rank branch passes
+> `lambda i: i in numeratorFlags` / `... denominatorFlags` (the just-assigned
+> `self.equation.rational{Numerator,Denominator}Flags`, which alias FF indices
+> [8]/[9]); the no-rank branch passes `lambda i: False`. The FF-index reads
+> ([8]/[9]/[11]) and the `offsetSelected` coefficient-count logic stay in the
+> method unchanged. Net −25 lines in the producer.
+>
+> **Departure from the entry's stated oracle — explicit.** The entry named the
+> `tests/test_matrix_selector.py` `test_polyrational_*` render tests as the
+> behavior oracle, but those feed `Polyrat2D{Numerator,Denominator}ColorList`
+> into the *template* directly — they guard the consumer, not the
+> `SpecificEquationUnboundInterfaceCode` producer, and would stay green even if
+> the fold were wrong. So three direct characterization tests were added first
+> (no-rank → nothing selected + offset off; rank → asymmetric numerator [0] /
+> denominator [1] prefill so a num/denom transposition is caught; rank → offset
+> on when an extra coefficient is present), confirmed green against the
+> pre-refactor code, then the fold was applied under them.
+>
+> Verification: `uv run pytest tests/` 213/213; ruff format/check clean; mypy
+> clean on the changed file.
+>
+> Historical notes below, preserved for reference.
 
 **Surfaced by** the `/code-review high` pass on `feat/customizable-polynomial-3d-cleanup` (2026-06-01), as the residual reuse opportunity after that branch unified the polyfunctional + customizable-polynomial pickers onto the shared `FittingBaseClass` color-list helpers.
 
