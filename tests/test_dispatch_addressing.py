@@ -1,6 +1,8 @@
 """Tests for per-dispatch addressing: ownership checks, identical-404 oracle,
 token-addressed results, and concurrency caps."""
 
+import os
+
 import pytest
 from django.test import Client, RequestFactory
 from zunzun.models import LRPStatus
@@ -38,3 +40,33 @@ def test_status_page_requires_ownership():
     c.get("/")  # establishes a session with a different key
     resp = c.get(f"/StatusAndResults/{row.pk}/")
     assert resp.status_code == 404
+
+
+@pytest.mark.django_db
+def test_heartbeat_bumps_only_addressed_row():
+    live_pid = os.getpid()  # alive → _finalize_row_if_child_dead leaves the row RUNNING
+    a = LRPStatus.objects.create(
+        start_time=1.0,
+        last_status_check=1.0,
+        owner_session_key="S",
+        state=LRPStatus.State.RUNNING,
+        process_id=live_pid,
+    )
+    b = LRPStatus.objects.create(
+        start_time=1.0,
+        last_status_check=1.0,
+        owner_session_key="S",
+        state=LRPStatus.State.RUNNING,
+        process_id=live_pid,
+    )
+    c = Client()
+    s = c.session
+    s["lrp_status_pk"] = a.pk
+    s.save()
+    # stamp the client's real session key onto both rows so the ownership check passes
+    LRPStatus.objects.filter(pk__in=[a.pk, b.pk]).update(owner_session_key=s.session_key)
+    c.get(f"/StatusUpdate/{a.pk}/")
+    a.refresh_from_db()
+    b.refresh_from_db()
+    assert a.last_status_check > 1.0  # A's row was heartbeated
+    assert b.last_status_check == 1.0  # B's row untouched
