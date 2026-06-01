@@ -10,6 +10,7 @@ import scipy.interpolate
 from django import db
 from django.core.mail import EmailMessage
 from django.db import close_old_connections
+from django.db.models import Q
 from django.http import Http404, HttpResponse, HttpResponseRedirect, JsonResponse
 from django.shortcuts import render
 from django.views.decorators.cache import cache_control, cache_page
@@ -342,6 +343,22 @@ def _finalize_row_if_child_dead(row) -> bool:
     return True
 
 
+def _active_fit_counts(session_key, ip):
+    """(per_session, per_ip) active fit counts: INITIALIZING/RUNNING rows with
+    a fresh (<300s) heartbeat. Mirrors CheckIfStillUsed's abandonment window so
+    'the system thinks it's alive' and 'the cap counts it' stay consistent."""
+    from zunzun.models import LRPStatus
+
+    fresh = time.time() - 300
+    base = LRPStatus.objects.exclude(state=LRPStatus.State.TERMINAL).filter(
+        last_status_check__gte=fresh
+    )
+    return (
+        base.filter(owner_session_key=session_key).count(),
+        base.filter(owner_ip=ip).count(),
+    )
+
+
 def _load_owned_status_row(request, pk):
     """Return the LRPStatus row for `pk` only if it belongs to this session.
 
@@ -589,80 +606,46 @@ def LongRunningProcessView(
     LRP.inEquationFamilyName = urllib.parse.unquote(inEquationFamilyName)
     LRP.dimensionality = int(inDimensionality)
 
-    # Per-user "one fit at a time" cap. When ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER
-    # is False (recommended for public deployments), reject a second fit POST
-    # from the same session if the user's PRIOR LRPStatus row shows an active
-    # process_id with a recent status-check heartbeat. Check happens BEFORE
-    # form validation so the user gets a fast "in progress" response rather
-    # than being routed through form processing first. This reads the pk set
-    # by a PRIOR dispatch — it must run BEFORE the create-row block below
-    # overwrites request.session['lrp_status_pk'].
-    if request.method == "POST" and not getattr(
-        settings, "ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER", True
-    ):
+    if request.method == "POST":
+        session_key = request.session.session_key or ""
+        ip = request.META.get("REMOTE_ADDR", "")
         try:
-            from zunzun.models import LRPStatus
+            max_session = getattr(settings, "MAX_CONCURRENT_FITS_PER_SESSION", 1)
+            max_ip = getattr(settings, "MAX_CONCURRENT_FITS_PER_IP", 4)
+            per_session, per_ip = _active_fit_counts(session_key, ip)
+            if per_session >= max_session or per_ip >= max_ip:
+                # Probe-on-demand: only when a cap WOULD block, release any
+                # provably-dead rows (crashed child whose heartbeat is still
+                # fresh) and recount. Keeps the common under-cap path probe-free.
+                from zunzun.models import LRPStatus
 
-            row = LRPStatus.objects.filter(pk=request.session.get("lrp_status_pk")).first()
-            # Apply the dead-child backstop before judging the prior fit: a
-            # child killed by SIGKILL/OOM/segfault (or one whose terminal write
-            # failed) leaves the row state=RUNNING with a heartbeat that can stay
-            # fresh for up to 300s, which would block this user's retry even
-            # though no fit is running. _finalize_row_if_child_dead promotes such
-            # a row to state=TERMINAL (process_id=0) in place, so the
-            # is_active/is_pending checks below see the released state. This
-            # mirrors what the status views already do on the poll path; without
-            # it the gate is the one place a provably-dead fit still gates. (A
-            # live fit's pid passes the probe and is left untouched, so genuine
-            # in-progress fits still block.)
-            if row is not None:
-                _finalize_row_if_child_dead(row)
-            now = time.time()
-            # Block if EITHER:
-            #  - a child has written process_id and its heartbeat is fresh
-            #    (within 300s — matches CheckIfStillUsed's abandoned-fit
-            #    threshold so the gate stays consistent: if the system
-            #    considers a fit alive, the cap blocks; once the system
-            #    considers it abandoned, the cap allows replacement).
-            #    `state == RUNNING` excludes terminal rows so a finished fit —
-            #    result already deliverable — never registers as active and
-            #    blocks the user's next POST for the 300s heartbeat window.
-            #  - a fit was just dispatched (start_time recent) but the child
-            #    hasn't yet written process_id — the race window between the
-            #    parent creating the row and the child's first PerformAllWork
-            #    status write (~50-500ms). `state == INITIALIZING` means the
-            #    child has not claimed the row and it is not terminal. The 60s
-            #    bound is a deliberately generous upper limit on that sub-second
-            #    gap (slack absorbs a heavily-loaded box where the child's first
-            #    status write is delayed); it debounces double-clicks, not
-            #    long-running fits, which are caught by is_active instead.
-            # Missing row → no active fit → allow.
-            is_active = (
-                bool(row)
-                and row.state == LRPStatus.State.RUNNING
-                and row.process_id
-                and (now - row.last_status_check) < 300
-            )
-            is_pending = (
-                bool(row)
-                and row.state == LRPStatus.State.INITIALIZING
-                and (now - row.start_time) < 60
-            )
-            if is_active or is_pending:
+                fresh = time.time() - 300
+                candidates = (
+                    LRPStatus.objects.exclude(state=LRPStatus.State.TERMINAL)
+                    .filter(last_status_check__gte=fresh)
+                    .filter(Q(owner_session_key=session_key) | Q(owner_ip=ip))
+                )
+                for r in candidates:
+                    _finalize_row_if_child_dead(r)
+                per_session, per_ip = _active_fit_counts(session_key, ip)
+            if per_session >= max_session:
                 return HttpResponse(
-                    "A fit is already in progress for your session. "
-                    "Please wait for it to complete or "
+                    "You already have a fit in progress for your session. "
+                    "Please wait for it to finish, or "
                     "<a href='/StatusAndResults/'>view its status</a>."
                 )
+            if per_ip >= max_ip:
+                return HttpResponse(
+                    "Too many fits are in progress from your network. "
+                    "Please wait a moment and try again."
+                )
         except Exception:
-            # Row read failure → fail OPEN (allow the new fit): the cap is soft
-            # anti-abuse, not a correctness invariant, so a transient SQLite
-            # lock shouldn't block a legitimate user. Log it, though — a
-            # PERSISTENT fault would otherwise silently defeat the cap entirely
-            # with no operator signal.
+            # Fail OPEN: the caps are anti-abuse, not a correctness invariant, so
+            # a transient SQLite lock must not block a legitimate user. Log it so
+            # a persistent fault is visible rather than silently defeating the cap.
             import logging
 
-            logging.exception("Per-user fit gate row read failed; allowing new fit")
+            logging.exception("Per-fit concurrency gate failed; allowing the fit")
 
     # if this is not a POST, send an interface if needed
     if LRP.userInterfaceRequired:

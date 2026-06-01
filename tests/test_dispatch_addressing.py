@@ -2,6 +2,7 @@
 token-addressed results, and concurrency caps."""
 
 import os
+import time as _time
 
 import pytest
 from django.test import Client, RequestFactory
@@ -111,3 +112,40 @@ def test_heartbeat_bumps_only_addressed_row():
     b.refresh_from_db()
     assert a.last_status_check > 1.0  # A's row was heartbeated
     assert b.last_status_check == 1.0  # B's row untouched
+
+
+@pytest.mark.django_db
+def test_session_cap_counts_active_rows(settings):
+    settings.MAX_CONCURRENT_FITS_PER_SESSION = 1
+    settings.MAX_CONCURRENT_FITS_PER_IP = 99
+    now = _time.time()
+    LRPStatus.objects.create(
+        start_time=now,
+        last_status_check=now,
+        owner_session_key="S",
+        owner_ip="1.2.3.4",
+        state=LRPStatus.State.RUNNING,
+        process_id=999999999,
+    )
+    from zunzun.views import _active_fit_counts
+
+    per_session, per_ip = _active_fit_counts("S", "1.2.3.4")
+    assert per_session == 1
+    assert per_ip == 1
+
+
+@pytest.mark.django_db
+def test_stale_heartbeat_not_counted(settings):
+    old = _time.time() - 400  # past the 300s window
+    LRPStatus.objects.create(
+        start_time=old,
+        last_status_check=old,
+        owner_session_key="S",
+        owner_ip="1.2.3.4",
+        state=LRPStatus.State.RUNNING,
+        process_id=1,
+    )
+    from zunzun.views import _active_fit_counts
+
+    per_session, per_ip = _active_fit_counts("S", "1.2.3.4")
+    assert per_session == 0
