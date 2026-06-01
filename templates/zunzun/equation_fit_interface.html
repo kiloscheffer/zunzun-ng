@@ -46,7 +46,8 @@ $('*[name^="nameOfCoefficientBound"]').slice(selected+1).each(function(index){$(
 {% if dimensionality == '2' %}
 {% include "zunzun/javascript/JavascriptForRationalMatrix2D.js" %}
 {% else %}
-{% include "zunzun/javascript/JavascriptForRationalMatrix3D.js" %}
+{# 3D rational reuses the 3D function-matrix builder verbatim — the two were byte-identical, so one canonical file serves both pickers. (2D keeps separate Function/Rational files; only the 3D builders converged.) #}
+{% include "zunzun/javascript/JavascriptForFunctionMatrix3D.js" %}
 {% endif %}
 {% endif %}
 {% endblock %}
