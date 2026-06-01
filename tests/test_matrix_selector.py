@@ -371,3 +371,81 @@ def test_bound_interface_3d_maps_posted_flag_to_equation_flags():
     lrp.SpecificEquationBoundInterfaceCode(request)
     # [[1, 0]], not [[0, 1]] — pins the (i, j) ordering against transposition.
     assert lrp.boundForm.equation.polyfunctional3DFlags == [[1, 0]]
+
+
+# --- New shared picker helpers (FittingBaseClass) ---------------------------
+# These call self._build_{2,3}d_color_list, so the test "self" must be a real
+# subclass instance (which has those methods + the X2DList/X3DList/Y3DList that
+# __init__ populates), not a SimpleNamespace stub.
+
+
+def test_assign_2d_picker_color_list_no_rank_selects_nothing():
+    lrp = FitUserSelectablePolyfunctional()
+    lrp.rank = None
+    lrp.equation = types.SimpleNamespace()
+    lrp.dictionaryToReturn = {}
+    lrp._assign_2d_picker_color_list("Polynomial2DColorList", "polynomial2DFlags")
+    color_list = lrp.dictionaryToReturn["Polynomial2DColorList"]
+    assert len(color_list) == len(lrp.X2DList)
+    assert all(entry[0] is False for entry in color_list)
+
+
+def test_assign_2d_picker_color_list_rank_prefills_index_4_and_sets_equation_attr():
+    lrp = FitUserSelectablePolyfunctional()
+    lrp.rank = 1
+    lrp.functionFinderResultsList = [[None, None, None, None, [1]]]  # index [4] -> 2D flags
+    lrp.equation = types.SimpleNamespace()
+    lrp.dictionaryToReturn = {}
+    lrp._assign_2d_picker_color_list("Polyfun2DColorList", "polyfunctional2DFlags")
+    assert lrp.equation.polyfunctional2DFlags == [1]
+    color_list = lrp.dictionaryToReturn["Polyfun2DColorList"]
+    assert color_list[1][0] is True  # cell 1 pre-selected
+    assert color_list[0][0] is False
+
+
+def test_assign_3d_picker_color_list_no_rank_selects_nothing():
+    lrp = FitUserSelectablePolyfunctional()
+    lrp.rank = None
+    lrp.equation = types.SimpleNamespace()
+    lrp.dictionaryToReturn = {}
+    lrp._assign_3d_picker_color_list("Polyfun3DColorList", "polyfunctional3DFlags")
+    color_list = lrp.dictionaryToReturn["Polyfun3DColorList"]
+    assert len(color_list) == len(lrp.X3DList) * len(lrp.Y3DList)
+    assert all(entry[0] is False for entry in color_list)
+
+
+def test_assign_3d_picker_color_list_rank_prefills_index_5_and_sets_equation_attr():
+    lrp = FitUserSelectablePolyfunctional()
+    lrp.rank = 1
+    lrp.functionFinderResultsList = [[None, None, None, None, None, [[1, 0]]]]  # index [5] -> 3D
+    lrp.equation = types.SimpleNamespace()
+    lrp.dictionaryToReturn = {}
+    lrp._assign_3d_picker_color_list("Polyfun3DColorList", "polyfunctional3DFlags")
+    assert lrp.equation.polyfunctional3DFlags == [[1, 0]]
+    color_list = lrp.dictionaryToReturn["Polyfun3DColorList"]
+    selected = [(e[1], e[2]) for e in color_list if e[0] is True]
+    assert selected == [(1, 0)]  # asymmetric cell pins (i, j) ordering
+
+
+def test_collect_2d_picker_flags_maps_posted_true_to_indices():
+    lrp = FitUserSelectablePolyfunctional()
+    lrp.boundForm = _FakeBoundForm()
+    post = {
+        "polyFunctional_X" + str(i): ("True" if i == 1 else "False")
+        for i in range(len(lrp.X2DList))
+    }
+    request = RequestFactory().post("/", data=post)
+    lrp._collect_2d_picker_flags(request, "polynomial2DFlags")
+    assert lrp.boundForm.equation.polynomial2DFlags == [1]
+
+
+def test_collect_3d_picker_flags_maps_posted_true_to_pairs():
+    lrp = FitUserSelectablePolyfunctional()
+    lrp.boundForm = _FakeBoundForm()
+    post = {}
+    for i in range(len(lrp.X3DList)):
+        for j in range(len(lrp.Y3DList)):
+            post[f"polyFunctional_X{i}Y{j}"] = "True" if (i, j) == (1, 0) else "False"
+    request = RequestFactory().post("/", data=post)
+    lrp._collect_3d_picker_flags(request, "polyfunctional3DFlags")
+    assert lrp.boundForm.equation.polyfunctional3DFlags == [[1, 0]]

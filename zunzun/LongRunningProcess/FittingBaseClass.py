@@ -91,6 +91,58 @@ You must provide any weights you wish to use.
                     color_list.append((selected, i, j, self.X3DList[i].HTML, self.Y3DList[j].HTML))
         return color_list
 
+    def _assign_2d_picker_color_list(self, key, equation_flag_attr):
+        """Rank-aware 2D coefficient-picker color list -> dictionaryToReturn[key].
+
+        On the FunctionFinder rank path, pre-fill selections from result-tuple
+        index [4] and mirror them onto the equation's <equation_flag_attr>;
+        otherwise no cell is pre-selected. Shared by the polyfunctional and
+        customizable-polynomial 2D pickers, which differ only in
+        (key, equation_flag_attr).
+        """
+        if self.rank:
+            flags = self.functionFinderResultsList[self.rank - 1][4]
+            setattr(self.equation, equation_flag_attr, flags)
+            self.dictionaryToReturn[key] = self._build_2d_color_list(lambda i: i in flags)
+        else:
+            self.dictionaryToReturn[key] = self._build_2d_color_list(lambda i: False)
+
+    def _assign_3d_picker_color_list(self, key, equation_flag_attr):
+        """Rank-aware 3D coefficient-picker color list -> dictionaryToReturn[key].
+
+        3D result-tuple index is [5]; flags are [i, j] pairs. Only the
+        polyfunctional picker is 3D-capable, so only it calls this.
+        """
+        if self.rank:
+            flags = self.functionFinderResultsList[self.rank - 1][5]
+            setattr(self.equation, equation_flag_attr, flags)
+            self.dictionaryToReturn[key] = self._build_3d_color_list(lambda i, j: [i, j] in flags)
+        else:
+            self.dictionaryToReturn[key] = self._build_3d_color_list(lambda i, j: False)
+
+    def _collect_2d_picker_flags(self, request, equation_flag_attr):
+        """Read 2D picker checkbox POST values into the bound equation's
+        <equation_flag_attr> list, forcing field validation on each cell input."""
+        flags = []
+        for i in range(len(self.X2DList)):
+            field = "polyFunctional_X" + str(i)
+            self.boundForm[field].required = True
+            if request.POST[field] == "True":
+                flags.append(i)
+        setattr(self.boundForm.equation, equation_flag_attr, flags)
+
+    def _collect_3d_picker_flags(self, request, equation_flag_attr):
+        """3D analogue of _collect_2d_picker_flags: cell ids are
+        polyFunctional_X<i>Y<j> and flags are [i, j] pairs."""
+        flags = []
+        for i in range(len(self.X3DList)):
+            for j in range(len(self.Y3DList)):
+                field = "polyFunctional_X" + str(i) + "Y" + str(j)
+                self.boundForm[field].required = True
+                if request.POST[field] == "True":
+                    flags.append([i, j])
+        setattr(self.boundForm.equation, equation_flag_attr, flags)
+
     def CheckDataForZeroAndPositiveAndNegative(self):
         # check for zero
         if (
