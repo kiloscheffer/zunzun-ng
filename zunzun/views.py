@@ -629,6 +629,14 @@ def LongRunningProcessView(
             return HttpResponse("Call to function finder results view was incorrect.")
         LRP = LongRunningProcess.FunctionFinderResults.FunctionFinderResults()
         LRP.rank = rank
+        # Capture the ranking dispatch's pk BEFORE it is overwritten at
+        # views.py:756 (request.session["lrp_status_pk"] = status_row.pk).
+        # At this point the session pointer still refers to the FunctionFinder
+        # ranking run that produced the results list. TransferFormDataToDataObject
+        # (line 724) calls LoadItemFromSessionStore, which FunctionFinderResults
+        # overrides to read from ranking_status_pk rather than its own (empty)
+        # row.
+        LRP.ranking_status_pk = request.session.get("lrp_status_pk")
 
     else:
         return HttpResponse("I could not understand the web request.")
