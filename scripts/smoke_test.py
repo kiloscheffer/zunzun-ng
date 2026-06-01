@@ -427,36 +427,6 @@ def _wait_for_port(port: int, timeout_s: float = 30.0) -> bool:
     return False
 
 
-def _poll_until_done(
-    session: requests.Session, base: str, timeout_s: float
-) -> requests.Response | None:
-    """Poll /StatusAndResults/ until a final response arrives.
-
-    Detects the in-progress page by the presence of id="currentStatus"
-    (a stable marker the status.html template guarantees and the
-    StatusPoll.js client depends on). Completion bodies — whether the
-    result HTML file served in-place or a result page reached via
-    redirect — never contain this marker.
-
-    Returns the completed requests.Response on success or None on timeout.
-    Handles chained redirects transparently (requests default follows them),
-    so the returned response's ``.url`` is the FINAL URL — for a fit that
-    completed, the shareable ``/Results/<token>/`` URL. Callers that only
-    need the HTML use ``.text``; the evaluate scenarios additionally pull
-    the capability token out of ``.url``. Once the fit is terminal the bare
-    ``/StatusAndResults/`` no longer redirects to its row (StatusRedirectView
-    excludes TERMINAL rows), so this completing response is the only place
-    the final ``/Results/<token>/`` URL is observable.
-    """
-    deadline = time.time() + timeout_s
-    while time.time() < deadline:
-        r = session.get(base + "/StatusAndResults/")
-        if 'id="currentStatus"' not in r.text:
-            return r
-        time.sleep(3)
-    return None
-
-
 def _dump_body(tag: str, body: str) -> str:
     """Write the body to temp/_smoke_last_body_{tag}.html for inspection."""
     path = f"temp/_smoke_last_body_{tag}.html"
@@ -482,6 +452,43 @@ def _check_markers(name: str, body: str, expected: list[str]) -> str | None:
     )
 
 
+def _dispatch_and_poll_pk(
+    session: requests.Session,
+    base: str,
+    name: str,
+    post_url: str,
+    form_fields: dict,
+    timeout_s: float,
+) -> tuple[str | None, str | None, str | None]:
+    """POST to post_url, capture the dispatch pk from the 302 Location, then
+    poll the PK-addressed /StatusAndResults/<pk>/ URL until the fit completes.
+
+    Polls the PK URL (not the bare /StatusAndResults/ redirect): once the fit
+    completes, its row goes TERMINAL and StatusRedirectView — which serves the
+    bare URL — excludes TERMINAL rows, so the bare URL can never observe the
+    finished result. Only StatusView (the pk URL) redirects a completed row
+    through to its result (a /Results/<token>/ file page, or — for a
+    URL-redirect result like FunctionFinder — onward to the generated results
+    URL). With allow_redirects=True the polled body is that final page.
+
+    This is the shared core for every fit scenario. Returns
+    ``(error_or_None, final_body_or_None, status_url_or_None)``: the body is the
+    completed page's HTML so callers can assert markers, extract links, or check
+    animation GIFs; the status_url lets a caller re-follow to read the final
+    ``.url`` (the /Results/<token>/ URL) for token extraction.
+    """
+    post_resp = session.post(post_url, data=form_fields, allow_redirects=True)
+    pk = _extract_pk_from_redirect(post_resp, base)
+    if pk is None:
+        _dump_body(f"{name}_dispatch", post_resp.text)
+        return f"[{name}] could not extract dispatch pk from POST redirect", None, None
+    status_url = base + f"/StatusAndResults/{pk}/"
+    body = _poll_until_done_pk(session, base, status_url, timeout_s)
+    if body is None:
+        return f"[{name}] did not complete within {int(timeout_s)}s", None, None
+    return None, body, status_url
+
+
 def _run_scenario_capturing_url(
     session: requests.Session,
     base: str,
@@ -491,16 +498,9 @@ def _run_scenario_capturing_url(
     expected_markers: list[str],
     timeout_s: float,
 ) -> tuple[str | None, str | None]:
-    """POST to post_url, poll the dispatched fit by pk until done, assert
-    structural markers, AND return the FINAL result URL so a chained
+    """POST, poll the dispatched fit by pk until done, assert structural
+    markers, AND return the FINAL result URL so a chained
     /EvaluateAtAPoint/<token>/ caller can pull the capability token out of it.
-
-    Polls the PK-addressed /StatusAndResults/<pk>/ URL (not the bare
-    /StatusAndResults/ redirect): once the fit completes, its row goes TERMINAL
-    and StatusRedirectView — which serves the bare URL — excludes TERMINAL rows,
-    so the bare URL can never observe the finished result. Only StatusView (the
-    pk URL) redirects a completed row through to /Results/<token>/. The pk is
-    captured from the dispatch POST's 302 Location.
 
     Returns ``(error_or_None, final_url_or_None)``. On success the first item
     is None and the second is the completed response's ``.url`` (the
@@ -508,15 +508,11 @@ def _run_scenario_capturing_url(
     second item is None. The token-less ``_run_scenario`` wraps this for the
     callers that don't need the URL.
     """
-    post_resp = session.post(post_url, data=form_fields, allow_redirects=True)
-    pk = _extract_pk_from_redirect(post_resp, base)
-    if pk is None:
-        _dump_body(f"{name}_dispatch", post_resp.text)
-        return f"[{name}] could not extract dispatch pk from POST redirect", None
-    status_url = base + f"/StatusAndResults/{pk}/"
-    body = _poll_until_done_pk(session, base, status_url, timeout_s)
-    if body is None:
-        return f"[{name}] did not complete within {int(timeout_s)}s", None
+    err, body, status_url = _dispatch_and_poll_pk(
+        session, base, name, post_url, form_fields, timeout_s
+    )
+    if err or body is None or status_url is None:
+        return err, None
     err = _check_markers(name, body, expected_markers)
     if err:
         return err, None
@@ -575,32 +571,63 @@ def _run_ff_detail_scenario(
     # against the same points the ranking saw. Everything else matches
     # the polynomial scenario's Equation_2D form expectations.
     detail_fields = dict(_POLY_QUAD_FIELDS, textDataEditor=_DATA_2D_FF)
-    session.post(fit_url, data=detail_fields, allow_redirects=True)
+    err, body, _ = _dispatch_and_poll_pk(session, base, name, fit_url, detail_fields, timeout_s)
+    if err or body is None:
+        return err
+    return _check_markers(name, body, _POLY_EXPECTED_MARKERS)
 
-    resp = _poll_until_done(session, base, timeout_s)
-    if resp is None:
-        return f"[{name}] detailed fit did not complete within {int(timeout_s)}s"
-    return _check_markers(name, resp.text, _POLY_EXPECTED_MARKERS)
+
+_STATUS_PK_RE = re.compile(r"/StatusAndResults/(\d+)/")
 
 
 def _poll_until_done_pk(
     session: requests.Session, base: str, status_url: str, timeout_s: float
 ) -> str | None:
-    """Poll a pk-addressed /StatusAndResults/<pk>/ URL until the fit completes.
+    """Poll a pk-addressed /StatusAndResults/<pk>/ URL until the fit completes,
+    FOLLOWING multi-stage redirect chains to their final settled page.
 
-    Unlike _poll_until_done (which polls the bare /StatusAndResults/ redirect),
-    this polls a specific pk URL so two concurrent fits can be tracked
-    independently.  The fit is in-progress while id="currentStatus" is present
-    in the response body.  On completion, StatusView redirects to
-    /Results/<token>/, which requests follows automatically; the final body (the
-    results HTML) is returned.  Returns None on timeout.
+    Polls a SPECIFIC pk URL (never the bare /StatusAndResults/ redirect, which
+    StatusRedirectView can't serve once the row is TERMINAL) so concurrent fits
+    can be tracked independently. The fit is in-progress while id="currentStatus"
+    is present in the followed response body.
+
+    Two completion shapes:
+
+    * Single-stage (a normal fit): on completion StatusView redirects the pk URL
+      to /Results/<token>/; requests follows it, the body lacks currentStatus,
+      and that result HTML is returned.
+
+    * Two-stage (FunctionFinder): the RANKING dispatch's completion redirects
+      through /Results/<rankToken>/ → /FunctionFinderResults/2/?RANK=1, which is
+      a SECOND long-running dispatch — it 302s to a NEW /StatusAndResults/<pk2>/.
+      Re-GETting the original ranking pk would re-trigger that second dispatch on
+      every poll (a fresh row each time, racing the session's lrp_status_pk
+      pointer → "session has expired"). To avoid that, this poll watches the
+      FINAL URL after redirects: when it settles on a DIFFERENT
+      /StatusAndResults/<pk2>/ than the one currently being polled, it switches
+      to polling pk2. The second dispatch then completes to its own
+      /Results/<token2>/ page (the real FunctionFinder results), which is
+      returned. Harmless for single-stage fits — their final URL is /Results/,
+      never a new status pk, so the switch never fires.
+
+    Returns the final settled body on success, or None on timeout.
     """
     deadline = time.time() + timeout_s
+    current_url = status_url
     while time.time() < deadline:
-        r = session.get(status_url, allow_redirects=True)
+        r = session.get(current_url, allow_redirects=True)
         body = r.text
         if 'id="currentStatus"' not in body:
             return body
+        # Still working. If the chain has handed off to a NEW status pk (the
+        # FunctionFinder two-stage case), follow it so the next poll tracks the
+        # live dispatch rather than re-triggering the handoff from the old pk.
+        m = _STATUS_PK_RE.search(r.url)
+        if m:
+            settled = f"{base}/StatusAndResults/{m.group(1)}/"
+            if settled != current_url:
+                current_url = settled
+                continue  # poll the new pk immediately, no sleep
         time.sleep(3)
     return None
 
@@ -910,20 +937,28 @@ def run_smoke(scenario: str = "default") -> int:
                     print("[evaluate_at_a_point] OK")
 
         # Scenario 2: FunctionFinder ranking. Capture the final body for scenario 3.
-        session.post(
+        # FunctionFinder's completion is a URL-REDIRECT result (not a /Results/
+        # file): the pk poll → StatusView → /Results/<token>/ → ResultsView,
+        # which for a URL-redirect result issues HttpResponseRedirect to the
+        # generated /FunctionFinderResults/2/?RANK=1 URL. With allow_redirects
+        # the final body IS the FunctionFinder ranking page, so we assert the FF
+        # markers on it directly (no token / evaluate involved for FF).
+        ff_err, ff_body, _ = _dispatch_and_poll_pk(
+            session,
+            base,
+            "function_finder_2D",
             base + "/FunctionFinder__F__/2/",
-            data=_FF_2D_FIELDS,
-            allow_redirects=True,
+            _FF_2D_FIELDS,
+            timeout_s=900,
         )
-        ff_resp = _poll_until_done(session, base, timeout_s=900)
-        if ff_resp is None:
-            errors.append("[function_finder_2D] ranking did not complete within 900s")
+        if ff_err or ff_body is None:
+            errors.append(ff_err or "[function_finder_2D] ranking produced no body")
             ff_body = ""
         else:
-            ff_body = ff_resp.text
             err = _check_markers("function_finder_2D", ff_body, _FF_EXPECTED_MARKERS)
             if err:
                 errors.append(err)
+                ff_body = ""
             else:
                 print("[function_finder_2D] OK")
 
@@ -956,17 +991,20 @@ def run_smoke(scenario: str = "default") -> int:
             print("[characterize_2D] OK")
 
         # characterize_3D: CharacterizeData with 3D data AND animationSize
-        # enabled, to exercise ScatterAnimation's PillowWriter path.
-        session.post(
+        # enabled, to exercise ScatterAnimation's PillowWriter path. Polls by pk
+        # like the 2D scenarios; the extra step is the ScatterAnimation GIF
+        # check ("san") on the completed body — 3D-specific, not in the 2D path.
+        char3d_err, char3d_body, _ = _dispatch_and_poll_pk(
+            session,
+            base,
+            "characterize_3D",
             base + "/CharacterizeData/3/",
-            data=_CHAR_3D_FIELDS,
-            allow_redirects=True,
+            _CHAR_3D_FIELDS,
+            timeout_s=300,
         )
-        char3d_resp = _poll_until_done(session, base, timeout_s=300)
-        if char3d_resp is None:
-            errors.append("[characterize_3D] did not complete within 300s")
+        if char3d_err or char3d_body is None:
+            errors.append(char3d_err or "[characterize_3D] produced no body")
         else:
-            char3d_body = char3d_resp.text
             err = _check_markers("characterize_3D", char3d_body, _CHAR_EXPECTED_MARKERS)
             if err:
                 errors.append(err)
@@ -979,17 +1017,20 @@ def run_smoke(scenario: str = "default") -> int:
 
         # polynomial_quadratic_3D: 3D fit with animationSize enabled, to
         # exercise both SurfaceAnimation (fitted-surface rotation) and
-        # ScatterAnimation (data-point rotation) via PillowWriter.
-        session.post(
+        # ScatterAnimation (data-point rotation) via PillowWriter. Polls by pk
+        # like the 2D fit; the extra step is the SurfaceAnimation GIF check
+        # ("sua") on the completed body — 3D-specific, not in the 2D path.
+        poly3d_err, poly3d_body, _ = _dispatch_and_poll_pk(
+            session,
+            base,
+            "polynomial_quadratic_3D",
             base + "/FitEquation__F__/3/Polynomial/Full%20Quadratic/",
-            data=_POLY_QUAD_3D_FIELDS,
-            allow_redirects=True,
+            _POLY_QUAD_3D_FIELDS,
+            timeout_s=300,
         )
-        poly3d_resp = _poll_until_done(session, base, timeout_s=300)
-        if poly3d_resp is None:
-            errors.append("[polynomial_quadratic_3D] did not complete within 300s")
+        if poly3d_err or poly3d_body is None:
+            errors.append(poly3d_err or "[polynomial_quadratic_3D] produced no body")
         else:
-            poly3d_body = poly3d_resp.text
             err = _check_markers("polynomial_quadratic_3D", poly3d_body, _POLY_EXPECTED_MARKERS)
             if err:
                 errors.append(err)
