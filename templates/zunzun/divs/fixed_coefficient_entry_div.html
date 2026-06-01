@@ -5,9 +5,12 @@ Leave the entry field blank to let the coefficient fit normally.</p>
 <p>Note that coefficient bounds are overridden by holding a coefficient constant.</p>
 <p class="math">{{ equationInstance.GetDisplayHTML }}</p>
 <table class="form-table">
+<thead>
+<tr><th scope="col">Coefficient</th><th scope="col">Value</th></tr>
+</thead>
 <tbody>
 {% for item in fixedCoefficientTemplateRequirement %}
-<tr><td><div name='nameOfFixedCoefficient' class="math">{{ item.0 }}</div></td><td>{{ item.1 }}</td></tr>
+<tr><th scope="row" name='nameOfFixedCoefficient' class="math">{{ item.0 }}</th><td>{{ item.1 }}</td></tr>
 {% endfor %}
 </tbody>
 </table>

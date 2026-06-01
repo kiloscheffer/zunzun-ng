@@ -10,10 +10,12 @@ dead association ships. The presence tests pin that each migrated control is
 actually named.
 """
 
+import types
 from pathlib import Path
 
 import pytest
 from bs4 import BeautifulSoup
+from django.template.loader import render_to_string
 
 # HTML elements a <label for> may legitimately target.
 LABELABLE = {"input", "select", "textarea", "button", "meter", "output", "progress"}
@@ -115,3 +117,42 @@ def test_no_template_includes_graph_colors_div():
         if "graph_colors_div" in p.read_text(encoding="utf-8")
     ]
     assert not hits, f"graph_colors_div still referenced by: {hits}"
+
+
+def _coeff_ns():
+    return types.SimpleNamespace(GetDisplayHTML=lambda: "EQ")
+
+
+def test_coefficient_bounds_table_uses_scoped_headers():
+    html = render_to_string(
+        "zunzun/divs/coefficient_bounds_entry_div.html",
+        {
+            "equationInstance": _coeff_ns(),
+            "coefficientBoundsTemplateRequirement": [("a", "UPPER", "LOWER")],
+        },
+    )
+    soup = BeautifulSoup(html, "html.parser")
+    col_headers = {th.get_text(strip=True) for th in soup.find_all("th", attrs={"scope": "col"})}
+    assert {"Upper Bound", "Lower Bound"}.issubset(col_headers)
+    assert soup.find("th", attrs={"scope": "row"}) is not None
+    # The empty corner header carries an SR-only caption, not a blank cell.
+    assert soup.select_one("th .visually-hidden") is not None
+
+
+@pytest.mark.parametrize(
+    "template,requirement_key",
+    [
+        ("zunzun/divs/fixed_coefficient_entry_div.html", "fixedCoefficientTemplateRequirement"),
+        ("zunzun/divs/estimated_coefficient_entry_div.html", "estimatedCoefficientTemplateRequirement"),
+    ],
+)
+def test_coefficient_value_table_has_thead_and_row_headers(template, requirement_key):
+    html = render_to_string(
+        template,
+        {"equationInstance": _coeff_ns(), requirement_key: [("a", "VALUE")]},
+    )
+    soup = BeautifulSoup(html, "html.parser")
+    assert soup.find("thead") is not None
+    col_headers = {th.get_text(strip=True) for th in soup.find_all("th", attrs={"scope": "col"})}
+    assert {"Coefficient", "Value"}.issubset(col_headers)
+    assert soup.find("th", attrs={"scope": "row"}) is not None
