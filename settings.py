@@ -149,9 +149,9 @@ LOGGING = {
 # this layer of override and rely on env-var-or-auto-detect.
 MAX_PARALLEL_WORKERS = None
 
-# If True (default — convenient for local single-user development), one
-# user can launch multiple fits concurrently. If False (recommended for
-# public-facing deployments), a second fit POST from the same session is
-# refused with a "fit in progress" HTML response while the first is still
-# running.
-ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER = True
+# Concurrency backpressure for fits. Defaults preserve the historical
+# one-at-a-time-per-session posture; raise for trusted/dev multi-fit use.
+# Enforced by the per-fit gate in views.LongRunningProcessView (per-session
+# by owner_session_key, per-IP by owner_ip), counting live LRPStatus rows.
+MAX_CONCURRENT_FITS_PER_SESSION = 1
+MAX_CONCURRENT_FITS_PER_IP = 4
