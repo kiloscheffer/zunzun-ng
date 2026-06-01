@@ -153,5 +153,5 @@ MAX_PARALLEL_WORKERS = None
 # one-at-a-time-per-session posture; raise for trusted/dev multi-fit use.
 # Enforced by the per-fit gate in views.LongRunningProcessView (per-session
 # by owner_session_key, per-IP by owner_ip), counting live LRPStatus rows.
-MAX_CONCURRENT_FITS_PER_SESSION = 1
-MAX_CONCURRENT_FITS_PER_IP = 4
+MAX_CONCURRENT_FITS_PER_SESSION = int(os.environ.get("ZUNZUN_MAX_CONCURRENT_FITS_PER_SESSION", "1"))
+MAX_CONCURRENT_FITS_PER_IP = int(os.environ.get("ZUNZUN_MAX_CONCURRENT_FITS_PER_IP", "4"))

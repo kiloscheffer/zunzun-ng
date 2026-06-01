@@ -24,6 +24,11 @@ Scenarios
 11. **udf_2D** — 2D User Defined Function fit with formula `a + b*X`,
     chained into an `/EvaluateAtAPoint/` POST to verify
     `solvedCoefficients` round-trips through the session.
+12. **concurrent_2D** — two 2D polynomial-quadratic fits dispatched in the
+    same browser session (session cap raised to 2 via env var), polled
+    independently by pk, each evaluated at X=7.0.  Asserts distinct pks,
+    distinct tokens, distinct evaluations (the clobber-bug regression), and
+    shareability of both result URLs from a fresh session (no cookies).
 
 Usage:
   uv run python scripts/smoke_test.py
@@ -58,6 +63,24 @@ _DATA_2D_POLY = """X Y
 8.236 2.016
 8.531 3.8
 9.861 1.95
+"""
+
+# Second 2D dataset for the concurrent_2D scenario.  Same X column as
+# _DATA_2D_POLY but all Y values shifted by +5, so the fitted quadratic
+# coefficients are meaningfully different.  Used to prove that
+# /EvaluateAtAPoint/<tokenA>/ and /EvaluateAtAPoint/<tokenB>/ return
+# DIFFERENT predictions — the clobber-bug regression test.
+_DATA_2D_POLY_B = """X Y
+5.357 8.76
+5.684 11.1
+6.097 9.94
+6.241 12.104
+6.697 7.054
+7.061 6.65
+7.457 5.412
+8.236 7.016
+8.531 8.8
+9.861 6.95
 """
 
 # Default FunctionFinder 2D dataset (matches DefaultData.defaultData2D).
@@ -508,10 +531,224 @@ def _run_ff_detail_scenario(
     return _check_markers(name, body, _POLY_EXPECTED_MARKERS)
 
 
+def _poll_until_done_pk(
+    session: requests.Session, base: str, status_url: str, timeout_s: float
+) -> str | None:
+    """Poll a pk-addressed /StatusAndResults/<pk>/ URL until the fit completes.
+
+    Unlike _poll_until_done (which polls the bare /StatusAndResults/ redirect),
+    this polls a specific pk URL so two concurrent fits can be tracked
+    independently.  The fit is in-progress while id="currentStatus" is present
+    in the response body.  On completion, StatusView redirects to
+    /Results/<token>/, which requests follows automatically; the final body (the
+    results HTML) is returned.  Returns None on timeout.
+    """
+    deadline = time.time() + timeout_s
+    while time.time() < deadline:
+        r = session.get(status_url, allow_redirects=True)
+        body = r.text
+        if 'id="currentStatus"' not in body:
+            return body
+        time.sleep(3)
+    return None
+
+
+def _extract_pk_from_redirect(response: requests.Response, base: str) -> str | None:
+    """Extract the dispatch pk from a POST-redirect response.
+
+    LongRunningProcessView redirects to /StatusAndResults/<pk>/ on POST.
+    requests follows the redirect by default but records the full history;
+    the original 302 Location header contains the pk.  Returns the pk string,
+    or None if the header is missing or malformed.
+    """
+    for resp in response.history:
+        location = resp.headers.get("Location", "")
+        m = re.search(r"/StatusAndResults/(\d+)/", location)
+        if m:
+            return m.group(1)
+    # Fallback: check the final URL (requests may have followed to it).
+    m = re.search(r"/StatusAndResults/(\d+)/", response.url)
+    if m:
+        return m.group(1)
+    return None
+
+
+def _extract_token_from_results_url(url: str) -> str | None:
+    """Extract the capability token from a /Results/<token>/ URL."""
+    m = re.search(r"/Results/([A-Za-z0-9_-]+)/", url)
+    return m.group(1) if m else None
+
+
+def _run_concurrent_2D_scenario(
+    session: requests.Session,
+    base: str,
+    timeout_s: float,
+) -> str | None:
+    """Concurrent-fits isolation smoke scenario.
+
+    Two 2D polynomial-quadratic fits are dispatched within the SAME browser
+    session (session cap must be >=2 on the server).  Each fit uses different Y
+    data so the solved coefficients — and therefore the /EvaluateAtAPoint/
+    predictions — differ.  The scenario asserts:
+
+    1. Two DISTINCT dispatch pks (separate rows were created).
+    2. Both fits complete (status pages eventually redirect to /Results/).
+    3. Two DISTINCT result tokens.
+    4. Both /Results/<token>/ pages contain the expected result markers.
+    5. /EvaluateAtAPoint/<tokenA>/ and /EvaluateAtAPoint/<tokenB>/ at the
+       same X return DIFFERENT values — the clobber-bug regression test.
+    6. A FRESH session (no cookies) can GET /Results/<tokenA>/ and
+       /Results/<tokenB>/ → 200 + result markers (shareability).
+    """
+    name = "concurrent_2D"
+
+    # --- Dispatch fit A (original Y data) ---
+    fields_a = dict(_POLY_QUAD_FIELDS)  # Y from _DATA_2D_POLY
+    r_a = session.post(
+        base + "/FitEquation__F__/2/Polynomial/2nd%20Order%20(Quadratic)/",
+        data=fields_a,
+        allow_redirects=True,
+    )
+    pk_a = _extract_pk_from_redirect(r_a, base)
+    if pk_a is None:
+        _dump_body(f"{name}_dispatch_a", r_a.text)
+        return f"[{name}] could not extract pkA from dispatch redirect"
+
+    # --- Dispatch fit B (Y data shifted +5) ---
+    fields_b = dict(_POLY_QUAD_FIELDS, textDataEditor=_DATA_2D_POLY_B)
+    r_b = session.post(
+        base + "/FitEquation__F__/2/Polynomial/2nd%20Order%20(Quadratic)/",
+        data=fields_b,
+        allow_redirects=True,
+    )
+    pk_b = _extract_pk_from_redirect(r_b, base)
+    if pk_b is None:
+        _dump_body(f"{name}_dispatch_b", r_b.text)
+        return f"[{name}] could not extract pkB from dispatch redirect"
+
+    if pk_a == pk_b:
+        return f"[{name}] pkA == pkB ({pk_a}): both dispatches got the same status row"
+
+    print(f"[{name}] dispatched pkA={pk_a} pkB={pk_b}")
+
+    # --- Poll fit A to completion ---
+    status_url_a = base + f"/StatusAndResults/{pk_a}/"
+    body_a = _poll_until_done_pk(session, base, status_url_a, timeout_s)
+    if body_a is None:
+        return f"[{name}] fitA (pk={pk_a}) did not complete within {int(timeout_s)}s"
+
+    # --- Poll fit B to completion ---
+    status_url_b = base + f"/StatusAndResults/{pk_b}/"
+    body_b = _poll_until_done_pk(session, base, status_url_b, timeout_s)
+    if body_b is None:
+        return f"[{name}] fitB (pk={pk_b}) did not complete within {int(timeout_s)}s"
+
+    # --- Extract result tokens from the final URLs (after redirect chain) ---
+    # After polling, the session has followed all redirects; the last GET was
+    # the /Results/<token>/ page.  We need the token to build the evaluate URL.
+    # Re-request each status URL with allow_redirects=True and capture the
+    # final URL.
+    r_results_a = session.get(status_url_a, allow_redirects=True)
+    token_a = _extract_token_from_results_url(r_results_a.url)
+    if token_a is None:
+        _dump_body(f"{name}_results_a", r_results_a.text)
+        return f"[{name}] could not extract tokenA from results URL: {r_results_a.url!r}"
+
+    r_results_b = session.get(status_url_b, allow_redirects=True)
+    token_b = _extract_token_from_results_url(r_results_b.url)
+    if token_b is None:
+        _dump_body(f"{name}_results_b", r_results_b.text)
+        return f"[{name}] could not extract tokenB from results URL: {r_results_b.url!r}"
+
+    if token_a == token_b:
+        return f"[{name}] tokenA == tokenB ({token_a}): distinct fits share the same token"
+
+    print(f"[{name}] tokenA={token_a[:12]}… tokenB={token_b[:12]}…")
+
+    # --- Assert both result pages have expected markers ---
+    err = _check_markers(f"{name}_results_a", r_results_a.text, _POLY_EXPECTED_MARKERS)
+    if err:
+        return err
+    err = _check_markers(f"{name}_results_b", r_results_b.text, _POLY_EXPECTED_MARKERS)
+    if err:
+        return err
+
+    # --- Evaluate both fits at the same X point and assert DIFFERENT results ---
+    # This is the clobber-bug regression: before per-dispatch isolation, both
+    # evaluations would read the SAME shared data blob and return the SAME
+    # (last-written) result.
+    eval_fields = {"x": "7.0"}
+    r_eval_a = session.post(
+        base + f"/EvaluateAtAPoint/{token_a}/",
+        data=eval_fields,
+        allow_redirects=True,
+    )
+    err = _check_markers(f"{name}_eval_a", r_eval_a.text, _EVAL_AT_POINT_MARKERS)
+    if err:
+        return err
+
+    r_eval_b = session.post(
+        base + f"/EvaluateAtAPoint/{token_b}/",
+        data=eval_fields,
+        allow_redirects=True,
+    )
+    err = _check_markers(f"{name}_eval_b", r_eval_b.text, _EVAL_AT_POINT_MARKERS)
+    if err:
+        return err
+
+    eval_text_a = r_eval_a.text
+    eval_text_b = r_eval_b.text
+    if eval_text_a == eval_text_b:
+        return (
+            f"[{name}] CLOBBER BUG DETECTED: both fits evaluate to the same value at x=7.0\n"
+            f"  evalA={eval_text_a!r}\n"
+            f"  evalB={eval_text_b!r}\n"
+            "  The two fits used DIFFERENT data; their predictions MUST differ.\n"
+            "  This is the per-dispatch isolation regression."
+        )
+
+    print(f"[{name}] evalA={eval_text_a[:60]!r}  evalB={eval_text_b[:60]!r}  (distinct — OK)")
+
+    # --- Shareability: a fresh session (no cookies) can GET both result URLs ---
+    fresh_session = requests.Session()
+    r_share_a = fresh_session.get(base + f"/Results/{token_a}/", allow_redirects=True)
+    if r_share_a.status_code != 200:
+        return (
+            f"[{name}] shareability: GET /Results/{token_a[:12]}…/ returned "
+            f"{r_share_a.status_code} (expected 200)"
+        )
+    err = _check_markers(f"{name}_share_a", r_share_a.text, _POLY_EXPECTED_MARKERS)
+    if err:
+        return err
+
+    r_share_b = fresh_session.get(base + f"/Results/{token_b}/", allow_redirects=True)
+    if r_share_b.status_code != 200:
+        return (
+            f"[{name}] shareability: GET /Results/{token_b[:12]}…/ returned "
+            f"{r_share_b.status_code} (expected 200)"
+        )
+    err = _check_markers(f"{name}_share_b", r_share_b.text, _POLY_EXPECTED_MARKERS)
+    if err:
+        return err
+
+    print(f"[{name}] shareability OK (both result URLs accessible from fresh session)")
+    return None  # success
+
+
 def run_smoke(scenario: str = "default") -> int:
     port = _find_free_port()
     base = f"http://127.0.0.1:{port}"
-    proc = subprocess.Popen(["waitress-serve", f"--listen=127.0.0.1:{port}", "wsgi:application"])
+    # Pass env vars so spawned fit children inherit the same overrides.
+    # ZUNZUN_MAX_CONCURRENT_FITS_PER_SESSION=2 is needed for the concurrent_2D
+    # scenario; the default (1) is preserved for all other scenarios.
+    import os
+
+    server_env = os.environ.copy()
+    server_env["ZUNZUN_MAX_CONCURRENT_FITS_PER_SESSION"] = "2"
+    proc = subprocess.Popen(
+        ["waitress-serve", f"--listen=127.0.0.1:{port}", "wsgi:application"],
+        env=server_env,
+    )
     try:
         if not _wait_for_port(port):
             print("ERROR: server never became ready", file=sys.stderr)
@@ -554,6 +791,27 @@ def run_smoke(scenario: str = "default") -> int:
                     print(f"  {err}")
                 return 1
             print("SMOKE OK: function-finder-2D-large scenario passed")
+            return 0
+
+        if scenario == "concurrent-2D":
+            try:
+                print("[concurrent_2D] starting")
+                t_start = time.time()
+                err = _run_concurrent_2D_scenario(session, base, timeout_s=600)
+                wall = time.time() - t_start
+                if err:
+                    errors.append(err)
+                else:
+                    print(f"[concurrent_2D] OK in {wall:.1f}s")
+            except Exception as e:
+                errors.append(f"[concurrent_2D] exception: {e!r}")
+
+            if errors:
+                print("SMOKE FAILED:")
+                for err in errors:
+                    print(f"  {err}")
+                return 1
+            print("SMOKE OK: concurrent-2D scenario passed")
             return 0
 
         # Scenario 1: direct polynomial-quadratic fit
@@ -744,6 +1002,25 @@ def run_smoke(scenario: str = "default") -> int:
             else:
                 print("[evaluate_at_a_point_udf] OK")
 
+        # concurrent_2D: two fits in one session with per-dispatch isolation.
+        # Uses a FRESH requests.Session (NOT the shared `session` above) so the
+        # server sees it as a brand-new browser session — the shared session
+        # accumulated lrp_status_pk and data from 10+ previous scenarios and its
+        # per-session cap slot may be occupied by a recent non-terminal row.
+        # A fresh session starts clean and can admit two new dispatches without
+        # racing prior scenario state.
+        concurrent_session = requests.Session()
+        concurrent_session.get(base + "/")  # establish cookie
+        err = _run_concurrent_2D_scenario(
+            concurrent_session,
+            base,
+            timeout_s=600,
+        )
+        if err:
+            errors.append(err)
+        else:
+            print("[concurrent_2D] OK")
+
         if errors:
             for msg in errors:
                 print("ERROR:", msg, file=sys.stderr)
@@ -764,13 +1041,14 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="ZunZunNG smoke test")
     parser.add_argument(
         "--scenario",
-        choices=["default", "function-finder-2D-large"],
+        choices=["default", "function-finder-2D-large", "concurrent-2D"],
         default="default",
         help=(
             "Which smoke scenarios to run. 'default' runs the full ~14-scenario "
             "sequence (most regressions). 'function-finder-2D-large' runs ONLY "
             "the larger FunctionFinder scenario in isolation, useful for "
-            "parallel-perf acceptance runs."
+            "parallel-perf acceptance runs. 'concurrent-2D' runs ONLY the "
+            "concurrent-fits isolation scenario."
         ),
     )
     args = parser.parse_args()
