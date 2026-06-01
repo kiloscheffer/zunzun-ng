@@ -169,8 +169,9 @@ def test_run_fit_child_terminal_write_lands_only_on_its_own_row(tmp_path, monkey
 
 @pytest.mark.django_db
 def test_run_fit_child_terminal_write_against_deleted_row_is_harmless(tmp_path, monkeypatch):
-    """If a newer dispatch deleted our row, the terminal update matches zero
-    rows and is a harmless no-op (no exception escapes the handler).
+    """If the housekeeping age-sweep reclaimed our row, the terminal update
+    matches zero rows and is a harmless no-op (no exception escapes the
+    handler).
     """
     from zunzun.models import LRPStatus
 

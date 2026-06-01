@@ -58,8 +58,9 @@ def _housekeeping_child(temp_dir: str, max_size_mb: int) -> None:
     except Exception:
         logging.exception("Housekeeping: clear_expired() failed")
 
-    # Reclaim LRPStatus rows whose user session has expired without a new
-    # dispatch (delete-prior-row on dispatch handles the common case).
+    # Reclaim LRPStatus rows whose user session has expired. This age-sweep is
+    # the sole reclamation path: each dispatch leaves its row for this sweep
+    # rather than deleting any prior row on dispatch.
     try:
         from zunzun.models import LRPStatus as _LRPStatus
 

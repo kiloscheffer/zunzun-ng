@@ -434,13 +434,13 @@ def test_dispatch_stamps_last_status_check_at_creation(client, mocked_process_st
 def test_dispatch_preserves_prior_row(client, mocked_process_start):
     """A new dispatch must NOT delete the user's prior LRPStatus row.
 
-    Delete-prior-row is removed: every dispatch creates an independent row and
-    leaves the prior row for the housekeeping age-sweep.  The prior fit keeps
-    running because CheckIfStillUsed sees its row intact; only the session
-    pointer moves to the new row.
+    Every dispatch creates an independent row and leaves the prior row for the
+    housekeeping age-sweep.  The prior fit keeps running because
+    CheckIfStillUsed sees its row intact; only the session pointer moves to the
+    new row.
 
-    Replaces the old concurrent-allowed / concurrent-disallowed test pair that
-    exercised the now-removed delete-prior-row code path.  The new invariant is
+    Replaces the old pair of tests that exercised the since-removed code path
+    that reclaimed the prior row on dispatch.  The new invariant is
     unconditional: NO dispatch ever deletes a prior row.
     """
     from zunzun.models import LRPStatus

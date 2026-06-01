@@ -923,15 +923,13 @@ You must provide any weights you wish to use.
         import time
 
         running_pid = self.get_status("process_id")
-        # A None process_id means the row is gone — a newer dispatch
-        # superseded this one and deleted the row (delete-prior-row in
-        # LongRunningProcessView), or the housekeeping age-sweep reclaimed it.
-        # Either way this fit is abandoned: tear it down so a superseded
-        # CPU-heavy fit doesn't keep saturating cores until it finishes on its
-        # own. (update_status against the deleted pk stays a harmless no-op;
-        # the *resource* leak is what this teardown addresses — without it the
-        # superseded child can no longer observe the foreign-pid or stale-
-        # heartbeat triggers below, because the row carrying them is gone.)
+        # A None process_id means the row is gone — the housekeeping age-sweep
+        # reclaimed it. This fit is abandoned: tear it down so a CPU-heavy fit
+        # doesn't keep saturating cores until it finishes on its own.
+        # (update_status against the deleted pk stays a harmless no-op; the
+        # *resource* leak is what this teardown addresses — without it the
+        # child can no longer observe the foreign-pid or stale-heartbeat
+        # triggers below, because the row carrying them is gone.)
         #
         # Teardown alone is NOT enough: it kills the pools/worker children, but
         # the LRP child's OWN control flow continues — e.g. FunctionFinder's
@@ -940,10 +938,9 @@ You must provide any weights you wish to use.
         # rest of PerformAllWork. So after teardown we raise
         # _ReportsPipelineAborted (the same sentinel the pool-death sites use);
         # PerformAllWork catches it and halts the child. No terminal redirect is
-        # written, which is correct: in every abandonment case nobody is
-        # watching THIS row (the user's session points at the newer dispatch's
-        # row, or the client stopped polling), and update_status on a deleted
-        # row is a no-op anyway.
+        # written, which is correct: nobody is watching THIS row (the client
+        # stopped polling), and update_status on a deleted row is a no-op
+        # anyway.
         if running_pid is None:
             self._teardown_abandoned_fit()
             raise _ReportsPipelineAborted()

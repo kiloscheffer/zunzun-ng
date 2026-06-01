@@ -12,9 +12,9 @@ class LRPStatus(models.Model):
     dispatch identity, replacing the old ``dispatched_at`` ownership float
     from the JSON-session-blob era. The current dispatch's pk is stored in
     ``request.session['lrp_status_pk']`` and StatusView follows that pointer.
-    Older/superseded rows are simply unreferenced and reclaimed by cleanup
-    (delete-prior-row on new dispatch + an age sweep in the housekeeping
-    child). Because each fit writes only its own row, there is no shared
+    Older rows are simply unreferenced once the session pointer moves to a new
+    dispatch's row, and are reclaimed by the age-sweep in the housekeeping
+    child. Because each fit writes only its own row, there is no shared
     cell to race on and no ownership check is needed on writes.
     """
 
@@ -67,8 +67,8 @@ class LRPStatus(models.Model):
         the terminal tuple can never be set partially. Optional fields are
         written ONLY when passed, so a bare mark_terminal(pk) never clobbers a
         redirect a prior successful stage already published. Uses
-        .filter(pk).update() (not instance.save()): a no-op if a superseding
-        dispatch deleted the row."""
+        .filter(pk).update() (not instance.save()): a no-op if the housekeeping
+        age-sweep deleted the row."""
         fields = {"state": cls.State.TERMINAL, "process_id": 0}
         if redirect is not None:
             fields["redirect_to_results"] = redirect

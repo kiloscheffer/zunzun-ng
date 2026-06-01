@@ -200,8 +200,9 @@ def _run_fit_child(payload: ChildPayload) -> None:
 
         try:
             # Publish the terminal redirect to THIS dispatch's row. No
-            # ownership check: a newer dispatch has its own row, and if
-            # it deleted ours the update matches zero rows (harmless).
+            # ownership check: every dispatch has its own row, and if the
+            # housekeeping age-sweep reclaimed ours the update matches zero
+            # rows (harmless).
             from zunzun.models import LRPStatus
 
             # Don't clobber a row an earlier successful stage already

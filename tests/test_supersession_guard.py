@@ -1,8 +1,8 @@
 """Tests for the defensive early-return guard and per-dispatch write isolation.
 
 With per-dispatch isolation each child has its own LRPStatus row AND its own
-LRPDispatchData row.  The delete-prior-row machinery is gone; there is no
-shared session blob that a concurrent child could clobber.
+LRPDispatchData row.  No dispatch deletes a prior row, and there is no shared
+session blob that a concurrent child could clobber.
 
 The ``if self.get_status("process_id") is None: return`` guard in
 RenderOutputHTMLToAFileAndSetStatusRedirect is now a minor defensive skip: if
