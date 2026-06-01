@@ -37,6 +37,9 @@ from zunzun.LongRunningProcess.FitUserCustomizablePolynomial import (
 from zunzun.LongRunningProcess.FitUserSelectablePolyfunctional import (
     FitUserSelectablePolyfunctional,
 )
+from zunzun.LongRunningProcess.FitUserSelectableRational import (
+    FitUserSelectableRational,
+)
 
 
 def _polyfunctional_2d(selected_first):
@@ -465,3 +468,81 @@ def test_bound_interface_2d_maps_posted_flag_to_equation_flags():
     lrp.SpecificEquationBoundInterfaceCode(request)
     assert lrp.boundForm.equation.polyfunctional2DFlags == [1]
     assert lrp.boundForm.equation.polyfunctional3DFlags == []
+
+
+# --- Rational picker unbound interface (FitUserSelectableRational) -----------
+# The rational picker can't reuse _assign_2d_picker_color_list (it reads two FF
+# result indices [8]/[9] into two dict keys plus an offset from [11]), but its
+# per-cell loops ARE _build_2d_color_list. These characterize the four loops +
+# both offset branches so the fold onto _build_2d_color_list stays behavior-safe.
+
+
+def _rational_ff_row(numerator_flags, denominator_flags, solved_coefficients):
+    """Build a FunctionFinder result row exposing the indices the rational
+    unbound path reads: [8] numerator flags, [9] denominator flags,
+    [11] solvedCoefficients."""
+    row = [None] * 12
+    row[8] = numerator_flags
+    row[9] = denominator_flags
+    row[11] = solved_coefficients
+    return row
+
+
+def test_rational_unbound_no_rank_selects_nothing_and_no_offset():
+    """No FunctionFinder rank: every numerator and denominator cell renders
+    unselected, the offset term is off, and each entry keeps the
+    (selected, i, html) shape."""
+    lrp = FitUserSelectableRational()
+    lrp.rank = None
+    lrp.equation = types.SimpleNamespace(GetDisplayHTML=lambda: "EQ")
+    lrp.dictionaryToReturn = {}
+    lrp.SpecificEquationUnboundInterfaceCode(RequestFactory().get("/"))
+    numerator = lrp.dictionaryToReturn["Polyrat2DNumeratorColorList"]
+    denominator = lrp.dictionaryToReturn["Polyrat2DDenominatorColorList"]
+    assert len(numerator) == len(lrp.X2DList)
+    assert len(denominator) == len(lrp.X2DList)
+    assert all(entry[0] is False for entry in numerator)
+    assert all(entry[0] is False for entry in denominator)
+    assert numerator[0] == (False, 0, lrp.X2DList[0].HTML)
+    assert lrp.dictionaryToReturn["offsetSelected"] is False
+    # The method ends with the base-class super() call that builds equationHTML;
+    # assert it so a dropped/short-circuited super() chain is caught here.
+    assert lrp.dictionaryToReturn["equationHTML"] == '<span class="math">EQ</span>'
+
+
+def test_rational_unbound_rank_prefills_numerator_and_denominator_flags():
+    """FunctionFinder rank path: numerator selections come from result index [8],
+    denominator from [9]; the two lists are independent (asymmetric flags catch a
+    numerator/denominator transposition). Offset stays off when the coefficient
+    count equals the numerator + denominator term count."""
+    lrp = FitUserSelectableRational()
+    lrp.rank = 1
+    # numerator -> cell 0 only; denominator -> cell 1 only; 2 coeffs == 1 + 1.
+    lrp.functionFinderResultsList = [_rational_ff_row([0], [1], [1.0, 2.0])]
+    lrp.equation = types.SimpleNamespace(GetDisplayHTML=lambda: "EQ")
+    lrp.dictionaryToReturn = {}
+    lrp.SpecificEquationUnboundInterfaceCode(RequestFactory().get("/"))
+    numerator = lrp.dictionaryToReturn["Polyrat2DNumeratorColorList"]
+    denominator = lrp.dictionaryToReturn["Polyrat2DDenominatorColorList"]
+    # Full (selected, i, html) tuple on each list's selected cell pins the shape
+    # for both numerator and denominator (not just the leading bool).
+    assert numerator[0] == (True, 0, lrp.X2DList[0].HTML)
+    assert numerator[1][0] is False
+    assert denominator[1] == (True, 1, lrp.X2DList[1].HTML)
+    assert denominator[0][0] is False
+    assert lrp.equation.rationalNumeratorFlags == [0]
+    assert lrp.equation.rationalDenominatorFlags == [1]
+    assert lrp.dictionaryToReturn["offsetSelected"] is False
+
+
+def test_rational_unbound_rank_offset_used_when_extra_coefficient():
+    """Offset term is on when solvedCoefficients holds more entries than the
+    numerator + denominator selections (the surplus coefficient is the offset)."""
+    lrp = FitUserSelectableRational()
+    lrp.rank = 1
+    # 3 coeffs > 1 numerator + 1 denominator -> offset in use.
+    lrp.functionFinderResultsList = [_rational_ff_row([0], [1], [1.0, 2.0, 3.0])]
+    lrp.equation = types.SimpleNamespace(GetDisplayHTML=lambda: "EQ")
+    lrp.dictionaryToReturn = {}
+    lrp.SpecificEquationUnboundInterfaceCode(RequestFactory().get("/"))
+    assert lrp.dictionaryToReturn["offsetSelected"] is True

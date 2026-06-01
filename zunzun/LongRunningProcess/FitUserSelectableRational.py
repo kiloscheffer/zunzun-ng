@@ -80,40 +80,37 @@ class FitUserSelectableRational(FittingBaseClass.FittingBaseClass):
                     self.boundForm.equation.rationalDenominatorFlags.append(i)
 
     def SpecificEquationUnboundInterfaceCode(self, request):
+        # Unlike the polyfunctional / customizable-polynomial pickers, rational
+        # can't reuse _assign_2d_picker_color_list: it reads two FF result
+        # indices ([8] numerator / [9] denominator) into two dict keys and
+        # derives the offset flag from the coefficient count ([11]). But the
+        # per-cell loop is exactly FittingBaseClass._build_2d_color_list, so the
+        # numerator/denominator lists fold onto it while the offset/index logic
+        # stays here.
         if self.rank:  # coming from a Function Finder
             self.equation.solvedCoefficients = self.functionFinderResultsList[self.rank - 1][11]
             self.equation.rationalNumeratorFlags = self.functionFinderResultsList[self.rank - 1][8]
             self.equation.rationalDenominatorFlags = self.functionFinderResultsList[self.rank - 1][
                 9
             ]
-            Polyrat2DNumeratorColorList = []  # Numerator
-            for i in range(len(self.X2DList)):
-                if i in self.functionFinderResultsList[self.rank - 1][8]:
-                    Polyrat2DNumeratorColorList.append((True, i, self.X2DList[i].HTML))
-                else:
-                    Polyrat2DNumeratorColorList.append((False, i, self.X2DList[i].HTML))
-            self.dictionaryToReturn["Polyrat2DNumeratorColorList"] = Polyrat2DNumeratorColorList
-            Polyrat2DDenominatorColorList = []  # Denominator
-            for i in range(len(self.X2DList)):
-                if i in self.functionFinderResultsList[self.rank - 1][9]:
-                    Polyrat2DDenominatorColorList.append((True, i, self.X2DList[i].HTML))
-                else:
-                    Polyrat2DDenominatorColorList.append((False, i, self.X2DList[i].HTML))
-            self.dictionaryToReturn["Polyrat2DDenominatorColorList"] = Polyrat2DDenominatorColorList
-            if len(self.equation.solvedCoefficients) == len(
-                self.equation.rationalNumeratorFlags
-            ) + len(self.equation.rationalDenominatorFlags):
+            numeratorFlags = self.equation.rationalNumeratorFlags
+            denominatorFlags = self.equation.rationalDenominatorFlags
+            self.dictionaryToReturn["Polyrat2DNumeratorColorList"] = self._build_2d_color_list(
+                lambda i: i in numeratorFlags
+            )
+            self.dictionaryToReturn["Polyrat2DDenominatorColorList"] = self._build_2d_color_list(
+                lambda i: i in denominatorFlags
+            )
+            if len(self.equation.solvedCoefficients) == len(numeratorFlags) + len(denominatorFlags):
                 self.dictionaryToReturn["offsetSelected"] = False  # Offset Term NOT used
             else:
                 self.dictionaryToReturn["offsetSelected"] = True  # Offset Term used
         else:  # NOT coming from a function finder
-            Polyrat2DNumeratorColorList = []  # Numerator
-            for i in range(len(self.X2DList)):
-                Polyrat2DNumeratorColorList.append((False, i, self.X2DList[i].HTML))
-            self.dictionaryToReturn["Polyrat2DNumeratorColorList"] = Polyrat2DNumeratorColorList
-            Polyrat2DDenominatorColorList = []  # Denominator
-            for i in range(len(self.X2DList)):
-                Polyrat2DDenominatorColorList.append((False, i, self.X2DList[i].HTML))
-            self.dictionaryToReturn["Polyrat2DDenominatorColorList"] = Polyrat2DDenominatorColorList
+            self.dictionaryToReturn["Polyrat2DNumeratorColorList"] = self._build_2d_color_list(
+                lambda i: False
+            )
+            self.dictionaryToReturn["Polyrat2DDenominatorColorList"] = self._build_2d_color_list(
+                lambda i: False
+            )
             self.dictionaryToReturn["offsetSelected"] = False  # Offset Term
         FittingBaseClass.FittingBaseClass.SpecificEquationUnboundInterfaceCode(self, request)
