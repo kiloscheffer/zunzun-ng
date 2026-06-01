@@ -98,3 +98,20 @@ def test_single_control_has_label_for(client, url, field_id):
     assert control.name in LABELABLE, f"{field_id} is <{control.name}>, expected a single control"
     label = soup.find("label", attrs={"for": field_id})
     assert label is not None, f"no <label for='{field_id}'> on {url}"
+
+
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_dead_graph_colors_div_is_deleted():
+    dead = _REPO_ROOT / "templates" / "zunzun" / "divs" / "graph_colors_div.html"
+    assert not dead.exists(), "graph_colors_div.html is dead (never included, fields undefined) — delete it"
+
+
+def test_no_template_includes_graph_colors_div():
+    hits = [
+        p
+        for p in (_REPO_ROOT / "templates").rglob("*.html")
+        if "graph_colors_div" in p.read_text(encoding="utf-8")
+    ]
+    assert not hits, f"graph_colors_div still referenced by: {hits}"
