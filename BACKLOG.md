@@ -1491,7 +1491,38 @@ matrix-selector cleanup. Worth a small focused investigation commit.
 
 **Not in scope of the customizable-polynomial cleanup branch.** That branch unified the two pickers whose `_assign_*` shape matched; rational's numerator/denominator/offset structure differs at the `_assign` level. Folding its loops into `_build_2d_color_list` is a separate, smaller dedup worth its own focused commit.
 
-## 3D picker templates' `</tr>` row-close depends on an unset `maxPolyfunctionalListIndex`
+## ~~3D picker templates' `</tr>` row-close depends on an unset `maxPolyfunctionalListIndex`~~ RESOLVED 2026-06-01
+
+> **Resolution.** Landed on `chore/dead-3d-picker-template-cleanup`. Handled the
+> two remaining templates differently because they are not the same case:
+>
+> - **`polyfunctional_selection_div.html` (live 3D).** Deleted the dead
+>   `{% if indexY == maxPolyfunctionalListIndex %}</tr>{% endif %}` close (the
+>   entry's "delete the dead close" option). Production output is byte-identical
+>   to before — the close never fired anyway, since the variable was never set —
+>   rows continue to auto-close on the next `<tr>` / `</table>`. The polyfunctional
+>   3D block is genuinely reachable (`FitUserSelectablePolyfunctional` builds
+>   `Polyfun3DColorList` via `_assign_3d_picker_color_list`), so the block stays.
+>
+> - **`polyrational_selection_div.html` (dead 3D — removed entirely).** The
+>   entry's two options both presupposed a *live* 3D block. Investigation showed
+>   it is not: `FitUserSelectableRational` is 2D-only (it builds only `X2DList`
+>   and the `Polyrat2D{Numerator,Denominator}ColorList` keys, and its
+>   `SpecificEquationUnboundInterfaceCode` has no 3D branch), while the template's
+>   `{% else %}` block iterates `Polyfun3DColorList` — a key the rational picker
+>   never populates. So the whole 3D branch could never render a real grid, the
+>   same situation as the already-removed customizable-polynomial 3D block. Per
+>   an explicit decision, removed the entire `{% else %}` block (kept the
+>   `{% if dimensionality == '2' %}` guard) rather than patch a `</tr>` in dead
+>   markup. The `test_polyrational_3d_data_flag_and_initial_value` test (which
+>   exercised only that dead block) was removed with it, and the now-unused
+>   `maxPolyfunctionalListIndex` context key was dropped from the polyfunctional
+>   3D test.
+>
+> `maxPolyfunctionalListIndex` no longer appears in any template or test (only in
+> this BACKLOG entry). Verification: `uv run pytest tests/` 209/209; ruff clean.
+>
+> Historical notes below, preserved for reference.
 
 > **Partial update 2026-06-01.** Resolved for `polynomial_customization_div.html`:
 > its 3D block was that file's only `maxPolyfunctionalListIndex` consumer and was
