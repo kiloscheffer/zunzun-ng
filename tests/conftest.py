@@ -45,3 +45,22 @@ def mocked_process_start():
     """
     with patch("multiprocessing.context.SpawnProcess.start") as mock_start:
         yield mock_start
+
+
+@pytest.fixture(autouse=True)
+def reset_cache():
+    """Clear the process-wide LocMemCache before every test.
+
+    django-ratelimit stores its per-IP request counter in the default cache,
+    which pytest-django does NOT reset between tests. Without this, POSTs to
+    @ratelimit views (LongRunningProcessView is hit by test_views_per_user_cap,
+    test_views_dispatch, test_matrix_selector, test_ratelimit, ...) accumulate
+    across the suite on the shared 127.0.0.1 counter. Once a 12/m window fills,
+    every later POST trips request.limited and middleware.rate_limit_sleep runs
+    a real time.sleep(5.0) — a silent multi-second slowdown and an
+    order-dependent flake (see BACKLOG, rate-limit test). Clearing before each
+    test gives every test a clean counter (and isolates cache_page entries too).
+    """
+    from django.core.cache import cache
+
+    cache.clear()

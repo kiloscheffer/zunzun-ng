@@ -1631,7 +1631,27 @@ manually verified. These four are cleanup/altitude on the same surface; doing
 them in-branch would invalidate that verification and expand the diff well past
 its stated scope. Each wants its own focused commit + a fresh click-through.
 
-## `test_thirteenth_rapid_post_is_rate_limited` flakes under full-suite runs
+## ~~`test_thirteenth_rapid_post_is_rate_limited` flakes under full-suite runs~~ RESOLVED 2026-06-01
+
+> **Resolution.** Fixed both documented root causes (branch
+> `bugfix/flaky-ratelimit-test`, 2026-06-01) after the macOS CI leg of the
+> feedback-removal PR (#30) reproduced the flake 2-for-2:
+> - **Root cause #1 (shared counter not reset between tests).** Added an
+>   autouse `reset_cache` fixture in `tests/conftest.py` that calls
+>   `cache.clear()` before every test, so the per-IP rate-limit counter (and
+>   any `cache_page` entry) never carries across tests. This also closes the
+>   latent hidden `time.sleep(5)` that other `@ratelimit`-view tests
+>   (`test_views_per_user_cap`, `test_views_dispatch`, ...) could incur once
+>   the shared counter filled a window.
+> - **Root cause #2 (clock-aligned window straddle).** `tests/test_ratelimit.py`
+>   patches `django_ratelimit.core.time` so its 13 rapid POSTs share one
+>   frozen window and cannot straddle a minute boundary (the under-count that
+>   surfaced on the slow macOS runner).
+>
+> Verified deterministic: full suite green and the rate-limit test passed 8/8
+> in a repeat loop.
+>
+> Historical notes below, preserved for reference.
 
 **Surfaced by** the `/pr-review-toolkit:review-pr` pass on
 `feat/matrix-selector-round2` (2026-06-01): the full suite failed this one test
