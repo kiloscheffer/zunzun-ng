@@ -728,7 +728,7 @@ def LongRunningProcessView(
     # concurrent-disallowed mode, reaching this block means the per-user gate
     # already judged the prior fit stale or completed, so deleting it is the
     # intended supersession and the superseded child aborting is correct.
-    from zunzun.models import LRPStatus
+    from zunzun.models import LRPDispatchData, LRPStatus
 
     old_pk = request.session.get("lrp_status_pk")
     if old_pk and not getattr(settings, "ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER", True):
@@ -754,8 +754,10 @@ def LongRunningProcessView(
     request.session["lrp_status_pk"] = status_row.pk
     LRP.status_row_pk = status_row.pk
 
-    from zunzun.models import LRPDispatchData
-
+    # Create the per-dispatch data row in the PARENT, before the child spawns
+    # and before SetInitialStatusDataIntoSessionVariables runs: save_items /
+    # load_item assume it already exists, and pre-creating it here avoids a
+    # get_or_create OneToOne create-race (an IntegrityError _retry won't catch).
     LRPDispatchData.objects.create(status=status_row)
 
     LRP.SetInitialStatusDataIntoSessionVariables(request)
