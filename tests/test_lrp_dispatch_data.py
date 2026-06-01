@@ -1,7 +1,7 @@
 """Tests for the LRPDispatchData per-dispatch data row and LRPStatus ownership columns."""
 
 import pytest
-from django.db import connection
+from django.db import IntegrityError, connection
 from zunzun.models import LRPStatus, LRPDispatchData
 
 
@@ -22,14 +22,13 @@ def test_status_ownership_columns_default_empty():
 
 
 @pytest.mark.django_db(transaction=True)
-def test_result_token_is_unique_and_nonnull():
+def test_result_token_is_unique_and_columns_present():
     LRPStatus.objects.create(start_time=1.0, result_token="tok-uniq-1")
-    with pytest.raises(Exception):  # IntegrityError on duplicate
+    with pytest.raises(IntegrityError):  # duplicate token
         LRPStatus.objects.create(start_time=1.0, result_token="tok-uniq-1")
-    cols = {
-        c.name
-        for c in connection.introspection.get_table_description(
-            connection.cursor(), "zunzun_lrpstatus"
-        )
-    }
+    with connection.cursor() as cursor:
+        cols = {
+            c.name
+            for c in connection.introspection.get_table_description(cursor, "zunzun_lrpstatus")
+        }
     assert {"owner_session_key", "owner_ip", "result_token"} <= cols
