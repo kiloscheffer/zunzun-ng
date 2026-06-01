@@ -45,10 +45,8 @@ $('*[name^="nameOfCoefficientBound"]').slice(selected+1).each(function(index){$(
 {% include "zunzun/javascript/JavascriptCommonToFunctionMatrices.js" %}
 {% if dimensionality == '2' %}
 {% include "zunzun/javascript/JavascriptForRationalMatrix2D.js" %}
-{% else %}
-{# Rational is 2D-only (pyeq3 exposes only GenerateListForRationals_2D, and FitUserSelectableRational handles dimensionality 2 exclusively), so this 3D branch is unreachable as long as that holds — its builder was a byte-identical copy of the function-matrix one, hence the shared include. The separate 2D Function/Rational files genuinely differ (rational has numerator/denominator/offset preview logic). A real 3D rational picker would need its own builder; see BACKLOG "Is FitUserCustomizablePolynomial's 3D path dead code" for the sibling dead-3D-branch investigation. #}
-{% include "zunzun/javascript/JavascriptForFunctionMatrix3D.js" %}
 {% endif %}
+{# Rational is 2D-only: userSelectableRationalFlag is set on only one pyeq3 class (Models_2D.Rational.UserSelectableRational), and a 3D dispatch resolves equation names against Models_3D exclusively, so there is no dimensionality != '2' branch. The polyrational picker's matching 3D block was removed for the same reason; see the resolved BACKLOG entry "3D picker templates' </tr> row-close depends on an unset maxPolyfunctionalListIndex". #}
 {% endif %}
 {% endblock %}
 

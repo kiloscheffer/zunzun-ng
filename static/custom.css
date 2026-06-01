@@ -246,7 +246,7 @@ header h1 .brand-logo {
 /* ------------------------------------------------------------------------ */
 /*   MATRIX LAYOUT                                                          */
 /*   2×2 grid placing axis labels around a function-matrix table. Used by   */
-/*   the 3D polyfunctional/polyrational equation pickers where the matrix   */
+/*   the 3D polyfunctional equation picker where the matrix                 */
 /*   has both X and Y dimensions to label. The .label-x uses                */
 /*   writing-mode: sideways-lr to render the X-axis label as rotated text   */
 /*   reading bottom-to-top alongside the matrix (replaces the legacy        */

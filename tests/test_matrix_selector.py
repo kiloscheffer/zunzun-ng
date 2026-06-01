@@ -159,7 +159,6 @@ def test_polyfunctional_3d_data_flag_and_initial_value():
         {
             "dimensionality": "3",
             "equationHTML": "",
-            "maxPolyfunctionalListIndex": 1,
             "Polyfun3DColorList": [
                 (True, 0, 0, "Offset", ""),
                 (False, 0, 1, "", "Y"),
@@ -297,29 +296,6 @@ def test_build_2d_color_list_rank_predicate_marks_selected_cells():
         (True, 1, "X^2"),
         (False, 2, "X^3"),
     ]
-
-
-def test_polyrational_3d_data_flag_and_initial_value():
-    """Polyrational 3D uses the polyfunctional matrix names (polyFunctional_XiYj);
-    data-flag and hidden-input initial value must be present and correct."""
-    html = render_to_string(
-        "zunzun/divs/polyrational_selection_div.html",
-        {
-            "dimensionality": "3",
-            "equationHTML": "",
-            "maxPolyfunctionalListIndex": 1,
-            "Polyfun3DColorList": [
-                (True, 0, 0, "Offset", ""),
-                (False, 0, 1, "", "Y"),
-                (False, 1, 0, "X", ""),
-                (False, 1, 1, "X", "Y"),
-            ],
-        },
-    )
-    assert 'data-flag="polyFunctional_X0Y0"' in html
-    assert 'data-flag="polyFunctional_X1Y1"' in html
-    assert 'name="polyFunctional_X0Y0" value="True"' in html
-    assert 'name="polyFunctional_X1Y1" value="False"' in html
 
 
 class _FakeBoundField:
