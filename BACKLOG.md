@@ -1359,6 +1359,40 @@ which brace-expands to a non-existent `polynomial_customization_selection_div.ht
 coverage hardening and cosmetic/dedup cleanup — and were deferred from the PR
 review rather than fixed inline to keep that branch's diff scoped.
 
+## Unify the two 2D-picker `SpecificEquationUnboundInterfaceCode` methods
+
+**Surfaced by** the `/code-review xhigh` pass on `feat/matrix-selector-round2`
+(2026-06-01), as the residual reuse opportunity after the round-2 helper
+extraction landed.
+
+**Symptom / cost.** Once the inline 2D color-list loops were collapsed into
+`FittingBaseClass._build_2d_color_list`, the `SpecificEquationUnboundInterfaceCode`
+method bodies in `FitUserSelectablePolyfunctional.py` and
+`FitUserCustomizablePolynomial.py` are structurally identical — same rank /
+no-rank dispatch, same dimensionality branch, same FunctionFinder result indices
+(`[4]` / `[5]`) — differing only in the flag attribute names
+(`polyfunctional{2,3}DFlags` vs `polynomial{2,3}DFlags`) and the 2D dict key
+(`Polyfun2DColorList` vs `Polynomial2DColorList`). They are parallel copies that
+must be hand-mirrored on any future change, and already carry cosmetic drift
+(the polynomial subclass writes the `Polyfun3DColorList` key in its 3D branch,
+and a blank-line difference after the `def`).
+
+**Blocked on.** The dead-3D question in the entry below: the polynomial
+subclass's 3D branch references `self.X3DList`, which its `__init__` never sets,
+so any base-class unification has to resolve whether that 3D branch is reachable
+(latent crash) or removable (dead code) before it can collapse the two methods
+safely.
+
+**Where to pick up.** After the dead-3D question is settled, add a base-class
+helper parameterized on `(attr_2d, attr_3d, key_2d)` (mirroring how
+`_build_{2,3}d_color_list` already centralize the per-cell loops) and have both
+subclasses delegate to it. The rational subclass deliberately stays separate
+(numerator / denominator / offset structure).
+
+**Not in scope of round-2.** The round-2 branch deliberately stopped at the
+color-list loops; unifying the full method bodies is a larger change entangled
+with an open investigation.
+
 ## Is `FitUserCustomizablePolynomial`'s 3D path dead code or a latent crash?
 
 **Surfaced by** the `/code-review` pass on `feat/matrix-selector-followups`
