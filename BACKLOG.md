@@ -2744,7 +2744,59 @@ one-shot data migration that mints an `LRPStatus` row from any live
 `session_key_status` blob and stamps `lrp_status_pk` into that session —
 transitional and removable — rather than a permanent dual-read in the views.
 
-## True per-dispatch isolation for ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER=True
+## ~~True per-dispatch isolation for ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER=True~~ RESOLVED 2026-06-02
+
+> **Resolution.** Landed on `feat/per-dispatch-isolation`. Spec:
+> `docs/superpowers/specs/2026-06-01-per-dispatch-isolation-design.md`; plan:
+> `docs/superpowers/plans/2026-06-01-per-dispatch-isolation.md` (both local /
+> gitignored per repo convention).
+>
+> **Per-dispatch data isolation.** New `LRPDispatchData` ORM model — a
+> OneToOne → `LRPStatus` (CASCADE) row created per dispatch — replaces the
+> per-session `data` / `functionfinder` `SessionStore` blobs. Read/write
+> access via `zunzun/dispatch_data.py`. Migration `0006_lrpdispatchdata_and_ownership`
+> carries the schema. Each dispatch reads and writes only its own row,
+> structurally eliminating the shared-blob clobber (Bug 1).
+>
+> **Private pk-addressed status + ownership.** `/StatusAndResults/<pk>/` and
+> `/StatusUpdate/<pk>/` replace the single mutable `request.session['lrp_status_pk']`
+> pointer. Both views gate on `owner_session_key` (identical-404 to avoid a
+> pk-enumeration oracle); each open tab heartbeats its own row, eliminating the
+> single-pointer reap (Bug 2).
+>
+> **Shareable result tokens.** `/Results/<token>/` (capability URL, no cookie
+> required) + `/EvaluateAtAPoint/<token>/`; completion redirects the owning
+> browser to the shareable URL, so results remain accessible after session expiry
+> or sharing the link.
+>
+> **Concurrency caps.** `MAX_CONCURRENT_FITS_PER_SESSION` (default 1) and
+> `MAX_CONCURRENT_FITS_PER_IP` (default 4), both env-overridable via
+> `ZUNZUN_MAX_CONCURRENT_FITS_PER_SESSION` / `ZUNZUN_MAX_CONCURRENT_FITS_PER_IP`.
+> Gate uses count-then-probe by `owner_session_key` / `owner_ip`. The
+> `ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER` boolean was **removed** — a
+> BREAKING config change (old implicit unlimited-concurrent default is replaced
+> by a safe per-session cap of 1).
+>
+> **Supersession machinery dissolved.** Delete-prior-row removed from the
+> dispatch path; the `RenderOutput` supersession guard demoted to a defensive
+> housekeeping-skip (not a concurrency correctness mechanism). New
+> `_sweep_orphaned_terminal_rows` retention sweep aligns file-backed result rows
+> with their trimmed `temp/` files.
+>
+> **FunctionFinder cross-dispatch regression** caught by the new concurrent
+> smoke scenario (the on-path verification): per-dispatch isolation broke
+> `FunctionFinderResults` reading the ranking dispatch's data; fixed via a
+> `ranking_status_pk` read path.
+>
+> **Verification.** pytest 266/266 green. The `concurrent_2D` smoke scenario
+> proves isolation end-to-end: two concurrent fits with data shifted +5 evaluate
+> to results differing by exactly 5.0 — pre-isolation they would be identical
+> from the shared blob. Shareable result links verified cross-session (no
+> session cookie required). All three "where to pick up" pieces from the
+> original entry (per-dispatch data, dispatch-id-in-URL status, threshold
+> revisit) are addressed.
+>
+> Historical notes below, preserved for reference.
 
 **Symptom.** With `ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER=True` (the dev
 default), two fits in one browser session interfere in two ways Codex flagged
