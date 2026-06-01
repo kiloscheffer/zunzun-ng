@@ -209,10 +209,12 @@ def _run_fit_child(payload: ChildPayload) -> None:
             # finalized (e.g., RenderOutputHTML succeeded — setting
             # state=TERMINAL — then the success-path process_id-cleanup
             # raised). Guard on the durable `state == TERMINAL`, NOT on
-            # redirect_to_results: StatusView clears the redirect to "" the
-            # moment it serves the result, so a redirect-based check would
-            # mistake a served-and-cleared success for "no redirect yet" and
-            # overwrite it with this error page. state=TERMINAL survives that.
+            # redirect_to_results: a terminal row can legitimately carry an
+            # empty redirect_to_results (a mid-fit crash whose error page
+            # could not be written), so a redirect-based check would mistake
+            # such a finished-but-no-deliverable fit for "no redirect yet" and
+            # overwrite this error page onto it. state=TERMINAL is the durable
+            # terminal signal and does not have that ambiguity.
             current_state = (
                 LRPStatus.objects.filter(pk=payload.status_row_pk)
                 .values_list("state", flat=True)
