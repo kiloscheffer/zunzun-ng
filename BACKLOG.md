@@ -2792,7 +2792,25 @@ thresholds also need revisiting so a backgrounded-but-wanted concurrent fit
 isn't reaped. Until then, document `False` as the supported multi-user
 posture.
 
-## Lowercase `id='FUNCTION'` in the coefficient-picker markup
+## ~~Lowercase `id='FUNCTION'` in the coefficient-picker markup~~ RESOLVED 2026-06-01
+
+> **Resolution.** Renamed `id='FUNCTION'` → `id='equationPreview'` across
+> all seven coupled sites in one commit on `fix/3d-legends-and-function-id`:
+> the four template render spots (`polyfunctional_selection_div.html` ×2 in
+> its mutually-exclusive 2D/3D branches, `polyrational_selection_div.html`,
+> `polynomial_customization_div.html`) and the three matrix-JS
+> `getElementById('FUNCTION')` lookups (`JavascriptForFunctionMatrix2D.js`,
+> `JavascriptForFunctionMatrix3D.js`, `JavascriptForRationalMatrix2D.js`).
+> No CSS targets `#FUNCTION` (styling rides on `class="math"`), so no visual
+> or behavior change. Verified in a headless Chromium drive: toggling a
+> coefficient cell in each of the four pickers (2D/3D polyfunctional, 2D
+> rational, 2D polynomial-customize) rewrites the `#equationPreview` div with
+> the new equation and raises no page JS error. The one-shot
+> `scripts/_lowercase_html_tags.py` docstring still uses `id="FUNCTION"` as an
+> illustrative example — left untouched as a frozen auditability artifact
+> describing state at the time it ran.
+>
+> Historical notes below, preserved for reference.
 
 **Symptom / exposure.** The three coefficient-picker partials
 (`divs/polyfunctional_selection_div.html`,
@@ -2821,7 +2839,21 @@ pickers (the JS rewrites that div's innerHTML on each cell toggle).
 **Not in scope of any current branch.** Optional polish; deferred from both the
 matrix-selector JS modernization and the 2026-06-01 form-control-labels work.
 
-## Graph-scale / scientific-notation group labels are factually wrong for 3D
+## ~~Graph-scale / scientific-notation group labels are factually wrong for 3D~~ RESOLVED 2026-06-01
+
+> **Resolution.** Reworded the fieldset `<legend>`s on
+> `fix/3d-legends-and-function-id`. `graph_scale_div.html` now reads
+> `X/Y/Z Axis Scale` — the self-contradictory `(2D Only)` qualifier is gone
+> (each fieldset is already dimension-gated by a `{% if %}`, so the qualifier
+> was both wrong and redundant). `scientific_notation_div.html` now reads
+> `X/Y/Z Scientific Notation` — self-describing, no longer leaning on the
+> section `<h2>` for context. Pure visible-text change; no logic touched.
+> Verified in a headless Chromium drive of the 3D User-Selectable
+> Polyfunctional interface: the graph-scale legends render `X/Y/Z Axis Scale`
+> and the sci-notation legends render `X/Y/Z Scientific Notation` on an active
+> 3D fit (where the old text wrongly said "2D Only").
+>
+> Historical notes below, preserved for reference.
 
 **Symptom / exposure.** In `divs/graph_scale_div.html` the axis group legends read
 `X Scale (2D Only)` / `Y Scale (2D Only)` / `Z Scale (2D Only)`, and
