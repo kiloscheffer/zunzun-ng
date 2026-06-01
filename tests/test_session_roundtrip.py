@@ -1,12 +1,12 @@
-"""Session-helper roundtrip tests.
+"""Data-store roundtrip tests.
 
 Asserts SaveDictionaryOfItemsToSessionStore / LoadItemFromSessionStore
 preserve JSON-native values through a full write/read cycle.
 
-These tests pass on the CURRENT pickle/hex implementation (because
-pickle can trivially round-trip any JSON-native value), AND on the
-Phase 3 post-refactor implementation (because JSON can too). This
-lets us write the tests once and have them validate both states.
+These methods now route through the per-dispatch LRPDispatchData row
+(keyed by the dispatch's LRPStatus pk) rather than a per-session
+SessionStore; values are stored in a JSONField, so the round-trip is
+plain JSON (no pickle, no numpy scalars/arrays surviving as such).
 """
 
 import json

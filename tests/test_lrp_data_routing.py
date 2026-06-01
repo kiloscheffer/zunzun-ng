@@ -2,8 +2,9 @@
 row (zunzun.dispatch_data), not the old per-session SessionStore."""
 
 import pytest
-from zunzun.models import LRPStatus
+
 from zunzun.LongRunningProcess.FittingBaseClass import FittingBaseClass
+from zunzun.models import LRPStatus
 
 
 @pytest.mark.django_db
