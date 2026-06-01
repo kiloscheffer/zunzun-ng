@@ -4,19 +4,25 @@
 
   <div class="form-columns">
     <div>
-      <label for="id_scientificNotationX">X Control</label>
-      {{ mainForm.scientificNotationX }}
+      <fieldset class="field-group">
+        <legend>X Control</legend>
+        {{ mainForm.scientificNotationX }}
+      </fieldset>
     </div>
     {% if dimensionality != '1' %}
     <div>
-      <label for="id_scientificNotationY">Y Control</label>
-      {{ mainForm.scientificNotationY }}
+      <fieldset class="field-group">
+        <legend>Y Control</legend>
+        {{ mainForm.scientificNotationY }}
+      </fieldset>
     </div>
     {% endif %}
     {% if dimensionality == '3' %}
     <div>
-      <label for="id_scientificNotationZ">Z Control</label>
-      {{ mainForm.scientificNotationZ }}
+      <fieldset class="field-group">
+        <legend>Z Control</legend>
+        {{ mainForm.scientificNotationZ }}
+      </fieldset>
     </div>
     {% endif %}
   </div>

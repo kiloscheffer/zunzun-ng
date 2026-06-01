@@ -2,10 +2,11 @@
 <h2>Polynomial selection</h2>
 {% if dimensionality == '2' %}
     <p>Select the highest order term for the polynomial equation.</p>
+    <label for="id_polynomialOrderX2D" class="visually-hidden">Highest order term</label>
     {{ mainForm.polynomialOrderX2D }}
 {% else %}
     <p>Select the highest order terms for the polynomial equation.</p>
-    <p>{{ mainForm.polynomialOrderX3D }} Highest term for first independent data (X)</p>
-    <p>{{ mainForm.polynomialOrderY3D }} Highest term for second independent data (Y)</p>
+    <p>{{ mainForm.polynomialOrderX3D }} <label for="id_polynomialOrderX3D">Highest term for first independent data (X)</label></p>
+    <p>{{ mainForm.polynomialOrderY3D }} <label for="id_polynomialOrderY3D">Highest term for second independent data (Y)</label></p>
 {% endif %}
 </div>

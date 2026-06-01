@@ -4,42 +4,48 @@
 
   <div class="form-columns">
     <div>
-      <label for="id_graphScaleRadioButtonX">X Scale (2D Only)</label>
-      {{ mainForm.graphScaleRadioButtonX }}
-      <div class="field-grid">
-        <label for="id_graphScaleManuallyEnteredMaxX">Max X:</label>
-        {{ mainForm.graphScaleManuallyEnteredMaxX }}
-        <label for="id_graphScaleManuallyEnteredMinX">Min X:</label>
-        {{ mainForm.graphScaleManuallyEnteredMinX }}
-      </div>
-      {{ mainForm.logLinX }}
+      <fieldset class="field-group">
+        <legend>X Scale (2D Only)</legend>
+        {{ mainForm.graphScaleRadioButtonX }}
+        <div class="field-grid">
+          <label for="id_graphScaleManuallyEnteredMaxX">Max X:</label>
+          {{ mainForm.graphScaleManuallyEnteredMaxX }}
+          <label for="id_graphScaleManuallyEnteredMinX">Min X:</label>
+          {{ mainForm.graphScaleManuallyEnteredMinX }}
+        </div>
+        {{ mainForm.logLinX }}
+      </fieldset>
     </div>
     {% if dimensionality != '1' %}
 
     <div>
-      <label for="id_graphScaleRadioButtonY">Y Scale (2D Only)</label>
-      {{ mainForm.graphScaleRadioButtonY }}
-      <div class="field-grid">
-        <label for="id_graphScaleManuallyEnteredMaxY">Max Y:</label>
-        {{ mainForm.graphScaleManuallyEnteredMaxY }}
-        <label for="id_graphScaleManuallyEnteredMinY">Min Y:</label>
-        {{ mainForm.graphScaleManuallyEnteredMinY }}
-      </div>
-      {{ mainForm.logLinY }}
+      <fieldset class="field-group">
+        <legend>Y Scale (2D Only)</legend>
+        {{ mainForm.graphScaleRadioButtonY }}
+        <div class="field-grid">
+          <label for="id_graphScaleManuallyEnteredMaxY">Max Y:</label>
+          {{ mainForm.graphScaleManuallyEnteredMaxY }}
+          <label for="id_graphScaleManuallyEnteredMinY">Min Y:</label>
+          {{ mainForm.graphScaleManuallyEnteredMinY }}
+        </div>
+        {{ mainForm.logLinY }}
+      </fieldset>
     </div>
     {% endif %}
     {% if dimensionality == '3' %}
 
     <div>
-      <label for="id_graphScaleRadioButtonZ">Z Scale (2D Only)</label>
-      {{ mainForm.graphScaleRadioButtonZ }}
-      <div class="field-grid">
-        <label for="id_graphScaleManuallyEnteredMaxZ">Max Z:</label>
-        {{ mainForm.graphScaleManuallyEnteredMaxZ }}
-        <label for="id_graphScaleManuallyEnteredMinZ">Min Z:</label>
-        {{ mainForm.graphScaleManuallyEnteredMinZ }}
-      </div>
-      {{ mainForm.logLinZ }}
+      <fieldset class="field-group">
+        <legend>Z Scale (2D Only)</legend>
+        {{ mainForm.graphScaleRadioButtonZ }}
+        <div class="field-grid">
+          <label for="id_graphScaleManuallyEnteredMaxZ">Max Z:</label>
+          {{ mainForm.graphScaleManuallyEnteredMaxZ }}
+          <label for="id_graphScaleManuallyEnteredMinZ">Min Z:</label>
+          {{ mainForm.graphScaleManuallyEnteredMinZ }}
+        </div>
+        {{ mainForm.logLinZ }}
+      </fieldset>
     </div>
     {% endif %}
 

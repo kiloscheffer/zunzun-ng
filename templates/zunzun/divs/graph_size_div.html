@@ -5,10 +5,16 @@
 {% if dimensionality == '3' %}
 <h3>Graph Size</h3>
 {% endif %}
-{{ mainForm.graphSize }}
+<fieldset class="field-group">
+  <legend class="visually-hidden">Graph size</legend>
+  {{ mainForm.graphSize }}
+</fieldset>
 
 {% if dimensionality == '3' %}
 <h3>Animation Size</h3>
-{{ mainForm.animationSize }}
+<fieldset class="field-group">
+  <legend class="visually-hidden">Animation size</legend>
+  {{ mainForm.animationSize }}
+</fieldset>
 {% endif %}
 </div>

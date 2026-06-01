@@ -363,12 +363,56 @@ td.pick.selected {
   grid-template-columns: repeat(auto-fit, minmax(min(18rem, 100%), 1fr));
 }
 
-.form-columns > div > label {
+/* A visible <legend> that replaced a former column <label> matches its look
+   (see the FORM FIELD GROUPS section). `width: 100%` is harmless on the block
+   <label> and needed for the <legend> to span the column. */
+.form-columns > div > label,
+.form-columns > div > fieldset.field-group > legend {
   border-bottom: 1px solid var(--border);
   font-weight: 500;
   display: block;
+  width: 100%;
   margin: 0 0 0.5rem 0;
-  padding-bottom: 0.25rem;
+  padding: 0 0 0.25rem 0;
+}
+
+/* ------------------------------------------------------------------------ */
+/*   FORM FIELD GROUPS + VISUALLY-HIDDEN UTILITY                            */
+/*   Radio / checkbox groups (Django RadioSelect / CheckboxSelectMultiple)  */
+/*   are grouped in <fieldset class="field-group"><legend>. The reset       */
+/*   strips the default fieldset border/padding and the min-content min-    */
+/*   width that otherwise blows out grid/flex columns. A legend that        */
+/*   replaces a former .form-columns visible <label> is restyled to match   */
+/*   that label; legends that only name a group for assistive tech carry    */
+/*   .visually-hidden so the page looks byte-identical.                     */
+/* ------------------------------------------------------------------------ */
+
+fieldset.field-group {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-inline-size: 0;
+}
+
+/* Two stacked groups (e.g. comma-conversion + weighted-fitting in the data
+   editor) were formerly separate <p>s with a 1.5rem gap; the reset above
+   zeroed that, merging them visually. Restore the gap between consecutive
+   field groups (matches simple.css's `p { margin: 1.5rem 0 }`). */
+fieldset.field-group + fieldset.field-group {
+  margin-top: 1.5rem;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
 
 /* ------------------------------------------------------------------------ */

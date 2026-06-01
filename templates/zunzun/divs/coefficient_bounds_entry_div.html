@@ -6,17 +6,15 @@
   <table class="form-table">
     <thead>
       <tr>
-        <th></th>
-        <th>Upper Bound</th>
-        <th>Lower Bound</th>
+        <th scope="col"><span class="visually-hidden">Coefficient</span></th>
+        <th scope="col">Upper Bound</th>
+        <th scope="col">Lower Bound</th>
       </tr>
     </thead>
     <tbody>
       {% for item in coefficientBoundsTemplateRequirement %}
       <tr>
-        <td>
-          <div name="nameOfCoefficientBound" class="math">{{ item.0 }}</div>
-        </td>
+        <th scope="row" name="nameOfCoefficientBound" class="math">{{ item.0 }}</th>
         <td>{{ item.1 }}</td>
         <td>{{ item.2 }}</td>
       </tr>
