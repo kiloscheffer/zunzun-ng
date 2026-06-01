@@ -529,6 +529,9 @@ def test_rational_unbound_no_rank_selects_nothing_and_no_offset():
     assert all(entry[0] is False for entry in denominator)
     assert numerator[0] == (False, 0, lrp.X2DList[0].HTML)
     assert lrp.dictionaryToReturn["offsetSelected"] is False
+    # The method ends with the base-class super() call that builds equationHTML;
+    # assert it so a dropped/short-circuited super() chain is caught here.
+    assert lrp.dictionaryToReturn["equationHTML"] == '<span class="math">EQ</span>'
 
 
 def test_rational_unbound_rank_prefills_numerator_and_denominator_flags():
@@ -545,9 +548,11 @@ def test_rational_unbound_rank_prefills_numerator_and_denominator_flags():
     lrp.SpecificEquationUnboundInterfaceCode(RequestFactory().get("/"))
     numerator = lrp.dictionaryToReturn["Polyrat2DNumeratorColorList"]
     denominator = lrp.dictionaryToReturn["Polyrat2DDenominatorColorList"]
-    assert numerator[0][0] is True
+    # Full (selected, i, html) tuple on each list's selected cell pins the shape
+    # for both numerator and denominator (not just the leading bool).
+    assert numerator[0] == (True, 0, lrp.X2DList[0].HTML)
     assert numerator[1][0] is False
-    assert denominator[1][0] is True
+    assert denominator[1] == (True, 1, lrp.X2DList[1].HTML)
     assert denominator[0][0] is False
     assert lrp.equation.rationalNumeratorFlags == [0]
     assert lrp.equation.rationalDenominatorFlags == [1]
