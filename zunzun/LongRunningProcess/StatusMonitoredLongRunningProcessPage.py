@@ -624,38 +624,14 @@ You must provide any weights you wish to use.
             )
 
     def SaveDictionaryOfItemsToSessionStore(self, inSessionStoreName, inDictionary):
-        _logger.debug(inSessionStoreName)
+        from zunzun import dispatch_data
 
-        session = getattr(self, "session_" + inSessionStoreName)
-        if session is None:
-            _logger.debug("No session in sessionstore, creating new session")
-            session = SessionStore(getattr(self, "session_key_" + inSessionStoreName))
-
-        for i in list(inDictionary.keys()):
-            item = inDictionary[i]
-            _logger.debug(str(i) + " type: " + str(type(item)))
-            # Store the raw value. Callers are responsible for producing
-            # JSON-native values (no numpy scalars, sets, or datetime).
-            session[i] = item
-            _logger.debug(str(i) + " saved to session")
-
-        save_with_retry(session)
-
-        db.connections.close_all()
-        close_old_connections()
-        session = None
+        dispatch_data.save_items(self.status_row_pk, inSessionStoreName, inDictionary)
 
     def LoadItemFromSessionStore(self, inSessionStoreName, inItemName):
+        from zunzun import dispatch_data
 
-        session = getattr(self, "session_" + inSessionStoreName)
-        if session is None:
-            session = SessionStore(getattr(self, "session_key_" + inSessionStoreName))
-        returnItem = load_with_retry(session, inItemName)
-        db.connections.close_all()
-        close_old_connections()
-        session = None
-
-        return returnItem
+        return dispatch_data.load_item(self.status_row_pk, inSessionStoreName, inItemName)
 
     def update_status(self, **fields):
         """Write fields to this dispatch's LRPStatus row. Unconditional,

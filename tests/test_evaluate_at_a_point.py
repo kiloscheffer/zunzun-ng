@@ -1,42 +1,51 @@
 """EvaluateAtAPointView tests.
 
-Seeds a session_data SessionStore with coefficients for a known
-equation (2D linear polynomial: y = a + b*x), then POSTs /EvaluateAtAPoint/
-with an X value and asserts the response contains a numeric Y.
+Seeds a per-dispatch LRPDispatchData row (keyed by the LRPStatus pk) with
+coefficients for a known equation (2D linear polynomial: y = a + b*x), then
+POSTs /EvaluateAtAPoint/ with an X value and asserts the response contains a
+numeric Y.
 
 Phase 1 calibration: the POST field is lowercase 'x'; success marker
 is 'evaluates to' (views.py line 153).
 
-Phase 3: seeds JSON-native values to match what production now writes
-(pickle/hex encoding was removed from the session helpers).
+Phase 7 update: data now routes through the LRPDispatchData row, not a
+per-session SessionStore. The seed writes directly into that row via
+dispatch_data.save_items, and sets lrp_status_pk on the client session so
+EvaluateAtAPointView can resolve the dispatch row.
 """
 
 import pytest
 
 
 def _seed_data_session(client, equation_name, equation_family, dimensionality, coefficients):
-    """Seed session_data with the minimum keys EvaluateAtAPointView needs.
+    """Seed the per-dispatch LRPDispatchData row with the minimum keys
+    EvaluateAtAPointView needs.
 
-    Writes JSON-native values (dict/list/str/int/float). The production
-    session helpers no longer pickle, so the seed matches on-the-wire
-    format directly. Coefficients are stored as a plain list; pyeq3's
-    CalculateModelPredictions accepts both list and numpy.ndarray.
+    Creates a fresh LRPStatus row, writes the data into LRPDispatchData via
+    dispatch_data.save_items, and stashes lrp_status_pk + session_key_data
+    on the client session so the view can find the row.
     """
-    from django.contrib.sessions.backends.db import SessionStore
+    from zunzun.dispatch_data import save_items
+    from zunzun.models import LRPStatus
 
-    session_data = SessionStore()
-    session_data.create()
-
-    session_data["dimensionality"] = dimensionality
-    session_data["equationName"] = equation_name
-    session_data["equationFamilyName"] = equation_family
-    # numpy array → plain list for JSON-serialisable session storage
-    session_data["solvedCoefficients"] = list(coefficients)
-    session_data["fittingTarget"] = "SSQABS"
-    session_data.save()
+    status = LRPStatus.objects.create(start_time=1.0)
+    save_items(
+        status.pk,
+        "data",
+        {
+            "dimensionality": dimensionality,
+            "equationName": equation_name,
+            "equationFamilyName": equation_family,
+            # numpy array → plain list for JSON-serialisable storage
+            "solvedCoefficients": list(coefficients),
+            "fittingTarget": "SSQABS",
+        },
+    )
 
     client_session = client.session
-    client_session["session_key_data"] = session_data.session_key
+    client_session["lrp_status_pk"] = status.pk
+    # session_key_data presence is still checked by the view guard at line 119
+    client_session["session_key_data"] = "placeholder"
     client_session.save()
 
 

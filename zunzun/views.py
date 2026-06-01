@@ -123,6 +123,7 @@ def EvaluateAtAPointView(request):
 
     LRP = LongRunningProcess.FittingBaseClass.FittingBaseClass()
     LRP.session_key_data = request.session["session_key_data"]
+    LRP.status_row_pk = request.session.get("lrp_status_pk")
 
     # instantiate an equation object using session equation family and name
     LRP.dimensionality = LRP.LoadItemFromSessionStore("data", "dimensionality")

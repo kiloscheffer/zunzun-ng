@@ -19,23 +19,17 @@ from zunzun.LongRunningProcess.StatusMonitoredLongRunningProcessPage import (
 
 
 def _make_lrp(db):
-    """Build an LRP with a fresh 'data' SessionStore — minimal setup
+    """Build an LRP with a fresh per-dispatch LRPStatus row — minimal setup
     needed for the Save/Load helpers to work.
 
-    The status store moved to the LRPStatus ORM row and no longer routes
-    through SaveDictionaryOfItemsToSessionStore, so these serializer tests
-    exercise the 'data' store (still a JSON session blob) instead.
+    Data now routes through the per-dispatch LRPDispatchData row (keyed by
+    the LRPStatus pk), not per-session SessionStores.
     """
-    from django.contrib.sessions.backends.db import SessionStore
+    from zunzun.models import LRPStatus
 
     lrp = StatusMonitoredLongRunningProcessPage()
-    # Create a new session and stash its key on the LRP as the 'data' store.
-    session = SessionStore()
-    session.create()
-    lrp.session_key_data = session.session_key
-    lrp.session_data = session
-    lrp.session_key_functionfinder = None
-    lrp.session_functionfinder = None
+    status = LRPStatus.objects.create(start_time=1.0)
+    lrp.status_row_pk = status.pk
     return lrp
 
 
@@ -128,23 +122,20 @@ def test_numpy_serializer_roundtrips_numpy_values():
 @pytest.mark.django_db
 def test_lrp_save_load_roundtrips_numpy_via_serializer(db):
     """End-to-end: numpy values written through
-    SaveDictionaryOfItemsToSessionStore survive a real SQLite session
-    round-trip and read back as plain Python primitives — proving
-    settings.SESSION_SERIALIZER is wired to NumpySessionSerializer (no
-    _json_native cast at the call site).
+    SaveDictionaryOfItemsToSessionStore survive a real SQLite round-trip
+    (via the LRPDispatchData JSONField) and read back as plain Python
+    primitives via LoadItemFromSessionStore.
 
     Two things are proven here:
-      1. The save() does not raise. Django's stock JSONSerializer raises
-         TypeError on an ndarray; reaching the asserts at all means the
-         configured serializer coerced it at dumps time.
-      2. A FRESH SessionStore opened on the same key (forcing a real
-         deserialize-from-DB, not the in-memory _session cache that the
-         saving instance still holds) reads back plain lists / ints —
-         mirroring production, where the fit child saves and a separate
-         process (e.g. EvaluateAtAPointView) loads.
+      1. The save() does not raise. Django's JSONField raises on raw
+         numpy scalars/arrays unless they are coerced first; reaching the
+         asserts at all means the dispatch_data layer coerced them.
+      2. LoadItemFromSessionStore on a fresh call (no in-memory cache)
+         reads back plain lists / ints — mirroring production, where the
+         fit child saves and a separate process (e.g. EvaluateAtAPointView)
+         loads from the same dispatch row.
     """
     import numpy
-    from django.contrib.sessions.backends.db import SessionStore
 
     lrp = _make_lrp(db)
     lrp.SaveDictionaryOfItemsToSessionStore(
@@ -155,8 +146,7 @@ def test_lrp_save_load_roundtrips_numpy_via_serializer(db):
         },
     )
 
-    fresh = SessionStore(lrp.session_key_data)
-    assert fresh["coeffs"] == [1.5, 2.5, 3.5]
-    assert isinstance(fresh["coeffs"], list)
-    assert fresh["rank"] == 7
-    assert isinstance(fresh["rank"], int)
+    assert lrp.LoadItemFromSessionStore("data", "coeffs") == [1.5, 2.5, 3.5]
+    assert isinstance(lrp.LoadItemFromSessionStore("data", "coeffs"), list)
+    assert lrp.LoadItemFromSessionStore("data", "rank") == 7
+    assert isinstance(lrp.LoadItemFromSessionStore("data", "rank"), int)
