@@ -389,6 +389,14 @@ fieldset.field-group {
   min-inline-size: 0;
 }
 
+/* Two stacked groups (e.g. comma-conversion + weighted-fitting in the data
+   editor) were formerly separate <p>s with a 1.5rem gap; the reset above
+   zeroed that, merging them visually. Restore the gap between consecutive
+   field groups (matches simple.css's `p { margin: 1.5rem 0 }`). */
+fieldset.field-group + fieldset.field-group {
+  margin-top: 1.5rem;
+}
+
 .form-columns > div > fieldset.field-group > legend {
   border-bottom: 1px solid var(--border);
   font-weight: 500;
