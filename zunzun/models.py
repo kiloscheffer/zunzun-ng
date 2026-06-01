@@ -1,4 +1,8 @@
+import secrets
+
 from django.db import models
+
+from zunzun.session_helpers import NumpyJSONEncoder
 
 
 class LRPStatus(models.Model):
@@ -33,6 +37,13 @@ class LRPStatus(models.Model):
     parallel_count = models.IntegerField(default=0)
     process_id = models.IntegerField(default=0)
     state = models.CharField(max_length=12, choices=State.choices, default=State.INITIALIZING)
+    owner_session_key = models.CharField(max_length=40, db_index=True, default="")
+    owner_ip = models.CharField(max_length=45, db_index=True, default="")  # 45 = max IPv6 text len
+    # default=secrets.token_urlsafe → every row auto-mints a unique 43-char
+    # token (token_urlsafe(32) = 43 chars), so no create() site can forget it.
+    result_token = models.CharField(
+        max_length=43, unique=True, db_index=True, default=secrets.token_urlsafe
+    )
 
     @classmethod
     def mark_running(cls, pk, pid):
@@ -66,3 +77,17 @@ class LRPStatus(models.Model):
         if parallel_count is not None:
             fields["parallel_count"] = parallel_count
         cls.objects.filter(pk=pk).update(**fields)
+
+
+class LRPDispatchData(models.Model):
+    """Per-dispatch data payload, replacing the per-session `data` and
+    `functionfinder` SessionStores. OneToOne to LRPStatus with cascade so the
+    data's lifetime is bolted to the dispatch row — deleting the status row
+    (supersession or housekeeping) drops the data atomically, no orphan sweep.
+    Written by spawn children under SQLite contention, so callers go through
+    zunzun.dispatch_data's retry helpers (added in a later task), never a bare .save().
+    """
+
+    status = models.OneToOneField(LRPStatus, on_delete=models.CASCADE, related_name="dispatch_data")
+    data = models.JSONField(default=dict, encoder=NumpyJSONEncoder)
+    functionfinder = models.JSONField(default=dict, encoder=NumpyJSONEncoder)
