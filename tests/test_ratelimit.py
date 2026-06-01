@@ -11,7 +11,6 @@ Post-Phase-4 it PASSES because django-ratelimit sets request.limited.
 from unittest.mock import patch
 
 import pytest
-from django.core.cache import cache
 
 
 @pytest.mark.django_db
@@ -21,13 +20,14 @@ def test_thirteenth_rapid_post_is_rate_limited(client, mocked_process_start):
     Made hermetic to kill a CI flake (see BACKLOG, "test_thirteenth_rapid_post
     _is_rate_limited flakes under full-suite runs" — RESOLVED). django-ratelimit
     counts per-IP in the default LocMemCache, which pytest-django does NOT clear
-    between tests, and buckets by a wall-clock window. So we:
-      (a) clear the cache so the counter starts at 0 regardless of /Equation/ or
+    between tests, and buckets by a wall-clock window. So:
+      (a) the autouse reset_cache fixture (tests/conftest.py) gives every test a
+          clean counter, so this one starts at 0 regardless of /Equation/ or
           /FitEquation/ requests made elsewhere in the suite, and
-      (b) freeze django-ratelimit's clock so all 13 POSTs land in ONE window and
-          cannot straddle a minute boundary — a straddle resets the counter
-          mid-test and under-counts the 13th, which is the original flake (it
-          surfaced reliably on the slow macOS CI runner).
+      (b) this test freezes django-ratelimit's clock so all 13 POSTs land in ONE
+          window and cannot straddle a minute boundary — a straddle resets the
+          counter mid-test and under-counts the 13th, which is the original flake
+          (it surfaced reliably on the slow macOS CI runner).
     """
     fields = {
         "commaConversion": "I",
@@ -54,15 +54,12 @@ def test_thirteenth_rapid_post_is_rate_limited(client, mocked_process_start):
     session["cookie_test"] = 1
     session.save()
 
-    # (a) Start from a clean per-IP counter (shared LocMemCache is not reset
-    # between tests).
-    cache.clear()
-
-    # (b) Freeze django-ratelimit's window clock. django_ratelimit.core._get_window
-    # buckets by int(time.time()); a fixed value keeps all 13 POSTs in one window.
-    # Patch the name in core's namespace only — zunzun.middleware's own `time`
-    # import (used by rate_limit_sleep) is untouched, so the time.sleep patch
-    # below still intercepts the limiter's sleep.
+    # The autouse reset_cache fixture already zeroed the per-IP counter. Freeze
+    # django-ratelimit's window clock so all 13 POSTs share one bucket:
+    # django_ratelimit.core._get_window buckets by int(time.time()), so a fixed
+    # value keeps them in one window. Patch the name in core's namespace only —
+    # zunzun.middleware's own `time` import (used by rate_limit_sleep) is
+    # untouched, so the time.sleep patch below still intercepts the limiter's sleep.
     with patch("django_ratelimit.core.time") as ratelimit_clock:
         ratelimit_clock.time.return_value = 1_700_000_000
 

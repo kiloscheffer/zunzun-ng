@@ -1574,15 +1574,23 @@ its stated scope. Each wants its own focused commit + a fresh click-through.
 
 ## ~~`test_thirteenth_rapid_post_is_rate_limited` flakes under full-suite runs~~ RESOLVED 2026-06-01
 
-> **Resolution.** Made the test hermetic in `tests/test_ratelimit.py`
-> (branch `bugfix/flaky-ratelimit-test`, 2026-06-01) after the macOS CI leg
-> of PR #30 reproduced it 2-for-2. Two changes, one per documented root
-> cause: (1) `cache.clear()` at the top of the test zeroes the shared
-> LocMemCache counter so suite-order pollution can't shift the count; and
-> (2) `patch("django_ratelimit.core.time")` freezes the window clock so all
-> 13 POSTs share one bucket and cannot straddle a minute boundary (the
-> under-count that surfaced on the slow macOS runner). Verified
-> deterministic: full suite green and the test passed 8/8 in a repeat loop.
+> **Resolution.** Fixed both documented root causes (branch
+> `bugfix/flaky-ratelimit-test`, 2026-06-01) after the macOS CI leg of the
+> feedback-removal PR (#30) reproduced the flake 2-for-2:
+> - **Root cause #1 (shared counter not reset between tests).** Added an
+>   autouse `reset_cache` fixture in `tests/conftest.py` that calls
+>   `cache.clear()` before every test, so the per-IP rate-limit counter (and
+>   any `cache_page` entry) never carries across tests. This also closes the
+>   latent hidden `time.sleep(5)` that other `@ratelimit`-view tests
+>   (`test_views_per_user_cap`, `test_views_dispatch`, ...) could incur once
+>   the shared counter filled a window.
+> - **Root cause #2 (clock-aligned window straddle).** `tests/test_ratelimit.py`
+>   patches `django_ratelimit.core.time` so its 13 rapid POSTs share one
+>   frozen window and cannot straddle a minute boundary (the under-count that
+>   surfaced on the slow macOS runner).
+>
+> Verified deterministic: full suite green and the rate-limit test passed 8/8
+> in a repeat loop.
 >
 > Historical notes below, preserved for reference.
 
