@@ -24,7 +24,6 @@ import zunzun.views
         ("/Equation/2/Polynomial/Quadratic/", zunzun.views.LongRunningProcessView),
         ("/EvaluateAtAPoint/", zunzun.views.EvaluateAtAPointView),
         ("/AllEquations/2/Polynomial/", zunzun.views.AllEquationsView),
-        ("/Feedback/", zunzun.views.FeedbackView),
     ],
 )
 def test_url_resolves_to_view(path, view_fn):

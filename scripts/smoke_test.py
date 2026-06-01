@@ -17,12 +17,11 @@ Scenarios
 7. **polynomial_quadratic_3D** — 3D full-quadratic fit with animation
    enabled; verifies the SurfaceAnimation GIF loads with ≥2 frames.
 8. **all_equations_2D** — GET AllEquations listing.
-9. **feedback_form** — GET form + POST reply.
-10. **invalid_form_post** — malformed data → error template.
-11. **spline_2D** — 2D cubic spline fit with smoothness=1.0, chained into
+9. **invalid_form_post** — malformed data → error template.
+10. **spline_2D** — 2D cubic spline fit with smoothness=1.0, chained into
     an `/EvaluateAtAPoint/` POST to verify the serializer-coerced
     `scipySpline` tck round-trips through the session.
-12. **udf_2D** — 2D User Defined Function fit with formula `a + b*X`,
+11. **udf_2D** — 2D User Defined Function fit with formula `a + b*X`,
     chained into an `/EvaluateAtAPoint/` POST to verify
     `solvedCoefficients` round-trips through the session.
 
@@ -299,25 +298,6 @@ _ALL_EQUATIONS_MARKERS = [
     # section heading and in many equation links.
     "All Standard 2D Equations",
     "Polynomial",
-]
-
-# FeedbackView GET redirects to '/' (home page), so there is no form-
-# rendering GET to anchor on. The POST path is the only render_to_response
-# site exercised here (feedback_reply.html). Field names must match
-# FeedbackForm: feedbackText and emailAddress.
-_FEEDBACK_POST_FIELDS = {
-    "feedbackText": "Automated smoke test submission — please ignore.",
-    "emailAddress": "smoke@example.com",
-}
-
-_FEEDBACK_POST_MARKERS = [
-    "Thank you",
-]
-
-# /Feedback/ GET redirects to '/'; we only assert the redirect lands
-# somewhere that renders the home page (non-empty, contains ZunZunNG).
-_FEEDBACK_GET_MARKERS = [
-    "ZunZunNG",
 ]
 
 _EVAL_AT_POINT_FIELDS = {
@@ -695,22 +675,6 @@ def run_smoke(scenario: str = "default") -> int:
             errors.append(err)
         else:
             print("[all_equations_2D] OK")
-
-        r = session.get(base + "/Feedback/")
-        err = _check_markers("feedback_form_get", r.text, _FEEDBACK_GET_MARKERS)
-        if err:
-            errors.append(err)
-        else:
-            r = session.post(
-                base + "/Feedback/",
-                data=_FEEDBACK_POST_FIELDS,
-                allow_redirects=True,
-            )
-            err = _check_markers("feedback_form_post", r.text, _FEEDBACK_POST_MARKERS)
-            if err:
-                errors.append(err)
-            else:
-                print("[feedback_form] OK")
 
         r = session.post(
             base + "/FitEquation__F__/2/Polynomial/2nd%20Order%20(Quadratic)/",

@@ -25,40 +25,6 @@ class EvaluateAtAPointForm_3D(EvaluateAtAPointForm_2D):
     )
 
 
-class FeedbackForm(django.forms.Form):
-    feedbackText = django.forms.CharField(
-        widget=django.forms.widgets.Textarea(attrs={"rows": "9", "WRAP": "OFF"})
-    )
-    emailAddress = django.forms.CharField(max_length=75, required=False)
-
-    def clean_feedbackText(self):
-        data = self.cleaned_data["feedbackText"]
-
-        # check for 'no data', i.e., just pressing the button to see what happens
-        if len(data) < 3:
-            raise django.forms.ValidationError(
-                "The entry %s is too short to be considered valid feedback." % data
-            )
-
-        # check for link spammers
-        if data.lower().count("{vo{vo,") > 0:
-            raise django.forms.ValidationError(
-                'Found the string "{vo{vo, " at least once, this is almost always from link spammer bots - ignoring.'
-            )
-
-        if data.lower().count("</a>, [url=") > 0:
-            raise django.forms.ValidationError(
-                'Found the string "</a>, [url=" at least once, this is almost always from link spammer bots - ignoring.'
-            )
-
-        if data.lower().count("a href=") > 0:
-            raise django.forms.ValidationError(
-                'Found the string "a href=" at least once, this is almost always from link spammer bots - ignoring.'
-            )
-
-        return data
-
-
 class UsesDataForm_BaseClass(django.forms.Form):
     weightedFittingChoice = django.forms.ChoiceField(
         widget=django.forms.widgets.RadioSelect(),

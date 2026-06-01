@@ -18,7 +18,6 @@ ADMINS = (
 )
 
 EXCEPTION_EMAIL_ADDRESS = ""  # for unknown site exceptions
-FEEDBACK_EMAIL_ADDRESS = ""  # for any user feedback
 
 SESSION_COOKIE_NAME = "sessionid"
 SESSION_COOKIE_AGE = 60 * 60 * 24 * 5  # 60 seconds * 60 minutes * 24 hours * 5 days

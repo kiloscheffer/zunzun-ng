@@ -5,9 +5,6 @@ These don't spawn children — they just return HTML. We assert status
 code + a marker string that must be in the template output.
 
 Phase 1 calibration notes:
-  - /Feedback/ GET redirects to home (no dedicated feedback entry template).
-  - Feedback POST fields are feedbackText / emailAddress (not name/email/comments).
-    The reply template contains "Thank you".
   - /AllEquations/2/Polynomial/ lists "All Standard 2D Equations" — the
     trailing path segment is an all-or-standard flag, not a family name.
   - Invalid-form error template header is "Error In Form" (not "could not").
@@ -30,32 +27,6 @@ def test_all_equations_renders(client):
     assert response.status_code == 200
     assert b"Polynomial" in response.content
     assert b"All Standard 2D Equations" in response.content
-
-
-@pytest.mark.django_db
-def test_feedback_get_redirects_to_home(client):
-    """FeedbackView GET redirects to '/' — there is no dedicated feedback
-    entry template on this codebase.
-    """
-    response = client.get("/Feedback/")
-    # Either a redirect (302) or — if the view rewrites — a 200 on the home page.
-    assert response.status_code in (200, 301, 302)
-
-
-@pytest.mark.django_db
-def test_feedback_post_renders_reply(client):
-    response = client.post(
-        "/Feedback/",
-        data={
-            "feedbackText": "integration test comment",
-            "emailAddress": "test@example.com",
-        },
-    )
-    assert response.status_code == 200
-    # Reply template renders (no crash even if email send is skipped
-    # due to empty EMAIL_HOST_USER placeholder in settings.py). The
-    # reply template contains "Thank you".
-    assert b"Thank you" in response.content
 
 
 @pytest.mark.django_db

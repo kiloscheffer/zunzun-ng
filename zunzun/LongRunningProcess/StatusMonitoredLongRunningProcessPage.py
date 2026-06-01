@@ -1111,8 +1111,6 @@ You must provide any weights you wish to use.
 
         itemsToRender["statisticalDistributions"] = self.statisticalDistribution
 
-        itemsToRender["feedbackForm"] = zunzun.forms.FeedbackForm()
-
         itemsToRender["equationInstance"] = self.equationInstance
         if self.evaluateAtAPointFormNeeded:
             itemsToRender["EvaluateAtAPointForm"] = getattr(
