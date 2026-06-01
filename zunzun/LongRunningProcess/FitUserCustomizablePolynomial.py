@@ -55,46 +55,10 @@ class FitUserCustomizablePolynomial(FittingBaseClass.FittingBaseClass):
         return s
 
     def SpecificEquationBoundInterfaceCode(self, request):
-        self.boundForm.equation.polynomial2DFlags = []
-        self.boundForm.equation.polynomial3DFlags = []
-
-        if self.dimensionality == 2:
-            for i in range(len(self.X2DList)):
-                self.boundForm[
-                    "polyFunctional_X" + str(i)
-                ].required = True  # force form field validation
-                if request.POST["polyFunctional_X" + str(i)] == "True":
-                    self.boundForm.equation.polynomial2DFlags.append(i)
-        else:  # 3D
-            for i in range(len(self.X3DList)):
-                for j in range(len(self.Y3DList)):
-                    self.boundForm[
-                        "polyFunctional_X" + str(i) + "Y" + str(j)
-                    ].required = True  # force form field validation
-                    if request.POST["polyFunctional_X" + str(i) + "Y" + str(j)] == "True":
-                        self.boundForm.equation.polynomial3DFlags.append([i, j])
+        # _collect_2d_picker_flags setattrs polynomial2DFlags before returning,
+        # so no pre-init is needed; this class carries only the 2D flag list.
+        self._collect_2d_picker_flags(request, "polynomial2DFlags")
 
     def SpecificEquationUnboundInterfaceCode(self, request):
-        if self.rank:
-            self.equation.polynomial2DFlags = self.functionFinderResultsList[self.rank - 1][4]
-            self.equation.polynomial3DFlags = self.functionFinderResultsList[self.rank - 1][5]
-            if self.dimensionality == 2:
-                flags = self.functionFinderResultsList[self.rank - 1][4]
-                self.dictionaryToReturn["Polynomial2DColorList"] = self._build_2d_color_list(
-                    lambda i: i in flags
-                )
-            else:  # 3D
-                flags = self.functionFinderResultsList[self.rank - 1][5]
-                self.dictionaryToReturn["Polyfun3DColorList"] = self._build_3d_color_list(
-                    lambda i, j: [i, j] in flags
-                )
-        else:
-            if self.dimensionality == 2:
-                self.dictionaryToReturn["Polynomial2DColorList"] = self._build_2d_color_list(
-                    lambda i: False
-                )
-            else:  # 3D
-                self.dictionaryToReturn["Polyfun3DColorList"] = self._build_3d_color_list(
-                    lambda i, j: False
-                )
+        self._assign_2d_picker_color_list("Polynomial2DColorList", "polynomial2DFlags")
         FittingBaseClass.FittingBaseClass.SpecificEquationUnboundInterfaceCode(self, request)

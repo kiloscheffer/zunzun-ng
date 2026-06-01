@@ -31,6 +31,9 @@ from django.template.loader import render_to_string
 from django.test import RequestFactory
 
 from zunzun.LongRunningProcess.FittingBaseClass import FittingBaseClass
+from zunzun.LongRunningProcess.FitUserCustomizablePolynomial import (
+    FitUserCustomizablePolynomial,
+)
 from zunzun.LongRunningProcess.FitUserSelectablePolyfunctional import (
     FitUserSelectablePolyfunctional,
 )
@@ -150,27 +153,6 @@ def test_polyrational_2d_data_flag_and_initial_value():
 def test_polyfunctional_3d_data_flag_and_initial_value():
     html = render_to_string(
         "zunzun/divs/polyfunctional_selection_div.html",
-        {
-            "dimensionality": "3",
-            "equationHTML": "",
-            "maxPolyfunctionalListIndex": 1,
-            "Polyfun3DColorList": [
-                (True, 0, 0, "Offset", ""),
-                (False, 0, 1, "", "Y"),
-                (False, 1, 0, "X", ""),
-                (False, 1, 1, "X", "Y"),
-            ],
-        },
-    )
-    assert 'data-flag="polyFunctional_X0Y0"' in html
-    assert 'data-flag="polyFunctional_X1Y1"' in html
-    assert 'name="polyFunctional_X0Y0" value="True"' in html
-    assert 'name="polyFunctional_X1Y1" value="False"' in html
-
-
-def test_polynomial_customization_3d_data_flag_and_initial_value():
-    html = render_to_string(
-        "zunzun/divs/polynomial_customization_div.html",
         {
             "dimensionality": "3",
             "equationHTML": "",
@@ -342,9 +324,9 @@ class _FakeBoundField:
 
 
 class _FakeBoundForm:
-    """Minimal stand-in for the bound Equation_3D form: supports item access
-    (each access returns a throwaway field, matching how form[name] works) and
-    carries the .equation the parser writes flags onto."""
+    """Minimal stand-in for a bound Equation_2D / Equation_3D form: supports
+    item access (each access returns a throwaway field, matching how form[name]
+    works) and carries the .equation the parser writes flags onto."""
 
     def __init__(self):
         self.equation = types.SimpleNamespace()
@@ -371,3 +353,139 @@ def test_bound_interface_3d_maps_posted_flag_to_equation_flags():
     lrp.SpecificEquationBoundInterfaceCode(request)
     # [[1, 0]], not [[0, 1]] — pins the (i, j) ordering against transposition.
     assert lrp.boundForm.equation.polyfunctional3DFlags == [[1, 0]]
+    # The 2D list must be initialized to [] even on the 3D path —
+    # build_child_payload carries both across the spawn boundary.
+    assert lrp.boundForm.equation.polyfunctional2DFlags == []
+
+
+# --- New shared picker helpers (FittingBaseClass) ---------------------------
+# These call self._build_{2,3}d_color_list, so the test "self" must be a real
+# subclass instance (which has those methods + the X2DList/X3DList/Y3DList that
+# __init__ populates), not a SimpleNamespace stub.
+
+
+def test_assign_2d_picker_color_list_no_rank_selects_nothing():
+    lrp = FitUserSelectablePolyfunctional()
+    lrp.rank = None
+    lrp.equation = types.SimpleNamespace()
+    lrp.dictionaryToReturn = {}
+    lrp._assign_2d_picker_color_list("Polynomial2DColorList", "polynomial2DFlags")
+    color_list = lrp.dictionaryToReturn["Polynomial2DColorList"]
+    assert len(color_list) == len(lrp.X2DList)
+    assert all(entry[0] is False for entry in color_list)
+
+
+def test_assign_2d_picker_color_list_rank_prefills_index_4_and_sets_equation_attr():
+    lrp = FitUserSelectablePolyfunctional()
+    lrp.rank = 1
+    lrp.functionFinderResultsList = [[None, None, None, None, [1]]]  # index [4] -> 2D flags
+    lrp.equation = types.SimpleNamespace()
+    lrp.dictionaryToReturn = {}
+    lrp._assign_2d_picker_color_list("Polyfun2DColorList", "polyfunctional2DFlags")
+    assert lrp.equation.polyfunctional2DFlags == [1]
+    color_list = lrp.dictionaryToReturn["Polyfun2DColorList"]
+    assert color_list[1][0] is True  # cell 1 pre-selected
+    assert color_list[0][0] is False
+
+
+def test_assign_3d_picker_color_list_no_rank_selects_nothing():
+    lrp = FitUserSelectablePolyfunctional()
+    lrp.rank = None
+    lrp.equation = types.SimpleNamespace()
+    lrp.dictionaryToReturn = {}
+    lrp._assign_3d_picker_color_list("Polyfun3DColorList", "polyfunctional3DFlags")
+    color_list = lrp.dictionaryToReturn["Polyfun3DColorList"]
+    assert len(color_list) == len(lrp.X3DList) * len(lrp.Y3DList)
+    assert all(entry[0] is False for entry in color_list)
+
+
+def test_assign_3d_picker_color_list_rank_prefills_index_5_and_sets_equation_attr():
+    lrp = FitUserSelectablePolyfunctional()
+    lrp.rank = 1
+    lrp.functionFinderResultsList = [[None, None, None, None, None, [[1, 0]]]]  # index [5] -> 3D
+    lrp.equation = types.SimpleNamespace()
+    lrp.dictionaryToReturn = {}
+    lrp._assign_3d_picker_color_list("Polyfun3DColorList", "polyfunctional3DFlags")
+    assert lrp.equation.polyfunctional3DFlags == [[1, 0]]
+    color_list = lrp.dictionaryToReturn["Polyfun3DColorList"]
+    selected = [(e[1], e[2]) for e in color_list if e[0] is True]
+    assert selected == [(1, 0)]  # asymmetric cell pins (i, j) ordering
+
+
+def test_collect_2d_picker_flags_maps_posted_true_to_indices():
+    lrp = FitUserSelectablePolyfunctional()
+    lrp.boundForm = _FakeBoundForm()
+    post = {
+        "polyFunctional_X" + str(i): ("True" if i == 1 else "False")
+        for i in range(len(lrp.X2DList))
+    }
+    request = RequestFactory().post("/", data=post)
+    lrp._collect_2d_picker_flags(request, "polynomial2DFlags")
+    assert lrp.boundForm.equation.polynomial2DFlags == [1]
+
+
+def test_collect_3d_picker_flags_maps_posted_true_to_pairs():
+    lrp = FitUserSelectablePolyfunctional()
+    lrp.boundForm = _FakeBoundForm()
+    post = {}
+    for i in range(len(lrp.X3DList)):
+        for j in range(len(lrp.Y3DList)):
+            post[f"polyFunctional_X{i}Y{j}"] = "True" if (i, j) == (1, 0) else "False"
+    request = RequestFactory().post("/", data=post)
+    lrp._collect_3d_picker_flags(request, "polyfunctional3DFlags")
+    assert lrp.boundForm.equation.polyfunctional3DFlags == [[1, 0]]
+
+
+def test_customizable_polynomial_bound_2d_maps_posted_flag_to_equation_flags():
+    """FitUserCustomizablePolynomial's 2D POST path maps a posted
+    polyFunctional_Xi=True into equation.polynomial2DFlags. Characterizes the
+    behavior preserved by the helper delegation (no fit, no real form, no DB)."""
+    lrp = FitUserCustomizablePolynomial()
+    lrp.dimensionality = 2
+    lrp.boundForm = _FakeBoundForm()
+    post = {
+        "polyFunctional_X" + str(i): ("True" if i == 2 else "False")
+        for i in range(len(lrp.X2DList))
+    }
+    request = RequestFactory().post("/", data=post)
+    lrp.SpecificEquationBoundInterfaceCode(request)
+    assert lrp.boundForm.equation.polynomial2DFlags == [2]
+
+
+def test_customizable_polynomial_is_2d_only_in_pyeq3():
+    """The dead 3D picker branches were removed on this invariant: pyeq3 exposes
+    'User-Customizable Polynomial' only in Models_2D, never Models_3D. So
+    GetEquationFromNameAndFamily returns a real equation in 2D and None in 3D.
+    If a future pyeq3 ever ships a 3D customizable polynomial, this test fails —
+    re-add 3D handling to FitUserCustomizablePolynomial and its template."""
+    lrp = FitUserCustomizablePolynomial()
+
+    lrp.dimensionality = 2
+    eq_2d = lrp.GetEquationFromNameAndFamily(
+        "User-Customizable Polynomial", "Polynomial", checkForSplinesAndUserDefinedFunctionsFlag=1
+    )
+    assert eq_2d is not None
+    assert eq_2d.userCustomizablePolynomialFlag is True
+
+    lrp.dimensionality = 3
+    eq_3d = lrp.GetEquationFromNameAndFamily(
+        "User-Customizable Polynomial", "Polynomial", checkForSplinesAndUserDefinedFunctionsFlag=1
+    )
+    assert eq_3d is None
+
+
+def test_bound_interface_2d_maps_posted_flag_to_equation_flags():
+    """SpecificEquationBoundInterfaceCode 2D path maps a POSTed
+    polyFunctional_Xi=True into equation.polyfunctional2DFlags AND leaves the
+    inactive polyfunctional3DFlags as [] (build_child_payload carries both)."""
+    lrp = FitUserSelectablePolyfunctional()
+    lrp.dimensionality = 2
+    lrp.boundForm = _FakeBoundForm()
+    post = {
+        "polyFunctional_X" + str(i): ("True" if i == 1 else "False")
+        for i in range(len(lrp.X2DList))
+    }
+    request = RequestFactory().post("/", data=post)
+    lrp.SpecificEquationBoundInterfaceCode(request)
+    assert lrp.boundForm.equation.polyfunctional2DFlags == [1]
+    assert lrp.boundForm.equation.polyfunctional3DFlags == []
