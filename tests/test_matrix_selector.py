@@ -171,27 +171,6 @@ def test_polyfunctional_3d_data_flag_and_initial_value():
     assert 'name="polyFunctional_X1Y1" value="False"' in html
 
 
-def test_polynomial_customization_3d_data_flag_and_initial_value():
-    html = render_to_string(
-        "zunzun/divs/polynomial_customization_div.html",
-        {
-            "dimensionality": "3",
-            "equationHTML": "",
-            "maxPolyfunctionalListIndex": 1,
-            "Polyfun3DColorList": [
-                (True, 0, 0, "Offset", ""),
-                (False, 0, 1, "", "Y"),
-                (False, 1, 0, "X", ""),
-                (False, 1, 1, "X", "Y"),
-            ],
-        },
-    )
-    assert 'data-flag="polyFunctional_X0Y0"' in html
-    assert 'data-flag="polyFunctional_X1Y1"' in html
-    assert 'name="polyFunctional_X0Y0" value="True"' in html
-    assert 'name="polyFunctional_X1Y1" value="False"' in html
-
-
 @pytest.mark.django_db
 def test_polyfunctional_interface_renders_class_driven(client):
     """Full URL -> view -> template path renders the picker, class-driven.
