@@ -363,12 +363,17 @@ td.pick.selected {
   grid-template-columns: repeat(auto-fit, minmax(min(18rem, 100%), 1fr));
 }
 
-.form-columns > div > label {
+/* A visible <legend> that replaced a former column <label> matches its look
+   (see the FORM FIELD GROUPS section). `width: 100%` is harmless on the block
+   <label> and needed for the <legend> to span the column. */
+.form-columns > div > label,
+.form-columns > div > fieldset.field-group > legend {
   border-bottom: 1px solid var(--border);
   font-weight: 500;
   display: block;
+  width: 100%;
   margin: 0 0 0.5rem 0;
-  padding-bottom: 0.25rem;
+  padding: 0 0 0.25rem 0;
 }
 
 /* ------------------------------------------------------------------------ */
@@ -395,15 +400,6 @@ fieldset.field-group {
    field groups (matches simple.css's `p { margin: 1.5rem 0 }`). */
 fieldset.field-group + fieldset.field-group {
   margin-top: 1.5rem;
-}
-
-.form-columns > div > fieldset.field-group > legend {
-  border-bottom: 1px solid var(--border);
-  font-weight: 500;
-  display: block;
-  width: 100%;
-  margin: 0 0 0.5rem 0;
-  padding: 0 0 0.25rem 0;
 }
 
 .visually-hidden {
