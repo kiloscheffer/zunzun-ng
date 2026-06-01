@@ -55,6 +55,8 @@ class FitUserCustomizablePolynomial(FittingBaseClass.FittingBaseClass):
         return s
 
     def SpecificEquationBoundInterfaceCode(self, request):
+        # _collect_2d_picker_flags setattrs polynomial2DFlags before returning,
+        # so no pre-init is needed; this class carries only the 2D flag list.
         self._collect_2d_picker_flags(request, "polynomial2DFlags")
 
     def SpecificEquationUnboundInterfaceCode(self, request):

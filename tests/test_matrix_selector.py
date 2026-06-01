@@ -324,9 +324,9 @@ class _FakeBoundField:
 
 
 class _FakeBoundForm:
-    """Minimal stand-in for the bound Equation_3D form: supports item access
-    (each access returns a throwaway field, matching how form[name] works) and
-    carries the .equation the parser writes flags onto."""
+    """Minimal stand-in for a bound Equation_2D / Equation_3D form: supports
+    item access (each access returns a throwaway field, matching how form[name]
+    works) and carries the .equation the parser writes flags onto."""
 
     def __init__(self):
         self.equation = types.SimpleNamespace()
@@ -353,6 +353,9 @@ def test_bound_interface_3d_maps_posted_flag_to_equation_flags():
     lrp.SpecificEquationBoundInterfaceCode(request)
     # [[1, 0]], not [[0, 1]] — pins the (i, j) ordering against transposition.
     assert lrp.boundForm.equation.polyfunctional3DFlags == [[1, 0]]
+    # The 2D list must be initialized to [] even on the 3D path —
+    # build_child_payload carries both across the spawn boundary.
+    assert lrp.boundForm.equation.polyfunctional2DFlags == []
 
 
 # --- New shared picker helpers (FittingBaseClass) ---------------------------
@@ -469,3 +472,20 @@ def test_customizable_polynomial_is_2d_only_in_pyeq3():
         "User-Customizable Polynomial", "Polynomial", checkForSplinesAndUserDefinedFunctionsFlag=1
     )
     assert eq_3d is None
+
+
+def test_bound_interface_2d_maps_posted_flag_to_equation_flags():
+    """SpecificEquationBoundInterfaceCode 2D path maps a POSTed
+    polyFunctional_Xi=True into equation.polyfunctional2DFlags AND leaves the
+    inactive polyfunctional3DFlags as [] (build_child_payload carries both)."""
+    lrp = FitUserSelectablePolyfunctional()
+    lrp.dimensionality = 2
+    lrp.boundForm = _FakeBoundForm()
+    post = {
+        "polyFunctional_X" + str(i): ("True" if i == 1 else "False")
+        for i in range(len(lrp.X2DList))
+    }
+    request = RequestFactory().post("/", data=post)
+    lrp.SpecificEquationBoundInterfaceCode(request)
+    assert lrp.boundForm.equation.polyfunctional2DFlags == [1]
+    assert lrp.boundForm.equation.polyfunctional3DFlags == []
