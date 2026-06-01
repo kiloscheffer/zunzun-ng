@@ -27,6 +27,7 @@ INTERFACE_URLS = [
     "/CharacterizeData/2/",
     "/CharacterizeData/3/",
     "/FunctionFinder__.__/2/",
+    "/FunctionFinder__.__/3/",
     "/StatisticalDistributions/1/",
     "/Equation/3/Polynomial/User-Selectable Polynomial/",
 ]
@@ -64,6 +65,10 @@ GROUPED_FIELDS = [
     ("/FunctionFinder__.__/2/", "id_equationFamilyInclusion"),
     ("/FunctionFinder__.__/2/", "id_smoothnessExactOrMax"),
     ("/StatisticalDistributions/1/", "id_statisticalDistributionsSortBy"),
+    # Visible-legend fieldsets (the ones that replaced a visible <label>).
+    ("/Equation/2/Polynomial/2nd Order (Quadratic)/", "id_graphScaleRadioButtonX"),
+    ("/Equation/2/Polynomial/2nd Order (Quadratic)/", "id_scientificNotationX"),
+    ("/FunctionFinder__.__/2/", "id_logLinX"),
 ]
 
 
