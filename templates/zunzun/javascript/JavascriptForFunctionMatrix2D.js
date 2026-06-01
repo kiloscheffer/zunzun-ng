@@ -38,5 +38,5 @@
     else
         if (str != "")
             tstr += "&nbsp;<b>+</b> " + str;
-    document.getElementById('FUNCTION').innerHTML = tstr;
+    document.getElementById('equationPreview').innerHTML = tstr;
  }
