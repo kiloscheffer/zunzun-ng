@@ -214,6 +214,28 @@ def test_polyfunctional_interface_renders_class_driven(client):
     assert '<input type="submit" value="Submit">' in body
 
 
+@pytest.mark.django_db
+def test_customizable_polynomial_interface_renders_class_driven(client):
+    """FitUserCustomizablePolynomial's 2D no-rank caller renders the picker
+    class-driven via the Polynomial2DColorList key — the second
+    _build_2d_color_list call site (the polyfunctional test above covers the
+    first). Without this, FitUserCustomizablePolynomial had no picker-render
+    coverage at all, so a wiring break (wrong dict key, dropped color list)
+    in that subclass would ship silently."""
+    client.get("/")  # bootstrap session
+    session = client.session
+    session["cookie_test"] = 1
+    session.save()
+    response = client.get("/Equation/2/Polynomial/User-Customizable Polynomial/")
+    assert response.status_code == 200
+    body = response.content.decode("utf-8", "replace")
+    # Right equation dispatched + rendered (proves this subclass's picker)...
+    assert "User-Customizable Polynomial" in body
+    # ...class-driven cells, no legacy inline picker background survives.
+    assert 'class="pick math' in body
+    assert "background-color:rgb(" not in body
+
+
 class _HtmlStub:
     def __init__(self, html):
         self.HTML = html

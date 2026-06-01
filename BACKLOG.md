@@ -1295,9 +1295,13 @@ across 4 JS files plus the paired `<td>` template cleanup.
 > explicit `if` branch produced. Two mirror tests added to
 > `tests/test_matrix_selector.py`
 > (`test_build_2d_color_list_no_rank_all_unselected`,
-> `..._rank_predicate_marks_selected_cells`). The no-rank caller path is also
-> covered end-to-end by the pre-existing
-> `test_polyfunctional_interface_renders_class_driven` integration test.
+> `..._rank_predicate_marks_selected_cells`). Both subclasses' 2D no-rank
+> caller paths are covered end-to-end at the render level —
+> `test_polyfunctional_interface_renders_class_driven` (pre-existing) and
+> `test_customizable_polynomial_interface_renders_class_driven` (added here,
+> closing the gap that FitUserCustomizablePolynomial had no picker-render
+> coverage); the rank pre-fill paths remain covered at the helper level via
+> the two unit tests above.
 >
 > **2. 3D matrix JS files deduped.** `JavascriptForRationalMatrix3D.js` (byte-
 > identical to `JavascriptForFunctionMatrix3D.js`) was deleted; the rational 3D
@@ -1567,6 +1571,50 @@ eval/dead-browser-branch removal and the inline-style→CSS-class migration, all
 manually verified. These four are cleanup/altitude on the same surface; doing
 them in-branch would invalidate that verification and expand the diff well past
 its stated scope. Each wants its own focused commit + a fresh click-through.
+
+## `test_thirteenth_rapid_post_is_rate_limited` flakes under full-suite runs
+
+**Surfaced by** the `/pr-review-toolkit:review-pr` pass on
+`feat/matrix-selector-round2` (2026-06-01): the full suite failed this one test
+on the first run, then passed unchanged on immediate re-run (205/205) — a
+non-deterministic flake, not a regression from that branch.
+
+**Symptom.** `tests/test_ratelimit.py::test_thirteenth_rapid_post_is_rate_limited`
+POSTs 12 times to `/FitEquation__F__/2/Polynomial/2nd Order (Quadratic)/`
+(expecting all 302), then asserts the 13th POST trips the limiter
+(`time.sleep(5)` via the `@ratelimit(key="ip", rate="12/m")` on
+`LongRunningProcessView`). It passes in isolation but intermittently fails when
+run as part of `pytest tests/`.
+
+**Root cause (hypothesis).** Two compounding test-isolation problems:
+1. **Shared counter, not cleared between tests.** django-ratelimit stores its
+   per-IP counter in the default cache (LocMemCache under test), which
+   pytest-django does NOT clear between tests. `urls.py` routes BOTH
+   `^Equation/...` (the picker GET) and `^FitEquation__F__/...` (the fit POST)
+   to `LongRunningProcessView` (lines 18-19), so they share one rate-limit
+   group. Every `/Equation/` GET elsewhere in the suite (e.g. the two
+   `*_interface_renders_class_driven` render tests) increments the very counter
+   this test depends on starting clean.
+2. **Clock-aligned fixed window.** django-ratelimit buckets by wall-clock period,
+   so if the 13 rapid POSTs straddle a minute boundary the counter resets
+   mid-test and the 13th lands in a fresh window with count < 12 → not limited →
+   the sleep assertion fails. Because the view uses `block=False`, *over*-count
+   (pollution) still returns 302 and passes; only this *window-reset under-count*
+   fails — which is why it is timing-dependent and rare.
+
+**Where to pick up.** Make the test hermetic rather than time-dependent:
+- Add an autouse fixture (conftest) that calls `django.core.cache.cache.clear()`
+  before each test so the rate-limit counter never carries across tests; and/or
+- Freeze/mantle the window inside this test (mock the time source
+  django-ratelimit reads, or patch `time.time`) so the 13 POSTs cannot straddle
+  a bucket boundary; and/or
+- Assert on `request.limited` directly via a single crafted request with a
+  pre-seeded counter, instead of issuing 13 real POSTs and racing the clock.
+
+**Not a blocker.** Pre-existing; the limiter itself works (the test passes
+reliably alone and most full-suite runs). It is the *test's* isolation that is
+fragile. CI (`pytest` on three platforms) could surface the same flake
+intermittently.
 
 ## Verify Caddy deployment recipes on macOS and Linux
 
