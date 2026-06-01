@@ -5,8 +5,10 @@
       Equations with fewer coefficients are generally smoother.</p>
     <div class="controls-block">
       {% if dimensionality == '2' %}
+      <label for="id_smoothnessControl2D" class="visually-hidden">Maximum number of coefficients</label>
       {{ mainForm.smoothnessControl2D }}
       {% else %}
+      <label for="id_smoothnessControl3D" class="visually-hidden">Maximum number of coefficients</label>
       {{ mainForm.smoothnessControl3D }}
       {% endif %}
       <fieldset class="field-group">

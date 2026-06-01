@@ -26,6 +26,7 @@ INTERFACE_URLS = [
     "/CharacterizeData/3/",
     "/FunctionFinder__.__/2/",
     "/StatisticalDistributions/1/",
+    "/Equation/3/Polynomial/User-Selectable Polynomial/",
 ]
 
 
@@ -74,3 +75,26 @@ def test_group_field_wrapped_in_fieldset_with_legend(client, url, field_id):
     assert fieldset is not None, f"{field_id} not inside a fieldset.field-group"
     legend = fieldset.find("legend")
     assert legend is not None and legend.get_text(strip=True), f"{field_id} on {url}: fieldset has no non-empty legend"
+
+
+# (url, single-control field id that must have a <label for>) — URLs verified to render each field.
+LABELLED_SINGLE_FIELDS = [
+    ("/Equation/2/Polynomial/2nd Order (Quadratic)/", "id_textDataEditor"),
+    ("/Equation/2/UserDefinedFunction/UserDefinedFunction/", "id_udfEditor"),
+    ("/FunctionFinder__.__/2/", "id_smoothnessControl2D"),
+    ("/FunctionFinder__.__/3/", "id_smoothnessControl3D"),
+    ("/Equation/2/Polynomial/User-Selectable Polynomial/", "id_polynomialOrderX2D"),
+    ("/Equation/3/Polynomial/User-Selectable Polynomial/", "id_polynomialOrderX3D"),
+    ("/Equation/3/Polynomial/User-Selectable Polynomial/", "id_polynomialOrderY3D"),
+]
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("url,field_id", LABELLED_SINGLE_FIELDS)
+def test_single_control_has_label_for(client, url, field_id):
+    soup = _interface_soup(client, url)
+    control = soup.find(id=field_id)
+    assert control is not None, f"{field_id} not rendered on {url}"
+    assert control.name in LABELABLE, f"{field_id} is <{control.name}>, expected a single control"
+    label = soup.find("label", attrs={"for": field_id})
+    assert label is not None, f"no <label for='{field_id}'> on {url}"
