@@ -447,3 +447,25 @@ def test_customizable_polynomial_bound_2d_maps_posted_flag_to_equation_flags():
     request = RequestFactory().post("/", data=post)
     lrp.SpecificEquationBoundInterfaceCode(request)
     assert lrp.boundForm.equation.polynomial2DFlags == [2]
+
+
+def test_customizable_polynomial_is_2d_only_in_pyeq3():
+    """The dead 3D picker branches were removed on this invariant: pyeq3 exposes
+    'User-Customizable Polynomial' only in Models_2D, never Models_3D. So
+    GetEquationFromNameAndFamily returns a real equation in 2D and None in 3D.
+    If a future pyeq3 ever ships a 3D customizable polynomial, this test fails —
+    re-add 3D handling to FitUserCustomizablePolynomial and its template."""
+    lrp = FitUserCustomizablePolynomial()
+
+    lrp.dimensionality = 2
+    eq_2d = lrp.GetEquationFromNameAndFamily(
+        "User-Customizable Polynomial", "Polynomial", checkForSplinesAndUserDefinedFunctionsFlag=1
+    )
+    assert eq_2d is not None
+    assert eq_2d.userCustomizablePolynomialFlag is True
+
+    lrp.dimensionality = 3
+    eq_3d = lrp.GetEquationFromNameAndFamily(
+        "User-Customizable Polynomial", "Polynomial", checkForSplinesAndUserDefinedFunctionsFlag=1
+    )
+    assert eq_3d is None
