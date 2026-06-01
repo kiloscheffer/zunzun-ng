@@ -1278,7 +1278,51 @@ and `'rgb(211,211,211)'` (lightgray = selected).
 behavior change. Worth a small focused commit; ~50% line reduction
 across 4 JS files plus the paired `<td>` template cleanup.
 
-## Matrix-selector round-2 follow-ups (from PR review of feat/matrix-selector-followups)
+## ~~Matrix-selector round-2 follow-ups (from PR review of feat/matrix-selector-followups)~~ RESOLVED 2026-06-01
+
+> **Resolution.** All three follow-ups landed on `feat/matrix-selector-round2`.
+> Pytest 204/204 (was 202; +2 for the new 2D helper); ruff format + check
+> clean; mypy clean.
+>
+> **1. 2D color-list builder extracted + tested.** New
+> `FittingBaseClass._build_2d_color_list(self, selected_predicate)` mirrors
+> `_build_3d_color_list` — returns `[(selected, i, html)]` over `self.X2DList`
+> (no offset special-case, unlike 3D). The four inline 2D rank-prefill / no-rank
+> loops in `FitUserSelectablePolyfunctional.py` and
+> `FitUserCustomizablePolynomial.py` now call it, each assigning into its own
+> dictionary key (`Polyfun2DColorList` vs `Polynomial2DColorList`) as the entry
+> anticipated. Behavior-preserving: `(i in flags)` is the same bool the old
+> explicit `if` branch produced. Two mirror tests added to
+> `tests/test_matrix_selector.py`
+> (`test_build_2d_color_list_no_rank_all_unselected`,
+> `..._rank_predicate_marks_selected_cells`). Both subclasses' 2D no-rank
+> caller paths are covered end-to-end at the render level —
+> `test_polyfunctional_interface_renders_class_driven` (pre-existing) and
+> `test_customizable_polynomial_interface_renders_class_driven` (added here,
+> closing the gap that FitUserCustomizablePolynomial had no picker-render
+> coverage); the rank pre-fill paths remain covered at the helper level via
+> the two unit tests above.
+>
+> **2. 3D matrix JS files deduped.** `JavascriptForRationalMatrix3D.js` (byte-
+> identical to `JavascriptForFunctionMatrix3D.js`) was deleted; the rational 3D
+> `{% include %}` in `equation_fit_interface.html` now points at the function-
+> matrix file, with a template comment explaining the 3D builders converged
+> while the 2D Function/Rational files stay separate. Only reference to the
+> deleted file repo-wide was this BACKLOG entry.
+>
+> **3. `AGENTS.md` brace-pattern filename corrected.** The bogus
+> `{...,polynomial_customization}_selection_div.html` brace expansion (which
+> produced a non-existent `polynomial_customization_selection_div.html`) was
+> replaced with the explicit three-filename list matching
+> `docs/internals/active-gotchas.md` (real file is
+> `polynomial_customization_div.html`). Note: `AGENTS.md` is gitignored, so this
+> fix is local-only and not part of the branch diff.
+>
+> Out of scope (left as their own BACKLOG entries below): the
+> `FitUserCustomizablePolynomial` 3D dead-code question and the unset
+> `maxPolyfunctionalListIndex` row-close — both pre-existing, untouched here.
+>
+> Historical notes below, preserved for reference.
 
 **Surfaced by** the `/pr-review-toolkit:review-pr` pass on
 `feat/matrix-selector-followups` (2026-06-01). None block that branch (the
@@ -1318,6 +1362,40 @@ which brace-expands to a non-existent `polynomial_customization_selection_div.ht
 **Not in scope of the round-1 branch.** All three are below the merge bar —
 coverage hardening and cosmetic/dedup cleanup — and were deferred from the PR
 review rather than fixed inline to keep that branch's diff scoped.
+
+## Unify the two 2D-picker `SpecificEquationUnboundInterfaceCode` methods
+
+**Surfaced by** the `/code-review xhigh` pass on `feat/matrix-selector-round2`
+(2026-06-01), as the residual reuse opportunity after the round-2 helper
+extraction landed.
+
+**Symptom / cost.** Once the inline 2D color-list loops were collapsed into
+`FittingBaseClass._build_2d_color_list`, the `SpecificEquationUnboundInterfaceCode`
+method bodies in `FitUserSelectablePolyfunctional.py` and
+`FitUserCustomizablePolynomial.py` are structurally identical — same rank /
+no-rank dispatch, same dimensionality branch, same FunctionFinder result indices
+(`[4]` / `[5]`) — differing only in the flag attribute names
+(`polyfunctional{2,3}DFlags` vs `polynomial{2,3}DFlags`) and the 2D dict key
+(`Polyfun2DColorList` vs `Polynomial2DColorList`). They are parallel copies that
+must be hand-mirrored on any future change, and already carry cosmetic drift
+(the polynomial subclass writes the `Polyfun3DColorList` key in its 3D branch,
+and a blank-line difference after the `def`).
+
+**Blocked on.** The dead-3D question in the entry below: the polynomial
+subclass's 3D branch references `self.X3DList`, which its `__init__` never sets,
+so any base-class unification has to resolve whether that 3D branch is reachable
+(latent crash) or removable (dead code) before it can collapse the two methods
+safely.
+
+**Where to pick up.** After the dead-3D question is settled, add a base-class
+helper parameterized on `(attr_2d, attr_3d, key_2d)` (mirroring how
+`_build_{2,3}d_color_list` already centralize the per-cell loops) and have both
+subclasses delegate to it. The rational subclass deliberately stays separate
+(numerator / denominator / offset structure).
+
+**Not in scope of round-2.** The round-2 branch deliberately stopped at the
+color-list loops; unifying the full method bodies is a larger change entangled
+with an open investigation.
 
 ## Is `FitUserCustomizablePolynomial`'s 3D path dead code or a latent crash?
 
@@ -1493,6 +1571,50 @@ eval/dead-browser-branch removal and the inline-style→CSS-class migration, all
 manually verified. These four are cleanup/altitude on the same surface; doing
 them in-branch would invalidate that verification and expand the diff well past
 its stated scope. Each wants its own focused commit + a fresh click-through.
+
+## `test_thirteenth_rapid_post_is_rate_limited` flakes under full-suite runs
+
+**Surfaced by** the `/pr-review-toolkit:review-pr` pass on
+`feat/matrix-selector-round2` (2026-06-01): the full suite failed this one test
+on the first run, then passed unchanged on immediate re-run (205/205) — a
+non-deterministic flake, not a regression from that branch.
+
+**Symptom.** `tests/test_ratelimit.py::test_thirteenth_rapid_post_is_rate_limited`
+POSTs 12 times to `/FitEquation__F__/2/Polynomial/2nd Order (Quadratic)/`
+(expecting all 302), then asserts the 13th POST trips the limiter
+(`time.sleep(5)` via the `@ratelimit(key="ip", rate="12/m")` on
+`LongRunningProcessView`). It passes in isolation but intermittently fails when
+run as part of `pytest tests/`.
+
+**Root cause (hypothesis).** Two compounding test-isolation problems:
+1. **Shared counter, not cleared between tests.** django-ratelimit stores its
+   per-IP counter in the default cache (LocMemCache under test), which
+   pytest-django does NOT clear between tests. `urls.py` routes BOTH
+   `^Equation/...` (the picker GET) and `^FitEquation__F__/...` (the fit POST)
+   to `LongRunningProcessView` (lines 18-19), so they share one rate-limit
+   group. Every `/Equation/` GET elsewhere in the suite (e.g. the two
+   `*_interface_renders_class_driven` render tests) increments the very counter
+   this test depends on starting clean.
+2. **Clock-aligned fixed window.** django-ratelimit buckets by wall-clock period,
+   so if the 13 rapid POSTs straddle a minute boundary the counter resets
+   mid-test and the 13th lands in a fresh window with count < 12 → not limited →
+   the sleep assertion fails. Because the view uses `block=False`, *over*-count
+   (pollution) still returns 302 and passes; only this *window-reset under-count*
+   fails — which is why it is timing-dependent and rare.
+
+**Where to pick up.** Make the test hermetic rather than time-dependent:
+- Add an autouse fixture (conftest) that calls `django.core.cache.cache.clear()`
+  before each test so the rate-limit counter never carries across tests; and/or
+- Freeze/mantle the window inside this test (mock the time source
+  django-ratelimit reads, or patch `time.time`) so the 13 POSTs cannot straddle
+  a bucket boundary; and/or
+- Assert on `request.limited` directly via a single crafted request with a
+  pre-seeded counter, instead of issuing 13 real POSTs and racing the clock.
+
+**Not a blocker.** Pre-existing; the limiter itself works (the test passes
+reliably alone and most full-suite runs). It is the *test's* isolation that is
+fragile. CI (`pytest` on three platforms) could surface the same flake
+intermittently.
 
 ## Verify Caddy deployment recipes on macOS and Linux
 

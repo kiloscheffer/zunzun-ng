@@ -85,13 +85,10 @@ class FitUserSelectablePolyfunctional(FittingBaseClass.FittingBaseClass):
             self.equation.polyfunctional2DFlags = self.functionFinderResultsList[self.rank - 1][4]
             self.equation.polyfunctional3DFlags = self.functionFinderResultsList[self.rank - 1][5]
             if self.dimensionality == 2:
-                Polyfun2DColorList = []
-                for i in range(len(self.X2DList)):
-                    if i in self.functionFinderResultsList[self.rank - 1][4]:
-                        Polyfun2DColorList.append((True, i, self.X2DList[i].HTML))
-                    else:
-                        Polyfun2DColorList.append((False, i, self.X2DList[i].HTML))
-                self.dictionaryToReturn["Polyfun2DColorList"] = Polyfun2DColorList
+                flags = self.functionFinderResultsList[self.rank - 1][4]
+                self.dictionaryToReturn["Polyfun2DColorList"] = self._build_2d_color_list(
+                    lambda i: i in flags
+                )
             else:  # 3D
                 flags = self.functionFinderResultsList[self.rank - 1][5]
                 self.dictionaryToReturn["Polyfun3DColorList"] = self._build_3d_color_list(
@@ -99,10 +96,9 @@ class FitUserSelectablePolyfunctional(FittingBaseClass.FittingBaseClass):
                 )
         else:
             if self.dimensionality == 2:
-                Polyfun2DColorList = []
-                for i in range(len(self.X2DList)):
-                    Polyfun2DColorList.append((False, i, self.X2DList[i].HTML))
-                self.dictionaryToReturn["Polyfun2DColorList"] = Polyfun2DColorList
+                self.dictionaryToReturn["Polyfun2DColorList"] = self._build_2d_color_list(
+                    lambda i: False
+                )
             else:  # 3D
                 self.dictionaryToReturn["Polyfun3DColorList"] = self._build_3d_color_list(
                     lambda i, j: False

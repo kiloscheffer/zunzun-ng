@@ -214,6 +214,28 @@ def test_polyfunctional_interface_renders_class_driven(client):
     assert '<input type="submit" value="Submit">' in body
 
 
+@pytest.mark.django_db
+def test_customizable_polynomial_interface_renders_class_driven(client):
+    """FitUserCustomizablePolynomial's 2D no-rank caller renders the picker
+    class-driven via the Polynomial2DColorList key — the second
+    _build_2d_color_list call site (the polyfunctional test above covers the
+    first). Without this, FitUserCustomizablePolynomial had no picker-render
+    coverage at all, so a wiring break (wrong dict key, dropped color list)
+    in that subclass would ship silently."""
+    client.get("/")  # bootstrap session
+    session = client.session
+    session["cookie_test"] = 1
+    session.save()
+    response = client.get("/Equation/2/Polynomial/User-Customizable Polynomial/")
+    assert response.status_code == 200
+    body = response.content.decode("utf-8", "replace")
+    # Right equation dispatched + rendered (proves this subclass's picker)...
+    assert "User-Customizable Polynomial" in body
+    # ...class-driven cells, no legacy inline picker background survives.
+    assert 'class="pick math' in body
+    assert "background-color:rgb(" not in body
+
+
 class _HtmlStub:
     def __init__(self, html):
         self.HTML = html
@@ -260,6 +282,35 @@ def test_build_3d_color_list_predicate_selects_offset_and_axis_cells():
         (True, 0, 1, "", "Y"),  # Y-only branch
         (True, 1, 0, "X", ""),  # X-only branch
         (False, 1, 1, "X", "Y"),  # general branch, not selected
+    ]
+
+
+def _fake_2d_self():
+    # _build_2d_color_list reads only self.X2DList and each item's .HTML.
+    # Unlike 3D, 2D has no offset special-case: every cell's .HTML is read,
+    # including index 0.
+    return types.SimpleNamespace(
+        X2DList=[_HtmlStub("X"), _HtmlStub("X^2"), _HtmlStub("X^3")],
+    )
+
+
+def test_build_2d_color_list_no_rank_all_unselected():
+    result = FittingBaseClass._build_2d_color_list(_fake_2d_self(), lambda i: False)
+    assert result == [
+        (False, 0, "X"),
+        (False, 1, "X^2"),
+        (False, 2, "X^3"),
+    ]
+
+
+def test_build_2d_color_list_rank_predicate_marks_selected_cells():
+    # Mirrors the production caller's `i in flags` rank pre-fill predicate.
+    flags = [1]
+    result = FittingBaseClass._build_2d_color_list(_fake_2d_self(), lambda i: i in flags)
+    assert result == [
+        (False, 0, "X"),
+        (True, 1, "X^2"),
+        (False, 2, "X^3"),
     ]
 
 

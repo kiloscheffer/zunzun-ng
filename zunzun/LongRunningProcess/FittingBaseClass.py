@@ -53,6 +53,19 @@ You must provide any weights you wish to use.
         # equation comes directly from the payload.
         self.equationFromPayload = payload.equation
 
+    def _build_2d_color_list(self, selected_predicate):
+        """Build the 2D coefficient-picker color list.
+
+        Each entry is (selected, i, html); ``i`` indexes ``self.X2DList``.
+        Unlike the 3D grid there is no offset special-case — every cell carries
+        its term's HTML, including index 0. ``selected_predicate(i)`` returns the
+        leading bool — pass ``lambda i: i in flags`` for a FunctionFinder rank
+        pre-fill, or ``lambda i: False`` when not arriving from a function finder.
+        The caller assigns the result into its own dictionary key
+        (``Polyfun2DColorList`` vs ``Polynomial2DColorList``).
+        """
+        return [(selected_predicate(i), i, self.X2DList[i].HTML) for i in range(len(self.X2DList))]
+
     def _build_3d_color_list(self, selected_predicate):
         """Build the 3D coefficient-picker color list.
 
