@@ -8,7 +8,6 @@ import numpy
 import pyeq3
 import scipy.interpolate
 from django import db
-from django.contrib.sessions.backends.db import SessionStore
 from django.core.mail import EmailMessage
 from django.db import close_old_connections
 from django.http import Http404, HttpResponse, HttpResponseRedirect, JsonResponse
@@ -665,28 +664,6 @@ def LongRunningProcessView(
 
             logging.exception("Per-user fit gate row read failed; allowing new fit")
 
-    if "session_key_data" not in list(request.session.keys()):
-        # sometimes database is momentarily locked, so retry on exception to mitigate
-        s = SessionStore()
-        save_with_retry(s)  # re-raise exception from save operation
-
-        db.connections.close_all()
-        close_old_connections()
-
-        request.session["session_key_data"] = s.session_key
-    LRP.session_key_data = request.session["session_key_data"]
-
-    if "session_key_functionfinder" not in list(request.session.keys()):
-        # sometimes database is momentarily locked, so retry on exception to mitigate
-        s = SessionStore()
-        save_with_retry(s)  # re-raise exception from save operation
-
-        db.connections.close_all()
-        close_old_connections()
-
-        request.session["session_key_functionfinder"] = s.session_key
-    LRP.session_key_functionfinder = request.session["session_key_functionfinder"]
-
     # if this is not a POST, send an interface if needed
     if LRP.userInterfaceRequired:
         if request.method != "POST":
@@ -776,6 +753,10 @@ def LongRunningProcessView(
     )
     request.session["lrp_status_pk"] = status_row.pk
     LRP.status_row_pk = status_row.pk
+
+    from zunzun.models import LRPDispatchData
+
+    LRPDispatchData.objects.create(status=status_row)
 
     LRP.SetInitialStatusDataIntoSessionVariables(request)
 

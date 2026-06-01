@@ -28,7 +28,6 @@ class ChildPayload:
       "zunzun.LongRunningProcess.FitOneEquation.FitOneEquation".
       The child uses importlib + getattr to resurrect the LRP class,
       then hydrates fields from this payload.
-    session_key_*: Django SessionStore keys (strings).
     dimensionality: 1, 2, or 3.
     renice_level: Unix nice value to apply via platform_compat.
     data_object: the existing DataObject attr-bag; already picklable.
@@ -41,8 +40,6 @@ class ChildPayload:
     """
 
     lrp_class_path: str
-    session_key_data: str
-    session_key_functionfinder: str
     dimensionality: int
     renice_level: int
     data_object: Any
@@ -141,15 +138,13 @@ def _run_fit_child(payload: ChildPayload) -> None:
 
     # Reconstruct the LRP. Both hydration AND PerformAllWork live
     # inside the try so failures in either path still produce a
-    # terminal redirect. Set the session keys + status_row_pk directly
-    # from payload BEFORE calling apply_child_payload, since a subclass
-    # override that validates payload.extra first could raise before
+    # terminal redirect. Set status_row_pk directly from payload
+    # BEFORE calling apply_child_payload, since a subclass override
+    # that validates payload.extra first could raise before
     # super().apply_child_payload() runs. The except-branch's terminal
     # write below addresses the LRPStatus row by payload.status_row_pk
     # directly, so it does not depend on apply_child_payload having run.
     lrp = lrp_class()
-    lrp.session_key_data = payload.session_key_data
-    lrp.session_key_functionfinder = payload.session_key_functionfinder
     lrp.status_row_pk = payload.status_row_pk
 
     try:

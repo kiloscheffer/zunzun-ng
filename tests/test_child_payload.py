@@ -11,8 +11,6 @@ def test_child_payload_round_trips():
 
     p = ChildPayload(
         lrp_class_path="zunzun.LongRunningProcess.FitOneEquation.FitOneEquation",
-        session_key_data="s2",
-        session_key_functionfinder="s3",
         dimensionality=2,
         renice_level=10,
         data_object=None,
@@ -34,8 +32,6 @@ def test_child_payload_has_required_fields():
     fields = {f.name for f in dataclasses.fields(ChildPayload)}
     assert fields == {
         "lrp_class_path",
-        "session_key_data",
-        "session_key_functionfinder",
         "dimensionality",
         "renice_level",
         "data_object",
@@ -80,8 +76,6 @@ def _run_fit_child_with_fake_lrp(tmp_path, monkeypatch, fake_module, status_row_
 
     payload = cp.ChildPayload(
         lrp_class_path="fake.module.FakeLRP",
-        session_key_data="s2",
-        session_key_functionfinder="s3",
         dimensionality=2,
         renice_level=10,
         data_object=None,
@@ -272,8 +266,6 @@ def test_run_fit_child_publishes_terminal_redirect_to_a_real_row(tmp_path, monke
 
     payload = cp.ChildPayload(
         lrp_class_path="fake.module.FailingLRP",
-        session_key_data="",
-        session_key_functionfinder="",
         dimensionality=2,
         renice_level=10,
         data_object=None,
@@ -337,8 +329,6 @@ def test_run_fit_child_publishes_redirect_after_real_base_finally(tmp_path, monk
 
     payload = cp.ChildPayload(
         lrp_class_path="fake.module.RealBaseFailingWorkLRP",
-        session_key_data="",
-        session_key_functionfinder="",
         dimensionality=2,
         renice_level=10,
         data_object=None,

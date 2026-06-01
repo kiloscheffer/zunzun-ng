@@ -51,3 +51,12 @@ def test_save_items_creates_row_if_absent():
     status = LRPStatus.objects.create(start_time=1.0)
     save_items(status.pk, "functionfinder", {"k": 1})
     assert load_item(status.pk, "functionfinder", "k") == 1
+
+
+def test_child_payload_has_no_session_key_fields():
+    from zunzun.LongRunningProcess.child_payload import ChildPayload
+
+    fields = ChildPayload.__dataclass_fields__
+    assert "session_key_data" not in fields
+    assert "session_key_functionfinder" not in fields
+    assert "status_row_pk" in fields

@@ -8,9 +8,6 @@ import reportlab
 import reportlab.lib.pagesizes
 import reportlab.platypus
 from bs4 import BeautifulSoup  # don't need everything, it has several components
-from django import db
-from django.contrib.sessions.backends.db import SessionStore
-from django.db import close_old_connections
 from django.template.loader import render_to_string
 from reportlab.lib.units import inch
 from reportlab.pdfbase import pdfmetrics
@@ -34,7 +31,6 @@ import zunzun.forms
 from zunzun import platform_compat
 
 from ..parallel_pool import FitPool
-from ..session_helpers import load_with_retry, save_with_retry
 from . import DataObject, DefaultData, ReportsAndGraphs
 from ._unique import (
     new_unique_string,
@@ -158,8 +154,6 @@ class StatusMonitoredLongRunningProcessPage(object):
         self.inEquationName = ""
         self.inEquationFamilyName = ""
 
-        self.session_data = None
-        self.session_functionfinder = None
         self.status_row_pk = None
 
         self.statisticalDistribution = False
@@ -200,8 +194,6 @@ You must provide any weights you wish to use.
         """
         return ChildPayload(
             lrp_class_path=f"{self.__class__.__module__}.{self.__class__.__name__}",
-            session_key_data=self.session_key_data,
-            session_key_functionfinder=getattr(self, "session_key_functionfinder", ""),
             dimensionality=self.dimensionality,
             renice_level=self.reniceLevel,
             data_object=getattr(self, "dataObject", None),
@@ -236,8 +228,6 @@ You must provide any weights you wish to use.
         Default implementation restores the common fields. Subclasses
         override to populate fit-specific state from payload.extra.
         """
-        self.session_key_data = payload.session_key_data
-        self.session_key_functionfinder = payload.session_key_functionfinder
         self.dimensionality = payload.dimensionality
         self.reniceLevel = payload.renice_level
         self.dataObject = payload.data_object
@@ -245,8 +235,7 @@ You must provide any weights you wish to use.
         self.inEquationFamilyName = payload.extra.get("inEquationFamilyName", "")
         # The LRPStatus row pk this dispatch writes to. _run_fit_child
         # also sets this directly from the payload before
-        # apply_child_payload runs (same value, harmless redundancy,
-        # mirrors how session_key_* are set in both places).
+        # apply_child_payload runs (same value, harmless redundancy).
         self.status_row_pk = payload.status_row_pk
 
     def PerformWorkInParallel(self):

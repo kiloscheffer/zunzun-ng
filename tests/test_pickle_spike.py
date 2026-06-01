@@ -186,8 +186,6 @@ def test_lrp_instance_pickles_minimally():
 def _base_lrp_attrs(lrp, dimensionality=2):
     """Set the minimum attributes every LRP base class reads in build_child_payload."""
     lrp.status_row_pk = 777
-    lrp.session_key_data = "k_data"
-    lrp.session_key_functionfinder = "k_ff"
     lrp.dimensionality = dimensionality
     lrp.reniceLevel = 10
     lrp.dataObject = None
@@ -324,7 +322,6 @@ def test_function_finder_payload_round_trips():
     payload = lrp.build_child_payload()
     clone = _roundtrip(payload)
     assert clone.lrp_class_path.endswith("FunctionFinder")
-    assert clone.session_key_functionfinder == "k_ff"
     # equation should be the _FakeEquation_FF instance we put on dataObject
     assert isinstance(clone.equation, _FakeEquation_FF)
 
