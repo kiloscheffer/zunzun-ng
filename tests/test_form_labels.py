@@ -76,7 +76,9 @@ def test_group_field_wrapped_in_fieldset_with_legend(client, url, field_id):
     fieldset = wrapper.find_parent("fieldset", class_="field-group")
     assert fieldset is not None, f"{field_id} not inside a fieldset.field-group"
     legend = fieldset.find("legend")
-    assert legend is not None and legend.get_text(strip=True), f"{field_id} on {url}: fieldset has no non-empty legend"
+    assert legend is not None and legend.get_text(strip=True), (
+        f"{field_id} on {url}: fieldset has no non-empty legend"
+    )
 
 
 # (url, single-control field id that must have a <label for>) — URLs verified to render each field.
@@ -107,7 +109,9 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 
 def test_dead_graph_colors_div_is_deleted():
     dead = _REPO_ROOT / "templates" / "zunzun" / "divs" / "graph_colors_div.html"
-    assert not dead.exists(), "graph_colors_div.html is dead (never included, fields undefined) — delete it"
+    assert not dead.exists(), (
+        "graph_colors_div.html is dead (never included, fields undefined) — delete it"
+    )
 
 
 def test_no_template_includes_graph_colors_div():
@@ -143,7 +147,10 @@ def test_coefficient_bounds_table_uses_scoped_headers():
     "template,requirement_key",
     [
         ("zunzun/divs/fixed_coefficient_entry_div.html", "fixedCoefficientTemplateRequirement"),
-        ("zunzun/divs/estimated_coefficient_entry_div.html", "estimatedCoefficientTemplateRequirement"),
+        (
+            "zunzun/divs/estimated_coefficient_entry_div.html",
+            "estimatedCoefficientTemplateRequirement",
+        ),
     ],
 )
 def test_coefficient_value_table_has_thead_and_row_headers(template, requirement_key):
