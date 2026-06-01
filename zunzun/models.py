@@ -83,7 +83,7 @@ class LRPDispatchData(models.Model):
     """Per-dispatch data payload, replacing the per-session `data` and
     `functionfinder` SessionStores. OneToOne to LRPStatus with cascade so the
     data's lifetime is bolted to the dispatch row — deleting the status row
-    (supersession or housekeeping) drops the data atomically, no orphan sweep.
+    housekeeping age-sweep drops the data atomically, no orphan sweep.
     Written by spawn children under SQLite contention, so callers go through
     zunzun.dispatch_data's retry helpers (added in a later task), never a bare .save().
     """

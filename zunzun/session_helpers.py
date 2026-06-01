@@ -2,7 +2,7 @@
 
 Two concerns live here, both about the SQLite-backed Django session:
 
-1. **SQLite-contention retry** (``save_with_retry`` / ``load_with_retry``).
+1. **SQLite-contention retry** (``save_with_retry``).
    Spawn-child contention on the SQLite session DB is common in this
    codebase — each request's child interpreter calls ``session.save()``
    during fit dispatch and status updates, and multiple children writing
@@ -49,45 +49,6 @@ def save_with_retry(session, *, max_retries: int = 100, delay: float = 0.1) -> N
             session.save()
             return
         except Exception:
-            retries += 1
-            if retries > max_retries:
-                raise
-            time.sleep(delay)
-
-
-def load_with_retry(
-    session,
-    key: str,
-    *,
-    max_retries: int = 100,
-    delay: float = 0.1,
-    default: Any = None,
-) -> Any:
-    """Read a key from a Django SessionStore, retrying on transient errors.
-
-    Mirrors ``save_with_retry``: SQLite contention can affect reads
-    too, not just writes. Missing keys return ``default`` (None by
-    default) immediately without retrying — only transient
-    ``DatabaseError`` / ``InterfaceError`` from the SQLite backend
-    trigger a retry. Other exceptions propagate.
-
-    Used by the ``data`` / ``functionfinder`` session stores (the
-    ``status`` store moved to the ``LRPStatus`` ORM row, which relies on
-    SQLite ``busy_timeout`` rather than this retry loop).
-    """
-    from django.db import DatabaseError, InterfaceError
-
-    retries = 0
-    while True:
-        try:
-            return session[key]
-        except KeyError:
-            return default
-        except (DatabaseError, InterfaceError):  # fmt: skip
-            # ruff format would drop the parens — the result parses
-            # as a Tuple expression and behaves identically, but reads
-            # like Python 2's `except X, varname:` syntax. Keep parens
-            # for readability.
             retries += 1
             if retries > max_retries:
                 raise

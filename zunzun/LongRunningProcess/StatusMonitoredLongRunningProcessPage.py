@@ -625,8 +625,8 @@ You must provide any weights you wish to use.
     def update_status(self, **fields):
         """Write fields to this dispatch's LRPStatus row. Unconditional,
         single-row UPDATE — no ownership check (each fit owns its own row).
-        A missing/deleted row (e.g., superseded by a newer dispatch that
-        deleted it) matches zero rows and is a harmless no-op.
+        A missing/deleted row (e.g., reclaimed by the housekeeping
+        age-sweep) matches zero rows and is a harmless no-op.
         """
         from zunzun.models import LRPStatus
 
@@ -901,9 +901,8 @@ You must provide any weights you wish to use.
     def _teardown_abandoned_fit(self):
         """Tear down this fit's pools and terminate its worker children.
 
-        Called by CheckIfStillUsed when the fit is determined abandoned or
-        superseded (the row was deleted by a newer dispatch, a foreign pid
-        claimed it, or the heartbeat went stale). ``shutdown(cancel_futures=
+        Called by CheckIfStillUsed when the fit is determined abandoned (a
+        foreign pid claimed the row, or the heartbeat went stale). ``shutdown(cancel_futures=
         True)`` only cancels PENDING futures; workers mid-fit keep running
         until their task finishes, so we also ``terminate()`` the live
         children to free CPU/RAM immediately.
