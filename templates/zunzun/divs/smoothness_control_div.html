@@ -9,7 +9,10 @@
       {% else %}
       {{ mainForm.smoothnessControl3D }}
       {% endif %}
-      {{ mainForm.smoothnessExactOrMax }}
+      <fieldset class="field-group">
+        <legend class="visually-hidden">Exact or maximum coefficient count</legend>
+        {{ mainForm.smoothnessExactOrMax }}
+      </fieldset>
     </div>
   </div>
 </div>

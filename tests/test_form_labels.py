@@ -48,3 +48,29 @@ def test_no_label_for_points_at_nonlabelable_element(client, url):
         elif target.name not in LABELABLE:
             offenders.append(f"<label for='{target_id}'> -> <{target.name}> (not labelable)")
     assert not offenders, f"{url}: dead label/for associations: {offenders}"
+
+
+# (url, wrapper id rendered by the RadioSelect/CheckboxSelectMultiple widget)
+GROUPED_FIELDS = [
+    ("/Equation/2/Polynomial/2nd Order (Quadratic)/", "id_fittingTarget"),
+    ("/Equation/2/Polynomial/2nd Order (Quadratic)/", "id_commaConversion"),
+    ("/Equation/2/Polynomial/2nd Order (Quadratic)/", "id_graphSize"),
+    ("/Equation/3/Polynomial/Full Quadratic/", "id_dataPointSize3D"),
+    ("/Equation/3/Polynomial/Full Quadratic/", "id_animationSize"),
+    ("/FunctionFinder__.__/2/", "id_extendedEquationTypes"),
+    ("/FunctionFinder__.__/2/", "id_equationFamilyInclusion"),
+    ("/FunctionFinder__.__/2/", "id_smoothnessExactOrMax"),
+    ("/StatisticalDistributions/1/", "id_statisticalDistributionsSortBy"),
+]
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("url,field_id", GROUPED_FIELDS)
+def test_group_field_wrapped_in_fieldset_with_legend(client, url, field_id):
+    soup = _interface_soup(client, url)
+    wrapper = soup.find(id=field_id)
+    assert wrapper is not None, f"{field_id} not rendered on {url}"
+    fieldset = wrapper.find_parent("fieldset", class_="field-group")
+    assert fieldset is not None, f"{field_id} not inside a fieldset.field-group"
+    legend = fieldset.find("legend")
+    assert legend is not None and legend.get_text(strip=True), f"{field_id} on {url}: fieldset has no non-empty legend"
