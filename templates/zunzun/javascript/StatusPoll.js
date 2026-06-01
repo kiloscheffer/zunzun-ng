@@ -12,9 +12,8 @@
   var POLL_INTERVAL_MS = 2000;
   var intervalId = null;
   var inFlight = false;
-  var statusPk = document.querySelector('[data-status-pk]')
-                   ? document.querySelector('[data-status-pk]').dataset.statusPk
-                   : null;
+  var _pkEl = document.querySelector('[data-status-pk]');
+  var statusPk = _pkEl ? _pkEl.dataset.statusPk : null;
 
   function applyUpdate(data) {
     if (data.completed === true) {
@@ -76,6 +75,10 @@
       .catch(function () { /* network blip: swallow, retry next tick */ })
       .finally(function () { inFlight = false; });
   }
+
+  /* Without a dispatch pk there is no row to poll or navigate to — bail out
+   * rather than build /StatusUpdate/null/ or /StatusAndResults/null/. */
+  if (!statusPk) { return; }
 
   /* First poll fires immediately to refresh between initial render and JS load. */
   poll();

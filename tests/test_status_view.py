@@ -250,8 +250,6 @@ def test_status_redirect_view_no_row(client):
 def test_status_redirect_view_redirects_to_pk_url(client):
     """GET /StatusAndResults/ (bare) with an active non-terminal row redirects
     to /StatusAndResults/<pk>/."""
-    from zunzun.models import LRPStatus
-
     session = client.session
     session.save()
     session_key = session.session_key

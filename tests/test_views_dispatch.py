@@ -14,6 +14,8 @@ the Django test client this resolves to 'testserver' so the redirect
 target is 'http://testserver/StatusAndResults/<pk>/'.
 """
 
+import re
+
 import pytest
 
 _VALID_POLY_FIELDS = {
@@ -54,8 +56,6 @@ def test_fit_post_dispatches_and_redirects(client, mocked_process_start):
     )
     # Successful dispatch returns a redirect to the pk-addressed status page.
     assert response.status_code == 302
-    import re
-
     assert re.search(r"/StatusAndResults/\d+/$", response.url), (
         f"Expected /StatusAndResults/<pk>/ redirect, got: {response.url}"
     )
@@ -72,8 +72,6 @@ def test_characterize_post_dispatches(client, mocked_process_start):
         HTTP_HOST="testserver",
     )
     assert response.status_code == 302
-    import re
-
     assert re.search(r"/StatusAndResults/\d+/$", response.url), (
         f"Expected /StatusAndResults/<pk>/ redirect, got: {response.url}"
     )
@@ -82,7 +80,8 @@ def test_characterize_post_dispatches(client, mocked_process_start):
 
 @pytest.mark.django_db
 def test_status_redirect_view_renders_without_session_keys(client):
-    """GET /StatusAndResults/ (bare) with no active fit returns a sensible page — not 500."""
+    """GET /StatusAndResults/ (bare) with no active row returns the
+    'No fit in progress' page (200) — StatusRedirectView's no-row branch."""
     response = client.get("/StatusAndResults/")
-    # StatusRedirectView: no active row → 200 'No fit in progress' error page.
-    assert response.status_code in (200, 302, 400, 404)
+    assert response.status_code == 200
+    assert b"No fit in progress" in response.content

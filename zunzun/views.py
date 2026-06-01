@@ -4,7 +4,6 @@ import os
 import time
 import urllib.parse
 
-import django.http  # to raise 404's
 import numpy
 import pyeq3
 import scipy.interpolate
@@ -12,7 +11,7 @@ from django import db
 from django.contrib.sessions.backends.db import SessionStore
 from django.core.mail import EmailMessage
 from django.db import close_old_connections
-from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
+from django.http import Http404, HttpResponse, HttpResponseRedirect, JsonResponse
 from django.shortcuts import render
 from django.views.decorators.cache import cache_control, cache_page
 from django_ratelimit.decorators import ratelimit
@@ -369,7 +368,7 @@ def StatusView(request, pk):
 
     row = _load_owned_status_row(request, pk)
     if row is None:
-        raise django.http.Http404()
+        raise Http404
 
     # Completion handoff: read, clear, serve file body OR HttpResponseRedirect.
     # Behavior unchanged from the original implementation (only the backing
