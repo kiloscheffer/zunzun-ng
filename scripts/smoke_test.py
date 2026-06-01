@@ -427,8 +427,10 @@ def _wait_for_port(port: int, timeout_s: float = 30.0) -> bool:
     return False
 
 
-def _poll_until_done(session: requests.Session, base: str, timeout_s: float) -> str | None:
-    """Poll /StatusAndResults/ until a final body arrives.
+def _poll_until_done(
+    session: requests.Session, base: str, timeout_s: float
+) -> requests.Response | None:
+    """Poll /StatusAndResults/ until a final response arrives.
 
     Detects the in-progress page by the presence of id="currentStatus"
     (a stable marker the status.html template guarantees and the
@@ -436,15 +438,21 @@ def _poll_until_done(session: requests.Session, base: str, timeout_s: float) -> 
     result HTML file served in-place or a result page reached via
     redirect — never contain this marker.
 
-    Returns the final body on success or None on timeout. Handles chained
-    redirects transparently (requests default follows them).
+    Returns the completed requests.Response on success or None on timeout.
+    Handles chained redirects transparently (requests default follows them),
+    so the returned response's ``.url`` is the FINAL URL — for a fit that
+    completed, the shareable ``/Results/<token>/`` URL. Callers that only
+    need the HTML use ``.text``; the evaluate scenarios additionally pull
+    the capability token out of ``.url``. Once the fit is terminal the bare
+    ``/StatusAndResults/`` no longer redirects to its row (StatusRedirectView
+    excludes TERMINAL rows), so this completing response is the only place
+    the final ``/Results/<token>/`` URL is observable.
     """
     deadline = time.time() + timeout_s
     while time.time() < deadline:
         r = session.get(base + "/StatusAndResults/")
-        body = r.text
-        if 'id="currentStatus"' not in body:
-            return body
+        if 'id="currentStatus"' not in r.text:
+            return r
         time.sleep(3)
     return None
 
@@ -474,6 +482,51 @@ def _check_markers(name: str, body: str, expected: list[str]) -> str | None:
     )
 
 
+def _run_scenario_capturing_url(
+    session: requests.Session,
+    base: str,
+    name: str,
+    post_url: str,
+    form_fields: dict,
+    expected_markers: list[str],
+    timeout_s: float,
+) -> tuple[str | None, str | None]:
+    """POST to post_url, poll the dispatched fit by pk until done, assert
+    structural markers, AND return the FINAL result URL so a chained
+    /EvaluateAtAPoint/<token>/ caller can pull the capability token out of it.
+
+    Polls the PK-addressed /StatusAndResults/<pk>/ URL (not the bare
+    /StatusAndResults/ redirect): once the fit completes, its row goes TERMINAL
+    and StatusRedirectView — which serves the bare URL — excludes TERMINAL rows,
+    so the bare URL can never observe the finished result. Only StatusView (the
+    pk URL) redirects a completed row through to /Results/<token>/. The pk is
+    captured from the dispatch POST's 302 Location.
+
+    Returns ``(error_or_None, final_url_or_None)``. On success the first item
+    is None and the second is the completed response's ``.url`` (the
+    ``/Results/<token>/`` URL after the redirect chain). On any failure the
+    second item is None. The token-less ``_run_scenario`` wraps this for the
+    callers that don't need the URL.
+    """
+    post_resp = session.post(post_url, data=form_fields, allow_redirects=True)
+    pk = _extract_pk_from_redirect(post_resp, base)
+    if pk is None:
+        _dump_body(f"{name}_dispatch", post_resp.text)
+        return f"[{name}] could not extract dispatch pk from POST redirect", None
+    status_url = base + f"/StatusAndResults/{pk}/"
+    body = _poll_until_done_pk(session, base, status_url, timeout_s)
+    if body is None:
+        return f"[{name}] did not complete within {int(timeout_s)}s", None
+    err = _check_markers(name, body, expected_markers)
+    if err:
+        return err, None
+    # Re-request the (now terminal) status URL to capture the FINAL /Results/
+    # URL: StatusView redirects the completed row to /Results/<token>/, and
+    # requests records that as resp.url after following the chain.
+    final = session.get(status_url, allow_redirects=True)
+    return None, final.url
+
+
 def _run_scenario(
     session: requests.Session,
     base: str,
@@ -486,11 +539,10 @@ def _run_scenario(
     """POST to post_url, poll until done, assert structural markers.
     Returns None on success or an error string.
     """
-    session.post(post_url, data=form_fields, allow_redirects=True)
-    body = _poll_until_done(session, base, timeout_s)
-    if body is None:
-        return f"[{name}] did not complete within {int(timeout_s)}s"
-    return _check_markers(name, body, expected_markers)
+    err, _ = _run_scenario_capturing_url(
+        session, base, name, post_url, form_fields, expected_markers, timeout_s
+    )
+    return err
 
 
 def _run_ff_detail_scenario(
@@ -525,10 +577,10 @@ def _run_ff_detail_scenario(
     detail_fields = dict(_POLY_QUAD_FIELDS, textDataEditor=_DATA_2D_FF)
     session.post(fit_url, data=detail_fields, allow_redirects=True)
 
-    body = _poll_until_done(session, base, timeout_s)
-    if body is None:
+    resp = _poll_until_done(session, base, timeout_s)
+    if resp is None:
         return f"[{name}] detailed fit did not complete within {int(timeout_s)}s"
-    return _check_markers(name, body, _POLY_EXPECTED_MARKERS)
+    return _check_markers(name, resp.text, _POLY_EXPECTED_MARKERS)
 
 
 def _poll_until_done_pk(
@@ -601,6 +653,17 @@ def _run_concurrent_2D_scenario(
        /Results/<tokenB>/ → 200 + result markers (shareability).
     """
     name = "concurrent_2D"
+
+    # Cookie warmup. The fit dispatch requires session["cookie_test"], which is
+    # set by HomePageView — but HomePageView is @cache_page-decorated, so once
+    # ANY prior request populated its cache, a later session's GET / returns the
+    # CACHED response and never runs the view body that sets cookie_test (the
+    # same poisoning _wait_for_port documents). A GET to a fit-interface URL is
+    # @cache_control(no_cache=True) and unconditionally sets cookie_test before
+    # rendering the form, so it warms the cookie reliably no matter where this
+    # scenario runs in the sequence.
+    interface_url = base + "/FitEquation__F__/2/Polynomial/2nd%20Order%20(Quadratic)/"
+    session.get(interface_url)
 
     # --- Dispatch fit A (original Y data) ---
     fields_a = dict(_POLY_QUAD_FIELDS)  # Y from _DATA_2D_POLY
@@ -815,7 +878,7 @@ def run_smoke(scenario: str = "default") -> int:
             return 0
 
         # Scenario 1: direct polynomial-quadratic fit
-        err = _run_scenario(
+        err, result_url = _run_scenario_capturing_url(
             session,
             base,
             "polynomial_quadratic_2D",
@@ -828,16 +891,23 @@ def run_smoke(scenario: str = "default") -> int:
             errors.append(err)
         else:
             print("[polynomial_quadratic_2D] OK")
-            r = session.post(
-                base + "/EvaluateAtAPoint/",
-                data=_EVAL_AT_POINT_FIELDS,
-                allow_redirects=True,
-            )
-            err = _check_markers("evaluate_at_a_point", r.text, _EVAL_AT_POINT_MARKERS)
-            if err:
-                errors.append(err)
+            token = _extract_token_from_results_url(result_url or "")
+            if token is None:
+                errors.append(
+                    f"[evaluate_at_a_point] could not extract token from results URL: "
+                    f"{result_url!r}"
+                )
             else:
-                print("[evaluate_at_a_point] OK")
+                r = session.post(
+                    base + f"/EvaluateAtAPoint/{token}/",
+                    data=_EVAL_AT_POINT_FIELDS,
+                    allow_redirects=True,
+                )
+                err = _check_markers("evaluate_at_a_point", r.text, _EVAL_AT_POINT_MARKERS)
+                if err:
+                    errors.append(err)
+                else:
+                    print("[evaluate_at_a_point] OK")
 
         # Scenario 2: FunctionFinder ranking. Capture the final body for scenario 3.
         session.post(
@@ -845,11 +915,12 @@ def run_smoke(scenario: str = "default") -> int:
             data=_FF_2D_FIELDS,
             allow_redirects=True,
         )
-        ff_body = _poll_until_done(session, base, timeout_s=900)
-        if ff_body is None:
+        ff_resp = _poll_until_done(session, base, timeout_s=900)
+        if ff_resp is None:
             errors.append("[function_finder_2D] ranking did not complete within 900s")
             ff_body = ""
         else:
+            ff_body = ff_resp.text
             err = _check_markers("function_finder_2D", ff_body, _FF_EXPECTED_MARKERS)
             if err:
                 errors.append(err)
@@ -891,10 +962,11 @@ def run_smoke(scenario: str = "default") -> int:
             data=_CHAR_3D_FIELDS,
             allow_redirects=True,
         )
-        char3d_body = _poll_until_done(session, base, timeout_s=300)
-        if char3d_body is None:
+        char3d_resp = _poll_until_done(session, base, timeout_s=300)
+        if char3d_resp is None:
             errors.append("[characterize_3D] did not complete within 300s")
         else:
+            char3d_body = char3d_resp.text
             err = _check_markers("characterize_3D", char3d_body, _CHAR_EXPECTED_MARKERS)
             if err:
                 errors.append(err)
@@ -913,10 +985,11 @@ def run_smoke(scenario: str = "default") -> int:
             data=_POLY_QUAD_3D_FIELDS,
             allow_redirects=True,
         )
-        poly3d_body = _poll_until_done(session, base, timeout_s=300)
-        if poly3d_body is None:
+        poly3d_resp = _poll_until_done(session, base, timeout_s=300)
+        if poly3d_resp is None:
             errors.append("[polynomial_quadratic_3D] did not complete within 300s")
         else:
+            poly3d_body = poly3d_resp.text
             err = _check_markers("polynomial_quadratic_3D", poly3d_body, _POLY_EXPECTED_MARKERS)
             if err:
                 errors.append(err)
@@ -951,7 +1024,7 @@ def run_smoke(scenario: str = "default") -> int:
         # [list, list, int] at session-write time. EvaluateAtAPointView at
         # views.py:98 loads this verbatim and scipy's splev/BSpline path
         # consumes it.
-        err = _run_scenario(
+        err, result_url = _run_scenario_capturing_url(
             session,
             base,
             "spline_2D",
@@ -964,21 +1037,28 @@ def run_smoke(scenario: str = "default") -> int:
             errors.append(err)
         else:
             print("[spline_2D] OK")
-            r = session.post(
-                base + "/EvaluateAtAPoint/",
-                data=_EVAL_AT_POINT_FIELDS,
-                allow_redirects=True,
-            )
-            err = _check_markers("evaluate_at_a_point_spline", r.text, _EVAL_AT_POINT_MARKERS)
-            if err:
-                errors.append(err)
+            token = _extract_token_from_results_url(result_url or "")
+            if token is None:
+                errors.append(
+                    f"[evaluate_at_a_point_spline] could not extract token from results URL: "
+                    f"{result_url!r}"
+                )
             else:
-                print("[evaluate_at_a_point_spline] OK")
+                r = session.post(
+                    base + f"/EvaluateAtAPoint/{token}/",
+                    data=_EVAL_AT_POINT_FIELDS,
+                    allow_redirects=True,
+                )
+                err = _check_markers("evaluate_at_a_point_spline", r.text, _EVAL_AT_POINT_MARKERS)
+                if err:
+                    errors.append(err)
+                else:
+                    print("[evaluate_at_a_point_spline] OK")
 
         # udf_2D + round-trip through EvaluateAtAPointView. Exercises
         # FitUserDefinedFunction's solvedCoefficients write (coerced to a
         # list by NumpySessionSerializer) and EvaluateAtAPointView's load site.
-        err = _run_scenario(
+        err, result_url = _run_scenario_capturing_url(
             session,
             base,
             "udf_2D",
@@ -991,16 +1071,23 @@ def run_smoke(scenario: str = "default") -> int:
             errors.append(err)
         else:
             print("[udf_2D] OK")
-            r = session.post(
-                base + "/EvaluateAtAPoint/",
-                data=_EVAL_AT_POINT_FIELDS,
-                allow_redirects=True,
-            )
-            err = _check_markers("evaluate_at_a_point_udf", r.text, _EVAL_AT_POINT_MARKERS)
-            if err:
-                errors.append(err)
+            token = _extract_token_from_results_url(result_url or "")
+            if token is None:
+                errors.append(
+                    f"[evaluate_at_a_point_udf] could not extract token from results URL: "
+                    f"{result_url!r}"
+                )
             else:
-                print("[evaluate_at_a_point_udf] OK")
+                r = session.post(
+                    base + f"/EvaluateAtAPoint/{token}/",
+                    data=_EVAL_AT_POINT_FIELDS,
+                    allow_redirects=True,
+                )
+                err = _check_markers("evaluate_at_a_point_udf", r.text, _EVAL_AT_POINT_MARKERS)
+                if err:
+                    errors.append(err)
+                else:
+                    print("[evaluate_at_a_point_udf] OK")
 
         # concurrent_2D: two fits in one session with per-dispatch isolation.
         # Uses a FRESH requests.Session (NOT the shared `session` above) so the
@@ -1008,9 +1095,10 @@ def run_smoke(scenario: str = "default") -> int:
         # accumulated lrp_status_pk and data from 10+ previous scenarios and its
         # per-session cap slot may be occupied by a recent non-terminal row.
         # A fresh session starts clean and can admit two new dispatches without
-        # racing prior scenario state.
+        # racing prior scenario state. The scenario warms cookie_test itself via
+        # a fit-interface GET (HomePageView is cached by now and would not).
         concurrent_session = requests.Session()
-        concurrent_session.get(base + "/")  # establish cookie
+        concurrent_session.get(base + "/")  # mint the sessionid cookie
         err = _run_concurrent_2D_scenario(
             concurrent_session,
             base,
