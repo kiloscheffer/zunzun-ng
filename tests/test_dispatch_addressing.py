@@ -63,6 +63,27 @@ def test_results_page_served_by_token_without_cookie(tmp_path, settings):
 
 
 @pytest.mark.django_db
+def test_evaluate_reads_dispatch_data_by_token():
+    from zunzun.dispatch_data import save_items
+
+    row = LRPStatus.objects.create(start_time=1.0, result_token="eval-tok", owner_session_key="x")
+    save_items(
+        row.pk,
+        "data",
+        {
+            "dimensionality": 2,
+            "equationName": "Linear",
+            "equationFamilyName": "Polynomial",
+        },
+    )
+    c = Client()  # no cookie needed (capability)
+    resp = c.post("/EvaluateAtAPoint/eval-tok/", {"textPointEditor": "1"})
+    # The token resolved the dispatch — we did NOT hit the expired/stale path.
+    assert resp.status_code == 200
+    assert b"This result has expired." not in resp.content
+
+
+@pytest.mark.django_db
 def test_heartbeat_bumps_only_addressed_row():
     live_pid = os.getpid()  # alive → _finalize_row_if_child_dead leaves the row RUNNING
     a = LRPStatus.objects.create(

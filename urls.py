@@ -19,7 +19,7 @@ urlpatterns = [
     re_path(r"^FunctionFinderResults/([23])/$", zunzun.views.LongRunningProcessView),
     re_path(r"^FitEquation__F__/([23])/(.+)/(.+)/$", zunzun.views.LongRunningProcessView),
     re_path(r"^Equation/([23])/(.+)/(.+)/$", zunzun.views.LongRunningProcessView),
-    re_path(r"^EvaluateAtAPoint/$", zunzun.views.EvaluateAtAPointView),
+    re_path(r"^EvaluateAtAPoint/(?P<token>[A-Za-z0-9_-]+)/$", zunzun.views.EvaluateAtAPointView),
     re_path(r"^AllEquations/([23])/(.+)/$", zunzun.views.AllEquationsView),
 ]
 

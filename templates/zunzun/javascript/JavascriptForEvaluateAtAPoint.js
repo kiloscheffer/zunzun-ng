@@ -11,7 +11,7 @@ else
 
 if (keycode == 13)
    {
-       xmlhttpPost("/EvaluateAtAPoint/");
+       xmlhttpPost("/EvaluateAtAPoint/{{ result_token }}/");
        return false;
    }
 else

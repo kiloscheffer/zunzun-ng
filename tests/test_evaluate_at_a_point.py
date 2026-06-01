@@ -2,16 +2,16 @@
 
 Seeds a per-dispatch LRPDispatchData row (keyed by the LRPStatus pk) with
 coefficients for a known equation (2D linear polynomial: y = a + b*x), then
-POSTs /EvaluateAtAPoint/ with an X value and asserts the response contains a
-numeric Y.
+POSTs /EvaluateAtAPoint/<token>/ with an X value and asserts the response
+contains a numeric Y.
 
 Phase 1 calibration: the POST field is lowercase 'x'; success marker
 is 'evaluates to' (views.py line 153).
 
-Phase 7 update: data now routes through the LRPDispatchData row, not a
-per-session SessionStore. The seed writes directly into that row via
-dispatch_data.save_items, and sets lrp_status_pk on the client session so
-EvaluateAtAPointView can resolve the dispatch row.
+Phase 10 update: EvaluateAtAPointView now reads the dispatch by the
+result_token in the URL, not the session.  The seed returns the token so
+the test can build the correct URL.  lrp_status_pk / session_key_data
+are no longer set (the view no longer reads them).
 """
 
 import pytest
@@ -21,9 +21,9 @@ def _seed_data_session(client, equation_name, equation_family, dimensionality, c
     """Seed the per-dispatch LRPDispatchData row with the minimum keys
     EvaluateAtAPointView needs.
 
-    Creates a fresh LRPStatus row, writes the data into LRPDispatchData via
-    dispatch_data.save_items, and stashes lrp_status_pk + session_key_data
-    on the client session so the view can find the row.
+    Creates a fresh LRPStatus row (with a result_token), writes the data into
+    LRPDispatchData via dispatch_data.save_items, and returns the result_token
+    so the caller can build the token-addressed URL.
     """
     from zunzun.dispatch_data import save_items
     from zunzun.models import LRPStatus
@@ -42,11 +42,7 @@ def _seed_data_session(client, equation_name, equation_family, dimensionality, c
         },
     )
 
-    client_session = client.session
-    client_session["lrp_status_pk"] = status.pk
-    # session_key_data presence is still checked by the view guard at line 119
-    client_session["session_key_data"] = "placeholder"
-    client_session.save()
+    return status.result_token
 
 
 @pytest.mark.django_db
@@ -56,7 +52,7 @@ def test_evaluate_at_point_with_seeded_linear_fit(client):
     """
     import numpy
 
-    _seed_data_session(
+    token = _seed_data_session(
         client,
         # pyeq3.Models_2D.Polynomial.Linear.GetDisplayName() -> "1st Order (Linear)"
         equation_name="1st Order (Linear)",
@@ -67,8 +63,8 @@ def test_evaluate_at_point_with_seeded_linear_fit(client):
     )
 
     # EvaluateAtAPointForm_2D uses lowercase 'x' (Phase 1 finding).
-    response = client.post("/EvaluateAtAPoint/", data={"x": "3.0"})
+    response = client.post(f"/EvaluateAtAPoint/{token}/", data={"x": "3.0"})
     assert response.status_code == 200
     body = response.content.decode("utf-8")
-    # Success marker from views.py:153 ("evaluates to <b>{value}</b>")
+    # Success marker from views.py ("evaluates to <b>{value}</b>")
     assert "evaluates to" in body, f"unexpected response body: {body[:400]}"

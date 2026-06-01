@@ -106,7 +106,7 @@ def _housekeeping_child(temp_dir: str, max_size_mb: int) -> None:
 @cache_control(no_cache=True)
 @ratelimit(key="ip", rate="12/m", block=False)
 @middleware.rate_limit_sleep
-def EvaluateAtAPointView(request):
+def EvaluateAtAPointView(request, token):
     import os
     import sys
     import time
@@ -115,15 +115,13 @@ def EvaluateAtAPointView(request):
     if request.method != "POST":
         return HttpResponse("I am not able to process your request.")
 
-    # used to read data from session
-    if "session_key_data" not in list(request.session.keys()):
-        return HttpResponse(
-            "I was unable to read required session data, my apologies. Are session cookies turned off in your browser?"
-        )
+    from zunzun.models import LRPStatus
 
+    row = LRPStatus.objects.filter(result_token=token).first()
+    if row is None:
+        return HttpResponse("This result has expired.")
     LRP = LongRunningProcess.FittingBaseClass.FittingBaseClass()
-    LRP.session_key_data = request.session["session_key_data"]
-    LRP.status_row_pk = request.session.get("lrp_status_pk")
+    LRP.status_row_pk = row.pk
 
     # instantiate an equation object using session equation family and name
     LRP.dimensionality = LRP.LoadItemFromSessionStore("data", "dimensionality")

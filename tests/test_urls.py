@@ -23,7 +23,7 @@ import zunzun.views
         ("/FunctionFinderResults/2/", zunzun.views.LongRunningProcessView),
         ("/FitEquation__F__/2/Polynomial/Quadratic/", zunzun.views.LongRunningProcessView),
         ("/Equation/2/Polynomial/Quadratic/", zunzun.views.LongRunningProcessView),
-        ("/EvaluateAtAPoint/", zunzun.views.EvaluateAtAPointView),
+        ("/EvaluateAtAPoint/abc123/", zunzun.views.EvaluateAtAPointView),
         ("/AllEquations/2/Polynomial/", zunzun.views.AllEquationsView),
     ],
 )

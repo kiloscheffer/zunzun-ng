@@ -114,7 +114,7 @@
       </div>
     </div>
     {% endif %}
-    <p><button type="button" onclick='JavaScript:xmlhttpPost("/EvaluateAtAPoint/")'>Evaluate</button></p>
+    <p><button type="button" onclick='JavaScript:xmlhttpPost("/EvaluateAtAPoint/{{ result_token }}/")'>Evaluate</button></p>
   </form>
   <div id="evaluateResultDiv" class="gap-md"></div>
 </div>

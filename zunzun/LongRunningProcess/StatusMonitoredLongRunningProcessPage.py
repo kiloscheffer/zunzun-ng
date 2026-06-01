@@ -1036,6 +1036,15 @@ You must provide any weights you wish to use.
             if i.name != "":
                 self.graphReports.append(i)
 
+    def _result_token(self):
+        from zunzun.models import LRPStatus
+
+        return (
+            LRPStatus.objects.filter(pk=self.status_row_pk)
+            .values_list("result_token", flat=True)
+            .first()
+        )
+
     def RenderOutputHTMLToAFileAndSetStatusRedirect(self):
 
         # If a newer dispatch superseded this one it deleted our status row
@@ -1055,6 +1064,7 @@ You must provide any weights you wish to use.
         itemsToRender = {}
 
         itemsToRender["dimensionality"] = str(self.dimensionality)
+        itemsToRender["result_token"] = self._result_token()
 
         itemsToRender["header_text"] = "ZunZunNG"
         itemsToRender["subtitle_text"] = self.webFormName
