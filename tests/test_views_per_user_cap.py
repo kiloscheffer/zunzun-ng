@@ -370,7 +370,7 @@ def test_per_ip_cap_admits_when_under_limit(client, mocked_process_start):
     assert b"already have a fit in progress" not in response.content
 
 
-# ── Delete-prior-row behaviour (unchanged by this task) ──────────────────────
+# ── Per-dispatch row preservation ────────────────────────────────────────────
 
 
 # Complete, valid 2D polynomial-quadratic form payload — enough for
@@ -431,92 +431,47 @@ def test_dispatch_stamps_last_status_check_at_creation(client, mocked_process_st
 
 
 @pytest.mark.django_db
-def test_dispatch_preserves_prior_row_when_concurrent_allowed(client, mocked_process_start):
-    """When ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER is True (the default), a
-    new dispatch must NOT delete the user's prior LRPStatus row: the prior fit
-    may still be running, and CheckIfStillUsed treats a missing row as
-    abandonment (raising _ReportsPipelineAborted at the next heartbeat).
-    Deleting it would tear down a fit the setting promises to keep running
-    concurrently. The prior row is left for the housekeeping age-sweep; the
-    session pointer moves to a fresh row.
+def test_dispatch_preserves_prior_row(client, mocked_process_start):
+    """A new dispatch must NOT delete the user's prior LRPStatus row.
 
-    Regression guard for the delete-prior-row vs CheckIfStillUsed-abort
-    interaction introduced by 317efd1 (Codex PR #21, comment 3329010635).
+    Delete-prior-row is removed: every dispatch creates an independent row and
+    leaves the prior row for the housekeeping age-sweep.  The prior fit keeps
+    running because CheckIfStillUsed sees its row intact; only the session
+    pointer moves to the new row.
+
+    Replaces the old concurrent-allowed / concurrent-disallowed test pair that
+    exercised the now-removed delete-prior-row code path.  The new invariant is
+    unconditional: NO dispatch ever deletes a prior row.
     """
     from zunzun.models import LRPStatus
 
-    with mock.patch("settings.ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER", True, create=True):
-        with mock.patch("settings.MAX_CONCURRENT_FITS_PER_SESSION", 99, create=True):
-            with mock.patch("settings.MAX_CONCURRENT_FITS_PER_IP", 99, create=True):
-                client.get("/")
-                # Plant an ACTIVE prior fit (pid set, fresh heartbeat), as a
-                # still-running first dispatch would have left it.
-                old = _plant_status_row(
-                    client,
-                    process_id=4242,
-                    start_time=time.time() - 30,
-                    last_status_check=time.time(),
-                    current_status="prior fit running",
-                )
-                old_pk = old.pk
+    with mock.patch("settings.MAX_CONCURRENT_FITS_PER_SESSION", 99, create=True):
+        with mock.patch("settings.MAX_CONCURRENT_FITS_PER_IP", 99, create=True):
+            client.get("/")
+            # Plant an ACTIVE prior fit (pid set, fresh heartbeat).
+            old = _plant_status_row(
+                client,
+                process_id=4242,
+                start_time=time.time() - 30,
+                last_status_check=time.time(),
+                current_status="prior fit running",
+            )
+            old_pk = old.pk
 
-                response = client.post(
-                    "/FitEquation__F__/2/Polynomial/2nd%20Order%20(Quadratic)/",
-                    data=_VALID_2D_QUAD_FIELDS,
-                    HTTP_HOST="testserver",
-                )
-                assert response.status_code in (301, 302), (
-                    f"expected dispatch redirect, got {response.status_code}: "
-                    f"{response.content[:300]!r}"
-                )
+            response = client.post(
+                "/FitEquation__F__/2/Polynomial/2nd%20Order%20(Quadratic)/",
+                data=_VALID_2D_QUAD_FIELDS,
+                HTTP_HOST="testserver",
+            )
+            assert response.status_code in (301, 302), (
+                f"expected dispatch redirect, got {response.status_code}: "
+                f"{response.content[:300]!r}"
+            )
 
-                # The prior (still-running) row must SURVIVE so its CheckIfStillUsed
-                # doesn't see a missing row and abort the concurrent fit.
-                assert LRPStatus.objects.filter(pk=old_pk).exists()
-                # ...and the session now points at a DIFFERENT, fresh row.
-                new_pk = client.session["lrp_status_pk"]
-                assert new_pk != old_pk
-                assert LRPStatus.objects.filter(pk=new_pk).exists()
-
-
-@pytest.mark.django_db
-def test_dispatch_deletes_prior_row_when_concurrent_disallowed(client, mocked_process_start):
-    """When ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER is False, a new dispatch
-    supersedes the prior one and reclaims its row. Reaching the create/delete
-    block under this setting means the per-user gate already judged the prior
-    fit stale/completed (else it would have returned the session-cap message),
-    so deleting the row is the intended supersession.
-    """
-    from zunzun.models import LRPStatus
-
-    with mock.patch("settings.ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER", False, create=True):
-        with mock.patch("settings.MAX_CONCURRENT_FITS_PER_SESSION", 99, create=True):
-            with mock.patch("settings.MAX_CONCURRENT_FITS_PER_IP", 99, create=True):
-                client.get("/")
-                # Plant a COMPLETED prior fit so the cap gate allows replacement.
-                old = _plant_status_row(
-                    client,
-                    process_id=0,
-                    state=LRPStatus.State.TERMINAL,
-                    start_time=time.time() - 100,
-                    last_status_check=time.time() - 100,
-                    current_status="prior fit done",
-                )
-                old_pk = old.pk
-
-                response = client.post(
-                    "/FitEquation__F__/2/Polynomial/2nd%20Order%20(Quadratic)/",
-                    data=_VALID_2D_QUAD_FIELDS,
-                    HTTP_HOST="testserver",
-                )
-                assert response.status_code in (301, 302), (
-                    f"expected dispatch redirect, got {response.status_code}: "
-                    f"{response.content[:300]!r}"
-                )
-
-                # The superseded row was deleted...
-                assert not LRPStatus.objects.filter(pk=old_pk).exists()
-                # ...and the session now points at a DIFFERENT, fresh row.
-                new_pk = client.session["lrp_status_pk"]
-                assert new_pk != old_pk
-                assert LRPStatus.objects.filter(pk=new_pk).exists()
+            # The prior (still-running) row must SURVIVE — housekeeping, not
+            # the dispatch path, reclaims it.
+            assert LRPStatus.objects.filter(pk=old_pk).exists()
+            # ...and the session now points at a DIFFERENT, fresh row.
+            new_pk = client.session["lrp_status_pk"]
+            assert new_pk != old_pk
+            assert LRPStatus.objects.filter(pk=new_pk).exists()

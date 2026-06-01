@@ -1036,13 +1036,11 @@ You must provide any weights you wish to use.
 
     def RenderOutputHTMLToAFileAndSetStatusRedirect(self):
 
-        # If a newer dispatch superseded this one it deleted our status row
-        # (delete-prior-row in LongRunningProcessView). SaveSpecificDataToSessionStore
-        # below writes the per-SESSION-shared `data` blob that EvaluateAtAPoint
-        # later reads; a superseded child writing it would clobber the winning
-        # dispatch's data. A missing row (get_status -> None) is the
-        # supersession signal — skip all shared-state writes (the terminal
-        # redirect would be a no-op on the deleted row anyway).
+        # Minor defensive skip: if the housekeeping age-sweep deleted this
+        # dispatch's row mid-flight there is nothing to write a terminal
+        # redirect to, so return early. This is NO LONGER a clobber guard —
+        # each child writes its own per-dispatch LRPDispatchData row, so there
+        # is no shared blob another child could clobber.
         if self.get_status("process_id") is None:
             return
 
