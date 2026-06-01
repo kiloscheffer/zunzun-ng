@@ -60,6 +60,9 @@ class FitUserSelectablePolyfunctional(FittingBaseClass.FittingBaseClass):
         return s
 
     def SpecificEquationBoundInterfaceCode(self, request):
+        # build_child_payload carries BOTH flag lists across the spawn boundary,
+        # so the inactive dimension must exist as []; only the active dimension's
+        # list is populated by the _collect_* helper below.
         self.boundForm.equation.polyfunctional2DFlags = []
         self.boundForm.equation.polyfunctional3DFlags = []
         if self.dimensionality == 2:
