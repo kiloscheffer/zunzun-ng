@@ -1363,7 +1363,23 @@ which brace-expands to a non-existent `polynomial_customization_selection_div.ht
 coverage hardening and cosmetic/dedup cleanup — and were deferred from the PR
 review rather than fixed inline to keep that branch's diff scoped.
 
-## Unify the two 2D-picker `SpecificEquationUnboundInterfaceCode` methods
+## ~~Unify the two 2D-picker `SpecificEquationUnboundInterfaceCode` methods~~ RESOLVED 2026-06-01
+
+> **Resolution.** Both subclasses now delegate to four shared `FittingBaseClass`
+> helpers: `_assign_2d_picker_color_list` / `_assign_3d_picker_color_list` (render
+> side) and `_collect_2d_picker_flags` / `_collect_3d_picker_flags` (POST side).
+> Deviated from this entry's literal "single base method parameterized on
+> `(attr_2d, attr_3d, key_2d)`" recipe: one 2D+3D method would route the 2D-only
+> customizable-polynomial subclass through a 3D branch reading `self.X3DList`,
+> relocating the dead-3D smell into the base class. Two dimension-specific helpers
+> keep the 2D-only-ness explicit. Scope grew to also unify the POST-path
+> `SpecificEquationBoundInterfaceCode` (not just the Unbound/render method).
+> `FitUserSelectableRational` deliberately stays separate (numerator/denominator/
+> offset structure). The dead-3D blocker (entry below) was resolved in the same
+> branch. Spec/plan: `docs/superpowers/specs/2026-06-01-customizable-polynomial-3d-cleanup-design.md`,
+> `docs/superpowers/plans/2026-06-01-customizable-polynomial-3d-cleanup.md`.
+>
+> Historical notes below, preserved for reference.
 
 **Surfaced by** the `/code-review xhigh` pass on `feat/matrix-selector-round2`
 (2026-06-01), as the residual reuse opportunity after the round-2 helper
@@ -1397,7 +1413,31 @@ subclasses delegate to it. The rational subclass deliberately stays separate
 color-list loops; unifying the full method bodies is a larger change entangled
 with an open investigation.
 
-## Is `FitUserCustomizablePolynomial`'s 3D path dead code or a latent crash?
+## ~~Is `FitUserCustomizablePolynomial`'s 3D path dead code or a latent crash?~~ RESOLVED 2026-06-01
+
+> **Resolution.** Confirmed UNREACHABLE dead code, not a latent crash. The
+> only class with display name "User-Customizable Polynomial" /
+> `userCustomizablePolynomialFlag = True` lives in `pyeq3.Models_2D.Polynomial`;
+> `pyeq3.Models_3D` has no such class, and pyeq3 ships only
+> `GenerateListForCustomPolynomials_2D`. `FittingBaseClass.GetEquationFromNameAndFamily`
+> searches `Models_3D` when `dimensionality == 3`, finds nothing, returns `None`,
+> and both lifecycle entry points raise "Could not find the equation" BEFORE the
+> 3D branch runs — so `dimensionality == 3` and a valid customizable-polynomial
+> equation are mutually exclusive by construction. The feared 500 was never
+> achievable: the bare `except:` in `LongRunningProcessView` converts the
+> upstream not-found raise into the generic form-build error page.
+>
+> The entry undercounted the dead code: BOTH `SpecificEquationBoundInterfaceCode`
+> AND `SpecificEquationUnboundInterfaceCode` carried the dead `else: # 3D` branch
+> (the entry named only Unbound). Both removed, along with `polynomial3DFlags` and
+> the dead `{% else %}` 3D block in `polynomial_customization_div.html`. A
+> regression guard (`test_customizable_polynomial_is_2d_only_in_pyeq3`) pins the
+> pyeq3 invariant so a future 3D customizable polynomial fails loudly. Landed with
+> the picker unification (the entry above) on `feat/customizable-polynomial-3d-cleanup`.
+> Spec/plan: `docs/superpowers/specs/2026-06-01-customizable-polynomial-3d-cleanup-design.md`,
+> `docs/superpowers/plans/2026-06-01-customizable-polynomial-3d-cleanup.md`.
+>
+> Historical notes below, preserved for reference.
 
 **Surfaced by** the `/code-review` pass on `feat/matrix-selector-followups`
 (2026-06-01). **Pre-existing — NOT introduced by that branch** (the branch only
@@ -1440,6 +1480,13 @@ positively confirmed — the smoke suite exercises the customizable-polynomial
 matrix-selector cleanup. Worth a small focused investigation commit.
 
 ## 3D picker templates' `</tr>` row-close depends on an unset `maxPolyfunctionalListIndex`
+
+> **Partial update 2026-06-01.** Resolved for `polynomial_customization_div.html`:
+> its 3D block was that file's only `maxPolyfunctionalListIndex` consumer and was
+> removed as dead code (customizable-polynomial is 2D-only; see the resolved
+> dead-3D entry above). The polyfunctional and polyrational 3D templates still
+> carry the unset-`maxPolyfunctionalListIndex` `</tr>` pattern — this entry stays
+> OPEN for those two.
 
 **Surfaced by** the `/code-review xhigh` pass on
 `feat/matrix-selector-followups` (2026-06-01). **Pre-existing — NOT introduced
