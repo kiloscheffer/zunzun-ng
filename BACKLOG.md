@@ -2820,3 +2820,30 @@ pickers (the JS rewrites that div's innerHTML on each cell toggle).
 
 **Not in scope of any current branch.** Optional polish; deferred from both the
 matrix-selector JS modernization and the 2026-06-01 form-control-labels work.
+
+## Graph-scale / scientific-notation group labels are factually wrong for 3D
+
+**Symptom / exposure.** In `divs/graph_scale_div.html` the axis group legends read
+`X Scale (2D Only)` / `Y Scale (2D Only)` / `Z Scale (2D Only)`, and
+`divs/scientific_notation_div.html` reads `X Control` / `Y Control` / `Z Control`.
+The `(2D Only)` qualifier is inaccurate: the Y block renders whenever
+`dimensionality != '1'` (2D *and* 3D) and the Z block renders only when
+`dimensionality == '3'` — so "Z Scale (2D Only)" is self-contradictory, and the
+Y/Z scaling controls are active on 3D fits. The `X/Y/Z Control` legends omit any
+"scientific notation" context. These strings are **pre-existing** — they were the
+text of the original `<label>`s and were preserved verbatim when the 2026-06-01
+form-control-labels branch converted those labels to `<legend>`s (that branch's
+mandate was zero visual/content change). Surfaced by `/code-review` during that
+branch.
+
+**Why it's worth fixing.** Screen-reader and sighted users on a 3D fit hear/see
+"Z Scale (2D Only)" for an active Z control, which is confusing and may cause them
+to skip a control that affects their output.
+
+**Where to pick up.** Reword the legends to be dimension-accurate, e.g. drop the
+`(2D Only)` qualifier (or make it `{% if dimensionality == '2' %}`-conditional) and
+make the scientific-notation legends self-describing (`X Scientific Notation`, …).
+Pure visible-text change — verify in a browser; no test asserts the legend wording.
+
+**Not in scope of any current branch.** Content/copy fix, distinct from the
+accessibility-structure work that surfaced it.
