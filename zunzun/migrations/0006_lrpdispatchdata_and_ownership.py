@@ -1,6 +1,7 @@
 import secrets
 
 import django.db.models.deletion
+import zunzun.session_helpers
 from django.db import migrations, models
 
 
@@ -47,8 +48,14 @@ class Migration(migrations.Migration):
                         auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
                     ),
                 ),
-                ("data", models.JSONField(default=dict)),
-                ("functionfinder", models.JSONField(default=dict)),
+                (
+                    "data",
+                    models.JSONField(default=dict, encoder=zunzun.session_helpers.NumpyJSONEncoder),
+                ),
+                (
+                    "functionfinder",
+                    models.JSONField(default=dict, encoder=zunzun.session_helpers.NumpyJSONEncoder),
+                ),
                 (
                     "status",
                     models.OneToOneField(
