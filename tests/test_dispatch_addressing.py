@@ -49,7 +49,7 @@ def test_results_page_served_by_token_without_cookie(tmp_path, settings):
     settings.MEDIA_ROOT = str(tmp_path)
     result_file = tmp_path / "result.html"
     result_file.write_text("<html>RESULT-OK</html>", encoding="utf-8")
-    row = LRPStatus.objects.create(  # noqa: F841
+    row = LRPStatus.objects.create(
         start_time=1.0,
         result_token="share-tok",
         owner_session_key="someone",
@@ -57,7 +57,7 @@ def test_results_page_served_by_token_without_cookie(tmp_path, settings):
         redirect_to_results=str(result_file),
     )
     c = Client()  # fresh, no matching cookie
-    resp = c.get("/Results/share-tok/")
+    resp = c.get(f"/Results/{row.result_token}/")
     assert resp.status_code == 200
     assert b"RESULT-OK" in resp.content
 

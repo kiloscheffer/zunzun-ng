@@ -88,6 +88,12 @@ def test_status_view_redirects_on_completion_url(client):
     assert response.status_code == 302
     assert response.url == f"/Results/{row.result_token}/"
 
+    # Second hop: ResultsView issues the further redirect to the original
+    # site-relative URL (no file I/O on the URL branch, so no patching needed).
+    result_response = client.get(f"/Results/{row.result_token}/")
+    assert result_response.status_code == 302
+    assert result_response.url == "/FunctionFinderResults/2/?RANK=1&unused=1"
+
 
 @pytest.mark.django_db
 def test_status_view_does_not_clear_redirect_after_completion(client):

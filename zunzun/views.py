@@ -504,6 +504,9 @@ def ResultsView(request, token):
     """Serve the finished result HTML for a shareable capability token. No
     cookie check — possession of the token grants access. Aged-out token or
     missing result file renders a clean 'expired' page."""
+    # django.conf.settings (not the raw `settings` module the rest of this file
+    # uses) so the pytest-django `settings` fixture / override_settings can patch
+    # TEMP_FILES_DIR in tests.
     from django.conf import settings as conf_settings
 
     from zunzun.models import LRPStatus
