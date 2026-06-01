@@ -1,8 +1,9 @@
 import secrets
 
 import django.db.models.deletion
-import zunzun.session_helpers
 from django.db import migrations, models
+
+import zunzun.session_helpers
 
 
 def backfill_tokens(apps, schema_editor):

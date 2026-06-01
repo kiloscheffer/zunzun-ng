@@ -3,9 +3,9 @@
 import numpy
 import pytest
 from django.db import IntegrityError, connection
-from zunzun.models import LRPDispatchData, LRPStatus
 
 from zunzun.dispatch_data import load_item, save_items
+from zunzun.models import LRPDispatchData, LRPStatus
 
 
 @pytest.mark.django_db
