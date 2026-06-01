@@ -19,7 +19,6 @@ urlpatterns = [
     re_path(r"^Equation/([23])/(.+)/(.+)/$", zunzun.views.LongRunningProcessView),
     re_path(r"^EvaluateAtAPoint/$", zunzun.views.EvaluateAtAPointView),
     re_path(r"^AllEquations/([23])/(.+)/$", zunzun.views.AllEquationsView),
-    re_path(r"^Feedback/$", zunzun.views.FeedbackView),
 ]
 
 # Serve generated runtime files at MEDIA_URL in dev. In production,

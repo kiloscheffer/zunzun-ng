@@ -738,41 +738,6 @@ def LongRunningProcessView(
     return HttpResponseRedirect("http://" + request.META["HTTP_HOST"] + "/StatusAndResults/")
 
 
-@cache_control(no_cache=True)
-@ratelimit(key="ip", rate="12/m", block=False)
-@middleware.rate_limit_sleep
-def FeedbackView(request):
-    import datetime
-    import os
-    import sys
-    import time
-
-    if request.method == "POST":
-        try:
-            form = forms.FeedbackForm(request.POST)
-        except:
-            time.sleep(1.0)
-            form = forms.FeedbackForm(request.POST)
-        if not form.is_valid():  # validators added, see form definition
-            items_to_render = {}
-            items_to_render["mainForm"] = form
-            return render(request, "zunzun/invalid_form_data.html", items_to_render)
-        msg = (
-            "Email from "
-            + form.cleaned_data["emailAddress"]
-            + "\n\nAt "
-            + str(datetime.datetime.now())
-            + "\n\n"
-            + form.cleaned_data["feedbackText"]
-        )
-        if settings.FEEDBACK_EMAIL_ADDRESS:
-            EmailMessage("ZunZunNG Feedback Form", msg, to=[settings.FEEDBACK_EMAIL_ADDRESS]).send()
-
-        return render(request, "zunzun/feedback_reply.html", {})
-    else:  # not a POST
-        return HttpResponseRedirect("/")
-
-
 @cache_page(60 * 60)  # 60 minutes
 @ratelimit(key="ip", rate="12/m", block=False)
 @middleware.rate_limit_sleep
@@ -810,7 +775,6 @@ def HomePageView(request):
     ]
     items_to_render["header_text"] = "ZunZunNG"
     items_to_render["subtitle_text"] = "Online Curve Fitting and Surface Fitting"
-    items_to_render["feedbackForm"] = forms.FeedbackForm()
     items_to_render["loadavg"] = platform_compat.get_loadavg()
 
     return render(request, "zunzun/home_page.html", items_to_render)
