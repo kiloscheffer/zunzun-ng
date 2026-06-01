@@ -372,6 +372,46 @@ td.pick.selected {
 }
 
 /* ------------------------------------------------------------------------ */
+/*   FORM FIELD GROUPS + VISUALLY-HIDDEN UTILITY                            */
+/*   Radio / checkbox groups (Django RadioSelect / CheckboxSelectMultiple)  */
+/*   are grouped in <fieldset class="field-group"><legend>. The reset       */
+/*   strips the default fieldset border/padding and the min-content min-    */
+/*   width that otherwise blows out grid/flex columns. A legend that        */
+/*   replaces a former .form-columns visible <label> is restyled to match   */
+/*   that label; legends that only name a group for assistive tech carry    */
+/*   .visually-hidden so the page looks byte-identical.                     */
+/* ------------------------------------------------------------------------ */
+
+fieldset.field-group {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-inline-size: 0;
+}
+
+.form-columns > div > fieldset.field-group > legend {
+  border-bottom: 1px solid var(--border);
+  font-weight: 500;
+  display: block;
+  width: 100%;
+  margin: 0 0 0.5rem 0;
+  padding: 0 0 0.25rem 0;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ------------------------------------------------------------------------ */
 /*   FOOTER                                                                 */
 /* ------------------------------------------------------------------------ */
 body > footer {
