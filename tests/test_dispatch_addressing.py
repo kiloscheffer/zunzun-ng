@@ -149,3 +149,41 @@ def test_stale_heartbeat_not_counted(settings):
 
     per_session, per_ip = _active_fit_counts("S", "1.2.3.4")
     assert per_session == 0
+
+
+@pytest.mark.django_db
+def test_retention_sweep_reaps_only_file_backed_rows_whose_file_is_gone(tmp_path, settings):
+    settings.TEMP_FILES_DIR = str(tmp_path)
+    from zunzun.views import _sweep_orphaned_terminal_rows
+
+    # (1) file-backed, file MISSING -> reaped
+    gone = LRPStatus.objects.create(
+        start_time=1.0,
+        state=LRPStatus.State.TERMINAL,
+        redirect_to_results=str(tmp_path / "missing.html"),
+    )
+    # (1) file-backed, file PRESENT -> kept
+    present_file = tmp_path / "present.html"
+    present_file.write_text("x", encoding="utf-8")
+    kept = LRPStatus.objects.create(
+        start_time=1.0, state=LRPStatus.State.TERMINAL, redirect_to_results=str(present_file)
+    )
+    # (2) URL-redirect (FunctionFinder) -> NOT reaped (not a file path)
+    url_row = LRPStatus.objects.create(
+        start_time=1.0,
+        state=LRPStatus.State.TERMINAL,
+        redirect_to_results="/FunctionFinderResults/2/?RANK=1",
+    )
+    # non-TERMINAL row -> never touched
+    running = LRPStatus.objects.create(
+        start_time=1.0,
+        state=LRPStatus.State.RUNNING,
+        redirect_to_results=str(tmp_path / "missing2.html"),
+    )
+
+    _sweep_orphaned_terminal_rows()
+
+    assert not LRPStatus.objects.filter(pk=gone.pk).exists()  # file gone -> reaped
+    assert LRPStatus.objects.filter(pk=kept.pk).exists()  # file present -> kept
+    assert LRPStatus.objects.filter(pk=url_row.pk).exists()  # URL result -> kept
+    assert LRPStatus.objects.filter(pk=running.pk).exists()  # not terminal -> kept

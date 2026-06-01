@@ -25,6 +25,30 @@ from .session_helpers import save_with_retry
 _logger = logging.getLogger(__name__)
 
 
+def _sweep_orphaned_terminal_rows():
+    """Delete TERMINAL LRPStatus rows whose FILE-BACKED result was trimmed from
+    temp/ (the cascade drops their LRPDispatchData). Keeps a shareable result
+    page and its Evaluate button aging out together — the row tracks the file,
+    which the temp-dir prune already bounds by MAX_TEMP_DIR_SIZE_IN_MBYTES.
+
+    Only file-backed results (redirect_to_results under TEMP_FILES_DIR) are
+    swept here. URL-redirect results (FunctionFinder, a /FunctionFinderResults/
+    route, not a file) and empty redirects are left to the row age-sweep — a
+    file-existence check would wrongly reap them.
+    """
+    from django.conf import settings
+
+    from zunzun.models import LRPStatus
+
+    temp_dir = settings.TEMP_FILES_DIR
+    for row in LRPStatus.objects.filter(state=LRPStatus.State.TERMINAL).only(
+        "id", "redirect_to_results"
+    ):
+        target = row.redirect_to_results
+        if target and target.startswith(temp_dir) and not os.path.exists(target):
+            row.delete()
+
+
 def _housekeeping_child(temp_dir: str, max_size_mb: int) -> None:
     """Top-level entrypoint for the HomePageView housekeeping fork.
 
@@ -102,6 +126,16 @@ def _housekeeping_child(temp_dir: str, max_size_mb: int) -> None:
                     break
     except Exception:
         logging.exception("Housekeeping: temp-dir prune failed")
+
+    # Reclaim TERMINAL LRPStatus rows (and their cascaded LRPDispatchData) whose
+    # file-backed result was removed by the temp-dir prune above. Runs after the
+    # prune so newly-trimmed files are swept in the same housekeeping pass.
+    # URL-redirect results (FunctionFinder) and empty redirects are NOT touched
+    # here; they age out via the row age-sweep above.
+    try:
+        _sweep_orphaned_terminal_rows()
+    except Exception:
+        logging.exception("Housekeeping: orphaned-terminal-rows sweep failed")
 
 
 @cache_control(no_cache=True)
