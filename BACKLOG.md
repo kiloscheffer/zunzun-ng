@@ -1520,7 +1520,20 @@ matrix-selector cleanup. Worth a small focused investigation commit.
 >   3D test.
 >
 > `maxPolyfunctionalListIndex` no longer appears in any template or test (only in
-> this BACKLOG entry). Verification: `uv run pytest tests/` 209/209; ruff clean.
+> this BACKLOG entry).
+>
+> **Adjacent dead-rational-3D cleanup (from the review pass).** Removing the
+> picker's 3D block left two orphaned references to it, both removed in the same
+> branch: (1) `equation_fit_interface.html` carried a parallel
+> `{% if dimensionality == '2' %}…{% else %}<JavascriptForFunctionMatrix3D.js>{% endif %}`
+> rational JS-include whose `{% else %}` branch drove the now-deleted 3D cells —
+> dropped the dead branch (kept the 2D include under the same guard) and replaced
+> its stale comment; (2) the `static/custom.css` `.matrix-layout` header comment
+> claimed the grid was used by the "3D polyfunctional/polyrational" pickers —
+> corrected to polyfunctional-only, since that is now the sole `.matrix-layout`
+> consumer.
+>
+> Verification: `uv run pytest tests/` 209/209; ruff clean.
 >
 > Historical notes below, preserved for reference.
 
