@@ -1,8 +1,11 @@
 """Tests for the LRPDispatchData per-dispatch data row and LRPStatus ownership columns."""
 
+import numpy
 import pytest
 from django.db import IntegrityError, connection
-from zunzun.models import LRPStatus, LRPDispatchData
+from zunzun.models import LRPDispatchData, LRPStatus
+
+from zunzun.dispatch_data import load_item, save_items
 
 
 @pytest.mark.django_db
@@ -32,3 +35,19 @@ def test_result_token_is_unique_and_columns_present():
             for c in connection.introspection.get_table_description(cursor, "zunzun_lrpstatus")
         }
     assert {"owner_session_key", "owner_ip", "result_token"} <= cols
+
+
+@pytest.mark.django_db
+def test_save_and_load_items_roundtrip_with_numpy():
+    status = LRPStatus.objects.create(start_time=1.0)
+    save_items(status.pk, "data", {"coef": numpy.array([1.0, 2.0]), "n": numpy.int64(3)})
+    assert load_item(status.pk, "data", "coef") == [1.0, 2.0]  # ndarray -> list
+    assert load_item(status.pk, "data", "n") == 3  # int64 -> int
+    assert load_item(status.pk, "data", "missing", default="x") == "x"
+
+
+@pytest.mark.django_db
+def test_save_items_creates_row_if_absent():
+    status = LRPStatus.objects.create(start_time=1.0)
+    save_items(status.pk, "functionfinder", {"k": 1})
+    assert load_item(status.pk, "functionfinder", "k") == 1
