@@ -345,6 +345,23 @@ def _finalize_row_if_child_dead(row) -> bool:
     return True
 
 
+def _load_owned_status_row(request, pk):
+    """Return the LRPStatus row for `pk` only if it belongs to this session.
+
+    Returns None for both "no such row" and "not your row" so callers can
+    raise an identical 404 either way — a 404 that differs between the two
+    leaks pk existence as an enumeration oracle (sequential pks are visible
+    in the URL). The session cookie is the access boundary; the pk alone is
+    useless without it.
+    """
+    from zunzun.models import LRPStatus
+
+    row = LRPStatus.objects.filter(pk=pk).first()
+    if row is None or row.owner_session_key != (request.session.session_key or ""):
+        return None
+    return row
+
+
 @cache_control(no_cache=True)
 def StatusView(request):
     from zunzun.models import LRPStatus
