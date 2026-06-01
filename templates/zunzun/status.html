@@ -9,7 +9,7 @@
 {% endblock %}
 
 {% block body_contents %}
-<div>
+<div data-status-pk="{{ pk }}">
   <h2 class="working-heading"><span class="status-dot" aria-hidden="true"></span>Working on your fit</h2>
 
   <div class="notice" id="currentStatus">{{ currentStatus }}</div>

@@ -9,8 +9,9 @@ import zunzun.views
 
 urlpatterns = [
     re_path(r"^$", zunzun.views.HomePageView),
-    re_path(r"^StatusAndResults/", zunzun.views.StatusView),
-    re_path(r"^StatusUpdate/", zunzun.views.StatusUpdateView),
+    re_path(r"^StatusAndResults/$", zunzun.views.StatusRedirectView),
+    re_path(r"^StatusAndResults/(?P<pk>\d+)/$", zunzun.views.StatusView),
+    re_path(r"^StatusUpdate/(?P<pk>\d+)/$", zunzun.views.StatusUpdateView),
     re_path(r"^CharacterizeData/([123])/$", zunzun.views.LongRunningProcessView),
     re_path(r"^StatisticalDistributions/([1])/$", zunzun.views.LongRunningProcessView),
     re_path(r"^FunctionFinder__.__/([23])/$", zunzun.views.LongRunningProcessView),

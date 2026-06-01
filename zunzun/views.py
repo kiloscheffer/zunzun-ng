@@ -364,12 +364,12 @@ def _load_owned_status_row(request, pk):
 
 
 @cache_control(no_cache=True)
-def StatusView(request):
+def StatusView(request, pk):
     from zunzun.models import LRPStatus
 
-    row = LRPStatus.objects.filter(pk=request.session.get("lrp_status_pk")).first()
+    row = _load_owned_status_row(request, pk)
     if row is None:
-        return HttpResponse("I could not read your session data, please try again.")
+        raise django.http.Http404()
 
     # Completion handoff: read, clear, serve file body OR HttpResponseRedirect.
     # Behavior unchanged from the original implementation (only the backing
@@ -432,12 +432,13 @@ def StatusView(request):
             "loadavg": list(loadavg),
             "coreCount": multiprocessing.cpu_count(),
             "parallelProcessCount": row.parallel_count,
+            "pk": pk,
         },
     )
 
 
 @cache_control(no_cache=True)
-def StatusUpdateView(request):
+def StatusUpdateView(request, pk):
     """JSON polling endpoint for the status page.
 
     Returns the live status fields (currentStatus, elapsed, loadavg) as JSON.
@@ -447,7 +448,7 @@ def StatusUpdateView(request):
     """
     from zunzun.models import LRPStatus
 
-    row = LRPStatus.objects.filter(pk=request.session.get("lrp_status_pk")).first()
+    row = _load_owned_status_row(request, pk)
     if row is None:
         # Matches StatusView's defensive handling: missing pk, expired
         # session, or never dispatched. JS treats any non-2xx as "wait and
@@ -489,6 +490,28 @@ def StatusUpdateView(request):
             "parallelProcessCount": row.parallel_count,
         }
     )
+
+
+@cache_control(no_cache=True)
+def StatusRedirectView(request):
+    """Back-compat for the bare /StatusAndResults/ URL (the post-dispatch
+    redirect target). Sends the browser to this session's newest owned
+    in-progress row, else an 'expired' page."""
+    from zunzun.models import LRPStatus
+
+    row = (
+        LRPStatus.objects.filter(owner_session_key=(request.session.session_key or ""))
+        .exclude(state=LRPStatus.State.TERMINAL)
+        .order_by("-pk")
+        .first()
+    )
+    if row is None:
+        return render(
+            request,
+            "zunzun/generic_error.html",
+            {"error": "No fit in progress for your session."},
+        )
+    return HttpResponseRedirect(f"/StatusAndResults/{row.pk}/")
 
 
 @cache_control(no_cache=True)
@@ -725,11 +748,15 @@ def LongRunningProcessView(
     # could bypass the cap ~0.5s after the child writes process_id. Restores
     # the old SetInitialStatusDataIntoSessionVariables semantics where dispatch
     # time doubled as the first heartbeat.
+    if request.session.session_key is None:
+        save_with_retry(request.session)  # mint a key before stamping ownership
     now = time.time()
     status_row = LRPStatus.objects.create(
         start_time=now,
         last_status_check=now,
         current_status="Initializing",
+        owner_session_key=request.session.session_key,
+        owner_ip=request.META.get("REMOTE_ADDR", ""),
     )
     request.session["lrp_status_pk"] = status_row.pk
     LRP.status_row_pk = status_row.pk
@@ -753,7 +780,9 @@ def LongRunningProcessView(
     child.start()
 
     # using HTTP_HOST allows dev server
-    return HttpResponseRedirect("http://" + request.META["HTTP_HOST"] + "/StatusAndResults/")
+    return HttpResponseRedirect(
+        "http://" + request.META["HTTP_HOST"] + f"/StatusAndResults/{status_row.pk}/"
+    )
 
 
 @cache_page(60 * 60)  # 60 minutes

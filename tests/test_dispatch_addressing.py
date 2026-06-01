@@ -2,7 +2,7 @@
 token-addressed results, and concurrency caps."""
 
 import pytest
-from django.test import RequestFactory
+from django.test import Client, RequestFactory
 from zunzun.models import LRPStatus
 from zunzun.views import _load_owned_status_row
 
@@ -29,3 +29,12 @@ def test_load_owned_row_returns_none_for_foreign_session():
 def test_load_owned_row_returns_none_for_missing_pk_indistinguishably():
     # not-found and not-yours must be indistinguishable (None both ways)
     assert _load_owned_status_row(_request_with_session("sess-A"), 999999) is None
+
+
+@pytest.mark.django_db
+def test_status_page_requires_ownership():
+    row = LRPStatus.objects.create(start_time=1.0, owner_session_key="other")
+    c = Client()
+    c.get("/")  # establishes a session with a different key
+    resp = c.get(f"/StatusAndResults/{row.pk}/")
+    assert resp.status_code == 404
