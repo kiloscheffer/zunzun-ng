@@ -31,6 +31,9 @@ from django.template.loader import render_to_string
 from django.test import RequestFactory
 
 from zunzun.LongRunningProcess.FittingBaseClass import FittingBaseClass
+from zunzun.LongRunningProcess.FitUserCustomizablePolynomial import (
+    FitUserCustomizablePolynomial,
+)
 from zunzun.LongRunningProcess.FitUserSelectablePolyfunctional import (
     FitUserSelectablePolyfunctional,
 )
@@ -449,3 +452,19 @@ def test_collect_3d_picker_flags_maps_posted_true_to_pairs():
     request = RequestFactory().post("/", data=post)
     lrp._collect_3d_picker_flags(request, "polyfunctional3DFlags")
     assert lrp.boundForm.equation.polyfunctional3DFlags == [[1, 0]]
+
+
+def test_customizable_polynomial_bound_2d_maps_posted_flag_to_equation_flags():
+    """FitUserCustomizablePolynomial's 2D POST path maps a posted
+    polyFunctional_Xi=True into equation.polynomial2DFlags. Characterizes the
+    behavior preserved by the helper delegation (no fit, no real form, no DB)."""
+    lrp = FitUserCustomizablePolynomial()
+    lrp.dimensionality = 2
+    lrp.boundForm = _FakeBoundForm()
+    post = {
+        "polyFunctional_X" + str(i): ("True" if i == 2 else "False")
+        for i in range(len(lrp.X2DList))
+    }
+    request = RequestFactory().post("/", data=post)
+    lrp.SpecificEquationBoundInterfaceCode(request)
+    assert lrp.boundForm.equation.polynomial2DFlags == [2]
