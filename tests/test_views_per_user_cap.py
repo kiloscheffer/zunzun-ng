@@ -256,13 +256,13 @@ def test_dead_child_row_finalized_and_fit_admitted(client, monkeypatch, mocked_p
     monkeypatch.setattr("zunzun.platform_compat.pid_is_alive", lambda pid: False)
     client.get("/")
     # Looks active (pid set, fresh heartbeat) but the owning child is dead.
-    _plant_status_row(
+    row_pk = _plant_status_row(
         client,
         process_id=4242,
         state=LRPStatus.State.RUNNING,
         start_time=time.time() - 30,
         last_status_check=time.time(),
-    )
+    ).pk
 
     with mock.patch("settings.MAX_CONCURRENT_FITS_PER_SESSION", 1, create=True):
         with mock.patch("settings.MAX_CONCURRENT_FITS_PER_IP", 99, create=True):
@@ -273,6 +273,10 @@ def test_dead_child_row_finalized_and_fit_admitted(client, monkeypatch, mocked_p
     # Dead owner → backstop finalizes the row → gate must NOT block.
     assert b"already have a fit in progress" not in response.content
     assert b"from your network" not in response.content
+    # Pin the mechanism, not just the outcome: the probe-on-demand path must
+    # have promoted the dead row to TERMINAL (that's what cleared the count).
+    row = LRPStatus.objects.get(pk=row_pk)
+    assert row.state == LRPStatus.State.TERMINAL
 
 
 # ── High-cap path: session cap doesn't block when under limit ────────────────

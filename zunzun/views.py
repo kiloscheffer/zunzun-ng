@@ -641,11 +641,12 @@ def LongRunningProcessView(
                 )
         except Exception:
             # Fail OPEN: the caps are anti-abuse, not a correctness invariant, so
-            # a transient SQLite lock must not block a legitimate user. Log it so
-            # a persistent fault is visible rather than silently defeating the cap.
-            import logging
-
-            logging.exception("Per-fit concurrency gate failed; allowing the fit")
+            # a transient SQLite lock must not block a legitimate user. Log via
+            # the module-level named logger (not logging.exception, which logs to
+            # ROOT) so a deployment filtering on zunzun.* still sees a persistent
+            # gate failure — the gate fails OPEN, so a silent failure would
+            # silently defeat the cap.
+            _logger.exception("Per-fit concurrency gate failed; allowing the fit")
 
     # if this is not a POST, send an interface if needed
     if LRP.userInterfaceRequired:
