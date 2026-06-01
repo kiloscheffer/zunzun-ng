@@ -263,6 +263,35 @@ def test_build_3d_color_list_predicate_selects_offset_and_axis_cells():
     ]
 
 
+def _fake_2d_self():
+    # _build_2d_color_list reads only self.X2DList and each item's .HTML.
+    # Unlike 3D, 2D has no offset special-case: every cell's .HTML is read,
+    # including index 0.
+    return types.SimpleNamespace(
+        X2DList=[_HtmlStub("X"), _HtmlStub("X^2"), _HtmlStub("X^3")],
+    )
+
+
+def test_build_2d_color_list_no_rank_all_unselected():
+    result = FittingBaseClass._build_2d_color_list(_fake_2d_self(), lambda i: False)
+    assert result == [
+        (False, 0, "X"),
+        (False, 1, "X^2"),
+        (False, 2, "X^3"),
+    ]
+
+
+def test_build_2d_color_list_rank_predicate_marks_selected_cells():
+    # Mirrors the production caller's `i in flags` rank pre-fill predicate.
+    flags = [1]
+    result = FittingBaseClass._build_2d_color_list(_fake_2d_self(), lambda i: i in flags)
+    assert result == [
+        (False, 0, "X"),
+        (True, 1, "X^2"),
+        (False, 2, "X^3"),
+    ]
+
+
 def test_polyrational_3d_data_flag_and_initial_value():
     """Polyrational 3D uses the polyfunctional matrix names (polyFunctional_XiYj);
     data-flag and hidden-input initial value must be present and correct."""

@@ -79,13 +79,10 @@ class FitUserCustomizablePolynomial(FittingBaseClass.FittingBaseClass):
             self.equation.polynomial2DFlags = self.functionFinderResultsList[self.rank - 1][4]
             self.equation.polynomial3DFlags = self.functionFinderResultsList[self.rank - 1][5]
             if self.dimensionality == 2:
-                Polynomial2DColorList = []
-                for i in range(len(self.X2DList)):
-                    if i in self.functionFinderResultsList[self.rank - 1][4]:
-                        Polynomial2DColorList.append((True, i, self.X2DList[i].HTML))
-                    else:
-                        Polynomial2DColorList.append((False, i, self.X2DList[i].HTML))
-                self.dictionaryToReturn["Polynomial2DColorList"] = Polynomial2DColorList
+                flags = self.functionFinderResultsList[self.rank - 1][4]
+                self.dictionaryToReturn["Polynomial2DColorList"] = self._build_2d_color_list(
+                    lambda i: i in flags
+                )
             else:  # 3D
                 flags = self.functionFinderResultsList[self.rank - 1][5]
                 self.dictionaryToReturn["Polyfun3DColorList"] = self._build_3d_color_list(
@@ -93,10 +90,9 @@ class FitUserCustomizablePolynomial(FittingBaseClass.FittingBaseClass):
                 )
         else:
             if self.dimensionality == 2:
-                Polynomial2DColorList = []
-                for i in range(len(self.X2DList)):
-                    Polynomial2DColorList.append((False, i, self.X2DList[i].HTML))
-                self.dictionaryToReturn["Polynomial2DColorList"] = Polynomial2DColorList
+                self.dictionaryToReturn["Polynomial2DColorList"] = self._build_2d_color_list(
+                    lambda i: False
+                )
             else:  # 3D
                 self.dictionaryToReturn["Polyfun3DColorList"] = self._build_3d_color_list(
                     lambda i, j: False

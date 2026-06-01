@@ -1278,7 +1278,47 @@ and `'rgb(211,211,211)'` (lightgray = selected).
 behavior change. Worth a small focused commit; ~50% line reduction
 across 4 JS files plus the paired `<td>` template cleanup.
 
-## Matrix-selector round-2 follow-ups (from PR review of feat/matrix-selector-followups)
+## ~~Matrix-selector round-2 follow-ups (from PR review of feat/matrix-selector-followups)~~ RESOLVED 2026-06-01
+
+> **Resolution.** All three follow-ups landed on `feat/matrix-selector-round2`.
+> Pytest 204/204 (was 202; +2 for the new 2D helper); ruff format + check
+> clean; mypy clean.
+>
+> **1. 2D color-list builder extracted + tested.** New
+> `FittingBaseClass._build_2d_color_list(self, selected_predicate)` mirrors
+> `_build_3d_color_list` — returns `[(selected, i, html)]` over `self.X2DList`
+> (no offset special-case, unlike 3D). The four inline 2D rank-prefill / no-rank
+> loops in `FitUserSelectablePolyfunctional.py` and
+> `FitUserCustomizablePolynomial.py` now call it, each assigning into its own
+> dictionary key (`Polyfun2DColorList` vs `Polynomial2DColorList`) as the entry
+> anticipated. Behavior-preserving: `(i in flags)` is the same bool the old
+> explicit `if` branch produced. Two mirror tests added to
+> `tests/test_matrix_selector.py`
+> (`test_build_2d_color_list_no_rank_all_unselected`,
+> `..._rank_predicate_marks_selected_cells`). The no-rank caller path is also
+> covered end-to-end by the pre-existing
+> `test_polyfunctional_interface_renders_class_driven` integration test.
+>
+> **2. 3D matrix JS files deduped.** `JavascriptForRationalMatrix3D.js` (byte-
+> identical to `JavascriptForFunctionMatrix3D.js`) was deleted; the rational 3D
+> `{% include %}` in `equation_fit_interface.html` now points at the function-
+> matrix file, with a template comment explaining the 3D builders converged
+> while the 2D Function/Rational files stay separate. Only reference to the
+> deleted file repo-wide was this BACKLOG entry.
+>
+> **3. `AGENTS.md` brace-pattern filename corrected.** The bogus
+> `{...,polynomial_customization}_selection_div.html` brace expansion (which
+> produced a non-existent `polynomial_customization_selection_div.html`) was
+> replaced with the explicit three-filename list matching
+> `docs/internals/active-gotchas.md` (real file is
+> `polynomial_customization_div.html`). Note: `AGENTS.md` is gitignored, so this
+> fix is local-only and not part of the branch diff.
+>
+> Out of scope (left as their own BACKLOG entries below): the
+> `FitUserCustomizablePolynomial` 3D dead-code question and the unset
+> `maxPolyfunctionalListIndex` row-close — both pre-existing, untouched here.
+>
+> Historical notes below, preserved for reference.
 
 **Surfaced by** the `/pr-review-toolkit:review-pr` pass on
 `feat/matrix-selector-followups` (2026-06-01). None block that branch (the
