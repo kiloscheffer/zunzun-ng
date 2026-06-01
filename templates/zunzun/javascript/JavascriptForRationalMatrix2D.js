@@ -61,5 +61,5 @@
         }
     }
 
-    document.getElementById('FUNCTION').innerHTML = tstr;
+    document.getElementById('equationPreview').innerHTML = tstr;
  }
