@@ -112,3 +112,79 @@ def test_functionfinder_results_payload_round_trips_ranking_token():
     fresh = FunctionFinderResults()
     fresh.apply_child_payload(payload)
     assert fresh.ranking_token == "TOK"
+
+
+@pytest.mark.django_db
+def test_functionfinder_results_get_resolves_by_token_cross_session(client, mocked_process_start):
+    """A FunctionFinderResults GET with ?ranking=<token> and NO prior session
+    state must resolve the ranking by token, set cookie_test, and dispatch a
+    render child (302 to /StatusAndResults/<pk>/) — proving cross-session
+    sharing (#2817). It must NOT return the 'expired'/'requires cookie' page."""
+    from unittest import mock
+
+    from zunzun.dispatch_data import save_items
+
+    ranking = LRPStatus.objects.create(start_time=1.0, state=LRPStatus.State.TERMINAL)
+    LRPDispatchData.objects.create(status=ranking)
+    save_items(
+        ranking.pk,
+        "functionfinder",
+        {
+            "functionFinderResultsList": [
+                [
+                    0.001,
+                    "pyeq3.Models_2D.Polynomial",
+                    "Quadratic",
+                    "Default",
+                    [],
+                    [],
+                    None,
+                    None,
+                    [],
+                    [],
+                    "SSQABS",
+                    [1.0, 2.0, 3.0],
+                ]
+            ]
+        },
+    )
+    save_items(
+        ranking.pk,
+        "data",
+        {
+            "IndependentDataName1": "x",
+            "IndependentDataName2": "",
+            "DependentDataName": "y",
+            "commaConversion": "I",
+            "textDataEditor": "1 2\n3 4\n5 6\n",
+            "weightedFittingChoice": "N",
+            "fittingTarget": "SSQABS",
+            "DependentDataArray": [],
+            "IndependentDataArray": [],
+            "logLinX": "lin",
+            "logLinY": "lin",
+        },
+    )
+
+    # Fresh client: brand-new session, no cookie_test, no functionfinder_ranking_pk.
+    assert client.session.get("cookie_test") is None  # cold session: no cookie_test yet
+    url = f"/FunctionFinderResults/2/?RANK=1&ranking={ranking.result_token}"
+    with mock.patch("settings.MAX_CONCURRENT_FITS_PER_SESSION", 1, create=True):
+        with mock.patch("settings.MAX_CONCURRENT_FITS_PER_IP", 99, create=True):
+            resp = client.get(url, HTTP_HOST="testserver")
+
+    assert resp.status_code == 302, (
+        f"expected dispatch redirect, got {resp.status_code}: "
+        f"{resp.content[:200] if resp.status_code == 200 else ''!r}"
+    )
+    assert "/StatusAndResults/" in resp["Location"]
+    assert client.session.get("cookie_test") == 1, "cookie_test must be set for a token-bearer"
+
+
+@pytest.mark.django_db
+def test_functionfinder_results_get_expired_token_short_circuits(client):
+    """A FunctionFinderResults GET with a missing/invalid token returns a clean
+    expired message without spawning a child."""
+    resp = client.get("/FunctionFinderResults/2/?RANK=1&ranking=nope")
+    assert resp.status_code == 200
+    assert "expired" in resp.content.decode("utf-8", errors="replace").lower()
