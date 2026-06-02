@@ -2744,6 +2744,44 @@ one-shot data migration that mints an `LRPStatus` row from any live
 `session_key_status` blob and stamps `lrp_status_pk` into that session —
 transitional and removable — rather than a permanent dual-read in the views.
 
+## Make cross-dispatch data reads a first-class "read source vs write target" concept
+
+**Symptom / exposure.** Per-dispatch isolation gave each fit its own
+`LRPDispatchData` row, keyed by `status_row_pk`. The base
+`LoadItemFromSessionStore`/`SaveDictionaryOfItemsToSessionStore` both read AND
+write that one pk. But two flows legitimately need to READ a *different*
+(prior) dispatch's data while WRITING their own: `FunctionFinderResults` (reads
+the ranking run's data) and the `/FitEquation/?RANK=N` interface GET. Today
+that read/write split is expressed three inconsistent ways: a typed field
+(`status_row_pk`, the write target), an untyped `ChildPayload.extra[
+"ranking_status_pk"]` bag key (the read source), and a per-subclass METHOD
+OVERRIDE (`FunctionFinderResults.LoadItemFromSessionStore`) that silently
+redirects reads to a different pk than the base class uses. A maintainer
+reading the base method sees `self.status_row_pk` and reasonably assumes all
+subclasses read their own row — the exception is invisible. (Flagged by the
+type-design + altitude reviewers, 2026-06-02.)
+
+**Hypothesis / shape of fix.** Promote the read source to a first-class,
+typed concept so the override disappears:
+- Add `data_source_pk: int | None = None` to `ChildPayload` (typed, replacing
+  the `extra["ranking_status_pk"]` key).
+- Add a `_data_read_pk` resolver on the LRP base
+  (`return self.ranking_status_pk if self.ranking_status_pk is not None else
+  self.status_row_pk`) and have the BASE `LoadItemFromSessionStore` use it.
+- `FunctionFinderResults` then just sets `ranking_status_pk` (already does) and
+  **deletes its override entirely**. The `/FitEquation/?RANK=N` GET path
+  (currently fixed by pointing `status_row_pk` at the session pointer for the
+  render) could use the same resolver instead of overloading `status_row_pk`.
+
+This removes a fragile documentation-only invariant, a duplicate transport
+path, and a whole class of "I didn't know that subclass redirected reads"
+bugs. It is a refactor, not a bug fix — the current code is correct (regression-
+tested), just expressed as scattered convention.
+
+**Not in scope of the per-dispatch-isolation branch.** That branch delivered
+the working behavior; generalizing the data-access seam is a clean follow-up
+with no behavior change.
+
 ## FunctionFinder result links are not shareable cross-session
 
 **Symptom / exposure.** The per-dispatch-isolation work (resolved below) gave
