@@ -60,6 +60,15 @@ class ChildPayload:
     # &ranking=<token>). "" default is defensive; the parent stamps the real
     # value via build_child_payload.
     result_token: str = ""
+    # The LRPStatus/LRPDispatchData row pk this dispatch READS its session
+    # data from, when that differs from the row it writes status to
+    # (status_row_pk). None = read from status_row_pk (the common case: a
+    # dispatch reads back its own data). Set to a prior dispatch's pk by the
+    # two cross-dispatch read flows (FunctionFinderResults; the /FitEquation
+    # RANK interface-GET pre-fill). Replaces the former
+    # extra["ranking_status_pk"] bag key; the base LoadItemFromSessionStore
+    # resolves it via _data_read_pk(). Writes always use status_row_pk.
+    data_source_pk: int | None = None
     extra: dict[str, Any] = field(default_factory=dict)
 
 
