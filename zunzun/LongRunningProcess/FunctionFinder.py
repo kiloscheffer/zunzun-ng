@@ -17,6 +17,7 @@ import zunzun.forms
 
 from ..parallel_pool import FitPool
 from . import ReportsAndGraphs, StatusMonitoredLongRunningProcessPage
+from ._unique import write_ff_anchor
 from .child_payload import ChildPayload
 from .StatusMonitoredLongRunningProcessPage import _ReportsPipelineAborted
 
@@ -234,6 +235,22 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
         if self.dataObject.dimensionality == 2:
             self.SaveDictionaryOfItemsToSessionStore(
                 "data", {"logLinX": self.dataObject.logLinX, "logLinY": self.dataObject.logLinY}
+            )
+
+        # Drop the disk-bounded retention anchor BEFORE marking terminal: a
+        # crash in between then leaves a harmless orphan marker (size-pruned
+        # later) rather than an anchor-less terminal row the orphan sweep would
+        # reap on its next pass. See
+        # docs/superpowers/specs/2026-06-02-functionfinder-link-retention-design.md.
+        try:
+            write_ff_anchor(self.status_row_pk)
+        except OSError:
+            import logging
+
+            logging.warning(
+                "Could not write FunctionFinder retention anchor for ranking pk=%s",
+                self.status_row_pk,
+                exc_info=True,
             )
 
         self.mark_terminal(

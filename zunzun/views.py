@@ -33,13 +33,29 @@ _HEARTBEAT_STALE_SECS = 300
 
 def _sweep_aged_rows():
     """Reclaim LRPStatus rows whose session has expired (both timestamps older
-    than SESSION_COOKIE_AGE). EXCLUDES completed FILE-BACKED results
-    (state=TERMINAL with redirect_to_results under TEMP_FILES_DIR): their
-    retention is tied to the temp/ artifact via _sweep_orphaned_terminal_rows
-    (reaped when the size-bounded prune removes the file), so a shareable
-    /Results/<token>/ link survives session expiry as documented. Abandoned
-    in-progress rows, FunctionFinder URL-redirect results, and crashed
-    empty-redirect rows are still age-reaped."""
+    than SESSION_COOKIE_AGE). EXCLUDES completed rows that carry their own
+    disk-bounded retention, so they outlive session expiry as documented:
+
+      - FILE-BACKED results (state=TERMINAL, redirect_to_results under
+        TEMP_FILES_DIR): retained by _sweep_orphaned_terminal_rows, reaped when
+        the size-bounded prune removes the file.
+      - FunctionFinder RANKING rows (state=TERMINAL, redirect_to_results a
+        /FunctionFinderResults/ URL, not a file): retained by
+        _sweep_orphaned_terminal_rows via their ffanchor marker, reaped when the
+        size-prune removes that marker.
+
+    Abandoned in-progress rows and crashed empty-redirect rows are still
+    age-reaped. (Chained .exclude() calls keep a row matching EITHER clause.)
+
+    SAFETY NET: FunctionFinder ranking rows are excluded from the size-based
+    reap above because their retention is anchored by a temp/ffanchor marker —
+    but that marker is a few bytes while the ranking's real cost (the ranked
+    list + dataset) lives in LRPDispatchData, a DB row NOT counted toward
+    MAX_TEMP_DIR_SIZE_IN_MBYTES. So an FF-heavy / low-artifact workload could
+    keep temp/ under quota forever, never trip the prune that evicts the marker,
+    and grow ranking rows + DB payloads without bound. A second reap applies a
+    hard age ceiling (FF_RANKING_MAX_AGE, default 90d, >> SESSION_COOKIE_AGE) to
+    FF ranking rows regardless of the marker, bounding that growth."""
     from django.conf import settings
 
     from zunzun.models import LRPStatus
@@ -48,22 +64,36 @@ def _sweep_aged_rows():
     LRPStatus.objects.filter(last_status_check__lt=cutoff, start_time__lt=cutoff).exclude(
         state=LRPStatus.State.TERMINAL,
         redirect_to_results__startswith=settings.TEMP_FILES_DIR,
+    ).exclude(
+        state=LRPStatus.State.TERMINAL,
+        redirect_to_results__contains="/FunctionFinderResults/",
+    ).delete()
+
+    ff_cutoff = time.time() - settings.FF_RANKING_MAX_AGE
+    LRPStatus.objects.filter(
+        state=LRPStatus.State.TERMINAL,
+        redirect_to_results__contains="/FunctionFinderResults/",
+        last_status_check__lt=ff_cutoff,
+        start_time__lt=ff_cutoff,
     ).delete()
 
 
 def _sweep_orphaned_terminal_rows():
-    """Delete TERMINAL LRPStatus rows whose FILE-BACKED result was trimmed from
-    temp/ (the cascade drops their LRPDispatchData). Keeps a shareable result
-    page and its Evaluate button aging out together — the row tracks the file,
-    which the temp-dir prune already bounds by MAX_TEMP_DIR_SIZE_IN_MBYTES.
+    """Delete TERMINAL LRPStatus rows whose disk-bounded retention artifact is
+    gone from temp/ (the cascade also drops their LRPDispatchData):
 
-    Only file-backed results (redirect_to_results under TEMP_FILES_DIR) are
-    swept here. URL-redirect results (FunctionFinder, a /FunctionFinderResults/
-    route, not a file) and empty redirects are left to the row age-sweep — a
-    file-existence check would wrongly reap them.
+      - FILE-BACKED results: reaped when their redirect_to_results file (under
+        TEMP_FILES_DIR) is removed by the size-bounded prune.
+      - FunctionFinder RANKING rows (file-less, redirect a /FunctionFinderResults/
+        URL): reaped when their ffanchor_<pk> marker is removed by the prune.
+
+    Both clocks are bounded by MAX_TEMP_DIR_SIZE_IN_MBYTES, so a shareable
+    result and its row age out together. Empty-redirect rows are left to the
+    age-sweep.
     """
     from django.conf import settings
 
+    from zunzun.LongRunningProcess._unique import ff_anchor_path
     from zunzun.models import LRPStatus
 
     temp_dir = settings.TEMP_FILES_DIR
@@ -71,8 +101,14 @@ def _sweep_orphaned_terminal_rows():
         "id", "redirect_to_results"
     ):
         target = row.redirect_to_results
-        if target and target.startswith(temp_dir) and not os.path.exists(target):
-            row.delete()
+        if not target:
+            continue
+        if target.startswith(temp_dir):
+            if not os.path.exists(target):
+                row.delete()
+        elif "/FunctionFinderResults/" in target:  # FF ranking: file-less, anchor-tracked
+            if not os.path.exists(ff_anchor_path(row.id)):
+                row.delete()
 
 
 def _housekeeping_child(temp_dir: str, max_size_mb: int) -> None:
@@ -108,10 +144,12 @@ def _housekeeping_child(temp_dir: str, max_size_mb: int) -> None:
     except Exception:
         logging.exception("Housekeeping: clear_expired() failed")
 
-    # Reclaim LRPStatus rows whose user session has expired. File-backed
-    # TERMINAL results are excluded — their retention is tied to the temp/
-    # artifact and they are reclaimed by _sweep_orphaned_terminal_rows instead,
-    # so shareable /Results/<token>/ links survive past session expiry.
+    # Reclaim LRPStatus rows whose user session has expired. Rows that carry
+    # their own disk-bounded retention are excluded — file-backed TERMINAL
+    # results AND FunctionFinder ranking rows (file-less /FunctionFinderResults/
+    # redirects). Both are reclaimed by _sweep_orphaned_terminal_rows instead
+    # (tied to the temp/ result file / ffanchor marker), so shareable
+    # /Results/<token>/ links survive past session expiry.
     try:
         _sweep_aged_rows()
     except Exception:
@@ -152,10 +190,11 @@ def _housekeeping_child(temp_dir: str, max_size_mb: int) -> None:
         logging.exception("Housekeeping: temp-dir prune failed")
 
     # Reclaim TERMINAL LRPStatus rows (and their cascaded LRPDispatchData) whose
-    # file-backed result was removed by the temp-dir prune above. Runs after the
-    # prune so newly-trimmed files are swept in the same housekeeping pass.
-    # URL-redirect results (FunctionFinder) and empty redirects are NOT touched
-    # here; they age out via the row age-sweep above.
+    # disk-bounded retention artifact was removed by the temp-dir prune above:
+    # file-backed results whose result file is gone, AND FunctionFinder ranking
+    # rows whose ffanchor_<pk> marker is gone. Runs after the prune so
+    # newly-trimmed files/markers are swept in the same housekeeping pass. Only
+    # empty-redirect (e.g. crashed) rows are left to the row age-sweep.
     try:
         _sweep_orphaned_terminal_rows()
     except Exception:

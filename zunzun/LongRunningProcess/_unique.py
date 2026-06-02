@@ -98,3 +98,47 @@ def page_artifact_path(unique_string: str, ext: str) -> str:
 def page_artifact_url(unique_string: str, ext: str) -> str:
     """Site URL of a page-level artifact under ``MEDIA_URL``."""
     return settings.MEDIA_URL + page_artifact_filename(unique_string, ext)
+
+
+def ff_anchor_path(row_id: int) -> str:
+    """Filesystem path of a FunctionFinder ranking row's retention-anchor
+    marker under TEMP_FILES_DIR.
+
+    The marker's existence governs when ``_sweep_orphaned_terminal_rows``
+    reaps the (file-less, URL-redirect) ranking row, giving a shared
+    ``/Results/<token>/`` link the same disk-bounded lifetime as a
+    file-backed result. The ``ffanchor_`` prefix sits outside the
+    ``zun_<...>`` / ``h<...>`` artifact grammar (see module docstring).
+
+    Reads ``django.conf.settings`` — NOT the module-level ``settings``
+    import the other helpers use — so the pytest-django ``settings``
+    fixture / ``override_settings`` can patch ``TEMP_FILES_DIR`` in tests.
+    This mirrors why ``ResultsView`` reads ``django.conf.settings``.
+    """
+    from django.conf import settings as conf_settings
+
+    return os.path.join(conf_settings.TEMP_FILES_DIR, "ffanchor_%d" % row_id)
+
+
+def write_ff_anchor(row_id: int) -> str:
+    """Create (or overwrite) a ranking row's retention-anchor marker and
+    return its path. Raises ``OSError`` if the file cannot be written — the
+    caller logs and continues (a missing anchor only shortens the share's
+    life; it is never fatal). The content is a debugging breadcrumb only;
+    the ranked data itself lives in ``LRPDispatchData``."""
+    path = ff_anchor_path(row_id)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write("ffanchor pk=%d\n" % row_id)
+    return path
+
+
+def touch_ff_anchor(row_id: int) -> None:
+    """Refresh the mtime of a ranking row's retention-anchor marker so an
+    actively-viewed share stays warm in the ``temp/`` size-prune LRU
+    (the marker is otherwise the oldest, first-evicted file for that
+    ranking). Best effort: a missing anchor (already reaped/pruned) is a
+    silent no-op."""
+    try:
+        os.utime(ff_anchor_path(row_id), None)
+    except OSError:
+        pass

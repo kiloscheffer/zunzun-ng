@@ -152,7 +152,7 @@ def test_stale_heartbeat_not_counted(settings):
 
 
 @pytest.mark.django_db
-def test_retention_sweep_reaps_only_file_backed_rows_whose_file_is_gone(tmp_path, settings):
+def test_orphan_sweep_reaps_rows_whose_disk_artifact_is_gone(tmp_path, settings):
     settings.TEMP_FILES_DIR = str(tmp_path)
     from zunzun.views import _sweep_orphaned_terminal_rows
 
@@ -168,12 +168,15 @@ def test_retention_sweep_reaps_only_file_backed_rows_whose_file_is_gone(tmp_path
     kept = LRPStatus.objects.create(
         start_time=1.0, state=LRPStatus.State.TERMINAL, redirect_to_results=str(present_file)
     )
-    # (2) URL-redirect (FunctionFinder) -> NOT reaped (not a file path)
+    # (2) URL-redirect (FunctionFinder) with anchor present -> NOT reaped
     url_row = LRPStatus.objects.create(
         start_time=1.0,
         state=LRPStatus.State.TERMINAL,
         redirect_to_results="/FunctionFinderResults/2/?RANK=1",
     )
+    from zunzun.LongRunningProcess._unique import write_ff_anchor
+
+    write_ff_anchor(url_row.pk)  # anchor present -> kept
     # non-TERMINAL row -> never touched
     running = LRPStatus.objects.create(
         start_time=1.0,
@@ -185,7 +188,7 @@ def test_retention_sweep_reaps_only_file_backed_rows_whose_file_is_gone(tmp_path
 
     assert not LRPStatus.objects.filter(pk=gone.pk).exists()  # file gone -> reaped
     assert LRPStatus.objects.filter(pk=kept.pk).exists()  # file present -> kept
-    assert LRPStatus.objects.filter(pk=url_row.pk).exists()  # URL result -> kept
+    assert LRPStatus.objects.filter(pk=url_row.pk).exists()  # anchor present -> kept
     assert LRPStatus.objects.filter(pk=running.pk).exists()  # not terminal -> kept
 
 
@@ -195,23 +198,22 @@ def test_retention_sweep_reaps_only_file_backed_rows_whose_file_is_gone(tmp_path
 
 
 @pytest.mark.django_db
-def test_age_sweep_keeps_file_backed_results(tmp_path, settings):
-    """_sweep_aged_rows() must NOT delete TERMINAL rows whose redirect_to_results
-    points to a file under TEMP_FILES_DIR — those are retained by
-    _sweep_orphaned_terminal_rows() (tied to the file's existence), so a
-    shareable /Results/<token>/ link survives past session expiry.
-
-    Rows that SHOULD be deleted by the age-sweep:
-      - TERMINAL rows with a URL-redirect (FunctionFinder, not a file path)
-      - In-progress (RUNNING) rows with old timestamps
+def test_age_sweep_keeps_file_backed_and_ff_ranking_results(tmp_path, settings):
+    """_sweep_aged_rows() must NOT delete TERMINAL rows that carry their own
+    disk-bounded retention:
+      - file-backed results (redirect under TEMP_FILES_DIR; retained by
+        _sweep_orphaned_terminal_rows via the file's existence), and
+      - FunctionFinder ranking rows (URL redirect to /FunctionFinderResults/;
+        retained via their ffanchor marker, also by _sweep_orphaned_terminal_rows).
+    Abandoned RUNNING rows ARE still age-reaped.
     """
     from zunzun.views import _sweep_aged_rows
 
     settings.TEMP_FILES_DIR = str(tmp_path)
     settings.SESSION_COOKIE_AGE = 100  # short window so old rows trigger the sweep
+    settings.FF_RANKING_MAX_AGE = 10**12  # huge: isolate the SESSION_COOKIE_AGE behavior here
 
-    # Very old timestamps — both well past SESSION_COOKIE_AGE.
-    old_time = 1.0
+    old_time = 1.0  # both timestamps well past SESSION_COOKIE_AGE
 
     # (1) TERMINAL, file-backed, file EXISTS under TEMP_FILES_DIR -> KEPT
     result_file = tmp_path / "r.html"
@@ -223,12 +225,12 @@ def test_age_sweep_keeps_file_backed_results(tmp_path, settings):
         redirect_to_results=str(result_file),
     )
 
-    # (2) TERMINAL, URL-redirect (FunctionFinder result, not a file) -> DELETED
-    url_row = LRPStatus.objects.create(
+    # (2) TERMINAL, FunctionFinder URL-redirect (file-less) -> KEPT (was DELETED)
+    kept_ff_row = LRPStatus.objects.create(
         start_time=old_time,
         last_status_check=old_time,
         state=LRPStatus.State.TERMINAL,
-        redirect_to_results="/FunctionFinderResults/2/?RANK=1",
+        redirect_to_results="/FunctionFinderResults/2/?RANK=1&ranking=tok",
     )
 
     # (3) RUNNING (in-progress), old timestamps, empty redirect -> DELETED
@@ -243,10 +245,11 @@ def test_age_sweep_keeps_file_backed_results(tmp_path, settings):
 
     assert LRPStatus.objects.filter(pk=kept_file_row.pk).exists(), (
         "File-backed TERMINAL result must NOT be age-reaped — "
-        "it should survive session expiry until the temp/ file is pruned."
+        "it survives until the temp/ file is pruned."
     )
-    assert not LRPStatus.objects.filter(pk=url_row.pk).exists(), (
-        "URL-redirect TERMINAL row (FunctionFinder) must be age-reaped."
+    assert LRPStatus.objects.filter(pk=kept_ff_row.pk).exists(), (
+        "FunctionFinder ranking row must NOT be age-reaped — it is retained "
+        "by its ffanchor marker via _sweep_orphaned_terminal_rows."
     )
     assert not LRPStatus.objects.filter(pk=running_row.pk).exists(), (
         "Abandoned RUNNING row must be age-reaped."
@@ -301,3 +304,131 @@ def test_evaluate_at_a_point_bogus_token_returns_expired(client):
     resp = client.post("/EvaluateAtAPoint/bogus-token-xyz/", {"x": "1.0"})
     assert resp.status_code == 200
     assert b"This result has expired." in resp.content
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# FunctionFinder retention-anchor helpers (_unique.py)
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+def test_ff_anchor_path_under_temp_dir(settings, tmp_path):
+    """ff_anchor_path() is a deterministic, pk-keyed path under TEMP_FILES_DIR
+    with the distinct `ffanchor_` prefix (outside the zun_/h artifact grammar)."""
+    from zunzun.LongRunningProcess._unique import ff_anchor_path
+
+    settings.TEMP_FILES_DIR = str(tmp_path)
+    assert ff_anchor_path(42) == os.path.join(str(tmp_path), "ffanchor_42")
+
+
+def test_write_ff_anchor_creates_marker(settings, tmp_path):
+    from zunzun.LongRunningProcess._unique import ff_anchor_path, write_ff_anchor
+
+    settings.TEMP_FILES_DIR = str(tmp_path)
+    path = write_ff_anchor(7)
+    assert path == ff_anchor_path(7)
+    assert os.path.exists(path)
+
+
+def test_touch_ff_anchor_refreshes_mtime(settings, tmp_path):
+    from zunzun.LongRunningProcess._unique import touch_ff_anchor, write_ff_anchor
+
+    settings.TEMP_FILES_DIR = str(tmp_path)
+    path = write_ff_anchor(7)
+    old = _time.time() - 10_000
+    os.utime(path, (old, old))
+    touch_ff_anchor(7)
+    assert os.path.getmtime(path) > old
+
+
+def test_touch_ff_anchor_missing_is_noop(settings, tmp_path):
+    """A missing marker (already reaped/pruned) must not raise."""
+    from zunzun.LongRunningProcess._unique import touch_ff_anchor
+
+    settings.TEMP_FILES_DIR = str(tmp_path)
+    touch_ff_anchor(999)  # no file on disk; must be a silent no-op
+
+
+@pytest.mark.django_db
+def test_orphan_sweep_keeps_ff_ranking_with_anchor(tmp_path, settings):
+    """A FunctionFinder ranking row whose ffanchor marker still exists is KEPT
+    by _sweep_orphaned_terminal_rows (the marker hasn't been size-pruned yet)."""
+    from zunzun.LongRunningProcess._unique import write_ff_anchor
+    from zunzun.views import _sweep_orphaned_terminal_rows
+
+    settings.TEMP_FILES_DIR = str(tmp_path)
+    row = LRPStatus.objects.create(
+        start_time=1.0,
+        last_status_check=1.0,
+        state=LRPStatus.State.TERMINAL,
+        redirect_to_results="/FunctionFinderResults/2/?RANK=1&ranking=tok",
+    )
+    write_ff_anchor(row.pk)  # anchor present
+
+    _sweep_orphaned_terminal_rows()
+
+    assert LRPStatus.objects.filter(pk=row.pk).exists(), (
+        "FF ranking row with a live anchor must be kept."
+    )
+
+
+@pytest.mark.django_db
+def test_orphan_sweep_reaps_ff_ranking_without_anchor(tmp_path, settings):
+    """A FunctionFinder ranking row whose ffanchor marker is gone (size-pruned,
+    or never written pre-deploy) is reaped by _sweep_orphaned_terminal_rows."""
+    from zunzun.views import _sweep_orphaned_terminal_rows
+
+    settings.TEMP_FILES_DIR = str(tmp_path)
+    row = LRPStatus.objects.create(
+        start_time=1.0,
+        last_status_check=1.0,
+        state=LRPStatus.State.TERMINAL,
+        redirect_to_results="/FunctionFinderResults/2/?RANK=1&ranking=tok",
+    )
+    # No anchor written on disk -> reaped.
+
+    _sweep_orphaned_terminal_rows()
+
+    assert not LRPStatus.objects.filter(pk=row.pk).exists(), (
+        "FF ranking row with no anchor must be reaped."
+    )
+
+
+@pytest.mark.django_db
+def test_age_sweep_reaps_ff_ranking_past_max_age(tmp_path, settings):
+    """The FF_RANKING_MAX_AGE safety net reaps a FunctionFinder ranking row past
+    the ceiling EVEN WITH its ffanchor marker present. The marker/disk clock
+    cannot bound DB growth when temp/ never trips the size-prune (the ranking's
+    payload lives in LRPDispatchData, uncounted toward TEMP_FILES_DIR), so the
+    age ceiling is the hard backstop. A ranking within the ceiling is kept."""
+    from zunzun.LongRunningProcess._unique import write_ff_anchor
+    from zunzun.views import _sweep_aged_rows
+
+    settings.TEMP_FILES_DIR = str(tmp_path)
+    settings.SESSION_COOKIE_AGE = 100
+    settings.FF_RANKING_MAX_AGE = 100
+
+    # (1) FF ranking past the ceiling, anchor PRESENT -> reaped anyway
+    old = LRPStatus.objects.create(
+        start_time=1.0,
+        last_status_check=1.0,
+        state=LRPStatus.State.TERMINAL,
+        redirect_to_results="/FunctionFinderResults/2/?RANK=1&ranking=old",
+    )
+    write_ff_anchor(old.pk)  # marker present, yet the age ceiling still reaps it
+
+    # (2) FF ranking within the ceiling -> kept
+    recent = LRPStatus.objects.create(
+        start_time=_time.time(),
+        last_status_check=_time.time(),
+        state=LRPStatus.State.TERMINAL,
+        redirect_to_results="/FunctionFinderResults/2/?RANK=1&ranking=new",
+    )
+
+    _sweep_aged_rows()
+
+    assert not LRPStatus.objects.filter(pk=old.pk).exists(), (
+        "FF ranking past FF_RANKING_MAX_AGE must be reaped even with a live anchor."
+    )
+    assert LRPStatus.objects.filter(pk=recent.pk).exists(), (
+        "FF ranking within FF_RANKING_MAX_AGE must be kept."
+    )
