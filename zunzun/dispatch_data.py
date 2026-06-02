@@ -11,7 +11,7 @@ from __future__ import annotations
 import time
 from typing import Any
 
-from django.db import OperationalError
+from django.db import IntegrityError, OperationalError
 
 _FIELDS = ("data", "functionfinder")
 
@@ -34,7 +34,12 @@ def save_items(status_pk: int, field: str, items: dict[str, Any]) -> None:
     from zunzun.models import LRPDispatchData
 
     def _do():
-        obj, _ = LRPDispatchData.objects.get_or_create(status_id=status_pk)
+        try:
+            obj, _ = LRPDispatchData.objects.get_or_create(status_id=status_pk)
+        except IntegrityError:
+            # A concurrent caller created the row between our filter and insert;
+            # fetch the now-existing row and proceed.
+            obj = LRPDispatchData.objects.get(status_id=status_pk)
         current = getattr(obj, field) or {}
         current.update(items)
         setattr(obj, field, current)

@@ -24,6 +24,12 @@ from .session_helpers import save_with_retry
 
 _logger = logging.getLogger(__name__)
 
+# Heartbeat staleness threshold in seconds. A row whose last_status_check is
+# older than this is considered abandoned by the per-user cap and the
+# probe-on-demand block. MUST stay in sync with CheckIfStillUsed's 300s
+# abandonment window in StatusMonitoredLongRunningProcessPage.
+_HEARTBEAT_STALE_SECS = 300
+
 
 def _sweep_orphaned_terminal_rows():
     """Delete TERMINAL LRPStatus rows whose FILE-BACKED result was trimmed from
@@ -360,9 +366,7 @@ def _finalize_row_if_child_dead(row) -> bool:
         if (time.time() - row.start_time) < 60:
             return False
 
-    import logging
-
-    logging.warning(
+    _logger.warning(
         "LRPStatus row %s looks abandoned (process_id=%s, no live owner or no "
         "pid written within the pending window); marking it terminal so the "
         "poll loop ends",
@@ -380,18 +384,18 @@ def _finalize_row_if_child_dead(row) -> bool:
 
 def _active_fit_counts(session_key, ip):
     """(per_session, per_ip) active fit counts: INITIALIZING/RUNNING rows with
-    a fresh (<300s) heartbeat. Mirrors CheckIfStillUsed's abandonment window so
-    'the system thinks it's alive' and 'the cap counts it' stay consistent."""
+    a fresh (<_HEARTBEAT_STALE_SECS) heartbeat. Mirrors CheckIfStillUsed's
+    abandonment window so 'the system thinks it's alive' and 'the cap counts
+    it' stay consistent."""
     from zunzun.models import LRPStatus
 
-    fresh = time.time() - 300
+    fresh = time.time() - _HEARTBEAT_STALE_SECS
     base = LRPStatus.objects.exclude(state=LRPStatus.State.TERMINAL).filter(
         last_status_check__gte=fresh
     )
-    return (
-        base.filter(owner_session_key=session_key).count(),
-        base.filter(owner_ip=ip).count(),
-    )
+    per_session = base.filter(owner_session_key=session_key).count() if session_key else 0
+    per_ip = base.filter(owner_ip=ip).count() if ip else 0
+    return (per_session, per_ip)
 
 
 def _load_owned_status_row(request, pk):
@@ -662,7 +666,7 @@ def LongRunningProcessView(
                 # fresh) and recount. Keeps the common under-cap path probe-free.
                 from zunzun.models import LRPStatus
 
-                fresh = time.time() - 300
+                fresh = time.time() - _HEARTBEAT_STALE_SECS
                 candidates = (
                     LRPStatus.objects.exclude(state=LRPStatus.State.TERMINAL)
                     .filter(last_status_check__gte=fresh)
@@ -695,6 +699,14 @@ def LongRunningProcessView(
     if LRP.userInterfaceRequired:
         if request.method != "POST":
             request.session["cookie_test"] = 1
+            # The interface form pre-populates from the session's most-recent
+            # dispatch (the FunctionFinder ranking for a ?RANK=N request, or the
+            # user's last fit for normal form pre-fill). On a GET no new dispatch
+            # row exists, so point status_row_pk at that prior dispatch so
+            # CreateUnboundInterfaceForm's LoadItemFromSessionStore reads resolve.
+            # This is render-only (the form path performs no status/data writes);
+            # the POST path creates and uses its own fresh row.
+            LRP.status_row_pk = request.session.get("lrp_status_pk")
             try:
                 return render(
                     request,
