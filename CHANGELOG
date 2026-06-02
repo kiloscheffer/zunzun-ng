@@ -9,6 +9,15 @@ https://bitbucket.org/zunzuncode/zunzunsite3/commits/all
 
 --- Notable changes (summarised here; full history on GitHub) ---
 
+refactor/cross-dispatch-data-source (merged 2026-06)
+  Cross-dispatch data reads promoted to a first-class typed concept. A new
+  typed ChildPayload.data_source_pk field plus a _data_read_pk() resolver on
+  StatusMonitoredLongRunningProcessPage: LoadItemFromSessionStore reads from
+  data_source_pk when set, else status_row_pk (the write target). The
+  FunctionFinderResults.LoadItemFromSessionStore override and the
+  extra["ranking_status_pk"] bag key are deleted; the views.py interface-GET
+  pre-fill no longer overloads status_row_pk for reads. No behavior change.
+
 feat/functionfinder-token-binding (merged 2026-06)
   FunctionFinder ranking identity bound to result_token; concurrent-ranking
   collision fixed (#2785); FunctionFinder results now shareable cross-session
