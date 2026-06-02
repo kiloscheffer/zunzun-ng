@@ -1,8 +1,14 @@
-"""Tests for the ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER setting.
+"""Tests for the per-session and per-IP concurrency caps.
 
-When False, a second fit POST is refused with an in-progress HTML message
-if the user's prior LRPStatus row shows an active or pending fit. The gate
-reads the row pointed at by request.session['lrp_status_pk'].
+MAX_CONCURRENT_FITS_PER_SESSION (default 1) and MAX_CONCURRENT_FITS_PER_IP
+(default 4) gate new fit POSTs. The gate counts INITIALIZING/RUNNING rows with
+a fresh (<300s) last_status_check heartbeat. Provably-dead rows (crashed child
+whose heartbeat is still fresh) are finalized on-demand when a cap would
+otherwise block, so a SIGKILL/OOM victim doesn't strand the session.
+
+Also covers _reservation_exceeds_cap — the post-create race-safe re-check that
+closes the check-then-act window: the earliest `cap` row-creators always win,
+the later excess creator is deterministically identified by pk ordering.
 """
 
 import os
@@ -13,131 +19,362 @@ import pytest
 
 
 def _plant_status_row(client, **fields):
-    """Create an LRPStatus row with the given fields and point the client's
-    request session at it (the pk a PRIOR dispatch would have left)."""
+    """Create an LRPStatus row owned by the client's current session and point
+    the session at it (the pk a prior dispatch would have left).
+
+    The new gate counts by owner_session_key, so the row must carry the
+    client's real session key.  If the caller doesn't supply owner_session_key
+    explicitly, it is auto-filled from the client's active session.
+    """
     from zunzun.models import LRPStatus
 
-    row = LRPStatus.objects.create(**fields)
     session = client.session
+    fields.setdefault("owner_session_key", session.session_key or "")
+    fields.setdefault("owner_ip", "127.0.0.1")
+    row = LRPStatus.objects.create(**fields)
     session["lrp_status_pk"] = row.pk
     session["cookie_test"] = 1
     session.save()
     return row
 
 
-@pytest.mark.django_db
-def test_concurrent_fit_allowed_when_flag_true(client, mocked_process_start):
-    """Default (True) — second POST proceeds even with an active process_id."""
-    with mock.patch("settings.ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER", True, create=True):
-        client.get("/")  # bootstrap session
-        _plant_status_row(client, process_id=12345, last_status_check=time.time())
-
-        # POST should proceed past the per-user gate (form may still fail
-        # downstream — we only care that "already in progress" is NOT the
-        # response, which would mean the gate did fire).
-        response = client.post(
-            "/FitEquation__F__/2/Polynomial/Linear%20Polynomial/",
-            data={"IndependentData": "1 2 3", "DependentData": "1 2 3"},
-        )
-        assert b"already in progress" not in response.content
+# ── Session cap: basic refuse / admit ───────────────────────────────────────
 
 
 @pytest.mark.django_db
-def test_concurrent_fit_refused_when_flag_false_and_recent_fit(client):
-    """ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER=False — refuse second POST."""
+def test_concurrent_fit_refused_when_at_session_cap(client):
+    """With MAX_CONCURRENT_FITS_PER_SESSION=1, a second POST is refused when
+    there is already one RUNNING row with a fresh heartbeat for this session."""
     from zunzun.models import LRPStatus
 
-    with mock.patch("settings.ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER", False, create=True):
-        client.get("/")
-        # process_id is this (live) process: the gate's dead-child backstop
-        # probes pid_is_alive and, finding the owner alive, leaves the row
-        # active so the cap blocks. (A bogus dead pid would now be finalized
-        # and the fit allowed — see test_concurrent_fit_allowed_when_pid_dead.)
-        _plant_status_row(
-            client,
-            process_id=os.getpid(),
-            state=LRPStatus.State.RUNNING,
-            last_status_check=time.time(),
-        )
+    client.get("/")
+    _plant_status_row(
+        client,
+        # Use the live test-process pid so the dead-child backstop sees a
+        # genuine running fit (probe returns alive) and does not finalize it.
+        process_id=os.getpid(),
+        state=LRPStatus.State.RUNNING,
+        last_status_check=time.time(),
+    )
 
-        response = client.post(
-            "/FitEquation__F__/2/Polynomial/Linear%20Polynomial/",
-            data={"IndependentData": "1 2 3", "DependentData": "1 2 3"},
-        )
-        # Expect the "fit in progress" HTML body
-        assert b"already in progress" in response.content
+    with mock.patch("settings.MAX_CONCURRENT_FITS_PER_SESSION", 1, create=True):
+        with mock.patch("settings.MAX_CONCURRENT_FITS_PER_IP", 99, create=True):
+            response = client.post(
+                "/FitEquation__F__/2/Polynomial/Linear%20Polynomial/",
+                data={"IndependentData": "1 2 3", "DependentData": "1 2 3"},
+            )
+    assert b"already have a fit in progress" in response.content
 
 
 @pytest.mark.django_db
-def test_concurrent_fit_refused_for_active_fit_without_polling(client):
-    """ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER=False — regression guard for
-    the non-polling client. Production stamps last_status_check at dispatch
-    (LongRunningProcessView creates the row with last_status_check=now), so
-    once the child writes process_id, is_active = process_id and
-    (now - last_status_check) < 300 stays True for 300s even if the client
-    NEVER polls (closed tab / script). Without the dispatch-time stamp,
-    last_status_check would be 0.0, (now - 0.0) would exceed 300, and a
-    second POST would slip through ~0.5s after dispatch.
+def test_concurrent_fit_refused_for_running_fit_without_polling(client):
+    """Regression guard for the non-polling client path.
 
-    Models the steady state ~2 minutes into a running fit with no polling:
-    start_time and last_status_check both at dispatch time (well past the
-    60s pending window, well within the 300s active window), process_id set.
+    The dispatch stamps last_status_check at creation, so once the child writes
+    process_id the heartbeat-freshness check (now - last_status_check < 300) holds
+    for 300 s even if the client never polls (closed tab/script).  Models the
+    steady state ~2 min into a running fit with no polling: start_time and
+    last_status_check both at dispatch time (well within the 300 s window),
+    process_id set, state RUNNING.
     """
     from zunzun.models import LRPStatus
 
-    with mock.patch("settings.ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER", False, create=True):
-        client.get("/")
-        dispatch_time = time.time() - 120  # 2 min ago; never polled since
-        # Live pid so the gate's dead-child backstop sees a genuine running
-        # fit (probe returns alive) and the is_active window holds.
-        _plant_status_row(
-            client,
-            process_id=os.getpid(),
-            state=LRPStatus.State.RUNNING,
-            start_time=dispatch_time,
-            last_status_check=dispatch_time,
-        )
+    client.get("/")
+    dispatch_time = time.time() - 120  # 2 min ago; never polled since
+    _plant_status_row(
+        client,
+        process_id=os.getpid(),
+        state=LRPStatus.State.RUNNING,
+        start_time=dispatch_time,
+        last_status_check=dispatch_time,
+    )
 
-        response = client.post(
-            "/FitEquation__F__/2/Polynomial/Linear%20Polynomial/",
-            data={"IndependentData": "1 2 3", "DependentData": "1 2 3"},
-        )
-        # Active fit, no polling → is_active must still hold → REFUSED
-        assert b"already in progress" in response.content
+    with mock.patch("settings.MAX_CONCURRENT_FITS_PER_SESSION", 1, create=True):
+        with mock.patch("settings.MAX_CONCURRENT_FITS_PER_IP", 99, create=True):
+            response = client.post(
+                "/FitEquation__F__/2/Polynomial/Linear%20Polynomial/",
+                data={"IndependentData": "1 2 3", "DependentData": "1 2 3"},
+            )
+    # Active fit, no polling → heartbeat still fresh (< 300 s) → REFUSED
+    assert b"already have a fit in progress" in response.content
 
 
 @pytest.mark.django_db
-def test_concurrent_fit_allowed_when_pid_dead(client, monkeypatch):
-    """ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER=False — a prior fit whose child
-    died WITHOUT finalizing (process_id still set, state not yet TERMINAL,
-    heartbeat still fresh) must NOT block the user's next fit. The gate applies
-    the dead-child backstop (_finalize_row_if_child_dead): finding the owning pid
-    gone, it promotes the row to state=TERMINAL so neither is_active (state ==
-    RUNNING) nor is_pending (state == INITIALIZING, and start_time is still
-    inside the 60s pending window here) fires, instead of blocking the retry for
-    up to 300s while the fresh heartbeat ages out.
+def test_concurrent_fit_refused_for_initializing_row(client):
+    """An INITIALIZING row with a fresh heartbeat (double-click / fast
+    re-submit before the child claims the row) blocks a second POST."""
+    from zunzun.models import LRPStatus
 
-    Regression guard for wiring the backstop into the gate (previously the
-    gate trusted the heartbeat alone, so a SIGKILL/OOM-killed child blocked
-    the user until the 300s window lapsed).
+    client.get("/")
+    _plant_status_row(
+        client,
+        state=LRPStatus.State.INITIALIZING,
+        process_id=0,
+        start_time=time.time(),
+        last_status_check=time.time(),
+    )
+
+    with mock.patch("settings.MAX_CONCURRENT_FITS_PER_SESSION", 1, create=True):
+        with mock.patch("settings.MAX_CONCURRENT_FITS_PER_IP", 99, create=True):
+            response = client.post(
+                "/FitEquation__F__/2/Polynomial/Linear%20Polynomial/",
+                data={"IndependentData": "1 2 3", "DependentData": "1 2 3"},
+            )
+    assert b"already have a fit in progress" in response.content
+
+
+# ── Session cap: admit cases ─────────────────────────────────────────────────
+
+
+@pytest.mark.django_db
+def test_concurrent_fit_admitted_under_session_cap(client, mocked_process_start):
+    """Under the cap (0 active rows) a POST is admitted (no refuse response)."""
+    client.get("/")
+    # No planted row → per_session == 0 < cap → gate allows
+    with mock.patch("settings.MAX_CONCURRENT_FITS_PER_SESSION", 1, create=True):
+        with mock.patch("settings.MAX_CONCURRENT_FITS_PER_IP", 99, create=True):
+            response = client.post(
+                "/FitEquation__F__/2/Polynomial/Linear%20Polynomial/",
+                data={"IndependentData": "1 2 3", "DependentData": "1 2 3"},
+            )
+    assert b"already have a fit in progress" not in response.content
+    assert b"from your network" not in response.content
+
+
+@pytest.mark.django_db
+def test_concurrent_fit_admitted_after_stale_heartbeat(client, mocked_process_start):
+    """A row whose last_status_check is >300 s old is NOT counted as active
+    (matches CheckIfStillUsed's abandonment threshold) → gate allows."""
+    from zunzun.models import LRPStatus
+
+    client.get("/")
+    _plant_status_row(
+        client,
+        process_id=12345,
+        state=LRPStatus.State.RUNNING,
+        last_status_check=time.time() - 400,
+    )
+
+    with mock.patch("settings.MAX_CONCURRENT_FITS_PER_SESSION", 1, create=True):
+        with mock.patch("settings.MAX_CONCURRENT_FITS_PER_IP", 99, create=True):
+            response = client.post(
+                "/FitEquation__F__/2/Polynomial/Linear%20Polynomial/",
+                data={"IndependentData": "1 2 3", "DependentData": "1 2 3"},
+            )
+    assert b"already have a fit in progress" not in response.content
+
+
+@pytest.mark.django_db
+def test_concurrent_fit_admitted_after_clean_completion(client, mocked_process_start):
+    """A TERMINAL row (process_id=0, state=TERMINAL, recent heartbeat) is
+    never counted — the gate excludes TERMINAL rows."""
+    from zunzun.models import LRPStatus
+
+    client.get("/")
+    _plant_status_row(
+        client,
+        process_id=0,
+        state=LRPStatus.State.TERMINAL,
+        start_time=time.time() - 120,
+        last_status_check=time.time(),
+    )
+
+    with mock.patch("settings.MAX_CONCURRENT_FITS_PER_SESSION", 1, create=True):
+        with mock.patch("settings.MAX_CONCURRENT_FITS_PER_IP", 99, create=True):
+            response = client.post(
+                "/FitEquation__F__/2/Polynomial/Linear%20Polynomial/",
+                data={"IndependentData": "1 2 3", "DependentData": "1 2 3"},
+            )
+    assert b"already have a fit in progress" not in response.content
+
+
+@pytest.mark.django_db
+def test_concurrent_fit_admitted_after_fast_completion(client, mocked_process_start):
+    """A fit that completed in <60 s (start_time recent, state=TERMINAL) must
+    not block the next POST."""
+    from zunzun.models import LRPStatus
+
+    client.get("/")
+    _plant_status_row(
+        client,
+        process_id=0,
+        state=LRPStatus.State.TERMINAL,
+        start_time=time.time() - 30,
+        last_status_check=time.time() - 5,
+        redirect_to_results="/temp/abc.html",
+    )
+
+    with mock.patch("settings.MAX_CONCURRENT_FITS_PER_SESSION", 1, create=True):
+        with mock.patch("settings.MAX_CONCURRENT_FITS_PER_IP", 99, create=True):
+            response = client.post(
+                "/FitEquation__F__/2/Polynomial/Linear%20Polynomial/",
+                data={"IndependentData": "1 2 3", "DependentData": "1 2 3"},
+            )
+    assert b"already have a fit in progress" not in response.content
+
+
+@pytest.mark.django_db
+def test_concurrent_fit_admitted_after_fast_completion_redirect_consumed(
+    client, mocked_process_start
+):
+    """Regression guard: StatusView clears redirect_to_results on serve.
+    The post-consumption row (state=TERMINAL, redirect="", start_time recent)
+    must still be admitted — TERMINAL excludes it from the count."""
+    from zunzun.models import LRPStatus
+
+    client.get("/")
+    _plant_status_row(
+        client,
+        process_id=0,
+        state=LRPStatus.State.TERMINAL,
+        start_time=time.time() - 20,
+        last_status_check=time.time() - 5,
+        redirect_to_results="",
+    )
+
+    with mock.patch("settings.MAX_CONCURRENT_FITS_PER_SESSION", 1, create=True):
+        with mock.patch("settings.MAX_CONCURRENT_FITS_PER_IP", 99, create=True):
+            response = client.post(
+                "/FitEquation__F__/2/Polynomial/Linear%20Polynomial/",
+                data={"IndependentData": "1 2 3", "DependentData": "1 2 3"},
+            )
+    assert b"already have a fit in progress" not in response.content
+
+
+# ── Dead-child probe-on-demand path ──────────────────────────────────────────
+
+
+@pytest.mark.django_db
+def test_dead_child_row_finalized_and_fit_admitted(client, monkeypatch, mocked_process_start):
+    """Probe-on-demand path: a row whose child died WITHOUT finalizing
+    (process_id set, state not TERMINAL, heartbeat fresh) must NOT block the
+    user's retry.
+
+    The gate calls _finalize_row_if_child_dead when a cap WOULD block, finds
+    the pid gone, promotes the row to TERMINAL, recounts (per_session=0), and
+    admits the new POST.  Without this path, a SIGKILL/OOM victim would strand
+    the session for up to 300 s while the heartbeat ages out.
     """
+    from zunzun.models import LRPStatus
+
     monkeypatch.setattr("zunzun.platform_compat.pid_is_alive", lambda pid: False)
-    with mock.patch("settings.ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER", False, create=True):
-        client.get("/")
-        # Looks active (pid set, fresh heartbeat) but the owning child is dead.
-        _plant_status_row(
-            client,
-            process_id=4242,
-            start_time=time.time() - 30,
-            last_status_check=time.time(),
-        )
+    client.get("/")
+    # Looks active (pid set, fresh heartbeat) but the owning child is dead.
+    row_pk = _plant_status_row(
+        client,
+        process_id=4242,
+        state=LRPStatus.State.RUNNING,
+        start_time=time.time() - 30,
+        last_status_check=time.time(),
+    ).pk
 
-        response = client.post(
-            "/FitEquation__F__/2/Polynomial/Linear%20Polynomial/",
-            data={"IndependentData": "1 2 3", "DependentData": "1 2 3"},
-        )
-        # Dead owner → backstop finalizes the row → gate must NOT block.
-        assert b"already in progress" not in response.content
+    with mock.patch("settings.MAX_CONCURRENT_FITS_PER_SESSION", 1, create=True):
+        with mock.patch("settings.MAX_CONCURRENT_FITS_PER_IP", 99, create=True):
+            response = client.post(
+                "/FitEquation__F__/2/Polynomial/Linear%20Polynomial/",
+                data={"IndependentData": "1 2 3", "DependentData": "1 2 3"},
+            )
+    # Dead owner → backstop finalizes the row → gate must NOT block.
+    assert b"already have a fit in progress" not in response.content
+    assert b"from your network" not in response.content
+    # Pin the mechanism, not just the outcome: the probe-on-demand path must
+    # have promoted the dead row to TERMINAL (that's what cleared the count).
+    row = LRPStatus.objects.get(pk=row_pk)
+    assert row.state == LRPStatus.State.TERMINAL
+
+
+# ── High-cap path: session cap doesn't block when under limit ────────────────
+
+
+@pytest.mark.django_db
+def test_session_cap_does_not_block_when_under_limit(client, mocked_process_start):
+    """With MAX_CONCURRENT_FITS_PER_SESSION=2, a second POST from the same
+    session while one fit is running must be admitted."""
+    from zunzun.models import LRPStatus
+
+    client.get("/")
+    _plant_status_row(
+        client,
+        process_id=os.getpid(),
+        state=LRPStatus.State.RUNNING,
+        last_status_check=time.time(),
+    )
+
+    with mock.patch("settings.MAX_CONCURRENT_FITS_PER_SESSION", 2, create=True):
+        with mock.patch("settings.MAX_CONCURRENT_FITS_PER_IP", 99, create=True):
+            response = client.post(
+                "/FitEquation__F__/2/Polynomial/Linear%20Polynomial/",
+                data={"IndependentData": "1 2 3", "DependentData": "1 2 3"},
+            )
+    assert b"already have a fit in progress" not in response.content
+    assert b"from your network" not in response.content
+
+
+# ── Per-IP cap ───────────────────────────────────────────────────────────────
+
+
+@pytest.mark.django_db
+def test_per_ip_cap_refuses_when_at_limit(client):
+    """Two rows from the same IP (different session keys) at
+    MAX_CONCURRENT_FITS_PER_IP=1 → second POST refused with the 'from your
+    network' message."""
+    from zunzun.models import LRPStatus
+
+    client.get("/")
+    now = time.time()
+    # Row from a DIFFERENT session (empty key) but same IP as the test client.
+    LRPStatus.objects.create(
+        start_time=now,
+        last_status_check=now,
+        owner_session_key="other-session",
+        owner_ip="127.0.0.1",
+        state=LRPStatus.State.RUNNING,
+        process_id=os.getpid(),
+    )
+    session = client.session
+    session["cookie_test"] = 1
+    session.save()
+
+    with mock.patch("settings.MAX_CONCURRENT_FITS_PER_SESSION", 99, create=True):
+        with mock.patch("settings.MAX_CONCURRENT_FITS_PER_IP", 1, create=True):
+            response = client.post(
+                "/FitEquation__F__/2/Polynomial/Linear%20Polynomial/",
+                data={"IndependentData": "1 2 3", "DependentData": "1 2 3"},
+            )
+    assert b"from your network" in response.content
+
+
+@pytest.mark.django_db
+def test_per_ip_cap_admits_when_under_limit(client, mocked_process_start):
+    """With MAX_CONCURRENT_FITS_PER_IP=2, a POST is admitted when only one
+    active row exists for the IP."""
+    from zunzun.models import LRPStatus
+
+    client.get("/")
+    now = time.time()
+    LRPStatus.objects.create(
+        start_time=now,
+        last_status_check=now,
+        owner_session_key="other-session",
+        owner_ip="127.0.0.1",
+        state=LRPStatus.State.RUNNING,
+        process_id=os.getpid(),
+    )
+    session = client.session
+    session["cookie_test"] = 1
+    session.save()
+
+    with mock.patch("settings.MAX_CONCURRENT_FITS_PER_SESSION", 99, create=True):
+        with mock.patch("settings.MAX_CONCURRENT_FITS_PER_IP", 2, create=True):
+            response = client.post(
+                "/FitEquation__F__/2/Polynomial/Linear%20Polynomial/",
+                data={"IndependentData": "1 2 3", "DependentData": "1 2 3"},
+            )
+    assert b"from your network" not in response.content
+    assert b"already have a fit in progress" not in response.content
+
+
+# ── Per-dispatch row preservation ────────────────────────────────────────────
 
 
 # Complete, valid 2D polynomial-quadratic form payload — enough for
@@ -164,20 +401,17 @@ _VALID_2D_QUAD_FIELDS = {
 
 @pytest.mark.django_db
 def test_dispatch_stamps_last_status_check_at_creation(client, mocked_process_start):
-    """Regression guard for the actual one-line views.py fix: the dispatch
-    path (LongRunningProcessView) must create the LRPStatus row with
-    last_status_check stamped at dispatch, not left at the 0.0 default.
+    """Regression guard for the dispatch-time stamp: the LRPStatus row must be
+    created with last_status_check == start_time (stamped at dispatch, not 0.0).
 
-    This is what makes the per-user is_active check
-    (process_id and (now - last_status_check) < 300) hold for 300s without
-    polling. If the stamp regresses, last_status_check stays 0.0 and the
-    cap leaks for non-polling clients ~0.5s after the child writes
-    process_id. Drives a real (mocked-spawn) successful POST and inspects
-    the row the view created.
+    This is what makes the heartbeat-freshness check in _active_fit_counts hold
+    for 300 s without any polling.  If the stamp regresses, last_status_check
+    stays 0.0 and a non-polling client bypasses the cap ~0.5 s after the child
+    writes process_id.
     """
     from zunzun.models import LRPStatus
 
-    client.get("/")  # bootstrap session + cookie_test
+    client.get("/")
     session = client.session
     session["cookie_test"] = 1
     session.save()
@@ -186,298 +420,163 @@ def test_dispatch_stamps_last_status_check_at_creation(client, mocked_process_st
     response = client.post(
         "/FitEquation__F__/2/Polynomial/2nd%20Order%20(Quadratic)/",
         data=_VALID_2D_QUAD_FIELDS,
-        HTTP_HOST="testserver",  # view builds the redirect from request.META["HTTP_HOST"]
+        HTTP_HOST="testserver",
     )
     after = time.time()
-    # A valid POST dispatches (redirect to the status page).
     assert response.status_code in (301, 302), (
         f"expected dispatch redirect, got {response.status_code}: {response.content[:300]!r}"
     )
 
     pk = client.session["lrp_status_pk"]
     row = LRPStatus.objects.get(pk=pk)
-    # last_status_check must be stamped at dispatch (≈ start_time), NOT 0.0.
     assert row.last_status_check != 0.0
     assert before <= row.last_status_check <= after
-    # And it tracks start_time (both stamped from the same `now`).
     assert row.last_status_check == row.start_time
 
 
 @pytest.mark.django_db
-def test_dispatch_preserves_prior_row_when_concurrent_allowed(client, mocked_process_start):
-    """When ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER is True (the default), a
-    new dispatch must NOT delete the user's prior LRPStatus row: the prior fit
-    may still be running, and CheckIfStillUsed treats a missing row as
-    abandonment (raising _ReportsPipelineAborted at the next heartbeat).
-    Deleting it would tear down a fit the setting promises to keep running
-    concurrently. The prior row is left for the housekeeping age-sweep; the
-    session pointer moves to a fresh row.
+def test_dispatch_preserves_prior_row(client, mocked_process_start):
+    """A new dispatch must NOT delete the user's prior LRPStatus row.
 
-    Regression guard for the delete-prior-row vs CheckIfStillUsed-abort
-    interaction introduced by 317efd1 (Codex PR #21, comment 3329010635).
+    Every dispatch creates an independent row and leaves the prior row for the
+    housekeeping age-sweep.  The prior fit keeps running because
+    CheckIfStillUsed sees its row intact; only the session pointer moves to the
+    new row.
+
+    Replaces the old pair of tests that exercised the since-removed code path
+    that reclaimed the prior row on dispatch.  The new invariant is
+    unconditional: NO dispatch ever deletes a prior row.
     """
     from zunzun.models import LRPStatus
 
-    with mock.patch("settings.ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER", True, create=True):
-        client.get("/")  # bootstrap session
-        # Plant an ACTIVE prior fit (pid set, fresh heartbeat), as a
-        # still-running first dispatch would have left it.
-        old = _plant_status_row(
-            client,
-            process_id=4242,
-            start_time=time.time() - 30,
-            last_status_check=time.time(),
-            current_status="prior fit running",
-        )
-        old_pk = old.pk
+    with mock.patch("settings.MAX_CONCURRENT_FITS_PER_SESSION", 99, create=True):
+        with mock.patch("settings.MAX_CONCURRENT_FITS_PER_IP", 99, create=True):
+            client.get("/")
+            # Plant an ACTIVE prior fit (pid set, fresh heartbeat).
+            old = _plant_status_row(
+                client,
+                process_id=4242,
+                start_time=time.time() - 30,
+                last_status_check=time.time(),
+                current_status="prior fit running",
+            )
+            old_pk = old.pk
 
-        response = client.post(
-            "/FitEquation__F__/2/Polynomial/2nd%20Order%20(Quadratic)/",
-            data=_VALID_2D_QUAD_FIELDS,
-            HTTP_HOST="testserver",
-        )
-        assert response.status_code in (301, 302), (
-            f"expected dispatch redirect, got {response.status_code}: {response.content[:300]!r}"
-        )
+            response = client.post(
+                "/FitEquation__F__/2/Polynomial/2nd%20Order%20(Quadratic)/",
+                data=_VALID_2D_QUAD_FIELDS,
+                HTTP_HOST="testserver",
+            )
+            assert response.status_code in (301, 302), (
+                f"expected dispatch redirect, got {response.status_code}: "
+                f"{response.content[:300]!r}"
+            )
 
-        # The prior (still-running) row must SURVIVE so its CheckIfStillUsed
-        # doesn't see a missing row and abort the concurrent fit.
-        assert LRPStatus.objects.filter(pk=old_pk).exists()
-        # ...and the session now points at a DIFFERENT, fresh row.
-        new_pk = client.session["lrp_status_pk"]
-        assert new_pk != old_pk
-        assert LRPStatus.objects.filter(pk=new_pk).exists()
+            # The prior (still-running) row must SURVIVE — housekeeping, not
+            # the dispatch path, reclaims it.
+            assert LRPStatus.objects.filter(pk=old_pk).exists()
+            # ...and the session now points at a DIFFERENT, fresh row.
+            new_pk = client.session["lrp_status_pk"]
+            assert new_pk != old_pk
+            assert LRPStatus.objects.filter(pk=new_pk).exists()
+
+
+# ── _reservation_exceeds_cap: post-create race-safe re-check ─────────────────
+
+
+def _make_active_row(session_key="S", ip="1.2.3.4"):
+    """Plant a non-TERMINAL, fresh-heartbeat LRPStatus row and return it."""
+    from zunzun.models import LRPStatus
+
+    now = time.time()
+    return LRPStatus.objects.create(
+        start_time=now,
+        last_status_check=now,
+        owner_session_key=session_key,
+        owner_ip=ip,
+        state=LRPStatus.State.RUNNING,
+    )
 
 
 @pytest.mark.django_db
-def test_dispatch_deletes_prior_row_when_concurrent_disallowed(client, mocked_process_start):
-    """When ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER is False, a new dispatch
-    supersedes the prior one and reclaims its row. Reaching the create/delete
-    block under this setting means the per-user gate already judged the prior
-    fit stale/completed (else it would have returned "already in progress"),
-    so deleting the row is the intended supersession — and the now-superseded
-    child aborting at its next heartbeat is correct.
+def test_reservation_exceeds_cap_loser_detected():
+    """Two rows from the same session, cap=1.
+
+    P1 is the earlier (lower pk) row — the winner.
+    P2 is the later (higher pk) row — the loser.
+
+    _reservation_exceeds_cap(P2, ...) must return True (P2 lost the race).
+    _reservation_exceeds_cap(P1, ...) must return False (P1 won the race).
+    Single-dispatch sanity: _reservation_exceeds_cap(P1-only, ...) = False.
+    """
+    from zunzun.views import _reservation_exceeds_cap
+
+    row1 = _make_active_row(session_key="S", ip="1.2.3.4")
+    row2 = _make_active_row(session_key="S", ip="1.2.3.4")
+
+    assert row1.pk < row2.pk, "DB must assign ascending pks for this test to be valid"
+
+    # P2 is the excess creator — it loses.
+    assert _reservation_exceeds_cap(row2.pk, "S", "1.2.3.4", max_session=1, max_ip=99) is True
+    # P1 is the first creator — it wins.
+    assert _reservation_exceeds_cap(row1.pk, "S", "1.2.3.4", max_session=1, max_ip=99) is False
+
+
+@pytest.mark.django_db
+def test_reservation_exceeds_cap_single_dispatch_never_blocked():
+    """A single dispatch (one row, cap=1) must never be told it lost the race.
+
+    _reservation_exceeds_cap counts rows with pk <= our pk.  With exactly one
+    row, count == 1 == cap, which is NOT > cap, so the single creator wins.
+    """
+    from zunzun.views import _reservation_exceeds_cap
+
+    row = _make_active_row(session_key="S", ip="1.2.3.4")
+    assert _reservation_exceeds_cap(row.pk, "S", "1.2.3.4", max_session=1, max_ip=99) is False
+
+
+@pytest.mark.django_db
+def test_reservation_exceeds_cap_per_ip_variant():
+    """Two rows from different sessions but the same IP, cap_ip=1.
+
+    The later row (higher pk) should be identified as the loser.
+    The earlier row (lower pk) should be identified as the winner.
+    """
+    from zunzun.views import _reservation_exceeds_cap
+
+    row1 = _make_active_row(session_key="S1", ip="5.6.7.8")
+    row2 = _make_active_row(session_key="S2", ip="5.6.7.8")
+
+    assert row1.pk < row2.pk, "DB must assign ascending pks for this test to be valid"
+
+    # Row2 is the excess creator by IP — it loses.
+    assert _reservation_exceeds_cap(row2.pk, "S2", "5.6.7.8", max_session=99, max_ip=1) is True
+    # Row1 is the first creator — it wins.
+    assert _reservation_exceeds_cap(row1.pk, "S1", "5.6.7.8", max_session=99, max_ip=1) is False
+
+
+@pytest.mark.django_db
+def test_reservation_exceeds_cap_terminal_rows_excluded():
+    """TERMINAL rows (completed fits) must not count toward the cap.
+
+    Plant one TERMINAL row and one active row for the same session.
+    Even with cap=1, the active row should win (count == 1, not 2).
     """
     from zunzun.models import LRPStatus
+    from zunzun.views import _reservation_exceeds_cap
 
-    with mock.patch("settings.ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER", False, create=True):
-        client.get("/")  # bootstrap session
-        # Plant a COMPLETED prior fit so the per-user gate allows replacement
-        # (is_active False: process_id 0; is_pending False: completed True),
-        # letting the dispatch reach the delete-prior-row block.
-        old = _plant_status_row(
-            client,
-            process_id=0,
-            state=LRPStatus.State.TERMINAL,
-            start_time=time.time() - 100,
-            last_status_check=time.time() - 100,
-            current_status="prior fit done",
-        )
-        old_pk = old.pk
+    now = time.time()
+    # TERMINAL row — must not be counted.
+    LRPStatus.objects.create(
+        start_time=now - 60,
+        last_status_check=now,
+        owner_session_key="S",
+        owner_ip="1.2.3.4",
+        state=LRPStatus.State.TERMINAL,
+    )
+    active_row = _make_active_row(session_key="S", ip="1.2.3.4")
 
-        response = client.post(
-            "/FitEquation__F__/2/Polynomial/2nd%20Order%20(Quadratic)/",
-            data=_VALID_2D_QUAD_FIELDS,
-            HTTP_HOST="testserver",
-        )
-        assert response.status_code in (301, 302), (
-            f"expected dispatch redirect, got {response.status_code}: {response.content[:300]!r}"
-        )
-
-        # The superseded row was deleted...
-        assert not LRPStatus.objects.filter(pk=old_pk).exists()
-        # ...and the session now points at a DIFFERENT, fresh row.
-        new_pk = client.session["lrp_status_pk"]
-        assert new_pk != old_pk
-        assert LRPStatus.objects.filter(pk=new_pk).exists()
-
-
-@pytest.mark.django_db
-def test_concurrent_fit_allowed_when_stale_process_id(client, mocked_process_start):
-    """ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER=False — but the previous fit
-    is stale (last status check >300s ago, matching CheckIfStillUsed's
-    abandoned-fit threshold) → allow."""
-    from zunzun.models import LRPStatus
-
-    with mock.patch("settings.ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER", False, create=True):
-        client.get("/")
-        # last_status_check ~7 minutes ago (> 300s threshold)
-        _plant_status_row(
-            client,
-            process_id=12345,
-            state=LRPStatus.State.RUNNING,
-            last_status_check=time.time() - 400,
-        )
-
-        response = client.post(
-            "/FitEquation__F__/2/Polynomial/Linear%20Polynomial/",
-            data={"IndependentData": "1 2 3", "DependentData": "1 2 3"},
-        )
-        # Stale → should proceed past the per-user gate
-        assert b"already in progress" not in response.content
-
-
-@pytest.mark.django_db
-def test_concurrent_fit_allowed_after_clean_completion(client, mocked_process_start):
-    """ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER=False — after a fit completes
-    cleanly, process_id is reset to 0 by PerformAllWork's exit path. The next
-    POST must not be blocked."""
-    from zunzun.models import LRPStatus
-
-    with mock.patch("settings.ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER", False, create=True):
-        client.get("/")
-        # Simulate the state AFTER a successful fit: process_id was set during
-        # the fit then explicitly reset to 0 in PerformAllWork's tail.
-        # last_status_check is still recent (final JS poll). start_time is
-        # old enough that the pending window has elapsed too.
-        _plant_status_row(
-            client,
-            process_id=0,
-            state=LRPStatus.State.TERMINAL,
-            start_time=time.time() - 120,
-            last_status_check=time.time(),
-        )
-
-        response = client.post(
-            "/FitEquation__F__/2/Polynomial/Linear%20Polynomial/",
-            data={"IndependentData": "1 2 3", "DependentData": "1 2 3"},
-        )
-        # No active fit (process_id=0, not pending) → gate must NOT trigger
-        assert b"already in progress" not in response.content
-
-
-@pytest.mark.django_db
-def test_concurrent_fit_refused_in_pending_window_before_child_writes_pid(client):
-    """ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER=False — between the parent
-    creating the row (fresh start_time, process_id=0, no redirect) and the
-    child's first PerformAllWork status write (which writes process_id), the
-    row shows a fresh start_time but process_id=0. A rapid double-submit in
-    this window must still be refused."""
-    with mock.patch("settings.ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER", False, create=True):
-        client.get("/")
-        # Pending window: start_time fresh (parent just dispatched), process_id
-        # still 0 (child hasn't written its PID), no terminal redirect yet.
-        _plant_status_row(
-            client,
-            process_id=0,
-            start_time=time.time(),
-            last_status_check=time.time(),
-        )
-
-        response = client.post(
-            "/FitEquation__F__/2/Polynomial/Linear%20Polynomial/",
-            data={"IndependentData": "1 2 3", "DependentData": "1 2 3"},
-        )
-        # Pending state → gate must block
-        assert b"already in progress" in response.content
-
-
-@pytest.mark.django_db
-def test_concurrent_fit_allowed_after_fast_completion(client, mocked_process_start):
-    """ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER=False — a fit that completes
-    in <60s sets completed=True (the terminal "done" signal). Even though
-    start_time is still recent and redirect_to_results is still present (not
-    yet consumed by StatusView), the next POST must NOT be blocked: the
-    completed row is excluded from the pending check."""
-    from zunzun.models import LRPStatus
-
-    with mock.patch("settings.ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER", False, create=True):
-        client.get("/")
-        # State immediately after a fast successful fit: process_id cleared,
-        # completed set, terminal redirect set, start_time still recent (<60s).
-        _plant_status_row(
-            client,
-            process_id=0,
-            state=LRPStatus.State.TERMINAL,
-            start_time=time.time() - 30,
-            last_status_check=time.time() - 5,
-            redirect_to_results="/temp/abc.html",
-        )
-
-        response = client.post(
-            "/FitEquation__F__/2/Polynomial/Linear%20Polynomial/",
-            data={"IndependentData": "1 2 3", "DependentData": "1 2 3"},
-        )
-        # Completed fit → neither pending nor active → gate must NOT trigger
-        assert b"already in progress" not in response.content
-
-
-@pytest.mark.django_db
-def test_concurrent_fit_allowed_after_fast_completion_when_redirect_consumed(
-    client, mocked_process_start
-):
-    """Regression guard for the redirect-overload bug: StatusView clears
-    redirect_to_results the moment it serves the result. For a fast fit the
-    user views within 60s of dispatch, the post-consumption row is:
-        completed=True, process_id=0, redirect_to_results="", start_time recent
-    The old gate (which keyed the pending window on `not redirect_to_results`)
-    would see an empty redirect + recent start_time + no process_id and
-    re-block the next POST for the rest of the 60s window. With the explicit
-    `completed` flag the gate must allow the re-submit.
-
-    Fails on the pre-fix code (redirect-clause gate); passes with the flag.
-    """
-    from zunzun.models import LRPStatus
-
-    with mock.patch("settings.ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER", False, create=True):
-        client.get("/")
-        _plant_status_row(
-            client,
-            process_id=0,
-            state=LRPStatus.State.TERMINAL,
-            start_time=time.time() - 20,  # within the 60s pending window
-            last_status_check=time.time() - 5,
-            redirect_to_results="",  # StatusView already consumed it
-        )
-
-        response = client.post(
-            "/FitEquation__F__/2/Polynomial/Linear%20Polynomial/",
-            data={"IndependentData": "1 2 3", "DependentData": "1 2 3"},
-        )
-        # Completed (flag set) → gate must NOT block even though redirect was
-        # consumed and start_time is still inside the pending window.
-        assert b"already in progress" not in response.content
-
-
-@pytest.mark.django_db
-def test_gate_blocks_initializing_row_in_pending_window(client):
-    """state=INITIALIZING within the 60s pending window blocks a second POST
-    (the child was dispatched but hasn't claimed the row yet)."""
-    from zunzun.models import LRPStatus
-
-    with mock.patch("settings.ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER", False, create=True):
-        client.get("/")
-        _plant_status_row(
-            client,
-            state=LRPStatus.State.INITIALIZING,
-            process_id=0,
-            start_time=time.time(),
-            last_status_check=time.time(),
-        )
-        response = client.post(
-            "/FitEquation__F__/2/Polynomial/Linear%20Polynomial/",
-            data={"IndependentData": "1 2 3", "DependentData": "1 2 3"},
-        )
-        assert b"already in progress" in response.content
-
-
-@pytest.mark.django_db
-def test_gate_allows_terminal_row(client, mocked_process_start):
-    """state=TERMINAL is never active or pending, so a finished fit never
-    blocks the next POST."""
-    from zunzun.models import LRPStatus
-
-    with mock.patch("settings.ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER", False, create=True):
-        client.get("/")
-        _plant_status_row(
-            client,
-            state=LRPStatus.State.TERMINAL,
-            process_id=0,
-            start_time=time.time(),  # recent — would falsely "pend" without state
-            last_status_check=time.time(),
-        )
-        response = client.post(
-            "/FitEquation__F__/2/Polynomial/Linear%20Polynomial/",
-            data={"IndependentData": "1 2 3", "DependentData": "1 2 3"},
-        )
-        assert b"already in progress" not in response.content
+    # Only one active row → count == 1 == cap → NOT an excess creator.
+    assert (
+        _reservation_exceeds_cap(active_row.pk, "S", "1.2.3.4", max_session=1, max_ip=99) is False
+    )

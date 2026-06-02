@@ -28,6 +28,12 @@ The one-time `uv run python manage.py migrate` (see the top-level `README.md`) c
 
 **Drain in-progress fits before deploying.** A fit's status lives in a per-dispatch `zunzun_lrpstatus` row, pointed at by `lrp_status_pk` in the user's session. A fit dispatched by the *previous* code that is still running across a restart is not migrated: the spawned child keeps running, but its status page may not resolve cleanly under the new code. Before restarting Waitress for an upgrade, let active fits finish (or accept that any in-flight fit must be re-run by the user). Fits are short (seconds to a few minutes), so a brief drain window before restart is enough. This is standard practice for the spawn-LRP architecture and avoids carrying transitional fallback code in the request path. See `BACKLOG.md` ("Pre-migration in-flight fits are not resumed across deploy").
 
+## Concurrency caps and reverse-proxy IP forwarding
+
+ZunZunNG enforces two concurrency caps: `MAX_CONCURRENT_FITS_PER_SESSION` (default 1, env override `ZUNZUN_MAX_CONCURRENT_FITS_PER_SESSION`) and `MAX_CONCURRENT_FITS_PER_IP` (default 4, env override `ZUNZUN_MAX_CONCURRENT_FITS_PER_IP`). These settings live in `settings.py` and can be tuned without code changes.
+
+**Per-IP cap accuracy depends on the reverse proxy forwarding the real client IP.** The gate reads `request.META["REMOTE_ADDR"]`, which is the connecting peer. Behind Caddy (or any other reverse proxy), that peer is always `127.0.0.1` unless the proxy forwards the `X-Forwarded-For` header AND Waitress is told to trust it. The included `Caddyfile.example` passes `X-Forwarded-For`, but for `REMOTE_ADDR` to actually reflect the forwarded client IP, Waitress itself needs its trusted-proxy configuration (`--trusted-proxy=127.0.0.1` and `--trusted-proxy-headers=x-forwarded-for` on the CLI, or `trusted_proxy` / `trusted_proxy_headers` in code) — without it Waitress ignores the header and `REMOTE_ADDR` stays `127.0.0.1`, so both the per-IP cap and the IP-keyed `@ratelimit` decorator collapse all clients into one bucket.
+
 ## Why Caddy
 
 Three reasons it ended up the default after the cross-platform migration:

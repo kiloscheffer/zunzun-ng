@@ -8,9 +8,6 @@ import reportlab
 import reportlab.lib.pagesizes
 import reportlab.platypus
 from bs4 import BeautifulSoup  # don't need everything, it has several components
-from django import db
-from django.contrib.sessions.backends.db import SessionStore
-from django.db import close_old_connections
 from django.template.loader import render_to_string
 from reportlab.lib.units import inch
 from reportlab.pdfbase import pdfmetrics
@@ -34,7 +31,6 @@ import zunzun.forms
 from zunzun import platform_compat
 
 from ..parallel_pool import FitPool
-from ..session_helpers import load_with_retry, save_with_retry
 from . import DataObject, DefaultData, ReportsAndGraphs
 from ._unique import (
     new_unique_string,
@@ -158,8 +154,6 @@ class StatusMonitoredLongRunningProcessPage(object):
         self.inEquationName = ""
         self.inEquationFamilyName = ""
 
-        self.session_data = None
-        self.session_functionfinder = None
         self.status_row_pk = None
 
         self.statisticalDistribution = False
@@ -200,8 +194,6 @@ You must provide any weights you wish to use.
         """
         return ChildPayload(
             lrp_class_path=f"{self.__class__.__module__}.{self.__class__.__name__}",
-            session_key_data=self.session_key_data,
-            session_key_functionfinder=getattr(self, "session_key_functionfinder", ""),
             dimensionality=self.dimensionality,
             renice_level=self.reniceLevel,
             data_object=getattr(self, "dataObject", None),
@@ -236,8 +228,6 @@ You must provide any weights you wish to use.
         Default implementation restores the common fields. Subclasses
         override to populate fit-specific state from payload.extra.
         """
-        self.session_key_data = payload.session_key_data
-        self.session_key_functionfinder = payload.session_key_functionfinder
         self.dimensionality = payload.dimensionality
         self.reniceLevel = payload.renice_level
         self.dataObject = payload.data_object
@@ -245,8 +235,7 @@ You must provide any weights you wish to use.
         self.inEquationFamilyName = payload.extra.get("inEquationFamilyName", "")
         # The LRPStatus row pk this dispatch writes to. _run_fit_child
         # also sets this directly from the payload before
-        # apply_child_payload runs (same value, harmless redundancy,
-        # mirrors how session_key_* are set in both places).
+        # apply_child_payload runs (same value, harmless redundancy).
         self.status_row_pk = payload.status_row_pk
 
     def PerformWorkInParallel(self):
@@ -624,44 +613,20 @@ You must provide any weights you wish to use.
             )
 
     def SaveDictionaryOfItemsToSessionStore(self, inSessionStoreName, inDictionary):
-        _logger.debug(inSessionStoreName)
+        from zunzun import dispatch_data
 
-        session = getattr(self, "session_" + inSessionStoreName)
-        if session is None:
-            _logger.debug("No session in sessionstore, creating new session")
-            session = SessionStore(getattr(self, "session_key_" + inSessionStoreName))
-
-        for i in list(inDictionary.keys()):
-            item = inDictionary[i]
-            _logger.debug(str(i) + " type: " + str(type(item)))
-            # Store the raw value. Callers are responsible for producing
-            # JSON-native values (no numpy scalars, sets, or datetime).
-            session[i] = item
-            _logger.debug(str(i) + " saved to session")
-
-        save_with_retry(session)
-
-        db.connections.close_all()
-        close_old_connections()
-        session = None
+        dispatch_data.save_items(self.status_row_pk, inSessionStoreName, inDictionary)
 
     def LoadItemFromSessionStore(self, inSessionStoreName, inItemName):
+        from zunzun import dispatch_data
 
-        session = getattr(self, "session_" + inSessionStoreName)
-        if session is None:
-            session = SessionStore(getattr(self, "session_key_" + inSessionStoreName))
-        returnItem = load_with_retry(session, inItemName)
-        db.connections.close_all()
-        close_old_connections()
-        session = None
-
-        return returnItem
+        return dispatch_data.load_item(self.status_row_pk, inSessionStoreName, inItemName)
 
     def update_status(self, **fields):
         """Write fields to this dispatch's LRPStatus row. Unconditional,
         single-row UPDATE — no ownership check (each fit owns its own row).
-        A missing/deleted row (e.g., superseded by a newer dispatch that
-        deleted it) matches zero rows and is a harmless no-op.
+        A missing/deleted row (e.g., reclaimed by the housekeeping
+        age-sweep) matches zero rows and is a harmless no-op.
         """
         from zunzun.models import LRPStatus
 
@@ -768,12 +733,11 @@ You must provide any weights you wish to use.
 
             # Success terminal: mark_terminal() sets state=TERMINAL and
             # process_id=0 so the per-user gate (views.LongRunningProcessView)
-            # doesn't block this user's next fit. state=TERMINAL survives
-            # StatusView clearing redirect_to_results, so a fast fit the user
-            # views within 60s doesn't falsely re-enter the gate's pending
-            # window. This dispatch owns its own row, so no ownership check is
-            # needed. start_time is left intact for the status template's
-            # elapsed timer.
+            # doesn't block this user's next fit. TERMINAL rows are EXCLUDED
+            # from _active_fit_counts, so the gate releases immediately — no
+            # wait for a stale heartbeat window. This dispatch owns its own row,
+            # so no ownership check is needed. start_time is left intact for the
+            # status template's elapsed timer.
             self.mark_terminal()
 
         except _ReportsPipelineAborted:
@@ -936,9 +900,8 @@ You must provide any weights you wish to use.
     def _teardown_abandoned_fit(self):
         """Tear down this fit's pools and terminate its worker children.
 
-        Called by CheckIfStillUsed when the fit is determined abandoned or
-        superseded (the row was deleted by a newer dispatch, a foreign pid
-        claimed it, or the heartbeat went stale). ``shutdown(cancel_futures=
+        Called by CheckIfStillUsed when the fit is determined abandoned (a
+        foreign pid claimed the row, or the heartbeat went stale). ``shutdown(cancel_futures=
         True)`` only cancels PENDING futures; workers mid-fit keep running
         until their task finishes, so we also ``terminate()`` the live
         children to free CPU/RAM immediately.
@@ -958,15 +921,13 @@ You must provide any weights you wish to use.
         import time
 
         running_pid = self.get_status("process_id")
-        # A None process_id means the row is gone — a newer dispatch
-        # superseded this one and deleted the row (delete-prior-row in
-        # LongRunningProcessView), or the housekeeping age-sweep reclaimed it.
-        # Either way this fit is abandoned: tear it down so a superseded
-        # CPU-heavy fit doesn't keep saturating cores until it finishes on its
-        # own. (update_status against the deleted pk stays a harmless no-op;
-        # the *resource* leak is what this teardown addresses — without it the
-        # superseded child can no longer observe the foreign-pid or stale-
-        # heartbeat triggers below, because the row carrying them is gone.)
+        # A None process_id means the row is gone — the housekeeping age-sweep
+        # reclaimed it. This fit is abandoned: tear it down so a CPU-heavy fit
+        # doesn't keep saturating cores until it finishes on its own.
+        # (update_status against the deleted pk stays a harmless no-op; the
+        # *resource* leak is what this teardown addresses — without it the
+        # child can no longer observe the foreign-pid or stale-heartbeat
+        # triggers below, because the row carrying them is gone.)
         #
         # Teardown alone is NOT enough: it kills the pools/worker children, but
         # the LRP child's OWN control flow continues — e.g. FunctionFinder's
@@ -975,10 +936,9 @@ You must provide any weights you wish to use.
         # rest of PerformAllWork. So after teardown we raise
         # _ReportsPipelineAborted (the same sentinel the pool-death sites use);
         # PerformAllWork catches it and halts the child. No terminal redirect is
-        # written, which is correct: in every abandonment case nobody is
-        # watching THIS row (the user's session points at the newer dispatch's
-        # row, or the client stopped polling), and update_status on a deleted
-        # row is a no-op anyway.
+        # written, which is correct: nobody is watching THIS row (the client
+        # stopped polling), and update_status on a deleted row is a no-op
+        # anyway.
         if running_pid is None:
             self._teardown_abandoned_fit()
             raise _ReportsPipelineAborted()
@@ -1060,15 +1020,22 @@ You must provide any weights you wish to use.
             if i.name != "":
                 self.graphReports.append(i)
 
+    def _result_token(self):
+        from zunzun.models import LRPStatus
+
+        return (
+            LRPStatus.objects.filter(pk=self.status_row_pk)
+            .values_list("result_token", flat=True)
+            .first()
+        )
+
     def RenderOutputHTMLToAFileAndSetStatusRedirect(self):
 
-        # If a newer dispatch superseded this one it deleted our status row
-        # (delete-prior-row in LongRunningProcessView). SaveSpecificDataToSessionStore
-        # below writes the per-SESSION-shared `data` blob that EvaluateAtAPoint
-        # later reads; a superseded child writing it would clobber the winning
-        # dispatch's data. A missing row (get_status -> None) is the
-        # supersession signal — skip all shared-state writes (the terminal
-        # redirect would be a no-op on the deleted row anyway).
+        # Minor defensive skip: if the housekeeping age-sweep deleted this
+        # dispatch's row mid-flight there is nothing to write a terminal
+        # redirect to, so return early. This is NO LONGER a clobber guard —
+        # each child writes its own per-dispatch LRPDispatchData row, so there
+        # is no shared blob another child could clobber.
         if self.get_status("process_id") is None:
             return
 
@@ -1079,6 +1046,7 @@ You must provide any weights you wish to use.
         itemsToRender = {}
 
         itemsToRender["dimensionality"] = str(self.dimensionality)
+        itemsToRender["result_token"] = self._result_token()
 
         itemsToRender["header_text"] = "ZunZunNG"
         itemsToRender["subtitle_text"] = self.webFormName
@@ -1179,8 +1147,9 @@ You must provide any weights you wish to use.
         if write_succeeded:
             # Success terminal. mark_terminal() sets state=TERMINAL and
             # process_id=0 (belt-and-suspenders with PerformAllWork's
-            # end-of-try mark_terminal call) so the gate's pending window
-            # can't re-fire after StatusView consumes redirect_to_results.
+            # end-of-try mark_terminal call). TERMINAL rows are excluded from
+            # _active_fit_counts, so the gate releases immediately for the
+            # user's next fit.
             self.mark_terminal(redirect=result_html_path)
         else:
             # Disk is unwritable; we cannot deliver a terminal page.

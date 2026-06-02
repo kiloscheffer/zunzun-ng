@@ -24,12 +24,38 @@ class FunctionFinderResults(FittingBaseClass.FittingBaseClass):
         self.webFormName = "Function Finder Results"
         self.reniceLevel = 11
         self.maxNumberOfEquationsToDisplay = 40
+        # pk of the RANKING dispatch whose data/functionfinder store holds
+        # the ranked list and dataset. Set by the view dispatcher BEFORE
+        # TransferFormDataToDataObject runs, so that LoadItemFromSessionStore
+        # (overridden below) reads from the correct dispatch row rather than
+        # this dispatch's own (empty) row.
+        self.ranking_status_pk = None
+
+    def LoadItemFromSessionStore(self, inSessionStoreName, inItemName):
+        """Read from the RANKING dispatch's data store.
+
+        FunctionFinderResults never writes to the data/functionfinder store;
+        all reads here target the prior (ranking) dispatch's row where the
+        FunctionFinder child deposited the results list and dataset.
+        Status writes (update_status / get_status / mark_terminal) continue
+        to use self.status_row_pk via the base class — only data reads are
+        redirected here.
+        """
+        from zunzun import dispatch_data
+
+        return dispatch_data.load_item(self.ranking_status_pk, inSessionStoreName, inItemName)
 
     def build_child_payload(self):
         payload = super().build_child_payload()
         # self.rank is set by the view dispatcher (LRP.rank = rank) before
         # build_child_payload is called; carry it into the child.
         payload.extra["rank"] = self.rank
+        # ranking_status_pk: belt-and-suspenders transport so that the child
+        # also has the correct pk if it ever needs to call
+        # LoadItemFromSessionStore (currently all reads happen in the parent's
+        # TransferFormDataToDataObject and are carried via the attributes
+        # below, but the override is active in the child too).
+        payload.extra["ranking_status_pk"] = self.ranking_status_pk
         # These are set in TransferFormDataToDataObject (runs in the
         # parent) and read later by GenerateListOfOutputReports +
         # CreateReportOutput templates (run in the child). Fresh spawn
@@ -48,6 +74,7 @@ class FunctionFinderResults(FittingBaseClass.FittingBaseClass):
     def apply_child_payload(self, payload):
         super().apply_child_payload(payload)
         self.rank = payload.extra["rank"]
+        self.ranking_status_pk = payload.extra.get("ranking_status_pk")
         for attr in (
             "functionFinderResultsList",
             "numberOfEquationsToDisplay",
@@ -119,14 +146,14 @@ class FunctionFinderResults(FittingBaseClass.FittingBaseClass):
 
         import time  # acts strangely if import is at top of file
 
-        # Supersession guard, for parity with the base class and FunctionFinder
-        # overrides: a newer dispatch in concurrent-disallowed mode deletes our
-        # status row, and get_status -> None is that signal. This override
-        # writes only a disk artifact + update_status (no shared `data` blob),
-        # so a superseded run here is already harmless — but bail anyway to skip
-        # the wasted render and keep every RenderOutputHTML override
-        # structurally identical, so any shared-state write added here later is
-        # automatically gated.
+        # Defensive skip, for parity with the base class and FunctionFinder
+        # overrides: if the housekeeping age-sweep deleted this dispatch's
+        # status row mid-flight, get_status -> None is the signal. This override
+        # writes only a disk artifact + update_status (no shared blob — each
+        # child writes its own per-dispatch LRPDispatchData row), so bailing
+        # here just skips the wasted render and keeps every RenderOutputHTML
+        # override structurally identical, so any state write added here later
+        # is automatically gated.
         if self.get_status("process_id") is None:
             return
 

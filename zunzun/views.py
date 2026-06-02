@@ -4,15 +4,14 @@ import os
 import time
 import urllib.parse
 
-import django.http  # to raise 404's
 import numpy
 import pyeq3
 import scipy.interpolate
 from django import db
-from django.contrib.sessions.backends.db import SessionStore
 from django.core.mail import EmailMessage
-from django.db import close_old_connections
-from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
+from django.db import InterfaceError, OperationalError, close_old_connections
+from django.db.models import Q
+from django.http import Http404, HttpResponse, HttpResponseRedirect, JsonResponse
 from django.shortcuts import render
 from django.views.decorators.cache import cache_control, cache_page
 from django_ratelimit.decorators import ratelimit
@@ -24,6 +23,56 @@ from .LongRunningProcess.child_payload import _run_fit_child
 from .session_helpers import save_with_retry
 
 _logger = logging.getLogger(__name__)
+
+# Heartbeat staleness threshold in seconds. A row whose last_status_check is
+# older than this is considered abandoned by the per-user cap and the
+# probe-on-demand block. MUST stay in sync with CheckIfStillUsed's 300s
+# abandonment window in StatusMonitoredLongRunningProcessPage.
+_HEARTBEAT_STALE_SECS = 300
+
+
+def _sweep_aged_rows():
+    """Reclaim LRPStatus rows whose session has expired (both timestamps older
+    than SESSION_COOKIE_AGE). EXCLUDES completed FILE-BACKED results
+    (state=TERMINAL with redirect_to_results under TEMP_FILES_DIR): their
+    retention is tied to the temp/ artifact via _sweep_orphaned_terminal_rows
+    (reaped when the size-bounded prune removes the file), so a shareable
+    /Results/<token>/ link survives session expiry as documented. Abandoned
+    in-progress rows, FunctionFinder URL-redirect results, and crashed
+    empty-redirect rows are still age-reaped."""
+    from django.conf import settings
+
+    from zunzun.models import LRPStatus
+
+    cutoff = time.time() - settings.SESSION_COOKIE_AGE
+    LRPStatus.objects.filter(last_status_check__lt=cutoff, start_time__lt=cutoff).exclude(
+        state=LRPStatus.State.TERMINAL,
+        redirect_to_results__startswith=settings.TEMP_FILES_DIR,
+    ).delete()
+
+
+def _sweep_orphaned_terminal_rows():
+    """Delete TERMINAL LRPStatus rows whose FILE-BACKED result was trimmed from
+    temp/ (the cascade drops their LRPDispatchData). Keeps a shareable result
+    page and its Evaluate button aging out together — the row tracks the file,
+    which the temp-dir prune already bounds by MAX_TEMP_DIR_SIZE_IN_MBYTES.
+
+    Only file-backed results (redirect_to_results under TEMP_FILES_DIR) are
+    swept here. URL-redirect results (FunctionFinder, a /FunctionFinderResults/
+    route, not a file) and empty redirects are left to the row age-sweep — a
+    file-existence check would wrongly reap them.
+    """
+    from django.conf import settings
+
+    from zunzun.models import LRPStatus
+
+    temp_dir = settings.TEMP_FILES_DIR
+    for row in LRPStatus.objects.filter(state=LRPStatus.State.TERMINAL).only(
+        "id", "redirect_to_results"
+    ):
+        target = row.redirect_to_results
+        if target and target.startswith(temp_dir) and not os.path.exists(target):
+            row.delete()
 
 
 def _housekeeping_child(temp_dir: str, max_size_mb: int) -> None:
@@ -59,13 +108,12 @@ def _housekeeping_child(temp_dir: str, max_size_mb: int) -> None:
     except Exception:
         logging.exception("Housekeeping: clear_expired() failed")
 
-    # Reclaim LRPStatus rows whose user session has expired without a new
-    # dispatch (delete-prior-row on dispatch handles the common case).
+    # Reclaim LRPStatus rows whose user session has expired. File-backed
+    # TERMINAL results are excluded — their retention is tied to the temp/
+    # artifact and they are reclaimed by _sweep_orphaned_terminal_rows instead,
+    # so shareable /Results/<token>/ links survive past session expiry.
     try:
-        from zunzun.models import LRPStatus as _LRPStatus
-
-        cutoff = time.time() - settings.SESSION_COOKIE_AGE
-        _LRPStatus.objects.filter(last_status_check__lt=cutoff, start_time__lt=cutoff).delete()
+        _sweep_aged_rows()
     except Exception:
         logging.exception("Housekeeping: LRPStatus age-sweep failed")
 
@@ -103,11 +151,21 @@ def _housekeeping_child(temp_dir: str, max_size_mb: int) -> None:
     except Exception:
         logging.exception("Housekeeping: temp-dir prune failed")
 
+    # Reclaim TERMINAL LRPStatus rows (and their cascaded LRPDispatchData) whose
+    # file-backed result was removed by the temp-dir prune above. Runs after the
+    # prune so newly-trimmed files are swept in the same housekeeping pass.
+    # URL-redirect results (FunctionFinder) and empty redirects are NOT touched
+    # here; they age out via the row age-sweep above.
+    try:
+        _sweep_orphaned_terminal_rows()
+    except Exception:
+        logging.exception("Housekeeping: orphaned-terminal-rows sweep failed")
+
 
 @cache_control(no_cache=True)
 @ratelimit(key="ip", rate="12/m", block=False)
 @middleware.rate_limit_sleep
-def EvaluateAtAPointView(request):
+def EvaluateAtAPointView(request, token):
     import os
     import sys
     import time
@@ -116,14 +174,13 @@ def EvaluateAtAPointView(request):
     if request.method != "POST":
         return HttpResponse("I am not able to process your request.")
 
-    # used to read data from session
-    if "session_key_data" not in list(request.session.keys()):
-        return HttpResponse(
-            "I was unable to read required session data, my apologies. Are session cookies turned off in your browser?"
-        )
+    from zunzun.models import LRPStatus
 
+    row = LRPStatus.objects.filter(result_token=token).first()
+    if row is None:
+        return HttpResponse("This result has expired.")
     LRP = LongRunningProcess.FittingBaseClass.FittingBaseClass()
-    LRP.session_key_data = request.session["session_key_data"]
+    LRP.status_row_pk = row.pk
 
     # instantiate an equation object using session equation family and name
     LRP.dimensionality = LRP.LoadItemFromSessionStore("data", "dimensionality")
@@ -327,9 +384,7 @@ def _finalize_row_if_child_dead(row) -> bool:
         if (time.time() - row.start_time) < 60:
             return False
 
-    import logging
-
-    logging.warning(
+    _logger.warning(
         "LRPStatus row %s looks abandoned (process_id=%s, no live owner or no "
         "pid written within the pending window); marking it terminal so the "
         "poll loop ends",
@@ -345,35 +400,74 @@ def _finalize_row_if_child_dead(row) -> bool:
     return True
 
 
-@cache_control(no_cache=True)
-def StatusView(request):
+def _active_fit_counts(session_key, ip):
+    """(per_session, per_ip) active fit counts: INITIALIZING/RUNNING rows with
+    a fresh (<_HEARTBEAT_STALE_SECS) heartbeat. Mirrors CheckIfStillUsed's
+    abandonment window so 'the system thinks it's alive' and 'the cap counts
+    it' stay consistent."""
     from zunzun.models import LRPStatus
 
-    row = LRPStatus.objects.filter(pk=request.session.get("lrp_status_pk")).first()
+    fresh = time.time() - _HEARTBEAT_STALE_SECS
+    base = LRPStatus.objects.exclude(state=LRPStatus.State.TERMINAL).filter(
+        last_status_check__gte=fresh
+    )
+    per_session = base.filter(owner_session_key=session_key).count() if session_key else 0
+    per_ip = base.filter(owner_ip=ip).count() if ip else 0
+    return (per_session, per_ip)
+
+
+def _reservation_exceeds_cap(status_pk, session_key, ip, max_session, max_ip):
+    """After creating our LRPStatus row, decide if WE are an excess creator
+    that raced past the (check-then-act) gate.  Counts active (non-TERMINAL,
+    fresh-heartbeat) rows created no later than ours (pk <= status_pk) for this
+    session / IP; if that exceeds the cap we lost the race (the earliest `cap`
+    rows always survive — deterministic, no over-rejection, single dispatch
+    always counts 1).  Empty session_key / ip never reserve a slot."""
+    from zunzun.models import LRPStatus
+
+    fresh = time.time() - _HEARTBEAT_STALE_SECS
+    base = LRPStatus.objects.exclude(state=LRPStatus.State.TERMINAL).filter(
+        last_status_check__gte=fresh, pk__lte=status_pk
+    )
+    if session_key and base.filter(owner_session_key=session_key).count() > max_session:
+        return True
+    if ip and base.filter(owner_ip=ip).count() > max_ip:
+        return True
+    return False
+
+
+def _load_owned_status_row(request, pk):
+    """Return the LRPStatus row for `pk` only if it belongs to this session.
+
+    Returns None for both "no such row" and "not your row" so callers can
+    raise an identical 404 either way — a 404 that differs between the two
+    leaks pk existence as an enumeration oracle (sequential pks are visible
+    in the URL). The session cookie is the access boundary; the pk alone is
+    useless without it.
+    """
+    from zunzun.models import LRPStatus
+
+    row = LRPStatus.objects.filter(pk=pk).first()
+    session_key = request.session.session_key
+    if row is None or not row.is_owned_by(session_key):
+        return None
+    return row
+
+
+@cache_control(no_cache=True)
+def StatusView(request, pk):
+    from zunzun.models import LRPStatus
+
+    row = _load_owned_status_row(request, pk)
     if row is None:
-        return HttpResponse("I could not read your session data, please try again.")
+        raise Http404
 
-    # Completion handoff: read, clear, serve file body OR HttpResponseRedirect.
-    # Behavior unchanged from the original implementation (only the backing
-    # store moved from the session blob to the LRPStatus row).
-    if row.redirect_to_results:
-        redirect = row.redirect_to_results
-        LRPStatus.objects.filter(pk=row.pk).update(redirect_to_results="")
-
-        db.connections.close_all()
-        close_old_connections()
-
-        if redirect.startswith(settings.TEMP_FILES_DIR):
-            # encoding="utf-8" matches the writer in
-            # RenderOutputHTMLToAFileAndSetStatusRedirect and
-            # _run_fit_child's terminal-error fallback. Without it,
-            # the default locale encoding (cp1252 on Windows) would
-            # mis-decode any non-ASCII byte in the result HTML.
-            with open(redirect, "r", encoding="utf-8") as f:
-                s = f.read()
-            return HttpResponse(s)
-        else:
-            return HttpResponseRedirect(redirect)
+    # Completion handoff: redirect owner to the shareable ResultsView URL.
+    # ResultsView serves the result HTML by token — no cookie check, so the
+    # link is bookmarkable. Do NOT clear redirect_to_results here; ResultsView
+    # reads it directly and is idempotent (reloading the shareable URL works).
+    if row.state == LRPStatus.State.TERMINAL and row.redirect_to_results:
+        return HttpResponseRedirect(f"/Results/{row.result_token}/")
 
     # Backstop: a child that died without finalizing its row (SIGKILL / OOM /
     # crash, or a failed terminal write) is detected here and promoted to
@@ -383,11 +477,12 @@ def StatusView(request):
 
     # Terminal without a deliverable redirect: the fit finished (state ==
     # TERMINAL is the durable terminal signal) but there is nothing to serve — a
-    # mid-fit crash whose error page could not be written, or a success whose
-    # redirect was already served & cleared in another tab. Serve a terminal
-    # page so the poll loop ends; without this the request falls through to the
-    # in-progress render and StatusUpdateView (also keyed on state) bounces the
-    # browser back here indefinitely.
+    # mid-fit crash whose error page could not be written. redirect_to_results is
+    # never cleared (ResultsView reads it idempotently), so an empty redirect here
+    # means no success redirect was ever written. Serve a terminal page so the poll
+    # loop ends; without this the request falls through to the in-progress render
+    # and StatusUpdateView (also keyed on state) bounces the browser back here
+    # indefinitely.
     if row.state == LRPStatus.State.TERMINAL:
         return render(
             request,
@@ -414,22 +509,23 @@ def StatusView(request):
             "loadavg": list(loadavg),
             "coreCount": multiprocessing.cpu_count(),
             "parallelProcessCount": row.parallel_count,
+            "pk": pk,
         },
     )
 
 
 @cache_control(no_cache=True)
-def StatusUpdateView(request):
+def StatusUpdateView(request, pk):
     """JSON polling endpoint for the status page.
 
     Returns the live status fields (currentStatus, elapsed, loadavg) as JSON.
-    On completion, returns {"completed": True} and intentionally does NOT
-    clear redirect_to_results — that's StatusView's job when the browser
-    follows up.
+    On completion, returns {"completed": True}. redirect_to_results is never
+    cleared — ResultsView reads it idempotently so the shareable link stays
+    valid across refreshes.
     """
     from zunzun.models import LRPStatus
 
-    row = LRPStatus.objects.filter(pk=request.session.get("lrp_status_pk")).first()
+    row = _load_owned_status_row(request, pk)
     if row is None:
         # Matches StatusView's defensive handling: missing pk, expired
         # session, or never dispatched. JS treats any non-2xx as "wait and
@@ -444,12 +540,11 @@ def StatusUpdateView(request):
 
     # Completion: report immediately. The durable terminal signal
     # (state == TERMINAL) — every terminal path (success, abort, mid-fit crash)
-    # sets it, and unlike redirect_to_results it survives StatusView clearing
-    # the redirect on serve. Keying off it (not the redirect) means a fit that
-    # finished without a deliverable redirect — a crash whose error page could
-    # not be linked, or a result already served & cleared in another tab —
-    # still ends the poll instead of heartbeating forever. Do NOT clear the
-    # redirect; that's StatusView's job when the browser follows up.
+    # sets it. Keying off it (not the redirect alone) means a fit that finished
+    # without a deliverable redirect — a crash whose error page could not be
+    # linked — still ends the poll instead of heartbeating forever.
+    # redirect_to_results is NOT cleared here; ResultsView reads it idempotently
+    # so the shareable result link stays valid across refreshes.
     if row.state == LRPStatus.State.TERMINAL or row.redirect_to_results:
         return JsonResponse({"completed": True})
 
@@ -471,6 +566,76 @@ def StatusUpdateView(request):
             "parallelProcessCount": row.parallel_count,
         }
     )
+
+
+@cache_control(no_cache=True)
+def StatusRedirectView(request):
+    """Back-compat for the bare /StatusAndResults/ URL (the post-dispatch
+    redirect target). Sends the browser to this session's newest owned
+    in-progress row, else an 'expired' page."""
+    from zunzun.models import LRPStatus
+
+    # A keyless client has no session and therefore owns no rows; querying
+    # owner_session_key="" would match any row created with an empty key.
+    if not request.session.session_key:
+        return render(
+            request,
+            "zunzun/generic_error.html",
+            {"error": "No fit in progress for your session."},
+        )
+    row = (
+        LRPStatus.objects.filter(owner_session_key=request.session.session_key)
+        .exclude(state=LRPStatus.State.TERMINAL)
+        .order_by("-pk")
+        .first()
+    )
+    if row is None:
+        return render(
+            request,
+            "zunzun/generic_error.html",
+            {"error": "No fit in progress for your session."},
+        )
+    return HttpResponseRedirect(f"/StatusAndResults/{row.pk}/")
+
+
+@cache_control(no_cache=True)
+def ResultsView(request, token):
+    """Serve the finished result HTML for a shareable capability token. No
+    cookie check — possession of the token grants access. Aged-out token or
+    missing result file renders a clean 'expired' page."""
+    # django.conf.settings (not the raw `settings` module the rest of this file
+    # uses) so the pytest-django `settings` fixture / override_settings can patch
+    # TEMP_FILES_DIR in tests.
+    from django.conf import settings as conf_settings
+
+    from zunzun.models import LRPStatus
+
+    row = LRPStatus.objects.filter(result_token=token).first()
+    if row is None or not row.redirect_to_results:
+        return render(
+            request,
+            "zunzun/generic_error.html",
+            {"error": "This result has expired or is not yet ready."},
+        )
+    target = row.redirect_to_results
+    if target.startswith(conf_settings.TEMP_FILES_DIR):
+        try:
+            with open(target, "r", encoding="utf-8") as f:
+                return HttpResponse(f.read())
+        except FileNotFoundError:
+            return render(
+                request,
+                "zunzun/generic_error.html",
+                {"error": "This result has expired."},
+            )
+        except OSError:
+            _logger.exception("Failed to read result artifact %s", target)
+            return render(
+                request,
+                "zunzun/generic_error.html",
+                {"error": "This result could not be loaded. Please try running the fit again."},
+            )
+    return HttpResponseRedirect(target)
 
 
 @cache_control(no_cache=True)
@@ -521,6 +686,18 @@ def LongRunningProcessView(
             return HttpResponse("Call to function finder results view was incorrect.")
         LRP = LongRunningProcess.FunctionFinderResults.FunctionFinderResults()
         LRP.rank = rank
+        # Capture the ranking dispatch's pk BEFORE it is overwritten by the
+        # `request.session["lrp_status_pk"] = status_row.pk` assignment near
+        # `LRPStatus.objects.create` below. At this point the session pointer
+        # still refers to the FunctionFinder ranking run that produced the
+        # results list. `TransferFormDataToDataObject` (called below) calls
+        # LoadItemFromSessionStore, which FunctionFinderResults overrides to
+        # read from ranking_status_pk rather than its own (empty) row.
+        # Read the STABLE ranking-dispatch key so this value is not clobbered
+        # when the results-page dispatch below writes its own (data-less) row pk
+        # into lrp_status_pk. Every subsequent "Next/Previous Set" and "fit this
+        # equation" link must read from the same ranking dispatch.
+        LRP.ranking_status_pk = request.session.get("functionfinder_ranking_pk")
 
     else:
         return HttpResponse("I could not understand the web request.")
@@ -533,107 +710,82 @@ def LongRunningProcessView(
     LRP.inEquationFamilyName = urllib.parse.unquote(inEquationFamilyName)
     LRP.dimensionality = int(inDimensionality)
 
-    # Per-user "one fit at a time" cap. When ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER
-    # is False (recommended for public deployments), reject a second fit POST
-    # from the same session if the user's PRIOR LRPStatus row shows an active
-    # process_id with a recent status-check heartbeat. Check happens BEFORE
-    # form validation so the user gets a fast "in progress" response rather
-    # than being routed through form processing first. This reads the pk set
-    # by a PRIOR dispatch — it must run BEFORE the create-row block below
-    # overwrites request.session['lrp_status_pk'].
-    if request.method == "POST" and not getattr(
-        settings, "ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER", True
-    ):
-        try:
-            from zunzun.models import LRPStatus
+    # Hoist ownership/cap values unconditionally so they are in scope at the
+    # post-create reservation re-check (FIX #3) further below.
+    session_key = request.session.session_key or ""
+    ip = request.META.get("REMOTE_ADDR", "")
+    max_session = getattr(settings, "MAX_CONCURRENT_FITS_PER_SESSION", 1)
+    max_ip = getattr(settings, "MAX_CONCURRENT_FITS_PER_IP", 4)
 
-            row = LRPStatus.objects.filter(pk=request.session.get("lrp_status_pk")).first()
-            # Apply the dead-child backstop before judging the prior fit: a
-            # child killed by SIGKILL/OOM/segfault (or one whose terminal write
-            # failed) leaves the row state=RUNNING with a heartbeat that can stay
-            # fresh for up to 300s, which would block this user's retry even
-            # though no fit is running. _finalize_row_if_child_dead promotes such
-            # a row to state=TERMINAL (process_id=0) in place, so the
-            # is_active/is_pending checks below see the released state. This
-            # mirrors what the status views already do on the poll path; without
-            # it the gate is the one place a provably-dead fit still gates. (A
-            # live fit's pid passes the probe and is left untouched, so genuine
-            # in-progress fits still block.)
-            if row is not None:
-                _finalize_row_if_child_dead(row)
-            now = time.time()
-            # Block if EITHER:
-            #  - a child has written process_id and its heartbeat is fresh
-            #    (within 300s — matches CheckIfStillUsed's abandoned-fit
-            #    threshold so the gate stays consistent: if the system
-            #    considers a fit alive, the cap blocks; once the system
-            #    considers it abandoned, the cap allows replacement).
-            #    `state == RUNNING` excludes terminal rows so a finished fit —
-            #    result already deliverable — never registers as active and
-            #    blocks the user's next POST for the 300s heartbeat window.
-            #  - a fit was just dispatched (start_time recent) but the child
-            #    hasn't yet written process_id — the race window between the
-            #    parent creating the row and the child's first PerformAllWork
-            #    status write (~50-500ms). `state == INITIALIZING` means the
-            #    child has not claimed the row and it is not terminal. The 60s
-            #    bound is a deliberately generous upper limit on that sub-second
-            #    gap (slack absorbs a heavily-loaded box where the child's first
-            #    status write is delayed); it debounces double-clicks, not
-            #    long-running fits, which are caught by is_active instead.
-            # Missing row → no active fit → allow.
-            is_active = (
-                bool(row)
-                and row.state == LRPStatus.State.RUNNING
-                and row.process_id
-                and (now - row.last_status_check) < 300
-            )
-            is_pending = (
-                bool(row)
-                and row.state == LRPStatus.State.INITIALIZING
-                and (now - row.start_time) < 60
-            )
-            if is_active or is_pending:
+    # FunctionFinderResults is a GET that also reaches the status-row-creation
+    # + spawn path (userInterfaceRequired=False, not gated by the POST check).
+    # Include it so refresh/Next-spam cannot spawn unbounded render children.
+    _will_spawn_child = request.method == "POST" or (
+        request.path.find("FunctionFinderResults/") != -1
+    )
+
+    if _will_spawn_child:
+        try:
+            per_session, per_ip = _active_fit_counts(session_key, ip)
+            if per_session >= max_session or per_ip >= max_ip:
+                # Probe-on-demand: only when a cap WOULD block, release any
+                # provably-dead rows (crashed child whose heartbeat is still
+                # fresh) and recount. Keeps the common under-cap path probe-free.
+                from zunzun.models import LRPStatus
+
+                fresh = time.time() - _HEARTBEAT_STALE_SECS
+                candidates = (
+                    LRPStatus.objects.exclude(state=LRPStatus.State.TERMINAL)
+                    .filter(last_status_check__gte=fresh)
+                    .filter(Q(owner_session_key=session_key) | Q(owner_ip=ip))
+                )
+                for r in candidates:
+                    _finalize_row_if_child_dead(r)
+                per_session, per_ip = _active_fit_counts(session_key, ip)
+            if per_session >= max_session:
                 return HttpResponse(
-                    "A fit is already in progress for your session. "
-                    "Please wait for it to complete or "
+                    "You already have a fit in progress for your session. "
+                    "Please wait for it to finish, or "
                     "<a href='/StatusAndResults/'>view its status</a>."
                 )
+            if per_ip >= max_ip:
+                return HttpResponse(
+                    "Too many fits are in progress from your network. "
+                    "Please wait a moment and try again."
+                )
+        except OperationalError, InterfaceError:
+            # Transient DB contention: fail OPEN (caps are anti-abuse, not a
+            # correctness invariant) and warn via the named logger so a
+            # persistent transient fault is still visible.
+            _logger.warning(
+                "Concurrency gate hit a transient DB error; allowing the fit",
+                exc_info=True,
+            )
         except Exception:
-            # Row read failure → fail OPEN (allow the new fit): the cap is soft
-            # anti-abuse, not a correctness invariant, so a transient SQLite
-            # lock shouldn't block a legitimate user. Log it, though — a
-            # PERSISTENT fault would otherwise silently defeat the cap entirely
-            # with no operator signal.
-            import logging
-
-            logging.exception("Per-user fit gate row read failed; allowing new fit")
-
-    if "session_key_data" not in list(request.session.keys()):
-        # sometimes database is momentarily locked, so retry on exception to mitigate
-        s = SessionStore()
-        save_with_retry(s)  # re-raise exception from save operation
-
-        db.connections.close_all()
-        close_old_connections()
-
-        request.session["session_key_data"] = s.session_key
-    LRP.session_key_data = request.session["session_key_data"]
-
-    if "session_key_functionfinder" not in list(request.session.keys()):
-        # sometimes database is momentarily locked, so retry on exception to mitigate
-        s = SessionStore()
-        save_with_retry(s)  # re-raise exception from save operation
-
-        db.connections.close_all()
-        close_old_connections()
-
-        request.session["session_key_functionfinder"] = s.session_key
-    LRP.session_key_functionfinder = request.session["session_key_functionfinder"]
+            # A non-transient error here is a real bug; do NOT silently run the
+            # site uncapped forever — surface it loudly.
+            _logger.exception("Concurrency gate failed with a non-transient error")
+            raise
 
     # if this is not a POST, send an interface if needed
     if LRP.userInterfaceRequired:
         if request.method != "POST":
             request.session["cookie_test"] = 1
+            # The interface form pre-populates from a prior dispatch's stored
+            # data. On a GET no new dispatch row exists yet, so point
+            # status_row_pk at that prior dispatch so
+            # CreateUnboundInterfaceForm's LoadItemFromSessionStore reads resolve.
+            # This is render-only (no status/data writes happen on the GET path);
+            # the POST path creates and uses its own fresh row.
+            if "RANK" in request.GET:
+                # FunctionFinder "fit this equation" form: read the ranked list +
+                # dataset from the STABLE ranking dispatch, not lrp_status_pk (a
+                # FunctionFinderResults page render already moved that pointer to
+                # its own data-less row).
+                LRP.status_row_pk = request.session.get("functionfinder_ranking_pk")
+            else:
+                # Normal fit-form pre-fill: the session's most-recent dispatch.
+                LRP.status_row_pk = request.session.get("lrp_status_pk")
             try:
                 return render(
                     request,
@@ -677,44 +829,64 @@ def LongRunningProcessView(
         if errorString:
             return render(request, "zunzun/generic_error.html", {"error": errorString})
 
-    # Per-dispatch status row. Create a fresh row and point the session at it.
-    # The child writes only this row, so there is no shared cell to race on.
-    # Autocommit makes the row durable before multiprocessing.Process.start()
-    # spawns the child.
-    #
-    # Delete the user's PRIOR row only when concurrent fits are DISALLOWED.
-    # Rationale: a missing row is the supersession signal CheckIfStillUsed uses
-    # to abort an abandoned child (it raises _ReportsPipelineAborted at the next
-    # heartbeat). When ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER is True (the
-    # default), the prior fit is allowed to keep running, so deleting its row
-    # would make ITS CheckIfStillUsed see a missing row and tear the
-    # still-wanted fit down — breaking the concurrent-fit promise. So in
-    # concurrent-allowed mode we leave the prior row for the housekeeping
-    # age-sweep (it's unreferenced once the pointer moves below). In
-    # concurrent-disallowed mode, reaching this block means the per-user gate
-    # already judged the prior fit stale or completed, so deleting it is the
-    # intended supersession and the superseded child aborting is correct.
-    from zunzun.models import LRPStatus
+    # Per-dispatch status row. Every dispatch creates an independent row; the
+    # prior row is left for the housekeeping age-sweep (retention sweep) to
+    # reclaim. The session pointer below moves to the new row.
+    from zunzun.models import LRPDispatchData, LRPStatus
 
-    old_pk = request.session.get("lrp_status_pk")
-    if old_pk and not getattr(settings, "ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER", True):
-        LRPStatus.objects.filter(pk=old_pk).delete()
     # Stamp last_status_check at dispatch (not only at the first poll) so the
-    # per-user "one fit at a time" gate's is_active check — process_id set AND
-    # (now - last_status_check) < 300 — holds for 300s even if the client never
-    # polls (closed tab / script). Without this, last_status_check would stay
-    # 0.0 until StatusUpdateView's first heartbeat, and a non-polling client
-    # could bypass the cap ~0.5s after the child writes process_id. Restores
-    # the old SetInitialStatusDataIntoSessionVariables semantics where dispatch
-    # time doubled as the first heartbeat.
+    # per-user gate's active check — state != TERMINAL AND last_status_check
+    # within 300s — holds for 300s even if the client never polls (closed tab /
+    # script). Without this, last_status_check would stay 0.0 until
+    # StatusUpdateView's first heartbeat, and a non-polling client could bypass
+    # the cap immediately. Restores the old
+    # SetInitialStatusDataIntoSessionVariables semantics where dispatch time
+    # doubled as the first heartbeat.
+    if request.session.session_key is None:
+        save_with_retry(request.session)  # mint a key before stamping ownership
     now = time.time()
     status_row = LRPStatus.objects.create(
         start_time=now,
         last_status_check=now,
         current_status="Initializing",
+        owner_session_key=request.session.session_key,
+        owner_ip=request.META.get("REMOTE_ADDR", ""),
     )
+
+    # Post-create race guard (FIX #3): close the check-then-act window.  Two
+    # near-simultaneous dispatches (double-click) can both pass the pre-create
+    # gate above.  Now that our row exists (with a real pk), recount with
+    # pk <= status_row.pk so the earliest `cap` creators always win and the
+    # later excess creator is the one that backs off.  At this point only the
+    # LRPStatus row exists; LRPDispatchData + child spawn happen below, so
+    # status_row.delete() is the only cleanup needed.
+    if _will_spawn_child and _reservation_exceeds_cap(
+        status_row.pk, session_key, ip, max_session, max_ip
+    ):
+        status_row.delete()
+        return HttpResponse(
+            "You already have a fit in progress for your session. "
+            "Please wait for it to finish, or "
+            "<a href='/StatusAndResults/'>view its status</a>."
+        )
+
     request.session["lrp_status_pk"] = status_row.pk
     LRP.status_row_pk = status_row.pk
+
+    # The FunctionFinder RANKING dispatch's data (ranked equation list + dataset)
+    # is read back by every later FunctionFinderResults page and by the
+    # "/FitEquation/?RANK=N" equation-fit form. Those follow-up dispatches each
+    # OVERWRITE lrp_status_pk with their own (data-less) row, so the ranking pk
+    # must live in a dedicated session key they do not clobber. Set it ONLY for
+    # the ranking dispatch (the FunctionFinder__ path — NOT FunctionFinderResults).
+    if request.path.find("FunctionFinder__") != -1:
+        request.session["functionfinder_ranking_pk"] = status_row.pk
+
+    # Create the per-dispatch data row in the PARENT, before the child spawns
+    # and before SetInitialStatusDataIntoSessionVariables runs: save_items /
+    # load_item assume it already exists, and pre-creating it here avoids a
+    # get_or_create OneToOne create-race (an IntegrityError _retry won't catch).
+    LRPDispatchData.objects.create(status=status_row)
 
     LRP.SetInitialStatusDataIntoSessionVariables(request)
 
@@ -735,7 +907,9 @@ def LongRunningProcessView(
     child.start()
 
     # using HTTP_HOST allows dev server
-    return HttpResponseRedirect("http://" + request.META["HTTP_HOST"] + "/StatusAndResults/")
+    return HttpResponseRedirect(
+        "http://" + request.META["HTTP_HOST"] + f"/StatusAndResults/{status_row.pk}/"
+    )
 
 
 @cache_page(60 * 60)  # 60 minutes

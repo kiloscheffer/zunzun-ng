@@ -6,11 +6,10 @@ row and, when the fit is abandoned, tears down the fit pool + terminates
 worker children AND raises _ReportsPipelineAborted so the abort propagates up
 to PerformAllWork (which catches it) — stopping the LRP child itself, not just
 its pools. Abandonment is ANY of:
-  - the row is GONE (get_status -> None): a newer dispatch superseded this one
-    and deleted it (delete-prior-row in LongRunningProcessView), or the
-    housekeeping age-sweep removed it — either way this fit is abandoned, OR
-  - a different (foreign) process_id appears in the row (a newer fit took
-    over this user's session under the concurrent-disallowed config), OR
+  - the row is GONE (get_status -> None): the housekeeping age-sweep reclaimed
+    it — this fit is abandoned, OR
+  - a different (foreign) process_id appears in the row (a defensive backstop:
+    some other fit reused this row's pk), OR
   - the heartbeat (last_status_check, falling back to start_time) is stale
     (> 300s), meaning the client stopped polling and the fit was abandoned.
 

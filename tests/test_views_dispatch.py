@@ -4,15 +4,17 @@ POSTs to fit URLs are expected to:
   1. validate the form,
   2. build a ChildPayload,
   3. call multiprocessing.get_context("spawn").Process(...).start(),
-  4. redirect to /StatusAndResults/.
+  4. redirect to /StatusAndResults/<pk>/.
 
 multiprocessing.context.SpawnProcess.start is patched to a no-op via
 the mocked_process_start fixture, so no actual child is spawned.
 
 The view builds its redirect using request.META['HTTP_HOST']; under
 the Django test client this resolves to 'testserver' so the redirect
-target is 'http://testserver/StatusAndResults/'.
+target is 'http://testserver/StatusAndResults/<pk>/'.
 """
+
+import re
 
 import pytest
 
@@ -52,9 +54,11 @@ def test_fit_post_dispatches_and_redirects(client, mocked_process_start):
         data=_VALID_POLY_FIELDS,
         HTTP_HOST="testserver",
     )
-    # Successful dispatch returns a redirect to the status page.
+    # Successful dispatch returns a redirect to the pk-addressed status page.
     assert response.status_code == 302
-    assert response.url.endswith("/StatusAndResults/")
+    assert re.search(r"/StatusAndResults/\d+/$", response.url), (
+        f"Expected /StatusAndResults/<pk>/ redirect, got: {response.url}"
+    )
     # The Process.start mock was called exactly once.
     assert mocked_process_start.call_count == 1
 
@@ -68,13 +72,16 @@ def test_characterize_post_dispatches(client, mocked_process_start):
         HTTP_HOST="testserver",
     )
     assert response.status_code == 302
-    assert response.url.endswith("/StatusAndResults/")
+    assert re.search(r"/StatusAndResults/\d+/$", response.url), (
+        f"Expected /StatusAndResults/<pk>/ redirect, got: {response.url}"
+    )
     assert mocked_process_start.call_count == 1
 
 
 @pytest.mark.django_db
-def test_status_view_renders_without_session_keys(client):
-    """GET /StatusAndResults/ with no session keys should not crash."""
+def test_status_redirect_view_renders_without_session_keys(client):
+    """GET /StatusAndResults/ (bare) with no active row returns the
+    'No fit in progress' page (200) — StatusRedirectView's no-row branch."""
     response = client.get("/StatusAndResults/")
-    # The view should render or return a sensible 200/4xx — not 500.
-    assert response.status_code in (200, 302, 400, 404)
+    assert response.status_code == 200
+    assert b"No fit in progress" in response.content

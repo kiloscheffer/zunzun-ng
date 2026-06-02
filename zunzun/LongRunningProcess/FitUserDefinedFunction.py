@@ -117,7 +117,7 @@ class FitUserDefinedFunction(FittingBaseClass.FittingBaseClass):
             # place where the redirect can be written for this path.
             self.mark_terminal(redirect=error_html_path or "")
             # Raise SystemExit so the spawned child terminates cleanly without
-            # overwriting the redirect already written to the session store.
+            # overwriting the redirect already written to the LRPStatus ORM row.
             # SystemExit is a BaseException, not Exception, so the generic
             # "unknown exception" handler in _run_fit_child does not fire.
             # The finally block in _run_fit_child provides the post-work sleep.

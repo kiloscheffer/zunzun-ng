@@ -66,6 +66,8 @@ or `/Library/LaunchDaemons/com.zunzun-ng.waitress.plist` (system-level):
     <array>
         <string>/usr/local/var/zunzun-ng/.venv/bin/waitress-serve</string>
         <string>--listen=127.0.0.1:8000</string>
+        <string>--trusted-proxy=127.0.0.1</string>
+        <string>--trusted-proxy-headers=x-forwarded-for</string>
         <string>wsgi:application</string>
     </array>
 

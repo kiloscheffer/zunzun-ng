@@ -6,3 +6,38 @@ The pre-fork (zunzunsite3) change log is preserved at the dormant
 upstream repository:
 
 https://bitbucket.org/zunzuncode/zunzunsite3/commits/all
+
+--- Notable changes (summarised here; full history on GitHub) ---
+
+feat/per-dispatch-isolation (merged 2026-06)
+  Per-dispatch data isolation and concurrent-fits production posture.
+
+  BREAKING CONFIG CHANGE: the `ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER`
+  boolean is removed. Its True mode (unlimited concurrent fits per session)
+  was the problematic default. Replace it with two explicit caps in
+  settings.py:
+    MAX_CONCURRENT_FITS_PER_SESSION  (default 1, matches old False mode)
+    MAX_CONCURRENT_FITS_PER_IP       (default 4)
+  Both are env-overridable:
+    ZUNZUN_MAX_CONCURRENT_FITS_PER_SESSION
+    ZUNZUN_MAX_CONCURRENT_FITS_PER_IP
+
+  New model: LRPDispatchData (migration 0006_lrpdispatchdata_and_ownership)
+    OneToOne -> LRPStatus, on_delete=CASCADE. Holds per-dispatch `data` and
+    `functionfinder` JSON fields (encoder=NumpyJSONEncoder), replacing the
+    old per-session SessionStore blobs keyed by session_key_data /
+    session_key_functionfinder. Read/write via zunzun/dispatch_data.py.
+
+  Shareable result links: every LRPStatus row auto-mints a unique
+  result_token (secrets.token_urlsafe). On completion, the owner is
+  redirected from /StatusAndResults/<pk>/ to /Results/<token>/. The token
+  URL carries no cookie check — possession grants access.
+
+  Status pages are now pk-addressed (/StatusAndResults/<pk>/, /StatusUpdate/<pk>/)
+  with an ownership check (_load_owned_status_row) that returns an identical
+  404 for both "not found" and "not yours" to avoid pk enumeration.
+
+  Housekeeping gains _sweep_orphaned_terminal_rows: TERMINAL rows whose
+  file-backed result was trimmed from temp/ are deleted (cascading their
+  LRPDispatchData). URL-redirect and empty-redirect rows age out via the
+  existing row age-sweep.

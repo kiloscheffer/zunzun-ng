@@ -245,7 +245,7 @@ def test_mark_terminal_omitted_redirect_does_not_clobber():
 
 @pytest.mark.django_db
 def test_mark_terminal_noop_on_missing_row():
-    """A superseding dispatch may have deleted the row; the keyed update
+    """The housekeeping age-sweep may have reclaimed the row; the keyed update
     matches zero rows and must not raise."""
     from zunzun.models import LRPStatus
 

@@ -28,7 +28,6 @@ class ChildPayload:
       "zunzun.LongRunningProcess.FitOneEquation.FitOneEquation".
       The child uses importlib + getattr to resurrect the LRP class,
       then hydrates fields from this payload.
-    session_key_*: Django SessionStore keys (strings).
     dimensionality: 1, 2, or 3.
     renice_level: Unix nice value to apply via platform_compat.
     data_object: the existing DataObject attr-bag; already picklable.
@@ -41,8 +40,6 @@ class ChildPayload:
     """
 
     lrp_class_path: str
-    session_key_data: str
-    session_key_functionfinder: str
     dimensionality: int
     renice_level: int
     data_object: Any
@@ -141,15 +138,13 @@ def _run_fit_child(payload: ChildPayload) -> None:
 
     # Reconstruct the LRP. Both hydration AND PerformAllWork live
     # inside the try so failures in either path still produce a
-    # terminal redirect. Set the session keys + status_row_pk directly
-    # from payload BEFORE calling apply_child_payload, since a subclass
-    # override that validates payload.extra first could raise before
+    # terminal redirect. Set status_row_pk directly from payload
+    # BEFORE calling apply_child_payload, since a subclass override
+    # that validates payload.extra first could raise before
     # super().apply_child_payload() runs. The except-branch's terminal
     # write below addresses the LRPStatus row by payload.status_row_pk
     # directly, so it does not depend on apply_child_payload having run.
     lrp = lrp_class()
-    lrp.session_key_data = payload.session_key_data
-    lrp.session_key_functionfinder = payload.session_key_functionfinder
     lrp.status_row_pk = payload.status_row_pk
 
     try:
@@ -205,18 +200,21 @@ def _run_fit_child(payload: ChildPayload) -> None:
 
         try:
             # Publish the terminal redirect to THIS dispatch's row. No
-            # ownership check: a newer dispatch has its own row, and if
-            # it deleted ours the update matches zero rows (harmless).
+            # ownership check: every dispatch has its own row, and if the
+            # housekeeping age-sweep reclaimed ours the update matches zero
+            # rows (harmless).
             from zunzun.models import LRPStatus
 
             # Don't clobber a row an earlier successful stage already
             # finalized (e.g., RenderOutputHTML succeeded — setting
             # state=TERMINAL — then the success-path process_id-cleanup
             # raised). Guard on the durable `state == TERMINAL`, NOT on
-            # redirect_to_results: StatusView clears the redirect to "" the
-            # moment it serves the result, so a redirect-based check would
-            # mistake a served-and-cleared success for "no redirect yet" and
-            # overwrite it with this error page. state=TERMINAL survives that.
+            # redirect_to_results: a terminal row can legitimately carry an
+            # empty redirect_to_results (a mid-fit crash whose error page
+            # could not be written), so a redirect-based check would mistake
+            # such a finished-but-no-deliverable fit for "no redirect yet" and
+            # overwrite this error page onto it. state=TERMINAL is the durable
+            # terminal signal and does not have that ambiguity.
             current_state = (
                 LRPStatus.objects.filter(pk=payload.status_row_pk)
                 .values_list("state", flat=True)

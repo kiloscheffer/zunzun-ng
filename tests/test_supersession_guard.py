@@ -1,14 +1,21 @@
-"""Tests for the superseded-dispatch guard on shared-session blob writes.
+"""Tests for the defensive early-return guard and per-dispatch write isolation.
 
-The `data` and `functionfinder` session stores are still per-USER blobs
-(reused across dispatches). When a newer dispatch supersedes an older one it
-deletes the older dispatch's LRPStatus row (delete-prior-row in
-LongRunningProcessView). A still-running superseded child must therefore NOT
-write those shared blobs, or it would clobber the winning dispatch's results
-that `/FunctionFinderResults/` and EvaluateAtAPoint later read.
+With per-dispatch isolation each child has its own LRPStatus row AND its own
+LRPDispatchData row.  No dispatch deletes a prior row, and there is no shared
+session blob that a concurrent child could clobber.
 
-A missing status row (get_status -> None) is the supersession signal; the
-RenderOutputHTML methods short-circuit on it before any shared-state write.
+The ``if self.get_status("process_id") is None: return`` guard in
+RenderOutputHTMLToAFileAndSetStatusRedirect is now a minor defensive skip: if
+the housekeeping age-sweep deletes the row mid-flight the child returns early
+rather than trying to write a terminal redirect to a deleted row.  It is NOT a
+clobber guard anymore.
+
+Tests in this file cover:
+1. Row-gone path: early return with no writes (the guard's surviving purpose).
+2. Row-present path: writes + redirect happen normally (guard does not
+   over-block).
+3. Per-dispatch isolation: a child writing to its own LRPDispatchData row does
+   NOT touch a sibling dispatch's row.
 """
 
 import os
@@ -18,13 +25,15 @@ import pytest
 
 
 @pytest.mark.django_db
-def test_functionfinder_skips_shared_blob_write_when_superseded():
-    """A superseded FunctionFinder child (its status row deleted) must NOT
-    write the shared functionfinder/data blobs nor set a redirect."""
+def test_functionfinder_skips_writes_when_row_gone():
+    """Guard surviving purpose: if the housekeeping sweep deleted this
+    dispatch's LRPStatus row mid-flight, RenderOutputHTMLToAFileAndSetStatusRedirect
+    returns early without writing or raising.  No shared blob to clobber — the
+    early return just avoids a pointless update_status no-op on a deleted row."""
     from zunzun.LongRunningProcess.FunctionFinder import FunctionFinder
 
     lrp = FunctionFinder()
-    lrp.status_row_pk = 9_999_999  # no such row -> superseded
+    lrp.status_row_pk = 9_999_999  # no such row -> get_status returns None
     lrp.functionFinderResultsList = [["x"]]
     lrp.dataObject = mock.Mock()
     lrp.dataObject.dimensionality = 2
@@ -40,9 +49,9 @@ def test_functionfinder_skips_shared_blob_write_when_superseded():
 
 
 @pytest.mark.django_db
-def test_functionfinder_writes_shared_blob_when_row_present():
+def test_functionfinder_writes_when_row_present():
     """Guard must not over-block: with a live status row the normal
-    shared-blob writes + redirect still happen."""
+    per-dispatch writes + redirect still happen."""
     from zunzun.LongRunningProcess.FunctionFinder import FunctionFinder
     from zunzun.models import LRPStatus
 
@@ -65,16 +74,16 @@ def test_functionfinder_writes_shared_blob_when_row_present():
 
 
 @pytest.mark.django_db
-def test_base_render_output_skips_shared_writes_when_superseded():
-    """The base RenderOutputHTML writes the shared `data` blob via
-    SaveSpecificDataToSessionStore (read later by EvaluateAtAPoint). A
-    superseded dispatch (row deleted) must skip it."""
+def test_base_render_output_skips_writes_when_row_gone():
+    """Guard surviving purpose for the base class: if the housekeeping sweep
+    deleted this dispatch's LRPStatus row mid-flight, the method returns early
+    without calling SaveSpecificDataToSessionStore or update_status."""
     from zunzun.LongRunningProcess.StatusMonitoredLongRunningProcessPage import (
         StatusMonitoredLongRunningProcessPage,
     )
 
     lrp = StatusMonitoredLongRunningProcessPage()
-    lrp.status_row_pk = 9_999_999  # no such row -> superseded
+    lrp.status_row_pk = 9_999_999  # no such row -> get_status returns None
 
     with (
         mock.patch.object(lrp, "SaveSpecificDataToSessionStore") as mock_save,
@@ -84,3 +93,30 @@ def test_base_render_output_skips_shared_writes_when_superseded():
 
     mock_save.assert_not_called()
     mock_update.assert_not_called()
+
+
+@pytest.mark.django_db
+def test_per_dispatch_write_isolation():
+    """Per-dispatch isolation: a child writing to its own LRPDispatchData row
+    does NOT affect a sibling dispatch's row.  No shared blob exists that one
+    child could clobber for another.
+
+    This is the new invariant that replaced the old clobber-guard rationale.
+    """
+    from zunzun import dispatch_data
+    from zunzun.models import LRPDispatchData, LRPStatus
+
+    row_a = LRPStatus.objects.create(start_time=1.0)
+    row_b = LRPStatus.objects.create(start_time=2.0)
+    LRPDispatchData.objects.create(status=row_a)
+    LRPDispatchData.objects.create(status=row_b)
+
+    # Child A writes its data blob.
+    dispatch_data.save_items(row_a.pk, "data", {"equation": "y=a*x"})
+
+    # Child B's data blob must be unaffected.
+    result = dispatch_data.load_item(row_b.pk, "data", "equation", default=None)
+    assert result is None, f"Row B's data blob was contaminated by row A's write: {result!r}"
+
+    # Sanity: row A's own write is visible.
+    assert dispatch_data.load_item(row_a.pk, "data", "equation") == "y=a*x"

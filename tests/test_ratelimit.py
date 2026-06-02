@@ -60,7 +60,13 @@ def test_thirteenth_rapid_post_is_rate_limited(client, mocked_process_start):
     # value keeps them in one window. Patch the name in core's namespace only —
     # zunzun.middleware's own `time` import (used by rate_limit_sleep) is
     # untouched, so the time.sleep patch below still intercepts the limiter's sleep.
-    with patch("django_ratelimit.core.time") as ratelimit_clock:
+    # Set caps high so the concurrency gate never interferes: this test is
+    # about the rate-limiter, not the per-session/per-IP caps.
+    with (
+        patch("django_ratelimit.core.time") as ratelimit_clock,
+        patch("settings.MAX_CONCURRENT_FITS_PER_SESSION", 99, create=True),
+        patch("settings.MAX_CONCURRENT_FITS_PER_IP", 99, create=True),
+    ):
         ratelimit_clock.time.return_value = 1_700_000_000
 
         # First 12 posts: succeed (302 redirect to /StatusAndResults/),

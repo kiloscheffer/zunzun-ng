@@ -2,8 +2,7 @@
 
 Pins completion-branch behavior (file body serve, URL redirect, redirect
 clearing) and the JSON polling endpoint, now backed by the per-dispatch
-LRPStatus row (request.session['lrp_status_pk']) rather than the old
-shared status session blob.
+LRPStatus row addressed by pk in the URL with session-ownership checks.
 """
 
 import os
@@ -16,7 +15,7 @@ import settings  # raw module — views.py uses `import settings` directly; patc
 
 def _make_status_row(**kwargs):
     """Create a fresh LRPStatus row with provided field overrides and
-    return it. Caller wires its pk into request.session['lrp_status_pk'].
+    return it. Caller wires its pk into the client session via _wire_status_row.
     """
     from zunzun.models import LRPStatus
 
@@ -24,56 +23,97 @@ def _make_status_row(**kwargs):
 
 
 def _wire_status_row(client, row):
-    """Point the client's request session at the given LRPStatus row."""
+    """Point the client's request session at the given LRPStatus row and
+    stamp the session key on the row as owner so _load_owned_status_row passes."""
+    from zunzun.models import LRPStatus
+
     session = client.session
     session["lrp_status_pk"] = row.pk
     session.save()
+    # Stamp ownership: the pk-addressed views check owner_session_key == session_key.
+    LRPStatus.objects.filter(pk=row.pk).update(owner_session_key=session.session_key)
 
 
 @pytest.mark.django_db
-def test_status_view_serves_file_body_on_completion(client, tmp_path, monkeypatch):
-    """When redirect_to_results is a path inside TEMP_FILES_DIR, StatusView
-    reads the file and returns its contents as the response body.
+def test_status_view_redirects_to_results_token_on_completion(client, tmp_path, monkeypatch):
+    """When redirect_to_results is set and the row is TERMINAL, StatusView
+    redirects to /Results/<token>/ rather than inlining the file. ResultsView
+    at that URL serves the body — the completion handoff still works, just via
+    redirect + ResultsView.
     """
+    import django.conf
+
+    from zunzun.models import LRPStatus
+
+    # Patch the raw settings module (used by StatusView) and also
+    # django.conf.settings (used by ResultsView via conf_settings) so both
+    # views agree on TEMP_FILES_DIR for the Windows-absolute-path startswith check.
     monkeypatch.setattr(settings, "TEMP_FILES_DIR", str(tmp_path))
+    monkeypatch.setattr(django.conf.settings, "TEMP_FILES_DIR", str(tmp_path))
     result_file = tmp_path / "result.html"
     result_file.write_text("<html><body>FAKE RESULT</body></html>")
 
-    row = _make_status_row(redirect_to_results=str(result_file))
+    row = _make_status_row(
+        redirect_to_results=str(result_file),
+        state=LRPStatus.State.TERMINAL,
+    )
     _wire_status_row(client, row)
 
-    response = client.get("/StatusAndResults/")
-    assert response.status_code == 200
-    assert b"FAKE RESULT" in response.content
+    # StatusView redirects to the shareable token URL (302).
+    response = client.get(f"/StatusAndResults/{row.pk}/")
+    assert response.status_code == 302
+    assert response.url == f"/Results/{row.result_token}/"
+
+    # ResultsView at that URL serves the actual file body.
+    result_response = client.get(f"/Results/{row.result_token}/")
+    assert result_response.status_code == 200
+    assert b"FAKE RESULT" in result_response.content
 
 
 @pytest.mark.django_db
 def test_status_view_redirects_on_completion_url(client):
-    """When redirect_to_results is a site-relative URL (does NOT start with
-    TEMP_FILES_DIR), StatusView returns HttpResponseRedirect.
-    """
-    row = _make_status_row(redirect_to_results="/FunctionFinderResults/2/?RANK=1&unused=1")
-    _wire_status_row(client, row)
-
-    response = client.get("/StatusAndResults/")
-    assert response.status_code == 302
-    assert response.url == "/FunctionFinderResults/2/?RANK=1&unused=1"
-
-
-@pytest.mark.django_db
-def test_status_view_clears_redirect_after_consuming(client):
-    """StatusView must clear redirect_to_results after using it, so a
-    subsequent GET to /StatusAndResults/ does not re-fire the redirect.
+    """When redirect_to_results is a site-relative URL and the row is TERMINAL,
+    StatusView redirects to /Results/<token>/ (the shareable link). ResultsView
+    then issues the further redirect to the actual URL (e.g. FunctionFinder results).
     """
     from zunzun.models import LRPStatus
 
-    row = _make_status_row(redirect_to_results="/FunctionFinderResults/2/?RANK=1&unused=1")
+    row = _make_status_row(
+        redirect_to_results="/FunctionFinderResults/2/?RANK=1&unused=1",
+        state=LRPStatus.State.TERMINAL,
+    )
     _wire_status_row(client, row)
 
-    client.get("/StatusAndResults/")
+    response = client.get(f"/StatusAndResults/{row.pk}/")
+    assert response.status_code == 302
+    assert response.url == f"/Results/{row.result_token}/"
+
+    # Second hop: ResultsView issues the further redirect to the original
+    # site-relative URL (no file I/O on the URL branch, so no patching needed).
+    result_response = client.get(f"/Results/{row.result_token}/")
+    assert result_response.status_code == 302
+    assert result_response.url == "/FunctionFinderResults/2/?RANK=1&unused=1"
+
+
+@pytest.mark.django_db
+def test_status_view_does_not_clear_redirect_after_completion(client):
+    """StatusView must NOT clear redirect_to_results after redirecting to
+    /Results/<token>/ — ResultsView reads it directly and is idempotent, so
+    the shareable link must keep working on refresh.
+    """
+    from zunzun.models import LRPStatus
+
+    original_redirect = "/FunctionFinderResults/2/?RANK=1&unused=1"
+    row = _make_status_row(
+        redirect_to_results=original_redirect,
+        state=LRPStatus.State.TERMINAL,
+    )
+    _wire_status_row(client, row)
+
+    client.get(f"/StatusAndResults/{row.pk}/")
 
     reloaded = LRPStatus.objects.get(pk=row.pk)
-    assert reloaded.redirect_to_results == ""
+    assert reloaded.redirect_to_results == original_redirect
 
 
 @pytest.mark.django_db
@@ -90,7 +130,7 @@ def test_status_update_returns_in_progress_json(client):
     )
     _wire_status_row(client, row)
 
-    response = client.get("/StatusUpdate/")
+    response = client.get(f"/StatusUpdate/{row.pk}/")
     assert response.status_code == 200
     data = response.json()
     assert data["completed"] is False
@@ -118,7 +158,7 @@ def test_status_update_returns_completed_when_redirect_set(client):
     )
     _wire_status_row(client, row)
 
-    response = client.get("/StatusUpdate/")
+    response = client.get(f"/StatusUpdate/{row.pk}/")
     assert response.status_code == 200
     assert response.json() == {"completed": True}
 
@@ -139,7 +179,7 @@ def test_status_update_updates_heartbeat(client):
     _wire_status_row(client, row)
 
     before = time.time()
-    client.get("/StatusUpdate/")
+    client.get(f"/StatusUpdate/{row.pk}/")
     after = time.time()
 
     reloaded = LRPStatus.objects.get(pk=row.pk)
@@ -148,8 +188,8 @@ def test_status_update_updates_heartbeat(client):
 
 @pytest.mark.django_db
 def test_status_update_400_when_pk_missing(client):
-    """No lrp_status_pk on the request session -> 400 stale_session."""
-    response = client.get("/StatusUpdate/")
+    """Nonexistent pk -> 400 stale_session (not-found indistinguishable from not-yours)."""
+    response = client.get("/StatusUpdate/999999/")
     assert response.status_code == 400
     assert response.json() == {"error": "stale_session"}
 
@@ -161,9 +201,10 @@ def test_status_update_400_when_row_deleted(client):
 
     row = _make_status_row(current_status="working", start_time=time.time())
     _wire_status_row(client, row)
-    LRPStatus.objects.filter(pk=row.pk).delete()
+    pk = row.pk
+    LRPStatus.objects.filter(pk=pk).delete()
 
-    response = client.get("/StatusUpdate/")
+    response = client.get(f"/StatusUpdate/{pk}/")
     assert response.status_code == 400
     assert response.json() == {"error": "stale_session"}
 
@@ -180,7 +221,7 @@ def test_status_view_renders_template_when_in_progress(client):
     )
     _wire_status_row(client, row)
 
-    response = client.get("/StatusAndResults/")
+    response = client.get(f"/StatusAndResults/{row.pk}/")
     assert response.status_code == 200
     assert response["Content-Type"].startswith("text/html")
 
@@ -206,7 +247,7 @@ def test_status_view_extends_generic_template(client):
     row = _make_status_row(current_status="working", start_time=time.time())
     _wire_status_row(client, row)
 
-    body = client.get("/StatusAndResults/").content.decode("utf-8")
+    body = client.get(f"/StatusAndResults/{row.pk}/").content.decode("utf-8")
     assert "small_logo.png" in body  # header logo from generic template
     assert "custom.css" in body  # site CSS
     assert "FindCurves" in body  # footer link
@@ -226,20 +267,38 @@ def test_status_view_does_not_write_heartbeat(client):
     )
     _wire_status_row(client, row)
 
-    client.get("/StatusAndResults/")
+    client.get(f"/StatusAndResults/{row.pk}/")
 
     reloaded = LRPStatus.objects.get(pk=row.pk)
     assert reloaded.last_status_check == 0.0
 
 
 @pytest.mark.django_db
-def test_status_view_message_when_no_row(client):
-    """If there is no lrp_status_pk / row, StatusView returns a user-visible
-    'could not read your session data' message (200 body).
-    """
+def test_status_redirect_view_no_row(client):
+    """GET /StatusAndResults/ (bare) with no active fit returns a
+    'no fit in progress' error page via StatusRedirectView."""
     response = client.get("/StatusAndResults/")
     assert response.status_code == 200
-    assert b"session data" in response.content
+    assert b"No fit in progress" in response.content
+
+
+@pytest.mark.django_db
+def test_status_redirect_view_redirects_to_pk_url(client):
+    """GET /StatusAndResults/ (bare) with an active non-terminal row redirects
+    to /StatusAndResults/<pk>/."""
+    session = client.session
+    session.save()
+    session_key = session.session_key
+
+    row = _make_status_row(
+        current_status="working",
+        start_time=time.time(),
+        owner_session_key=session_key,
+    )
+
+    response = client.get("/StatusAndResults/")
+    assert response.status_code == 302
+    assert response.url == f"/StatusAndResults/{row.pk}/"
 
 
 @pytest.mark.django_db
@@ -263,7 +322,7 @@ def test_status_update_returns_completed_when_completed_flag_set_without_redirec
     )
     _wire_status_row(client, row)
 
-    response = client.get("/StatusUpdate/")
+    response = client.get(f"/StatusUpdate/{row.pk}/")
     assert response.status_code == 200
     assert response.json() == {"completed": True}
 
@@ -287,7 +346,7 @@ def test_status_view_serves_terminal_page_when_completed_without_redirect(client
     )
     _wire_status_row(client, row)
 
-    response = client.get("/StatusAndResults/")
+    response = client.get(f"/StatusAndResults/{row.pk}/")
     assert response.status_code == 200
     body = response.content.decode("utf-8")
     # Terminal page, not the polling page: the poll script must be absent so
@@ -318,13 +377,40 @@ def test_status_update_finalizes_dead_child_pid(client, monkeypatch):
     )
     _wire_status_row(client, row)
 
-    response = client.get("/StatusUpdate/")
+    response = client.get(f"/StatusUpdate/{row.pk}/")
     assert response.status_code == 200
     assert response.json() == {"completed": True}
 
     reloaded = LRPStatus.objects.get(pk=row.pk)
     assert reloaded.state == LRPStatus.State.TERMINAL
     assert reloaded.process_id == 0
+
+
+@pytest.mark.django_db
+def test_status_update_400_for_foreign_session_row(client):
+    """B1: A row owned by a DIFFERENT session returns 400 stale_session.
+
+    StatusView has the analogous coverage; StatusUpdateView must enforce
+    the same ownership boundary — a dropped ownership clause there would
+    leak another user's live status (currentStatus, elapsed) to any caller
+    who guesses a pk.
+    """
+    from zunzun.models import LRPStatus
+
+    # Create a row belonging to a different session.
+    foreign_row = _make_status_row(
+        current_status="Calculating Error Statistics",
+        start_time=time.time() - 5.0,
+        last_status_check=time.time(),
+        owner_session_key="other-session-key",
+    )
+
+    # Establish our own session (cookie_test is set by GET /).
+    client.get("/")
+
+    response = client.get(f"/StatusUpdate/{foreign_row.pk}/")
+    assert response.status_code == 400
+    assert response.json() == {"error": "stale_session"}
 
 
 @pytest.mark.django_db
@@ -346,7 +432,7 @@ def test_status_view_serves_terminal_page_for_dead_child_pid(client, monkeypatch
     )
     _wire_status_row(client, row)
 
-    response = client.get("/StatusAndResults/")
+    response = client.get(f"/StatusAndResults/{row.pk}/")
     assert response.status_code == 200
     body = response.content.decode("utf-8")
     assert "StatusPoll.js" not in body
@@ -372,7 +458,7 @@ def test_status_update_does_not_finalize_live_child_pid(client, monkeypatch):
     )
     _wire_status_row(client, row)
 
-    response = client.get("/StatusUpdate/")
+    response = client.get(f"/StatusUpdate/{row.pk}/")
     assert response.status_code == 200
     assert response.json()["completed"] is False
 
@@ -408,7 +494,7 @@ def test_backstop_ignores_pending_row_with_unset_process_id(client, monkeypatch)
     )
     _wire_status_row(client, row)
 
-    response = client.get("/StatusUpdate/")
+    response = client.get(f"/StatusUpdate/{row.pk}/")
     assert response.status_code == 200
     assert response.json()["completed"] is False
     assert called["n"] == 0  # short-circuited before the liveness check
@@ -447,7 +533,7 @@ def test_backstop_finalizes_unset_pid_row_past_pending_window(client, monkeypatc
     )
     _wire_status_row(client, row)
 
-    response = client.get("/StatusUpdate/")
+    response = client.get(f"/StatusUpdate/{row.pk}/")
     assert response.status_code == 200
     assert response.json() == {"completed": True}
     assert called["n"] == 0  # no pid to probe — finalized on start_time age

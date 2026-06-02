@@ -1,6 +1,9 @@
-/* StatusPoll.js — polls /StatusUpdate/ every 2 seconds and updates the
- * status page DOM in place. On completion, navigates to /StatusAndResults/
+/* StatusPoll.js — polls /StatusUpdate/<pk>/ every 2 seconds and updates the
+ * status page DOM in place. On completion, navigates to /StatusAndResults/<pk>/
  * which re-enters StatusView's completion branch (file body or redirect).
+ *
+ * The dispatch pk is read from the data-status-pk attribute on the first
+ * .body_contents div (rendered by status.html as `data-status-pk="{{ pk }}"`).
  *
  * Failure tolerance: any fetch/parse exception is swallowed; the next
  * 2-second tick retries. At 2s intervals a missed poll is invisible.
@@ -9,6 +12,8 @@
   var POLL_INTERVAL_MS = 2000;
   var intervalId = null;
   var inFlight = false;
+  var _pkEl = document.querySelector('[data-status-pk]');
+  var statusPk = _pkEl ? _pkEl.dataset.statusPk : null;
 
   function applyUpdate(data) {
     if (data.completed === true) {
@@ -18,7 +23,7 @@
         clearInterval(intervalId);
         intervalId = null;
       }
-      window.location.assign('/StatusAndResults/');
+      window.location.assign('/StatusAndResults/' + statusPk + '/');
       return;
     }
     /* currentStatus contains server-assembled HTML (<br>, <b>, <table>) written
@@ -59,7 +64,7 @@
      * apply DOM updates out of order and double-bump the heartbeat). */
     if (inFlight) return;
     inFlight = true;
-    fetch('/StatusUpdate/', { credentials: 'same-origin' })
+    fetch('/StatusUpdate/' + statusPk + '/', { credentials: 'same-origin' })
       .then(function (response) {
         if (!response.ok) return;  /* 4xx/5xx: retry next tick */
         return response.json();
@@ -70,6 +75,10 @@
       .catch(function () { /* network blip: swallow, retry next tick */ })
       .finally(function () { inFlight = false; });
   }
+
+  /* Without a dispatch pk there is no row to poll or navigate to — bail out
+   * rather than build /StatusUpdate/null/ or /StatusAndResults/null/. */
+  if (!statusPk) { return; }
 
   /* First poll fires immediately to refresh between initial render and JS load. */
   poll();

@@ -2744,7 +2744,165 @@ one-shot data migration that mints an `LRPStatus` row from any live
 `session_key_status` blob and stamps `lrp_status_pk` into that session —
 transitional and removable — rather than a permanent dual-read in the views.
 
-## True per-dispatch isolation for ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER=True
+## Make cross-dispatch data reads a first-class "read source vs write target" concept
+
+**Symptom / exposure.** Per-dispatch isolation gave each fit its own
+`LRPDispatchData` row, keyed by `status_row_pk`. The base
+`LoadItemFromSessionStore`/`SaveDictionaryOfItemsToSessionStore` both read AND
+write that one pk. But two flows legitimately need to READ a *different*
+(prior) dispatch's data while WRITING their own: `FunctionFinderResults` (reads
+the ranking run's data) and the `/FitEquation/?RANK=N` interface GET. Today
+that read/write split is expressed three inconsistent ways: a typed field
+(`status_row_pk`, the write target), an untyped `ChildPayload.extra[
+"ranking_status_pk"]` bag key (the read source), and a per-subclass METHOD
+OVERRIDE (`FunctionFinderResults.LoadItemFromSessionStore`) that silently
+redirects reads to a different pk than the base class uses. A maintainer
+reading the base method sees `self.status_row_pk` and reasonably assumes all
+subclasses read their own row — the exception is invisible. (Flagged by the
+type-design + altitude reviewers, 2026-06-02.)
+
+**Hypothesis / shape of fix.** Promote the read source to a first-class,
+typed concept so the override disappears:
+- Add `data_source_pk: int | None = None` to `ChildPayload` (typed, replacing
+  the `extra["ranking_status_pk"]` key).
+- Add a `_data_read_pk` resolver on the LRP base
+  (`return self.ranking_status_pk if self.ranking_status_pk is not None else
+  self.status_row_pk`) and have the BASE `LoadItemFromSessionStore` use it.
+- `FunctionFinderResults` then just sets `ranking_status_pk` (already does) and
+  **deletes its override entirely**. The `/FitEquation/?RANK=N` GET path
+  (currently fixed by pointing `status_row_pk` at the session pointer for the
+  render) could use the same resolver instead of overloading `status_row_pk`.
+
+This removes a fragile documentation-only invariant, a duplicate transport
+path, and a whole class of "I didn't know that subclass redirected reads"
+bugs. It is a refactor, not a bug fix — the current code is correct (regression-
+tested), just expressed as scattered convention.
+
+**Not in scope of the per-dispatch-isolation branch.** That branch delivered
+the working behavior; generalizing the data-access seam is a clean follow-up
+with no behavior change.
+
+## FunctionFinder ranking identity is a single session slot (collides under concurrent rankings)
+
+**Symptom / exposure.** The FunctionFinder ranking dispatch's pk is stashed in
+one session key, `request.session["functionfinder_ranking_pk"]`, which the
+results pages and the `/FitEquation/?RANK=N` equation-fit form read back to
+locate the ranked list + dataset (the fix for the "navigation breaks after the
+first results page" bug). That key is a SINGLE slot per session. Under the
+**non-default** concurrent posture (`MAX_CONCURRENT_FITS_PER_SESSION > 1`), two
+FunctionFinder ranking runs in the same browser session share that one slot:
+the second ranking overwrites it, so the first ranking's results page and its
+"fit this equation" links then read the *second* run's ranked list + data.
+(Flagged by the PR #36 reviewer, 2026-06-02. Cannot occur under the default
+cap of 1, which admits only one fit at a time.)
+
+**Hypothesis / shape of fix.** Bind the ranking identity to the result
+**URL/token** rather than a mutable session key — the same change the
+[FunctionFinder cross-session-sharing entry below] needs. Concretely: the
+FunctionFinder ranking's `redirect_to_results` and the results-page
+"Next/Previous/fit-this-equation" links should carry the ranking's
+`result_token` (an unguessable capability already minted per dispatch), and
+`FunctionFinderResults` + the RANK form should resolve the ranking from that
+token instead of `session["functionfinder_ranking_pk"]`. That makes each
+results page self-identify its ranking, so concurrent rankings no longer
+collide AND the links become shareable (resolving both this entry and the next
+in one design). Needs an ownership check (or rely on the token's
+unguessability) so one session can't read another's ranking by URL.
+
+**Not in scope of the per-dispatch-isolation branch.** The session-slot
+approach is correct under the default single-fit posture the branch ships;
+URL/token-binding the ranking is a separable refactor shared with the
+cross-session-sharing follow-up.
+
+## FunctionFinder result links are not shareable cross-session
+
+**Symptom / exposure.** The per-dispatch-isolation work (resolved below) gave
+normal fits **shareable** capability URLs: `/Results/<token>/` serves the
+result HTML to anyone holding the token, no cookie required (smoke-verified
+cross-session). **FunctionFinder results are the exception.** A FunctionFinder
+ranking's `redirect_to_results` is a site-relative URL
+(`/FunctionFinderResults/2/?RANK=1`), not a `temp/` file. So `/Results/<token>/`
+for a FunctionFinder run resolves to an `HttpResponseRedirect` to
+`/FunctionFinderResults/...`, which is a *fresh dispatch* that reads the
+ranking's data via `ranking_status_pk = request.session.get("lrp_status_pk")`
+— a value only present in the **originating** browser session. A share
+recipient (different session, or the same user after the cookie expires) lands
+on "Your session has expired." The owner's own click-through works (smoke
+`function_finder_detail_2D` passes); only cross-session *sharing* of a
+FunctionFinder result is broken.
+
+**Not a regression.** Pre-isolation there was no shareable-result concept at
+all, so nothing got worse — this is an *incompleteness* of the new shareable-
+result feature, surfaced by the 2026-06-02 `xhigh` code review.
+
+**Where to pick up.** Make the FunctionFinder result self-contained behind its
+token so `/Results/<token>/` can render (or re-derive) it without the
+originating session: e.g. have the FunctionFinder *ranking* dispatch render its
+results page to a `temp/` HTML file (file-backed, like every other fit) keyed
+by the dispatch token, instead of redirecting to a session-dependent
+`/FunctionFinderResults/` route. The per-rank "fit this equation" links inside
+that page would also need token-addressing rather than relying on
+`session["lrp_status_pk"]`. Until then, FunctionFinder results are
+view-it-yourself only; document that in the UI if sharing is advertised.
+
+**Not in scope of the per-dispatch-isolation branch.** That branch delivered
+shareable file-backed results + the concurrent-isolation guarantees; extending
+shareability to the two-stage FunctionFinder pipeline is separable follow-up
+with its own URL-design decisions.
+
+## ~~True per-dispatch isolation for ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER=True~~ RESOLVED 2026-06-02
+
+> **Resolution.** Landed on `feat/per-dispatch-isolation`. Spec:
+> `docs/superpowers/specs/2026-06-01-per-dispatch-isolation-design.md`; plan:
+> `docs/superpowers/plans/2026-06-01-per-dispatch-isolation.md` (both local /
+> gitignored per repo convention).
+>
+> **Per-dispatch data isolation.** New `LRPDispatchData` ORM model — a
+> OneToOne → `LRPStatus` (CASCADE) row created per dispatch — replaces the
+> per-session `data` / `functionfinder` `SessionStore` blobs. Read/write
+> access via `zunzun/dispatch_data.py`. Migration `0006_lrpdispatchdata_and_ownership`
+> carries the schema. Each dispatch reads and writes only its own row,
+> structurally eliminating the shared-blob clobber (Bug 1).
+>
+> **Private pk-addressed status + ownership.** `/StatusAndResults/<pk>/` and
+> `/StatusUpdate/<pk>/` replace the single mutable `request.session['lrp_status_pk']`
+> pointer. Both views gate on `owner_session_key` (identical-404 to avoid a
+> pk-enumeration oracle); each open tab heartbeats its own row, eliminating the
+> single-pointer reap (Bug 2).
+>
+> **Shareable result tokens.** `/Results/<token>/` (capability URL, no cookie
+> required) + `/EvaluateAtAPoint/<token>/`; completion redirects the owning
+> browser to the shareable URL, so results remain accessible after session expiry
+> or sharing the link.
+>
+> **Concurrency caps.** `MAX_CONCURRENT_FITS_PER_SESSION` (default 1) and
+> `MAX_CONCURRENT_FITS_PER_IP` (default 4), both env-overridable via
+> `ZUNZUN_MAX_CONCURRENT_FITS_PER_SESSION` / `ZUNZUN_MAX_CONCURRENT_FITS_PER_IP`.
+> Gate uses count-then-probe by `owner_session_key` / `owner_ip`. The
+> `ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER` boolean was **removed** — a
+> BREAKING config change (old implicit unlimited-concurrent default is replaced
+> by a safe per-session cap of 1).
+>
+> **Supersession machinery dissolved.** Delete-prior-row removed from the
+> dispatch path; the `RenderOutput` supersession guard demoted to a defensive
+> housekeeping-skip (not a concurrency correctness mechanism). New
+> `_sweep_orphaned_terminal_rows` retention sweep aligns file-backed result rows
+> with their trimmed `temp/` files.
+>
+> **FunctionFinder cross-dispatch regression** caught by the new concurrent
+> smoke scenario (the on-path verification): per-dispatch isolation broke
+> `FunctionFinderResults` reading the ranking dispatch's data; fixed via a
+> `ranking_status_pk` read path.
+>
+> **Verification.** pytest 266/266 green. The `concurrent_2D` smoke scenario
+> proves isolation end-to-end: two concurrent fits with data shifted +5 evaluate
+> to results differing by exactly 5.0 — pre-isolation they would be identical
+> from the shared blob. Shareable result links verified cross-session (no
+> session cookie required). All three "where to pick up" pieces from the
+> original entry (per-dispatch data, dispatch-id-in-URL status, threshold
+> revisit) are addressed.
+>
+> Historical notes below, preserved for reference.
 
 **Symptom.** With `ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER=True` (the dev
 default), two fits in one browser session interfere in two ways Codex flagged
