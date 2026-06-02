@@ -733,12 +733,11 @@ You must provide any weights you wish to use.
 
             # Success terminal: mark_terminal() sets state=TERMINAL and
             # process_id=0 so the per-user gate (views.LongRunningProcessView)
-            # doesn't block this user's next fit. state=TERMINAL survives
-            # StatusView clearing redirect_to_results, so a fast fit the user
-            # views within 60s doesn't falsely re-enter the gate's pending
-            # window. This dispatch owns its own row, so no ownership check is
-            # needed. start_time is left intact for the status template's
-            # elapsed timer.
+            # doesn't block this user's next fit. TERMINAL rows are EXCLUDED
+            # from _active_fit_counts, so the gate releases immediately — no
+            # wait for a stale heartbeat window. This dispatch owns its own row,
+            # so no ownership check is needed. start_time is left intact for the
+            # status template's elapsed timer.
             self.mark_terminal()
 
         except _ReportsPipelineAborted:
@@ -1148,8 +1147,9 @@ You must provide any weights you wish to use.
         if write_succeeded:
             # Success terminal. mark_terminal() sets state=TERMINAL and
             # process_id=0 (belt-and-suspenders with PerformAllWork's
-            # end-of-try mark_terminal call) so the gate's pending window
-            # can't re-fire after StatusView consumes redirect_to_results.
+            # end-of-try mark_terminal call). TERMINAL rows are excluded from
+            # _active_fit_counts, so the gate releases immediately for the
+            # user's next fit.
             self.mark_terminal(redirect=result_html_path)
         else:
             # Disk is unwritable; we cannot deliver a terminal page.

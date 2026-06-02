@@ -31,6 +31,10 @@ def _retry(fn, *, max_retries: int = 100, delay: float = 0.1):
 def save_items(status_pk: int, field: str, items: dict[str, Any]) -> None:
     """Merge `items` into the named JSON field of the dispatch's data row."""
     assert field in _FIELDS
+    if not status_pk:
+        raise ValueError(
+            f"save_items called with falsy status_pk={status_pk!r}; the dispatch row must exist first"
+        )
     from zunzun.models import LRPDispatchData
 
     def _do():

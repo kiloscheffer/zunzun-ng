@@ -9,7 +9,7 @@ import pyeq3
 import scipy.interpolate
 from django import db
 from django.core.mail import EmailMessage
-from django.db import close_old_connections
+from django.db import InterfaceError, OperationalError, close_old_connections
 from django.db.models import Q
 from django.http import Http404, HttpResponse, HttpResponseRedirect, JsonResponse
 from django.shortcuts import render
@@ -411,7 +411,7 @@ def _load_owned_status_row(request, pk):
 
     row = LRPStatus.objects.filter(pk=pk).first()
     session_key = request.session.session_key
-    if row is None or not session_key or row.owner_session_key != session_key:
+    if row is None or not row.is_owned_by(session_key):
         return None
     return row
 
@@ -439,11 +439,12 @@ def StatusView(request, pk):
 
     # Terminal without a deliverable redirect: the fit finished (state ==
     # TERMINAL is the durable terminal signal) but there is nothing to serve — a
-    # mid-fit crash whose error page could not be written, or a success whose
-    # redirect was already served & cleared in another tab. Serve a terminal
-    # page so the poll loop ends; without this the request falls through to the
-    # in-progress render and StatusUpdateView (also keyed on state) bounces the
-    # browser back here indefinitely.
+    # mid-fit crash whose error page could not be written. redirect_to_results is
+    # never cleared (ResultsView reads it idempotently), so an empty redirect here
+    # means no success redirect was ever written. Serve a terminal page so the poll
+    # loop ends; without this the request falls through to the in-progress render
+    # and StatusUpdateView (also keyed on state) bounces the browser back here
+    # indefinitely.
     if row.state == LRPStatus.State.TERMINAL:
         return render(
             request,
@@ -480,9 +481,9 @@ def StatusUpdateView(request, pk):
     """JSON polling endpoint for the status page.
 
     Returns the live status fields (currentStatus, elapsed, loadavg) as JSON.
-    On completion, returns {"completed": True} and intentionally does NOT
-    clear redirect_to_results — that's StatusView's job when the browser
-    follows up.
+    On completion, returns {"completed": True}. redirect_to_results is never
+    cleared — ResultsView reads it idempotently so the shareable link stays
+    valid across refreshes.
     """
     from zunzun.models import LRPStatus
 
@@ -501,12 +502,11 @@ def StatusUpdateView(request, pk):
 
     # Completion: report immediately. The durable terminal signal
     # (state == TERMINAL) — every terminal path (success, abort, mid-fit crash)
-    # sets it, and unlike redirect_to_results it survives StatusView clearing
-    # the redirect on serve. Keying off it (not the redirect) means a fit that
-    # finished without a deliverable redirect — a crash whose error page could
-    # not be linked, or a result already served & cleared in another tab —
-    # still ends the poll instead of heartbeating forever. Do NOT clear the
-    # redirect; that's StatusView's job when the browser follows up.
+    # sets it. Keying off it (not the redirect alone) means a fit that finished
+    # without a deliverable redirect — a crash whose error page could not be
+    # linked — still ends the poll instead of heartbeating forever.
+    # redirect_to_results is NOT cleared here; ResultsView reads it idempotently
+    # so the shareable result link stays valid across refreshes.
     if row.state == LRPStatus.State.TERMINAL or row.redirect_to_results:
         return JsonResponse({"completed": True})
 
@@ -537,8 +537,16 @@ def StatusRedirectView(request):
     in-progress row, else an 'expired' page."""
     from zunzun.models import LRPStatus
 
+    # A keyless client has no session and therefore owns no rows; querying
+    # owner_session_key="" would match any row created with an empty key.
+    if not request.session.session_key:
+        return render(
+            request,
+            "zunzun/generic_error.html",
+            {"error": "No fit in progress for your session."},
+        )
     row = (
-        LRPStatus.objects.filter(owner_session_key=(request.session.session_key or ""))
+        LRPStatus.objects.filter(owner_session_key=request.session.session_key)
         .exclude(state=LRPStatus.State.TERMINAL)
         .order_by("-pk")
         .first()
@@ -576,11 +584,18 @@ def ResultsView(request, token):
         try:
             with open(target, "r", encoding="utf-8") as f:
                 return HttpResponse(f.read())
-        except OSError:
+        except FileNotFoundError:
             return render(
                 request,
                 "zunzun/generic_error.html",
                 {"error": "This result has expired."},
+            )
+        except OSError:
+            _logger.exception("Failed to read result artifact %s", target)
+            return render(
+                request,
+                "zunzun/generic_error.html",
+                {"error": "This result could not be loaded. Please try running the fit again."},
             )
     return HttpResponseRedirect(target)
 
@@ -633,13 +648,13 @@ def LongRunningProcessView(
             return HttpResponse("Call to function finder results view was incorrect.")
         LRP = LongRunningProcess.FunctionFinderResults.FunctionFinderResults()
         LRP.rank = rank
-        # Capture the ranking dispatch's pk BEFORE it is overwritten at
-        # views.py:756 (request.session["lrp_status_pk"] = status_row.pk).
-        # At this point the session pointer still refers to the FunctionFinder
-        # ranking run that produced the results list. TransferFormDataToDataObject
-        # (line 724) calls LoadItemFromSessionStore, which FunctionFinderResults
-        # overrides to read from ranking_status_pk rather than its own (empty)
-        # row.
+        # Capture the ranking dispatch's pk BEFORE it is overwritten by the
+        # `request.session["lrp_status_pk"] = status_row.pk` assignment near
+        # `LRPStatus.objects.create` below. At this point the session pointer
+        # still refers to the FunctionFinder ranking run that produced the
+        # results list. `TransferFormDataToDataObject` (called below) calls
+        # LoadItemFromSessionStore, which FunctionFinderResults overrides to
+        # read from ranking_status_pk rather than its own (empty) row.
         LRP.ranking_status_pk = request.session.get("lrp_status_pk")
 
     else:
@@ -686,14 +701,19 @@ def LongRunningProcessView(
                     "Too many fits are in progress from your network. "
                     "Please wait a moment and try again."
                 )
+        except OperationalError, InterfaceError:
+            # Transient DB contention: fail OPEN (caps are anti-abuse, not a
+            # correctness invariant) and warn via the named logger so a
+            # persistent transient fault is still visible.
+            _logger.warning(
+                "Concurrency gate hit a transient DB error; allowing the fit",
+                exc_info=True,
+            )
         except Exception:
-            # Fail OPEN: the caps are anti-abuse, not a correctness invariant, so
-            # a transient SQLite lock must not block a legitimate user. Log via
-            # the module-level named logger (not logging.exception, which logs to
-            # ROOT) so a deployment filtering on zunzun.* still sees a persistent
-            # gate failure — the gate fails OPEN, so a silent failure would
-            # silently defeat the cap.
-            _logger.exception("Per-fit concurrency gate failed; allowing the fit")
+            # A non-transient error here is a real bug; do NOT silently run the
+            # site uncapped forever — surface it loudly.
+            _logger.exception("Concurrency gate failed with a non-transient error")
+            raise
 
     # if this is not a POST, send an interface if needed
     if LRP.userInterfaceRequired:
@@ -756,13 +776,13 @@ def LongRunningProcessView(
     from zunzun.models import LRPDispatchData, LRPStatus
 
     # Stamp last_status_check at dispatch (not only at the first poll) so the
-    # per-user "one fit at a time" gate's is_active check — process_id set AND
-    # (now - last_status_check) < 300 — holds for 300s even if the client never
-    # polls (closed tab / script). Without this, last_status_check would stay
-    # 0.0 until StatusUpdateView's first heartbeat, and a non-polling client
-    # could bypass the cap ~0.5s after the child writes process_id. Restores
-    # the old SetInitialStatusDataIntoSessionVariables semantics where dispatch
-    # time doubled as the first heartbeat.
+    # per-user gate's active check — state != TERMINAL AND last_status_check
+    # within 300s — holds for 300s even if the client never polls (closed tab /
+    # script). Without this, last_status_check would stay 0.0 until
+    # StatusUpdateView's first heartbeat, and a non-polling client could bypass
+    # the cap immediately. Restores the old
+    # SetInitialStatusDataIntoSessionVariables semantics where dispatch time
+    # doubled as the first heartbeat.
     if request.session.session_key is None:
         save_with_retry(request.session)  # mint a key before stamping ownership
     now = time.time()

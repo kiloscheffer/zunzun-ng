@@ -45,6 +45,12 @@ class LRPStatus(models.Model):
         max_length=43, unique=True, db_index=True, default=secrets.token_urlsafe
     )
 
+    def is_owned_by(self, session_key):
+        """Owned iff the requesting session has a non-empty key matching this
+        row's owner. Empty/None keys are never owners (an empty owner_session_key
+        default must not be reachable by a keyless client)."""
+        return bool(session_key) and self.owner_session_key == session_key
+
     @classmethod
     def mark_running(cls, pk, pid):
         """INITIALIZING -> RUNNING. The child claims the row with its pid.
@@ -85,7 +91,7 @@ class LRPDispatchData(models.Model):
     data's lifetime is bolted to the dispatch row — deleting the status row
     housekeeping age-sweep drops the data atomically, no orphan sweep.
     Written by spawn children under SQLite contention, so callers go through
-    zunzun.dispatch_data's retry helpers (added in a later task), never a bare .save().
+    zunzun.dispatch_data's retry helpers, never a bare .save().
     """
 
     status = models.OneToOneField(LRPStatus, on_delete=models.CASCADE, related_name="dispatch_data")
