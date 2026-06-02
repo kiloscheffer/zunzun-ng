@@ -9,6 +9,18 @@ https://bitbucket.org/zunzuncode/zunzunsite3/commits/all
 
 --- Notable changes (summarised here; full history on GitHub) ---
 
+feat/functionfinder-token-binding (merged 2026-06)
+  FunctionFinder ranking identity bound to result_token; concurrent-ranking
+  collision fixed (#2785); FunctionFinder results now shareable cross-session
+  (#2817) for ~2 weeks (until the ranking LRPStatus row ages out).
+
+  Ranking identity now travels as &ranking=<result_token> in results URLs;
+  _ranking_pk_from_token in zunzun/views.py resolves it. The single
+  session["functionfinder_ranking_pk"] slot is fully retired. FunctionFinderResults
+  sets cookie_test for token-bearing (cross-session) recipients so a cold
+  session passes the pre-fit gate. Smoke: new function_finder_cross_session_2D
+  scenario verifies a cookieless session can render the result.
+
 feat/per-dispatch-isolation (merged 2026-06)
   Per-dispatch data isolation and concurrent-fits production posture.
 

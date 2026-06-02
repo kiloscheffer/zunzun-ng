@@ -11,6 +11,8 @@ Scenarios
    against the session's solved coefficients.
 3. **function_finder_2D** — ranks an Exponential-only search.
 4. **function_finder_detail_2D** — fits the RANK=1 equation.
+4b. **function_finder_cross_session_2D** — a fresh session (no cookies)
+    renders the ranking's results via the &ranking=<token> URL.
 5. **characterize_2D** — descriptive statistics only, no fit.
 6. **characterize_3D** — 3D characterize with animationSize enabled;
    verifies the ScatterAnimation GIF loads with ≥2 frames.
@@ -577,6 +579,47 @@ def _run_ff_detail_scenario(
     return _check_markers(name, body, _POLY_EXPECTED_MARKERS)
 
 
+def _extract_ranking_token(body: str) -> str | None:
+    """Extract the FunctionFinder ranking token from a results page's links."""
+    m = re.search(r"[?&]ranking=([A-Za-z0-9_-]+)", body)
+    return m.group(1) if m else None
+
+
+def _run_ff_cross_session_scenario(
+    base: str,
+    name: str,
+    ff_ranking_body: str,
+    timeout_s: float,
+) -> str | None:
+    """Cross-session shareability of a FunctionFinder result (BACKLOG #2817).
+
+    Takes the owner's rendered ranking page body, extracts the &ranking=<token>,
+    then drives a FRESH session (no cookies, no cookie_test) through the
+    FunctionFinderResults GET. The dispatcher must resolve the ranking by token
+    and set cookie_test, so the fresh session renders the results rather than
+    landing on 'session/result expired'.
+    """
+    token = _extract_ranking_token(ff_ranking_body)
+    if token is None:
+        _dump_body(f"{name}_parent", ff_ranking_body)
+        return f"[{name}] no &ranking= token found in the ranking results body"
+
+    fresh = requests.Session()
+    ff_url = base + f"/FunctionFinderResults/2/?RANK=1&ranking={token}"
+    r = fresh.get(ff_url, allow_redirects=True)
+    body = _poll_until_done_pk(fresh, base, r.url, timeout_s)
+    if body is None:
+        return f"[{name}] cross-session results poll timed out"
+    if "expired" in body.lower():
+        _dump_body(name, body)
+        return f"[{name}] fresh session saw an 'expired' page (cross-session sharing broken)"
+    err = _check_markers(name, body, _FF_EXPECTED_MARKERS)
+    if err:
+        return err
+    print(f"[{name}] cross-session FunctionFinder result OK (fresh session, token only)")
+    return None
+
+
 _STATUS_PK_RE = re.compile(r"/StatusAndResults/(\d+)/")
 
 
@@ -975,6 +1018,19 @@ def run_smoke(scenario: str = "default") -> int:
                 errors.append(err)
             else:
                 print("[function_finder_detail_2D] OK")
+
+        # Scenario 3b: cross-session shareability of the FunctionFinder result.
+        if ff_body:
+            err = _run_ff_cross_session_scenario(
+                base,
+                "function_finder_cross_session_2D",
+                ff_body,
+                timeout_s=600,
+            )
+            if err:
+                errors.append(err)
+            else:
+                print("[function_finder_cross_session_2D] OK")
 
         err = _run_scenario(
             session,

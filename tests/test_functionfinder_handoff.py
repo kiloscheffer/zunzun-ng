@@ -95,3 +95,35 @@ def test_functionfinder_results_reads_data_store_from_ranking_row():
         "FunctionFinderResults.LoadItemFromSessionStore must read 'data' keys "
         "from ranking_status_pk. Got: %r" % result
     )
+
+
+@pytest.mark.django_db
+def test_two_concurrent_rankings_resolve_to_distinct_data():
+    """Two ranking dispatches in one session get distinct tokens; resolving each
+    token reads ITS OWN data, never the other's. Pre-fix the single
+    functionfinder_ranking_pk slot collided (BACKLOG #2785)."""
+    from zunzun.dispatch_data import save_items
+    from zunzun.LongRunningProcess.FunctionFinderResults import FunctionFinderResults
+    from zunzun.views import _ranking_pk_from_token
+
+    ranking_a = LRPStatus.objects.create(start_time=1.0, state=LRPStatus.State.TERMINAL)
+    LRPDispatchData.objects.create(status=ranking_a)
+    ranking_b = LRPStatus.objects.create(start_time=2.0, state=LRPStatus.State.TERMINAL)
+    LRPDispatchData.objects.create(status=ranking_b)
+    assert ranking_a.result_token != ranking_b.result_token
+
+    save_items(ranking_a.pk, "functionfinder", {"functionFinderResultsList": ["A_LIST"]})
+    save_items(ranking_b.pk, "functionfinder", {"functionFinderResultsList": ["B_LIST"]})
+
+    # Each results page resolves its ranking from its own token, in any order.
+    lrp_b = FunctionFinderResults()
+    lrp_b.ranking_status_pk = _ranking_pk_from_token(ranking_b.result_token)
+    lrp_a = FunctionFinderResults()
+    lrp_a.ranking_status_pk = _ranking_pk_from_token(ranking_a.result_token)
+
+    assert lrp_a.LoadItemFromSessionStore("functionfinder", "functionFinderResultsList") == [
+        "A_LIST"
+    ]
+    assert lrp_b.LoadItemFromSessionStore("functionfinder", "functionFinderResultsList") == [
+        "B_LIST"
+    ]

@@ -239,7 +239,9 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
         self.mark_terminal(
             redirect="/FunctionFinderResults/"
             + str(self.dataObject.dimensionality)
-            + "/?RANK=1&unused="
+            + "/?RANK=1&ranking="
+            + self.result_token
+            + "&unused="
             + str(time.time()),
         )
 

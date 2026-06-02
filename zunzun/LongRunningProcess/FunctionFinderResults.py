@@ -30,6 +30,9 @@ class FunctionFinderResults(FittingBaseClass.FittingBaseClass):
         # (overridden below) reads from the correct dispatch row rather than
         # this dispatch's own (empty) row.
         self.ranking_status_pk = None
+        # The ranking dispatch's capability token, threaded into the results
+        # page's navigation links so each link self-identifies its ranking.
+        self.ranking_token = ""
 
     def LoadItemFromSessionStore(self, inSessionStoreName, inItemName):
         """Read from the RANKING dispatch's data store.
@@ -56,6 +59,7 @@ class FunctionFinderResults(FittingBaseClass.FittingBaseClass):
         # TransferFormDataToDataObject and are carried via the attributes
         # below, but the override is active in the child too).
         payload.extra["ranking_status_pk"] = self.ranking_status_pk
+        payload.extra["ranking_token"] = self.ranking_token
         # These are set in TransferFormDataToDataObject (runs in the
         # parent) and read later by GenerateListOfOutputReports +
         # CreateReportOutput templates (run in the child). Fresh spawn
@@ -75,6 +79,7 @@ class FunctionFinderResults(FittingBaseClass.FittingBaseClass):
         super().apply_child_payload(payload)
         self.rank = payload.extra["rank"]
         self.ranking_status_pk = payload.extra.get("ranking_status_pk")
+        self.ranking_token = payload.extra.get("ranking_token", "")
         for attr in (
             "functionFinderResultsList",
             "numberOfEquationsToDisplay",
@@ -101,7 +106,7 @@ class FunctionFinderResults(FittingBaseClass.FittingBaseClass):
             "functionfinder", "functionFinderResultsList"
         )
         if self.functionFinderResultsList == None:
-            return "Your session has expired.  Please run the function finder again."
+            return "This result has expired.  Please run the function finder again."
         if self.functionFinderResultsList == []:
             return "No functions were found to model your data."
 
@@ -173,6 +178,7 @@ class FunctionFinderResults(FittingBaseClass.FittingBaseClass):
         itemsToRender["previousSelectorRank"] = self.previousSelectorRank
         itemsToRender["nextSelectorRank"] = self.nextSelectorRank
         itemsToRender["RelativeErrorPlotsFlag"] = self.RelativeErrorPlotsFlag
+        itemsToRender["ranking_token"] = self.ranking_token
 
         tempString = render_to_string("zunzun/function_finder_results.html", itemsToRender)
         fileLocation = page_artifact_path(self.dataObject.uniqueString, "html")

@@ -454,6 +454,20 @@ def _load_owned_status_row(request, pk):
     return row
 
 
+def _ranking_pk_from_token(token):
+    """pk of the FunctionFinder ranking LRPStatus row addressed by a capability
+    token, or None if the token is empty/unknown (aged-out or invalid). Session-
+    independent by construction: this is what lets a shared /FunctionFinderResults/
+    link resolve in any browser session, and what stops two concurrent rankings
+    from sharing one mutable session slot."""
+    from zunzun.models import LRPStatus
+
+    if not token:
+        return None
+    row = LRPStatus.objects.filter(result_token=token).only("id").first()
+    return row.pk if row else None
+
+
 @cache_control(no_cache=True)
 def StatusView(request, pk):
     from zunzun.models import LRPStatus
@@ -635,6 +649,14 @@ def ResultsView(request, token):
                 "zunzun/generic_error.html",
                 {"error": "This result could not be loaded. Please try running the fit again."},
             )
+    # Forward/legacy compat: a FunctionFinder ranking's redirect_to_results is a
+    # /FunctionFinderResults/ URL the token-resolved dispatch needs to carry
+    # &ranking=<token>. Rows written before token-binding (pre-deploy, still
+    # retained) lack it; append this row's own token (== the URL token) so recent
+    # completed FunctionFinder results survive the cutover instead of reading as
+    # expired. Idempotent: new rows already include &ranking=, so this is a no-op.
+    if "/FunctionFinderResults/" in target and "ranking=" not in target:
+        target = target + "&ranking=" + token
     return HttpResponseRedirect(target)
 
 
@@ -686,18 +708,24 @@ def LongRunningProcessView(
             return HttpResponse("Call to function finder results view was incorrect.")
         LRP = LongRunningProcess.FunctionFinderResults.FunctionFinderResults()
         LRP.rank = rank
-        # Capture the ranking dispatch's pk BEFORE it is overwritten by the
-        # `request.session["lrp_status_pk"] = status_row.pk` assignment near
-        # `LRPStatus.objects.create` below. At this point the session pointer
-        # still refers to the FunctionFinder ranking run that produced the
-        # results list. `TransferFormDataToDataObject` (called below) calls
-        # LoadItemFromSessionStore, which FunctionFinderResults overrides to
-        # read from ranking_status_pk rather than its own (empty) row.
-        # Read the STABLE ranking-dispatch key so this value is not clobbered
-        # when the results-page dispatch below writes its own (data-less) row pk
-        # into lrp_status_pk. Every subsequent "Next/Previous Set" and "fit this
-        # equation" link must read from the same ranking dispatch.
-        LRP.ranking_status_pk = request.session.get("functionfinder_ranking_pk")
+        # Resolve the ranking dispatch by the capability token in the URL
+        # (?ranking=<token>). This is session-independent: any recipient with
+        # the URL can view the results regardless of which session did the
+        # original ranking. A missing/invalid token (aged-out or wrong URL)
+        # short-circuits with a clean expired message rather than crashing.
+        token = request.GET.get("ranking", "")
+        ranking_pk = _ranking_pk_from_token(token)
+        if ranking_pk is None:
+            return render(
+                request,
+                "zunzun/generic_error.html",
+                {"error": "This result has expired or is not yet ready."},
+            )
+        LRP.ranking_status_pk = ranking_pk
+        LRP.ranking_token = token
+        # Capability token in the URL is the identity — admit a cold (cookieless)
+        # recipient through the cookie_test gate below, mirroring HomePageView.
+        request.session["cookie_test"] = 1
 
     else:
         return HttpResponse("I could not understand the web request.")
@@ -778,11 +806,29 @@ def LongRunningProcessView(
             # This is render-only (no status/data writes happen on the GET path);
             # the POST path creates and uses its own fresh row.
             if "RANK" in request.GET:
-                # FunctionFinder "fit this equation" form: read the ranked list +
-                # dataset from the STABLE ranking dispatch, not lrp_status_pk (a
-                # FunctionFinderResults page render already moved that pointer to
-                # its own data-less row).
-                LRP.status_row_pk = request.session.get("functionfinder_ranking_pk")
+                # The ranking identity rides in the URL (&ranking=<token>), not a
+                # session slot, so the pre-fill resolves cross-session.
+                ranking_pk = _ranking_pk_from_token(request.GET.get("ranking"))
+                if ranking_pk is None:
+                    # Tokenless/aged-out RANK link — e.g. a "Go to this equation"
+                    # link baked into a FunctionFinderResults page rendered before
+                    # token-binding (those links lack &ranking=), now served
+                    # verbatim from temp/. Show a clear, actionable expiry message
+                    # (parity with the FunctionFinderResults Prev/Next short-circuit)
+                    # instead of falling through to the opaque "error building the
+                    # form" path below. Pre-deploy result FILES cannot be link-
+                    # rewritten on serve (the ranking token is not persisted on the
+                    # served results-page row), so this is the graceful degradation
+                    # for that transient cutover window.
+                    return render(
+                        request,
+                        "zunzun/generic_error.html",
+                        {
+                            "error": "This result has expired or is not yet ready. "
+                            "Please run the function finder again."
+                        },
+                    )
+                LRP.status_row_pk = ranking_pk
             else:
                 # Normal fit-form pre-fill: the session's most-recent dispatch.
                 LRP.status_row_pk = request.session.get("lrp_status_pk")
@@ -872,15 +918,7 @@ def LongRunningProcessView(
 
     request.session["lrp_status_pk"] = status_row.pk
     LRP.status_row_pk = status_row.pk
-
-    # The FunctionFinder RANKING dispatch's data (ranked equation list + dataset)
-    # is read back by every later FunctionFinderResults page and by the
-    # "/FitEquation/?RANK=N" equation-fit form. Those follow-up dispatches each
-    # OVERWRITE lrp_status_pk with their own (data-less) row, so the ranking pk
-    # must live in a dedicated session key they do not clobber. Set it ONLY for
-    # the ranking dispatch (the FunctionFinder__ path — NOT FunctionFinderResults).
-    if request.path.find("FunctionFinder__") != -1:
-        request.session["functionfinder_ranking_pk"] = status_row.pk
+    LRP.result_token = status_row.result_token
 
     # Create the per-dispatch data row in the PARENT, before the child spawns
     # and before SetInitialStatusDataIntoSessionVariables runs: save_items /

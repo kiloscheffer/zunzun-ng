@@ -22,6 +22,17 @@ def test_child_payload_round_trips():
     assert clone.dimensionality == 2
     assert clone.extra == {"foo": "bar"}
 
+    p2 = ChildPayload(
+        lrp_class_path="x.Y",
+        dimensionality=2,
+        renice_level=10,
+        data_object=None,
+        equation=None,
+        result_token="abc123",
+    )
+    clone2 = pickle.loads(pickle.dumps(p2, pickle.HIGHEST_PROTOCOL))
+    assert clone2.result_token == "abc123"
+
 
 def test_child_payload_has_required_fields():
     """Ensure the dataclass exposes every field needed by PerformAllWork."""
@@ -37,6 +48,7 @@ def test_child_payload_has_required_fields():
         "data_object",
         "equation",
         "status_row_pk",
+        "result_token",
         "extra",
     }
 
