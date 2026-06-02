@@ -1,5 +1,19 @@
 # Linux deployment
 
+> **Partially verified 2026-06-02** on an Ubuntu-family host with Caddy
+> 2.11.2 and systemd. Confirmed end-to-end as documented: `manage.py
+> migrate`, and the Caddyfile (static `handle_path` split + reverse-proxy
+> + automatic HTTPS via Let's Encrypt, with a real cert issued for the
+> live hostname). The Waitress **systemd unit was exercised only with
+> adapted settings** — run as an ordinary user from a home directory, not
+> the documented `User=www-data` under `/var/www/zunzun-ng`. That
+> confirmed the unit's `Type=simple` supervision, journald output, and
+> `Restart=on-failure`, but **not** the service-account permission path.
+> **Still unverified:** that `www-data` can read the code/venv and write
+> `temp/` + `session_db/`. Run the recipe verbatim under `www-data`
+> before relying on it in production — the `chown` steps below are the
+> part most likely to bite under a locked-down account.
+
 Tested configuration: Ubuntu 22.04 / 24.04 LTS. Adapt package names and
 paths for other distributions.
 
@@ -99,6 +113,14 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now zunzun-ng
 sudo systemctl status zunzun-ng
 ```
+
+Waitress imports the scientific stack (pyeq3 / numpy / scipy) before it
+binds the socket — measured ~6 s on first start. The service shows
+`active` immediately, but Caddy will return **502** until Waitress
+actually listens, so a `curl` run straight after `start` can briefly
+502 even though nothing is wrong. Wait ~10 s, or watch for
+`INFO:waitress:Serving on http://127.0.0.1:8000` in the journal before
+testing.
 
 Logs:
 
