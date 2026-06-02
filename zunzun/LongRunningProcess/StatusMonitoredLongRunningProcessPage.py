@@ -204,6 +204,7 @@ You must provide any weights you wish to use.
             # fallback to 0 is defensive (an update against pk=0 matches
             # zero rows, harmless).
             status_row_pk=getattr(self, "status_row_pk", 0),
+            result_token=getattr(self, "result_token", ""),
             extra={
                 # inEquationName / inEquationFamilyName are set by
                 # views.LongRunningProcessView (parent) from URL path
