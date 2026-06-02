@@ -37,6 +37,7 @@ Usage:
 """
 
 import contextlib
+import glob
 import re
 import socket
 import subprocess
@@ -986,6 +987,7 @@ def run_smoke(scenario: str = "default") -> int:
         # generated /FunctionFinderResults/2/?RANK=1 URL. With allow_redirects
         # the final body IS the FunctionFinder ranking page, so we assert the FF
         # markers on it directly (no token / evaluate involved for FF).
+        ff_anchors_before = set(glob.glob("temp/ffanchor_*"))
         ff_err, ff_body, _ = _dispatch_and_poll_pk(
             session,
             base,
@@ -1004,6 +1006,18 @@ def run_smoke(scenario: str = "default") -> int:
                 ff_body = ""
             else:
                 print("[function_finder_2D] OK")
+                # A completed ranking must drop an ffanchor_<pk> retention marker
+                # in temp/ (the disk-bounded anchor for the shareable
+                # /Results/<token>/ link). Compare against the pre-dispatch
+                # snapshot so a stale marker from a prior run can't mask a broken
+                # writer.
+                if set(glob.glob("temp/ffanchor_*")) - ff_anchors_before:
+                    print("[function_finder_2D anchor] OK")
+                else:
+                    errors.append(
+                        "[function_finder_2D] no new temp/ffanchor_* retention "
+                        "marker after ranking completion"
+                    )
 
         # Scenario 3: detailed fit of the top-ranked equation (skip if scenario 2 failed)
         if ff_body:

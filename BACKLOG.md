@@ -2904,7 +2904,24 @@ shareable file-backed results + the concurrent-isolation guarantees; extending
 shareability to the two-stage FunctionFinder pipeline is separable follow-up
 with its own URL-design decisions.
 
-## Shared FunctionFinder links expire at session-age, not temp-trim
+## ~~Shared FunctionFinder links expire at session-age, not temp-trim~~ RESOLVED 2026-06-02
+
+> **Resolution.** Landed on `feat/ff-link-retention`. The file-less FF ranking
+> row now carries a disk-bounded retention anchor: completion writes a tiny
+> `ffanchor_<pk>` marker to `temp/` (`write_ff_anchor` in
+> `zunzun/LongRunningProcess/_unique.py`), `_sweep_aged_rows` no longer
+> age-reaps ranking rows, and `_sweep_orphaned_terminal_rows` reaps a ranking
+> row once its marker is removed by the `temp/` size-prune — exact parity with
+> file-backed results. `FunctionFinderResults` `os.utime`s the marker on each
+> render (`touch_ff_anchor`) so an actively-viewed share is not first-evicted.
+> A shared `/Results/<token>/` link now lives as long as a normal single-fit
+> result. Cutover: pre-deploy ranking rows have no marker and are reaped on the
+> first post-deploy housekeeping pass — a one-time, self-healing artifact,
+> consistent with the other FF-cutover entries + drain-before-deploy.
+> Spec: `docs/superpowers/specs/2026-06-02-functionfinder-link-retention-design.md`;
+> plan: `docs/superpowers/plans/2026-06-02-ff-link-retention.md`.
+>
+> Historical notes below, preserved for reference.
 
 **Symptom / exposure.** A shared FunctionFinder result (`/Results/<rankingToken>/`
 → `/FunctionFinderResults/?ranking=<token>`) resolves through the ranking's
