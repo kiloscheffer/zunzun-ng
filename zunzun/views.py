@@ -416,6 +416,26 @@ def _active_fit_counts(session_key, ip):
     return (per_session, per_ip)
 
 
+def _reservation_exceeds_cap(status_pk, session_key, ip, max_session, max_ip):
+    """After creating our LRPStatus row, decide if WE are an excess creator
+    that raced past the (check-then-act) gate.  Counts active (non-TERMINAL,
+    fresh-heartbeat) rows created no later than ours (pk <= status_pk) for this
+    session / IP; if that exceeds the cap we lost the race (the earliest `cap`
+    rows always survive — deterministic, no over-rejection, single dispatch
+    always counts 1).  Empty session_key / ip never reserve a slot."""
+    from zunzun.models import LRPStatus
+
+    fresh = time.time() - _HEARTBEAT_STALE_SECS
+    base = LRPStatus.objects.exclude(state=LRPStatus.State.TERMINAL).filter(
+        last_status_check__gte=fresh, pk__lte=status_pk
+    )
+    if session_key and base.filter(owner_session_key=session_key).count() > max_session:
+        return True
+    if ip and base.filter(owner_ip=ip).count() > max_ip:
+        return True
+    return False
+
+
 def _load_owned_status_row(request, pk):
     """Return the LRPStatus row for `pk` only if it belongs to this session.
 
@@ -690,12 +710,22 @@ def LongRunningProcessView(
     LRP.inEquationFamilyName = urllib.parse.unquote(inEquationFamilyName)
     LRP.dimensionality = int(inDimensionality)
 
-    if request.method == "POST":
-        session_key = request.session.session_key or ""
-        ip = request.META.get("REMOTE_ADDR", "")
+    # Hoist ownership/cap values unconditionally so they are in scope at the
+    # post-create reservation re-check (FIX #3) further below.
+    session_key = request.session.session_key or ""
+    ip = request.META.get("REMOTE_ADDR", "")
+    max_session = getattr(settings, "MAX_CONCURRENT_FITS_PER_SESSION", 1)
+    max_ip = getattr(settings, "MAX_CONCURRENT_FITS_PER_IP", 4)
+
+    # FunctionFinderResults is a GET that also reaches the status-row-creation
+    # + spawn path (userInterfaceRequired=False, not gated by the POST check).
+    # Include it so refresh/Next-spam cannot spawn unbounded render children.
+    _will_spawn_child = request.method == "POST" or (
+        request.path.find("FunctionFinderResults/") != -1
+    )
+
+    if _will_spawn_child:
         try:
-            max_session = getattr(settings, "MAX_CONCURRENT_FITS_PER_SESSION", 1)
-            max_ip = getattr(settings, "MAX_CONCURRENT_FITS_PER_IP", 4)
             per_session, per_ip = _active_fit_counts(session_key, ip)
             if per_session >= max_session or per_ip >= max_ip:
                 # Probe-on-demand: only when a cap WOULD block, release any
@@ -822,6 +852,24 @@ def LongRunningProcessView(
         owner_session_key=request.session.session_key,
         owner_ip=request.META.get("REMOTE_ADDR", ""),
     )
+
+    # Post-create race guard (FIX #3): close the check-then-act window.  Two
+    # near-simultaneous dispatches (double-click) can both pass the pre-create
+    # gate above.  Now that our row exists (with a real pk), recount with
+    # pk <= status_row.pk so the earliest `cap` creators always win and the
+    # later excess creator is the one that backs off.  At this point only the
+    # LRPStatus row exists; LRPDispatchData + child spawn happen below, so
+    # status_row.delete() is the only cleanup needed.
+    if _will_spawn_child and _reservation_exceeds_cap(
+        status_row.pk, session_key, ip, max_session, max_ip
+    ):
+        status_row.delete()
+        return HttpResponse(
+            "You already have a fit in progress for your session. "
+            "Please wait for it to finish, or "
+            "<a href='/StatusAndResults/'>view its status</a>."
+        )
+
     request.session["lrp_status_pk"] = status_row.pk
     LRP.status_row_pk = status_row.pk
 

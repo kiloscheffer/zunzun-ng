@@ -5,6 +5,10 @@ MAX_CONCURRENT_FITS_PER_SESSION (default 1) and MAX_CONCURRENT_FITS_PER_IP
 a fresh (<300s) last_status_check heartbeat. Provably-dead rows (crashed child
 whose heartbeat is still fresh) are finalized on-demand when a cap would
 otherwise block, so a SIGKILL/OOM victim doesn't strand the session.
+
+Also covers _reservation_exceeds_cap — the post-create race-safe re-check that
+closes the check-then-act window: the earliest `cap` row-creators always win,
+the later excess creator is deterministically identified by pk ordering.
 """
 
 import os
@@ -475,3 +479,104 @@ def test_dispatch_preserves_prior_row(client, mocked_process_start):
             new_pk = client.session["lrp_status_pk"]
             assert new_pk != old_pk
             assert LRPStatus.objects.filter(pk=new_pk).exists()
+
+
+# ── _reservation_exceeds_cap: post-create race-safe re-check ─────────────────
+
+
+def _make_active_row(session_key="S", ip="1.2.3.4"):
+    """Plant a non-TERMINAL, fresh-heartbeat LRPStatus row and return it."""
+    from zunzun.models import LRPStatus
+
+    now = time.time()
+    return LRPStatus.objects.create(
+        start_time=now,
+        last_status_check=now,
+        owner_session_key=session_key,
+        owner_ip=ip,
+        state=LRPStatus.State.RUNNING,
+    )
+
+
+@pytest.mark.django_db
+def test_reservation_exceeds_cap_loser_detected():
+    """Two rows from the same session, cap=1.
+
+    P1 is the earlier (lower pk) row — the winner.
+    P2 is the later (higher pk) row — the loser.
+
+    _reservation_exceeds_cap(P2, ...) must return True (P2 lost the race).
+    _reservation_exceeds_cap(P1, ...) must return False (P1 won the race).
+    Single-dispatch sanity: _reservation_exceeds_cap(P1-only, ...) = False.
+    """
+    from zunzun.views import _reservation_exceeds_cap
+
+    row1 = _make_active_row(session_key="S", ip="1.2.3.4")
+    row2 = _make_active_row(session_key="S", ip="1.2.3.4")
+
+    assert row1.pk < row2.pk, "DB must assign ascending pks for this test to be valid"
+
+    # P2 is the excess creator — it loses.
+    assert _reservation_exceeds_cap(row2.pk, "S", "1.2.3.4", max_session=1, max_ip=99) is True
+    # P1 is the first creator — it wins.
+    assert _reservation_exceeds_cap(row1.pk, "S", "1.2.3.4", max_session=1, max_ip=99) is False
+
+
+@pytest.mark.django_db
+def test_reservation_exceeds_cap_single_dispatch_never_blocked():
+    """A single dispatch (one row, cap=1) must never be told it lost the race.
+
+    _reservation_exceeds_cap counts rows with pk <= our pk.  With exactly one
+    row, count == 1 == cap, which is NOT > cap, so the single creator wins.
+    """
+    from zunzun.views import _reservation_exceeds_cap
+
+    row = _make_active_row(session_key="S", ip="1.2.3.4")
+    assert _reservation_exceeds_cap(row.pk, "S", "1.2.3.4", max_session=1, max_ip=99) is False
+
+
+@pytest.mark.django_db
+def test_reservation_exceeds_cap_per_ip_variant():
+    """Two rows from different sessions but the same IP, cap_ip=1.
+
+    The later row (higher pk) should be identified as the loser.
+    The earlier row (lower pk) should be identified as the winner.
+    """
+    from zunzun.views import _reservation_exceeds_cap
+
+    row1 = _make_active_row(session_key="S1", ip="5.6.7.8")
+    row2 = _make_active_row(session_key="S2", ip="5.6.7.8")
+
+    assert row1.pk < row2.pk, "DB must assign ascending pks for this test to be valid"
+
+    # Row2 is the excess creator by IP — it loses.
+    assert _reservation_exceeds_cap(row2.pk, "S2", "5.6.7.8", max_session=99, max_ip=1) is True
+    # Row1 is the first creator — it wins.
+    assert _reservation_exceeds_cap(row1.pk, "S1", "5.6.7.8", max_session=99, max_ip=1) is False
+
+
+@pytest.mark.django_db
+def test_reservation_exceeds_cap_terminal_rows_excluded():
+    """TERMINAL rows (completed fits) must not count toward the cap.
+
+    Plant one TERMINAL row and one active row for the same session.
+    Even with cap=1, the active row should win (count == 1, not 2).
+    """
+    from zunzun.models import LRPStatus
+    from zunzun.views import _reservation_exceeds_cap
+
+    now = time.time()
+    # TERMINAL row — must not be counted.
+    LRPStatus.objects.create(
+        start_time=now - 60,
+        last_status_check=now,
+        owner_session_key="S",
+        owner_ip="1.2.3.4",
+        state=LRPStatus.State.TERMINAL,
+    )
+    active_row = _make_active_row(session_key="S", ip="1.2.3.4")
+
+    # Only one active row → count == 1 == cap → NOT an excess creator.
+    assert (
+        _reservation_exceeds_cap(active_row.pk, "S", "1.2.3.4", max_session=1, max_ip=99) is False
+    )

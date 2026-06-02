@@ -124,7 +124,7 @@ the hostname resolves to the machine and ports 80 + 443 are reachable.
 ```powershell
 C:\Tools\nssm\nssm.exe install zunzun-ng `
     "C:\sites\zunzun-ng\.venv\Scripts\waitress-serve.exe" `
-    "--listen=127.0.0.1:8000" "wsgi:application"
+    "--listen=127.0.0.1:8000" "--trusted-proxy=127.0.0.1" "--trusted-proxy-headers=x-forwarded-for" "wsgi:application"
 nssm set zunzun-ng AppDirectory C:\sites\zunzun-ng
 nssm set zunzun-ng AppStdout C:\sites\zunzun-ng\waitress.log
 nssm set zunzun-ng AppStderr C:\sites\zunzun-ng\waitress.err

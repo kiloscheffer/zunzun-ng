@@ -81,7 +81,7 @@ Type=simple
 User=www-data
 Group=www-data
 WorkingDirectory=/var/www/zunzun-ng
-ExecStart=/var/www/zunzun-ng/.venv/bin/waitress-serve --listen=127.0.0.1:8000 wsgi:application
+ExecStart=/var/www/zunzun-ng/.venv/bin/waitress-serve --listen=127.0.0.1:8000 --trusted-proxy=127.0.0.1 --trusted-proxy-headers=x-forwarded-for wsgi:application
 Restart=on-failure
 RestartSec=5s
 StandardOutput=journal
