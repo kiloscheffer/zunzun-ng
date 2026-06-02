@@ -9,7 +9,7 @@ https://bitbucket.org/zunzuncode/zunzunsite3/commits/all
 
 --- Notable changes (summarised here; full history on GitHub) ---
 
-refactor/cross-dispatch-data-source (merged 2026-06)
+chore/cross-dispatch-data-source (merged 2026-06)
   Cross-dispatch data reads promoted to a first-class typed concept. A new
   typed ChildPayload.data_source_pk field plus a _data_read_pk() resolver on
   StatusMonitoredLongRunningProcessPage: LoadItemFromSessionStore reads from

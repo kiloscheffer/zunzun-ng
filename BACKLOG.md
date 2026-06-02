@@ -2746,7 +2746,7 @@ transitional and removable — rather than a permanent dual-read in the views.
 
 ## ~~Make cross-dispatch data reads a first-class "read source vs write target" concept~~ RESOLVED 2026-06-02
 
-> **Resolution.** Landed on `refactor/cross-dispatch-data-source`. Spec:
+> **Resolution.** Landed on `chore/cross-dispatch-data-source`. Spec:
 > `docs/superpowers/specs/2026-06-02-cross-dispatch-read-source-design.md`;
 > plan: `docs/superpowers/plans/2026-06-02-cross-dispatch-read-source.md`
 > (both gitignored/local). Promoted the read source to a typed
