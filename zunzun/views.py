@@ -798,11 +798,9 @@ def LongRunningProcessView(
             # This is render-only (no status/data writes happen on the GET path);
             # the POST path creates and uses its own fresh row.
             if "RANK" in request.GET:
-                # FunctionFinder "fit this equation" form: read the ranked list +
-                # dataset from the STABLE ranking dispatch, not lrp_status_pk (a
-                # FunctionFinderResults page render already moved that pointer to
-                # its own data-less row).
-                LRP.status_row_pk = request.session.get("functionfinder_ranking_pk")
+                # The ranking identity rides in the URL (&ranking=<token>), not a
+                # session slot, so the pre-fill resolves cross-session.
+                LRP.status_row_pk = _ranking_pk_from_token(request.GET.get("ranking"))
             else:
                 # Normal fit-form pre-fill: the session's most-recent dispatch.
                 LRP.status_row_pk = request.session.get("lrp_status_pk")
