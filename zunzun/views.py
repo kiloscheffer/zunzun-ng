@@ -33,13 +33,19 @@ _HEARTBEAT_STALE_SECS = 300
 
 def _sweep_aged_rows():
     """Reclaim LRPStatus rows whose session has expired (both timestamps older
-    than SESSION_COOKIE_AGE). EXCLUDES completed FILE-BACKED results
-    (state=TERMINAL with redirect_to_results under TEMP_FILES_DIR): their
-    retention is tied to the temp/ artifact via _sweep_orphaned_terminal_rows
-    (reaped when the size-bounded prune removes the file), so a shareable
-    /Results/<token>/ link survives session expiry as documented. Abandoned
-    in-progress rows, FunctionFinder URL-redirect results, and crashed
-    empty-redirect rows are still age-reaped."""
+    than SESSION_COOKIE_AGE). EXCLUDES completed rows that carry their own
+    disk-bounded retention, so they outlive session expiry as documented:
+
+      - FILE-BACKED results (state=TERMINAL, redirect_to_results under
+        TEMP_FILES_DIR): retained by _sweep_orphaned_terminal_rows, reaped when
+        the size-bounded prune removes the file.
+      - FunctionFinder RANKING rows (state=TERMINAL, redirect_to_results a
+        /FunctionFinderResults/ URL, not a file): retained by
+        _sweep_orphaned_terminal_rows via their ffanchor marker, reaped when the
+        size-prune removes that marker.
+
+    Abandoned in-progress rows and crashed empty-redirect rows are still
+    age-reaped. (Chained .exclude() calls keep a row matching EITHER clause.)"""
     from django.conf import settings
 
     from zunzun.models import LRPStatus
@@ -48,22 +54,28 @@ def _sweep_aged_rows():
     LRPStatus.objects.filter(last_status_check__lt=cutoff, start_time__lt=cutoff).exclude(
         state=LRPStatus.State.TERMINAL,
         redirect_to_results__startswith=settings.TEMP_FILES_DIR,
+    ).exclude(
+        state=LRPStatus.State.TERMINAL,
+        redirect_to_results__contains="/FunctionFinderResults/",
     ).delete()
 
 
 def _sweep_orphaned_terminal_rows():
-    """Delete TERMINAL LRPStatus rows whose FILE-BACKED result was trimmed from
-    temp/ (the cascade drops their LRPDispatchData). Keeps a shareable result
-    page and its Evaluate button aging out together — the row tracks the file,
-    which the temp-dir prune already bounds by MAX_TEMP_DIR_SIZE_IN_MBYTES.
+    """Delete TERMINAL LRPStatus rows whose disk-bounded retention artifact is
+    gone from temp/ (the cascade also drops their LRPDispatchData):
 
-    Only file-backed results (redirect_to_results under TEMP_FILES_DIR) are
-    swept here. URL-redirect results (FunctionFinder, a /FunctionFinderResults/
-    route, not a file) and empty redirects are left to the row age-sweep — a
-    file-existence check would wrongly reap them.
+      - FILE-BACKED results: reaped when their redirect_to_results file (under
+        TEMP_FILES_DIR) is removed by the size-bounded prune.
+      - FunctionFinder RANKING rows (file-less, redirect a /FunctionFinderResults/
+        URL): reaped when their ffanchor_<pk> marker is removed by the prune.
+
+    Both clocks are bounded by MAX_TEMP_DIR_SIZE_IN_MBYTES, so a shareable
+    result and its row age out together. Empty-redirect rows are left to the
+    age-sweep.
     """
     from django.conf import settings
 
+    from zunzun.LongRunningProcess._unique import ff_anchor_path
     from zunzun.models import LRPStatus
 
     temp_dir = settings.TEMP_FILES_DIR
@@ -71,8 +83,14 @@ def _sweep_orphaned_terminal_rows():
         "id", "redirect_to_results"
     ):
         target = row.redirect_to_results
-        if target and target.startswith(temp_dir) and not os.path.exists(target):
-            row.delete()
+        if not target:
+            continue
+        if target.startswith(temp_dir):
+            if not os.path.exists(target):
+                row.delete()
+        elif "/FunctionFinderResults/" in target:  # FF ranking: file-less, anchor-tracked
+            if not os.path.exists(ff_anchor_path(row.id)):
+                row.delete()
 
 
 def _housekeeping_child(temp_dir: str, max_size_mb: int) -> None:
