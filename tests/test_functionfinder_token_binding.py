@@ -209,6 +209,28 @@ def test_results_view_appends_token_to_legacy_functionfinder_redirect(client):
 
 
 @pytest.mark.django_db
+def test_rank_interface_get_without_token_shows_clean_expired_message(client):
+    """Deploy-cutover (Codex PR #37, 2nd P2): a "Go to this equation" link baked
+    into a FunctionFinderResults page rendered BEFORE token-binding has ?RANK= but
+    no &ranking=. After deploy, clicking it hits the interface GET with an
+    unresolvable token; rather than the opaque "error building the form" fallback,
+    show a clear, actionable "expired, re-run" message (parity with the Prev/Next
+    short-circuit)."""
+    import urllib.parse
+
+    session = client.session
+    session["cookie_test"] = 1
+    session.save()
+
+    eq_name = urllib.parse.quote("2nd Order (Quadratic)")
+    resp = client.get(f"/FitEquation__F__/2/Polynomial/{eq_name}/?RANK=1")
+    assert resp.status_code == 200
+    body = resp.content.decode("utf-8", errors="replace").lower()
+    assert "expired" in body
+    assert "error occurred while building the form" not in body
+
+
+@pytest.mark.django_db
 def test_results_view_does_not_double_append_ranking_token(client):
     """A current (post-token-binding) FunctionFinder redirect already carries
     &ranking=; ResultsView must NOT append a second one."""

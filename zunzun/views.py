@@ -808,7 +808,27 @@ def LongRunningProcessView(
             if "RANK" in request.GET:
                 # The ranking identity rides in the URL (&ranking=<token>), not a
                 # session slot, so the pre-fill resolves cross-session.
-                LRP.status_row_pk = _ranking_pk_from_token(request.GET.get("ranking"))
+                ranking_pk = _ranking_pk_from_token(request.GET.get("ranking"))
+                if ranking_pk is None:
+                    # Tokenless/aged-out RANK link — e.g. a "Go to this equation"
+                    # link baked into a FunctionFinderResults page rendered before
+                    # token-binding (those links lack &ranking=), now served
+                    # verbatim from temp/. Show a clear, actionable expiry message
+                    # (parity with the FunctionFinderResults Prev/Next short-circuit)
+                    # instead of falling through to the opaque "error building the
+                    # form" path below. Pre-deploy result FILES cannot be link-
+                    # rewritten on serve (the ranking token is not persisted on the
+                    # served results-page row), so this is the graceful degradation
+                    # for that transient cutover window.
+                    return render(
+                        request,
+                        "zunzun/generic_error.html",
+                        {
+                            "error": "This result has expired or is not yet ready. "
+                            "Please run the function finder again."
+                        },
+                    )
+                LRP.status_row_pk = ranking_pk
             else:
                 # Normal fit-form pre-fill: the session's most-recent dispatch.
                 LRP.status_row_pk = request.session.get("lrp_status_pk")
