@@ -126,10 +126,12 @@ def _housekeeping_child(temp_dir: str, max_size_mb: int) -> None:
     except Exception:
         logging.exception("Housekeeping: clear_expired() failed")
 
-    # Reclaim LRPStatus rows whose user session has expired. File-backed
-    # TERMINAL results are excluded — their retention is tied to the temp/
-    # artifact and they are reclaimed by _sweep_orphaned_terminal_rows instead,
-    # so shareable /Results/<token>/ links survive past session expiry.
+    # Reclaim LRPStatus rows whose user session has expired. Rows that carry
+    # their own disk-bounded retention are excluded — file-backed TERMINAL
+    # results AND FunctionFinder ranking rows (file-less /FunctionFinderResults/
+    # redirects). Both are reclaimed by _sweep_orphaned_terminal_rows instead
+    # (tied to the temp/ result file / ffanchor marker), so shareable
+    # /Results/<token>/ links survive past session expiry.
     try:
         _sweep_aged_rows()
     except Exception:
@@ -170,10 +172,11 @@ def _housekeeping_child(temp_dir: str, max_size_mb: int) -> None:
         logging.exception("Housekeeping: temp-dir prune failed")
 
     # Reclaim TERMINAL LRPStatus rows (and their cascaded LRPDispatchData) whose
-    # file-backed result was removed by the temp-dir prune above. Runs after the
-    # prune so newly-trimmed files are swept in the same housekeeping pass.
-    # URL-redirect results (FunctionFinder) and empty redirects are NOT touched
-    # here; they age out via the row age-sweep above.
+    # disk-bounded retention artifact was removed by the temp-dir prune above:
+    # file-backed results whose result file is gone, AND FunctionFinder ranking
+    # rows whose ffanchor_<pk> marker is gone. Runs after the prune so
+    # newly-trimmed files/markers are swept in the same housekeeping pass. Only
+    # empty-redirect (e.g. crashed) rows are left to the row age-sweep.
     try:
         _sweep_orphaned_terminal_rows()
     except Exception:

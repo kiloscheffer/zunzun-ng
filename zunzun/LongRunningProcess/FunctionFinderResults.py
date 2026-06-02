@@ -168,7 +168,10 @@ class FunctionFinderResults(FittingBaseClass.FittingBaseClass):
         # share is not first-evicted by the temp/ size-prune. data_source_pk is
         # the ranking row this results page reads from (status_row_pk is THIS
         # ephemeral results-page dispatch). touch_ff_anchor no-ops if the anchor
-        # is already gone. See
+        # is already gone. Unlike FunctionFinder's anchor WRITE (which must
+        # precede mark_terminal for crash-safety), this only refreshes an
+        # existing marker's mtime, so running it after mark_terminal is fine —
+        # there is no orphan-vs-terminal ordering concern. See
         # docs/superpowers/specs/2026-06-02-functionfinder-link-retention-design.md.
         if self.data_source_pk is not None:
             touch_ff_anchor(self.data_source_pk)
