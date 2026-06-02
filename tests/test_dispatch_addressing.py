@@ -211,6 +211,7 @@ def test_age_sweep_keeps_file_backed_and_ff_ranking_results(tmp_path, settings):
 
     settings.TEMP_FILES_DIR = str(tmp_path)
     settings.SESSION_COOKIE_AGE = 100  # short window so old rows trigger the sweep
+    settings.FF_RANKING_MAX_AGE = 10**12  # huge: isolate the SESSION_COOKIE_AGE behavior here
 
     old_time = 1.0  # both timestamps well past SESSION_COOKIE_AGE
 
@@ -389,4 +390,45 @@ def test_orphan_sweep_reaps_ff_ranking_without_anchor(tmp_path, settings):
 
     assert not LRPStatus.objects.filter(pk=row.pk).exists(), (
         "FF ranking row with no anchor must be reaped."
+    )
+
+
+@pytest.mark.django_db
+def test_age_sweep_reaps_ff_ranking_past_max_age(tmp_path, settings):
+    """The FF_RANKING_MAX_AGE safety net reaps a FunctionFinder ranking row past
+    the ceiling EVEN WITH its ffanchor marker present. The marker/disk clock
+    cannot bound DB growth when temp/ never trips the size-prune (the ranking's
+    payload lives in LRPDispatchData, uncounted toward TEMP_FILES_DIR), so the
+    age ceiling is the hard backstop. A ranking within the ceiling is kept."""
+    from zunzun.LongRunningProcess._unique import write_ff_anchor
+    from zunzun.views import _sweep_aged_rows
+
+    settings.TEMP_FILES_DIR = str(tmp_path)
+    settings.SESSION_COOKIE_AGE = 100
+    settings.FF_RANKING_MAX_AGE = 100
+
+    # (1) FF ranking past the ceiling, anchor PRESENT -> reaped anyway
+    old = LRPStatus.objects.create(
+        start_time=1.0,
+        last_status_check=1.0,
+        state=LRPStatus.State.TERMINAL,
+        redirect_to_results="/FunctionFinderResults/2/?RANK=1&ranking=old",
+    )
+    write_ff_anchor(old.pk)  # marker present, yet the age ceiling still reaps it
+
+    # (2) FF ranking within the ceiling -> kept
+    recent = LRPStatus.objects.create(
+        start_time=_time.time(),
+        last_status_check=_time.time(),
+        state=LRPStatus.State.TERMINAL,
+        redirect_to_results="/FunctionFinderResults/2/?RANK=1&ranking=new",
+    )
+
+    _sweep_aged_rows()
+
+    assert not LRPStatus.objects.filter(pk=old.pk).exists(), (
+        "FF ranking past FF_RANKING_MAX_AGE must be reaped even with a live anchor."
+    )
+    assert LRPStatus.objects.filter(pk=recent.pk).exists(), (
+        "FF ranking within FF_RANKING_MAX_AGE must be kept."
     )

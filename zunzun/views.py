@@ -45,7 +45,17 @@ def _sweep_aged_rows():
         size-prune removes that marker.
 
     Abandoned in-progress rows and crashed empty-redirect rows are still
-    age-reaped. (Chained .exclude() calls keep a row matching EITHER clause.)"""
+    age-reaped. (Chained .exclude() calls keep a row matching EITHER clause.)
+
+    SAFETY NET: FunctionFinder ranking rows are excluded from the size-based
+    reap above because their retention is anchored by a temp/ffanchor marker —
+    but that marker is a few bytes while the ranking's real cost (the ranked
+    list + dataset) lives in LRPDispatchData, a DB row NOT counted toward
+    MAX_TEMP_DIR_SIZE_IN_MBYTES. So an FF-heavy / low-artifact workload could
+    keep temp/ under quota forever, never trip the prune that evicts the marker,
+    and grow ranking rows + DB payloads without bound. A second reap applies a
+    hard age ceiling (FF_RANKING_MAX_AGE, default 90d, >> SESSION_COOKIE_AGE) to
+    FF ranking rows regardless of the marker, bounding that growth."""
     from django.conf import settings
 
     from zunzun.models import LRPStatus
@@ -57,6 +67,14 @@ def _sweep_aged_rows():
     ).exclude(
         state=LRPStatus.State.TERMINAL,
         redirect_to_results__contains="/FunctionFinderResults/",
+    ).delete()
+
+    ff_cutoff = time.time() - settings.FF_RANKING_MAX_AGE
+    LRPStatus.objects.filter(
+        state=LRPStatus.State.TERMINAL,
+        redirect_to_results__contains="/FunctionFinderResults/",
+        last_status_check__lt=ff_cutoff,
+        start_time__lt=ff_cutoff,
     ).delete()
 
 

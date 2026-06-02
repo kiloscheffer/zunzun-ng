@@ -112,6 +112,21 @@ TEMP_FILES_DIR = os.path.join(ROOT_PATH, "temp")
 MEDIA_ROOT = TEMP_FILES_DIR
 MAX_TEMP_DIR_SIZE_IN_MBYTES = 500  # default 500 megabytes maximum
 
+# Hard age ceiling (seconds) for FunctionFinder ranking LRPStatus rows — a
+# safety net, env-overridable. FF ranking rows are retained on the disk-bounded
+# clock via a temp/ffanchor marker (see views._sweep_orphaned_terminal_rows),
+# but that marker is a few bytes while the ranking's real payload lives in
+# LRPDispatchData (a DB row, NOT counted toward MAX_TEMP_DIR_SIZE_IN_MBYTES).
+# So an FF-heavy / low-artifact workload could keep temp/ under quota forever,
+# never trip the size-prune that evicts the marker, and let ranking rows + DB
+# payloads grow unbounded. _sweep_aged_rows reaps FF ranking rows older than
+# this regardless of the marker. Default 90 days (>> SESSION_COOKIE_AGE) keeps
+# shared /Results/<token>/ links alive far longer than session age while
+# bounding growth.
+FF_RANKING_MAX_AGE = int(
+    os.environ.get("ZUNZUN_FF_RANKING_MAX_AGE_SECONDS", str(60 * 60 * 24 * 90))
+)
+
 # Per-LRP trace logging. Default WARNING (silent in production). Bump to
 # DEBUG to see per-step tracing through fit dispatch, data validation,
 # and report generation. Set via env var ZUNZUN_LRP_LOG_LEVEL=DEBUG

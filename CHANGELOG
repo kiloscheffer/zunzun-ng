@@ -11,13 +11,17 @@ https://bitbucket.org/zunzuncode/zunzunsite3/commits/all
 
 feat/ff-link-retention (merged 2026-06)
   Shared FunctionFinder links now live as long as a normal file-backed result
-  (disk-bounded) instead of expiring at SESSION_COOKIE_AGE (~2 weeks). A ranking
-  completion drops an ffanchor_<pk> marker in temp/; _sweep_aged_rows no longer
-  age-reaps ranking rows and _sweep_orphaned_terminal_rows reaps them when the
-  size-prune removes the marker. FunctionFinderResults touches the marker on each
-  render so active shares stay warm. New _unique.py helpers ff_anchor_path /
-  write_ff_anchor / touch_ff_anchor. Smoke asserts the marker appears after a
-  ranking. Resolves BACKLOG "Shared FunctionFinder links expire at session-age".
+  (disk-bounded) instead of expiring at SESSION_COOKIE_AGE. A ranking completion
+  drops an ffanchor_<pk> marker in temp/; _sweep_aged_rows no longer age-reaps
+  ranking rows and _sweep_orphaned_terminal_rows reaps them when the size-prune
+  removes the marker. FunctionFinderResults touches the marker on each render so
+  active shares stay warm. Because a ranking's payload lives in LRPDispatchData
+  (DB, uncounted toward the temp/ quota) and its marker is tiny, a hard age
+  ceiling FF_RANKING_MAX_AGE (default 90d, env ZUNZUN_FF_RANKING_MAX_AGE_SECONDS)
+  bounds row/DB growth for the case where the size-prune never fires. New
+  _unique.py helpers ff_anchor_path / write_ff_anchor / touch_ff_anchor. Smoke
+  asserts the marker appears after a ranking. Resolves BACKLOG "Shared
+  FunctionFinder links expire at session-age".
 
 chore/cross-dispatch-data-source (merged 2026-06)
   Cross-dispatch data reads promoted to a first-class typed concept. A new
