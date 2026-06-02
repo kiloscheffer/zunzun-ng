@@ -2744,6 +2744,42 @@ one-shot data migration that mints an `LRPStatus` row from any live
 `session_key_status` blob and stamps `lrp_status_pk` into that session —
 transitional and removable — rather than a permanent dual-read in the views.
 
+## FunctionFinder result links are not shareable cross-session
+
+**Symptom / exposure.** The per-dispatch-isolation work (resolved below) gave
+normal fits **shareable** capability URLs: `/Results/<token>/` serves the
+result HTML to anyone holding the token, no cookie required (smoke-verified
+cross-session). **FunctionFinder results are the exception.** A FunctionFinder
+ranking's `redirect_to_results` is a site-relative URL
+(`/FunctionFinderResults/2/?RANK=1`), not a `temp/` file. So `/Results/<token>/`
+for a FunctionFinder run resolves to an `HttpResponseRedirect` to
+`/FunctionFinderResults/...`, which is a *fresh dispatch* that reads the
+ranking's data via `ranking_status_pk = request.session.get("lrp_status_pk")`
+— a value only present in the **originating** browser session. A share
+recipient (different session, or the same user after the cookie expires) lands
+on "Your session has expired." The owner's own click-through works (smoke
+`function_finder_detail_2D` passes); only cross-session *sharing* of a
+FunctionFinder result is broken.
+
+**Not a regression.** Pre-isolation there was no shareable-result concept at
+all, so nothing got worse — this is an *incompleteness* of the new shareable-
+result feature, surfaced by the 2026-06-02 `xhigh` code review.
+
+**Where to pick up.** Make the FunctionFinder result self-contained behind its
+token so `/Results/<token>/` can render (or re-derive) it without the
+originating session: e.g. have the FunctionFinder *ranking* dispatch render its
+results page to a `temp/` HTML file (file-backed, like every other fit) keyed
+by the dispatch token, instead of redirecting to a session-dependent
+`/FunctionFinderResults/` route. The per-rank "fit this equation" links inside
+that page would also need token-addressing rather than relying on
+`session["lrp_status_pk"]`. Until then, FunctionFinder results are
+view-it-yourself only; document that in the UI if sharing is advertised.
+
+**Not in scope of the per-dispatch-isolation branch.** That branch delivered
+shareable file-backed results + the concurrent-isolation guarantees; extending
+shareability to the two-stage FunctionFinder pipeline is separable follow-up
+with its own URL-design decisions.
+
 ## ~~True per-dispatch isolation for ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER=True~~ RESOLVED 2026-06-02
 
 > **Resolution.** Landed on `feat/per-dispatch-isolation`. Spec:
