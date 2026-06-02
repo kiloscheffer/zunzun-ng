@@ -6,9 +6,10 @@ status row is written to request.session["lrp_status_pk"] (views.py:756).
 Without the fix, status_row_pk is None at read time, so load_item returns
 None and the user sees "Your session has expired."
 
-The fix: FunctionFinderResults overrides LoadItemFromSessionStore to read
-from self.ranking_status_pk (captured from the session pointer that still
-points at the RANKING dispatch when views.py:724 runs).
+The mechanism: FunctionFinderResults sets self.data_source_pk to the RANKING
+dispatch's row pk; the base StatusMonitoredLongRunningProcessPage resolves
+reads through _data_read_pk() (data_source_pk when set, else status_row_pk),
+so no per-subclass LoadItemFromSessionStore override is needed.
 """
 
 import pytest
@@ -18,7 +19,7 @@ from zunzun.models import LRPDispatchData, LRPStatus
 
 @pytest.mark.django_db
 def test_functionfinder_results_reads_ranking_dispatch_data():
-    """TransferFormDataToDataObject must read from ranking_status_pk, not
+    """TransferFormDataToDataObject must read from data_source_pk, not
     the (empty/None) status_row_pk of the new FunctionFinderResults dispatch.
     """
     from zunzun.dispatch_data import save_items
@@ -62,20 +63,20 @@ def test_functionfinder_results_reads_ranking_dispatch_data():
     LRPDispatchData.objects.create(status=new_dispatch)
 
     lrp = FunctionFinderResults()
-    lrp.ranking_status_pk = ranking.pk  # set by the fix (views.py capture)
+    lrp.data_source_pk = ranking.pk  # set by the fix (views.py capture)
     lrp.status_row_pk = new_dispatch.pk  # own row — empty, has no functionfinder data
 
     # Directly test the read path: must return the ranking row's data.
     result = lrp.LoadItemFromSessionStore("functionfinder", "functionFinderResultsList")
     assert result == fake_results_list, (
         "FunctionFinderResults.LoadItemFromSessionStore must read from "
-        "ranking_status_pk, not status_row_pk. Got: %r" % result
+        "data_source_pk, not status_row_pk. Got: %r" % result
     )
 
 
 @pytest.mark.django_db
 def test_functionfinder_results_reads_data_store_from_ranking_row():
-    """LoadItemFromSessionStore("data", ...) also reads from ranking_status_pk."""
+    """LoadItemFromSessionStore("data", ...) also reads from data_source_pk."""
     from zunzun.dispatch_data import save_items
     from zunzun.LongRunningProcess.FunctionFinderResults import FunctionFinderResults
 
@@ -87,13 +88,13 @@ def test_functionfinder_results_reads_data_store_from_ranking_row():
     LRPDispatchData.objects.create(status=new_dispatch)
 
     lrp = FunctionFinderResults()
-    lrp.ranking_status_pk = ranking.pk
+    lrp.data_source_pk = ranking.pk
     lrp.status_row_pk = new_dispatch.pk
 
     result = lrp.LoadItemFromSessionStore("data", "IndependentDataName1")
     assert result == "pressure", (
         "FunctionFinderResults.LoadItemFromSessionStore must read 'data' keys "
-        "from ranking_status_pk. Got: %r" % result
+        "from data_source_pk. Got: %r" % result
     )
 
 
@@ -117,9 +118,9 @@ def test_two_concurrent_rankings_resolve_to_distinct_data():
 
     # Each results page resolves its ranking from its own token, in any order.
     lrp_b = FunctionFinderResults()
-    lrp_b.ranking_status_pk = _ranking_pk_from_token(ranking_b.result_token)
+    lrp_b.data_source_pk = _ranking_pk_from_token(ranking_b.result_token)
     lrp_a = FunctionFinderResults()
-    lrp_a.ranking_status_pk = _ranking_pk_from_token(ranking_a.result_token)
+    lrp_a.data_source_pk = _ranking_pk_from_token(ranking_a.result_token)
 
     assert lrp_a.LoadItemFromSessionStore("functionfinder", "functionFinderResultsList") == [
         "A_LIST"

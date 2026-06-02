@@ -26,39 +26,19 @@ class FunctionFinderResults(FittingBaseClass.FittingBaseClass):
         self.maxNumberOfEquationsToDisplay = 40
         # pk of the RANKING dispatch whose data/functionfinder store holds
         # the ranked list and dataset. Set by the view dispatcher BEFORE
-        # TransferFormDataToDataObject runs, so that LoadItemFromSessionStore
-        # (overridden below) reads from the correct dispatch row rather than
-        # this dispatch's own (empty) row.
-        self.ranking_status_pk = None
+        # TransferFormDataToDataObject runs, so the base
+        # LoadItemFromSessionStore (via _data_read_pk) reads from the correct
+        # dispatch row rather than this dispatch's own (empty) row.
+        self.data_source_pk = None
         # The ranking dispatch's capability token, threaded into the results
         # page's navigation links so each link self-identifies its ranking.
         self.ranking_token = ""
-
-    def LoadItemFromSessionStore(self, inSessionStoreName, inItemName):
-        """Read from the RANKING dispatch's data store.
-
-        FunctionFinderResults never writes to the data/functionfinder store;
-        all reads here target the prior (ranking) dispatch's row where the
-        FunctionFinder child deposited the results list and dataset.
-        Status writes (update_status / get_status / mark_terminal) continue
-        to use self.status_row_pk via the base class — only data reads are
-        redirected here.
-        """
-        from zunzun import dispatch_data
-
-        return dispatch_data.load_item(self.ranking_status_pk, inSessionStoreName, inItemName)
 
     def build_child_payload(self):
         payload = super().build_child_payload()
         # self.rank is set by the view dispatcher (LRP.rank = rank) before
         # build_child_payload is called; carry it into the child.
         payload.extra["rank"] = self.rank
-        # ranking_status_pk: belt-and-suspenders transport so that the child
-        # also has the correct pk if it ever needs to call
-        # LoadItemFromSessionStore (currently all reads happen in the parent's
-        # TransferFormDataToDataObject and are carried via the attributes
-        # below, but the override is active in the child too).
-        payload.extra["ranking_status_pk"] = self.ranking_status_pk
         payload.extra["ranking_token"] = self.ranking_token
         # These are set in TransferFormDataToDataObject (runs in the
         # parent) and read later by GenerateListOfOutputReports +
@@ -78,7 +58,6 @@ class FunctionFinderResults(FittingBaseClass.FittingBaseClass):
     def apply_child_payload(self, payload):
         super().apply_child_payload(payload)
         self.rank = payload.extra["rank"]
-        self.ranking_status_pk = payload.extra.get("ranking_status_pk")
         self.ranking_token = payload.extra.get("ranking_token", "")
         for attr in (
             "functionFinderResultsList",

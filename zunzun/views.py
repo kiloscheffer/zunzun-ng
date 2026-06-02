@@ -721,7 +721,7 @@ def LongRunningProcessView(
                 "zunzun/generic_error.html",
                 {"error": "This result has expired or is not yet ready."},
             )
-        LRP.ranking_status_pk = ranking_pk
+        LRP.data_source_pk = ranking_pk
         LRP.ranking_token = token
         # Capability token in the URL is the identity — admit a cold (cookieless)
         # recipient through the cookie_test gate below, mirroring HomePageView.
