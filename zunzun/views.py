@@ -454,6 +454,20 @@ def _load_owned_status_row(request, pk):
     return row
 
 
+def _ranking_pk_from_token(token):
+    """pk of the FunctionFinder ranking LRPStatus row addressed by a capability
+    token, or None if the token is empty/unknown (aged-out or invalid). Session-
+    independent by construction: this is what lets a shared /FunctionFinderResults/
+    link resolve in any browser session, and what stops two concurrent rankings
+    from sharing one mutable session slot."""
+    from zunzun.models import LRPStatus
+
+    if not token:
+        return None
+    row = LRPStatus.objects.filter(result_token=token).only("id").first()
+    return row.pk if row else None
+
+
 @cache_control(no_cache=True)
 def StatusView(request, pk):
     from zunzun.models import LRPStatus
@@ -872,6 +886,7 @@ def LongRunningProcessView(
 
     request.session["lrp_status_pk"] = status_row.pk
     LRP.status_row_pk = status_row.pk
+    LRP.result_token = status_row.result_token
 
     # The FunctionFinder RANKING dispatch's data (ranked equation list + dataset)
     # is read back by every later FunctionFinderResults page and by the
