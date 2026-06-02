@@ -2907,6 +2907,37 @@ forever.
 **Not in scope** of the token-binding branch, which delivered cross-session
 sharing within the ~2-week window.
 
+## Pre-deploy FunctionFinder result pages have tokenless in-page links (cutover)
+
+**Symptom / exposure.** A FunctionFinderResults HTML artifact rendered BEFORE the
+2026-06-02 token-binding change has Prev/Next/"Go to this equation" links with
+`?RANK=` but no `&ranking=` (token-bearing links were added in that change). After
+deploy, `/Results/<resultsPageToken>/` still serves that file verbatim, so clicking
+an in-page link reaches the token-resolved dispatch with no token. Both paths now
+degrade to a clean styled "This result has expired or is not yet ready. Please run
+the function finder again." message (PR #37 commits `9d350a0`, `ed04a9e`) rather
+than an opaque error. The page itself still *renders*; only its in-page navigation
+degrades, and only for files rendered pre-deploy. Flagged by Codex on PR #37
+(2026-06-02).
+
+**Why not fully fixed (accepted limitation).** Restoring the baked-in links would
+require rewriting the served static HTML to inject the *ranking* token, but that
+token is not recoverable at serve time: it was a transient render-time attribute
+(`ranking_token`), is not persisted on the served results-page `LRPStatus` row, and
+there is no FK from a results-page row back to its ranking. A serve-time rewrite of
+a token we cannot recover would be a fragile transform for a transient window. The
+`ResultsView` redirect-append (`9d350a0`) already covers the redirect entry point;
+only links baked into already-rendered files remain affected.
+
+**Self-healing.** The condition clears on its own: the `temp/` size-prune ages out
+the stale file, and any new ranking regenerates token-bearing links.
+Drain-before-deploy (see `docs/deployment/README.md` and the "Pre-migration
+in-flight fits" entry above) further narrows the window.
+
+**Shape of fix (only if it becomes a real burden).** Persist the ranking token (or
+an FK to the ranking row) on the results-page `LRPStatus` row so `ResultsView`
+could rewrite a legacy file's in-page links on serve.
+
 ## ~~True per-dispatch isolation for ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER=True~~ RESOLVED 2026-06-02
 
 > **Resolution.** Landed on `feat/per-dispatch-isolation`. Spec:
