@@ -188,3 +188,36 @@ def test_functionfinder_results_get_expired_token_short_circuits(client):
     resp = client.get("/FunctionFinderResults/2/?RANK=1&ranking=nope")
     assert resp.status_code == 200
     assert "expired" in resp.content.decode("utf-8", errors="replace").lower()
+
+
+@pytest.mark.django_db
+def test_results_view_appends_token_to_legacy_functionfinder_redirect(client):
+    """Deploy-cutover survival (Codex PR #37): a FunctionFinder ranking row
+    written BEFORE token-binding has a tokenless redirect_to_results
+    ('/FunctionFinderResults/<dim>/?RANK=1&unused=...'). ResultsView must append
+    the row's own token so the now-token-resolved dispatch can still find the
+    (retained) ranking instead of reading it as expired."""
+    row = LRPStatus.objects.create(
+        start_time=1.0,
+        state=LRPStatus.State.TERMINAL,
+        redirect_to_results="/FunctionFinderResults/2/?RANK=1&unused=123.0",
+    )
+    resp = client.get(f"/Results/{row.result_token}/")
+    assert resp.status_code == 302
+    assert "/FunctionFinderResults/2/?RANK=1" in resp["Location"]
+    assert f"ranking={row.result_token}" in resp["Location"]
+
+
+@pytest.mark.django_db
+def test_results_view_does_not_double_append_ranking_token(client):
+    """A current (post-token-binding) FunctionFinder redirect already carries
+    &ranking=; ResultsView must NOT append a second one."""
+    row = LRPStatus.objects.create(
+        start_time=1.0,
+        state=LRPStatus.State.TERMINAL,
+        redirect_to_results="/FunctionFinderResults/2/?RANK=1&ranking=existingtok&unused=1.0",
+    )
+    resp = client.get(f"/Results/{row.result_token}/")
+    assert resp.status_code == 302
+    assert resp["Location"].count("ranking=") == 1
+    assert "ranking=existingtok" in resp["Location"]

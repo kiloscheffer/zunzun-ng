@@ -649,6 +649,14 @@ def ResultsView(request, token):
                 "zunzun/generic_error.html",
                 {"error": "This result could not be loaded. Please try running the fit again."},
             )
+    # Forward/legacy compat: a FunctionFinder ranking's redirect_to_results is a
+    # /FunctionFinderResults/ URL the token-resolved dispatch needs to carry
+    # &ranking=<token>. Rows written before token-binding (pre-deploy, still
+    # retained) lack it; append this row's own token (== the URL token) so recent
+    # completed FunctionFinder results survive the cutover instead of reading as
+    # expired. Idempotent: new rows already include &ranking=, so this is a no-op.
+    if "/FunctionFinderResults/" in target and "ranking=" not in target:
+        target = target + "&ranking=" + token
     return HttpResponseRedirect(target)
 
 
