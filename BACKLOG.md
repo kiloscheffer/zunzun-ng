@@ -2782,7 +2782,25 @@ tested), just expressed as scattered convention.
 the working behavior; generalizing the data-access seam is a clean follow-up
 with no behavior change.
 
-## FunctionFinder ranking identity is a single session slot (collides under concurrent rankings)
+## ~~FunctionFinder ranking identity is a single session slot (collides under concurrent rankings)~~ RESOLVED 2026-06-02
+
+> **Resolution.** Bound FunctionFinder ranking identity to the per-row
+> `LRPStatus.result_token` capability, carried in results URLs as
+> `&ranking=<token>` and resolved via the new `_ranking_pk_from_token`
+> helper in `zunzun/views.py`. The single
+> `request.session["functionfinder_ranking_pk"]` slot is fully retired —
+> no live reads or writes remain in `zunzun/` — so two concurrent rankings
+> in the same session can no longer collide: identity rides per-URL, not
+> in one shared session cell.
+>
+> Regression guard:
+> `tests/test_functionfinder_handoff.py::test_two_concurrent_rankings_resolve_to_distinct_data`.
+>
+> Landed on `feat/functionfinder-token-binding`. Design/plan:
+> `docs/superpowers/specs/2026-06-02-functionfinder-token-binding-design.md`
+> and `docs/superpowers/plans/2026-06-02-functionfinder-token-binding.md`.
+>
+> Historical notes below, preserved for reference.
 
 **Symptom / exposure.** The FunctionFinder ranking dispatch's pk is stashed in
 one session key, `request.session["functionfinder_ranking_pk"]`, which the
@@ -2814,7 +2832,26 @@ approach is correct under the default single-fit posture the branch ships;
 URL/token-binding the ranking is a separable refactor shared with the
 cross-session-sharing follow-up.
 
-## FunctionFinder result links are not shareable cross-session
+## ~~FunctionFinder result links are not shareable cross-session~~ RESOLVED 2026-06-02
+
+> **Resolution.** The same token-binding change (see collision entry above):
+> a recipient holding a FunctionFinder results URL (with `&ranking=<token>`)
+> can now view the result cross-session — `FunctionFinderResults` resolves
+> the ranking by token via `_ranking_pk_from_token` (no originating cookie
+> required for identity) and sets `cookie_test` so a cold recipient passes
+> the pre-fit gate.
+>
+> End-to-end proof: new smoke scenario `function_finder_cross_session_2D`
+> in `scripts/smoke_test.py` (a fresh cookieless session renders the FF result).
+>
+> **Accepted limitation.** Shared FF links resolve while the ranking's
+> `LRPStatus` row survives (~`SESSION_COOKIE_AGE`, ~2 weeks after completion),
+> not the longer file-backed-result window — see the new follow-up entry
+> "Shared FunctionFinder links expire at session-age, not temp-trim" below.
+>
+> Same branch/spec/plan references as the collision entry above.
+>
+> Historical notes below, preserved for reference.
 
 **Symptom / exposure.** The per-dispatch-isolation work (resolved below) gave
 normal fits **shareable** capability URLs: `/Results/<token>/` serves the
@@ -2849,6 +2886,26 @@ view-it-yourself only; document that in the UI if sharing is advertised.
 shareable file-backed results + the concurrent-isolation guarantees; extending
 shareability to the two-stage FunctionFinder pipeline is separable follow-up
 with its own URL-design decisions.
+
+## Shared FunctionFinder links expire at session-age, not temp-trim
+
+**Symptom / exposure.** A shared FunctionFinder result (`/Results/<rankingToken>/`
+→ `/FunctionFinderResults/?ranking=<token>`) resolves through the ranking's
+`LRPStatus` row, whose `redirect_to_results` is a URL (not a `temp/` file). So
+`_sweep_aged_rows` (zunzun/views.py) reaps it ~`SESSION_COOKIE_AGE` (default 2
+weeks) after the ranking completes — whereas normal file-backed results survive
+until the `temp/` size-prune. Shared FF links therefore work for ~2 weeks, not
+the longer file-backed window. Surfaced by the 2026-06-02 token-binding work
+(spec `2026-06-02-functionfinder-token-binding-design.md`), which deliberately
+scoped this out.
+
+**Shape of fix.** Give the file-less ranking row a retention anchor tied to its
+rendered results pages (which DO have `temp/` files), so it survives the
+age-sweep exactly as long as a shareable result remains — without leaking it
+forever.
+
+**Not in scope** of the token-binding branch, which delivered cross-session
+sharing within the ~2-week window.
 
 ## ~~True per-dispatch isolation for ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER=True~~ RESOLVED 2026-06-02
 
