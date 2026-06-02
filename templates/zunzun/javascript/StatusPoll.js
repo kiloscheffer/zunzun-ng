@@ -12,8 +12,12 @@
   var POLL_INTERVAL_MS = 2000;
   var intervalId = null;
   var inFlight = false;
-  var _pkEl = document.querySelector('[data-status-pk]');
-  var statusPk = _pkEl ? _pkEl.dataset.statusPk : null;
+  /* statusPk is read in start(), not at top-level: this file is spliced into a
+   * <head> <script> by generic_page_template.html's additional_javascript
+   * block, which executes during head parsing — BEFORE <body> (and the
+   * data-status-pk element) exists. Reading it here would always yield null and
+   * the poll loop would never start. */
+  var statusPk = null;
 
   function applyUpdate(data) {
     if (data.completed === true) {
@@ -76,11 +80,27 @@
       .finally(function () { inFlight = false; });
   }
 
-  /* Without a dispatch pk there is no row to poll or navigate to — bail out
-   * rather than build /StatusUpdate/null/ or /StatusAndResults/null/. */
-  if (!statusPk) { return; }
+  function start() {
+    var _pkEl = document.querySelector('[data-status-pk]');
+    statusPk = _pkEl ? _pkEl.dataset.statusPk : null;
 
-  /* First poll fires immediately to refresh between initial render and JS load. */
-  poll();
-  intervalId = setInterval(poll, POLL_INTERVAL_MS);
+    /* Without a dispatch pk there is no row to poll or navigate to — bail out
+     * rather than build /StatusUpdate/null/ or /StatusAndResults/null/. */
+    if (!statusPk) { return; }
+
+    /* First poll fires immediately to refresh between initial render and JS load. */
+    poll();
+    intervalId = setInterval(poll, POLL_INTERVAL_MS);
+  }
+
+  /* Because this script runs in the <head> (see the statusPk comment above),
+   * defer start() until the DOM is parsed so querySelector can find the
+   * data-status-pk element. The readyState check also handles the
+   * already-parsed case, in case the include ever moves to end-of-body or
+   * gains a `defer` attribute. */
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', start);
+  } else {
+    start();
+  }
 })();

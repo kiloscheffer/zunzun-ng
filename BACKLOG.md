@@ -3159,3 +3159,50 @@ Pure visible-text change — verify in a browser; no test asserts the legend wor
 
 **Not in scope of any current branch.** Content/copy fix, distinct from the
 accessibility-structure work that surfaced it.
+
+## No automated coverage for the client-side status poll
+
+**Symptom / exposure.** `templates/zunzun/javascript/StatusPoll.js` drives the
+entire status page: it polls `/StatusUpdate/<pk>/` every 2 s, updates the
+"Working on your fit" DOM in place, and — critically — performs the completion
+redirect to the results page when the poll sees `{"completed": true}`. None of
+this is exercised by any automated test. `pytest` covers the server-side views
+(`StatusView` / `StatusUpdateView` render correct payloads) but never runs the
+JS; `scripts/smoke_test.py` polls `/StatusAndResults/` directly server-side,
+bypassing the browser poll entirely. So a defect that breaks *only* the
+client-side poll passes every gate green.
+
+This is not hypothetical: it already bit once. A regression placed
+`StatusPoll.js` into the `<head>` `<script>` (via the `additional_javascript`
+block in `generic_page_template.html`), where its bare IIFE ran at head-parse
+time and read `document.querySelector('[data-status-pk]')` before `<body>`
+existed — so `statusPk` was `null`, the `if (!statusPk) return;` guard fired,
+and the poll loop never started. Every fit appeared frozen on "Initializing /
+00:00:00" forever while the spawn child fit correctly in the background. Fixed
+2026-06-02 by deferring the bootstrap to `DOMContentLoaded` (with an
+already-loaded fallback) in `StatusPoll.js`. The fix shipped without a
+regression test because the project has no browser-execution harness.
+
+**Why it's worth fixing.** The status poll is the only thing that moves a user
+from "fit running" to "here are your results." A silent break of it makes the
+whole site look hung even when every fit succeeds — the worst kind of failure
+(invisible to CI, maximally visible to users). The established `pytest` + smoke
+stack structurally cannot catch it.
+
+**Where to pick up.**
+1. Add a headless-browser smoke layer (Playwright is the lightest fit for the
+   Python stack; `playwright` + `pytest-playwright` as a dev-only group). Neither
+   `playwright` nor `selenium` is currently installed.
+2. One scenario is enough to be load-bearing: dispatch a fast 2D fit, load
+   `/StatusAndResults/<pk>/` in a real browser context, assert that at least one
+   `GET /StatusUpdate/<pk>/` fires (network interception) AND that the page
+   eventually navigates to `/Results/<token>/`. That single assertion would have
+   caught the head-timing regression above.
+3. Keep it out of the default `pytest tests/` path (needs a running server +
+   browser binaries); gate behind a marker or a separate `make`/script target so
+   CI can opt in per platform.
+
+**Not in scope of the StatusPoll.js fix.** The 2026-06-02 fix restored correct
+behavior; standing up a browser-test harness is a separate, larger piece of
+infrastructure work with its own dependency footprint (browser binaries in CI)
+and deserves its own branch.
