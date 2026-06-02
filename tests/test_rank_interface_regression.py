@@ -15,7 +15,7 @@ raises "session cookie appears to have expired". The initial fix introduced a
 dedicated session key "functionfinder_ranking_pk"; that slot is now fully retired.
 
 Fix: LongRunningProcessView (GET branch, ?RANK present) resolves the ranking via
-    LRP.status_row_pk = _ranking_pk_from_token(request.GET.get("ranking"))
+    LRP.data_source_pk = _ranking_pk_from_token(request.GET.get("ranking"))
 The ranking identity rides in the URL (?ranking=<token>) rather than a session
 slot, making the pre-fill cross-session: any browser that receives the link can
 open the fitting interface form for the correct dataset without needing a matching

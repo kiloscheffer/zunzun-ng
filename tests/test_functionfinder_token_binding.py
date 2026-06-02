@@ -97,21 +97,26 @@ def test_functionfinder_results_links_carry_ranking_token(tmp_path, monkeypatch)
 
 @pytest.mark.django_db
 def test_functionfinder_results_payload_round_trips_ranking_token():
-    """build/apply_child_payload must carry ranking_token to the child."""
+    """build/apply_child_payload must carry ranking_token AND data_source_pk
+    to the child."""
     from zunzun.LongRunningProcess.FunctionFinderResults import FunctionFinderResults
 
     lrp = FunctionFinderResults()
     lrp.status_row_pk = 0
     lrp.dimensionality = 2
-    lrp.ranking_status_pk = 7
+    lrp.data_source_pk = 7
     lrp.ranking_token = "TOK"
     lrp.rank = 1
     payload = lrp.build_child_payload()
     assert payload.extra["ranking_token"] == "TOK"
+    # data_source_pk is now a typed ChildPayload field carried by the base,
+    # not an extra-bag key.
+    assert payload.data_source_pk == 7
 
     fresh = FunctionFinderResults()
     fresh.apply_child_payload(payload)
     assert fresh.ranking_token == "TOK"
+    assert fresh.data_source_pk == 7
 
 
 @pytest.mark.django_db

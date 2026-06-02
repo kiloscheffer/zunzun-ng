@@ -2744,7 +2744,24 @@ one-shot data migration that mints an `LRPStatus` row from any live
 `session_key_status` blob and stamps `lrp_status_pk` into that session —
 transitional and removable — rather than a permanent dual-read in the views.
 
-## Make cross-dispatch data reads a first-class "read source vs write target" concept
+## ~~Make cross-dispatch data reads a first-class "read source vs write target" concept~~ RESOLVED 2026-06-02
+
+> **Resolution.** Landed on `chore/cross-dispatch-data-source`. Spec:
+> `docs/superpowers/specs/2026-06-02-cross-dispatch-read-source-design.md`;
+> plan: `docs/superpowers/plans/2026-06-02-cross-dispatch-read-source.md`
+> (both gitignored/local). Promoted the read source to a typed
+> `ChildPayload.data_source_pk` field plus a `_data_read_pk()` resolver on
+> `StatusMonitoredLongRunningProcessPage` (returns `data_source_pk` when set,
+> else `status_row_pk`); the base `LoadItemFromSessionStore` reads through it
+> while `SaveDictionaryOfItemsToSessionStore` and all status writes stay on
+> `status_row_pk`. Deleted the `FunctionFinderResults.LoadItemFromSessionStore`
+> override and the `extra["ranking_status_pk"]` transport; converted the two
+> `views.py` interface-GET pre-fill branches off the `status_row_pk` overload. `ranking_token` left intact (a
+> distinct concept). No behavior change — `function_finder_detail_2D` smoke
+> and the handoff/rank-interface regression suites stayed green. The
+> handoff tests now pin the behavior through the new resolver mechanism.
+>
+> Historical notes below, preserved for reference.
 
 **Symptom / exposure.** Per-dispatch isolation gave each fit its own
 `LRPDispatchData` row, keyed by `status_row_pk`. The base

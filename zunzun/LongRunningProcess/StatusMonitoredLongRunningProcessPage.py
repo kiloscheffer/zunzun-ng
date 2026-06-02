@@ -155,6 +155,10 @@ class StatusMonitoredLongRunningProcessPage(object):
         self.inEquationFamilyName = ""
 
         self.status_row_pk = None
+        # Row pk to READ dispatch data from when it differs from the write
+        # target (status_row_pk). None = read from status_row_pk. Set by the
+        # cross-dispatch read flows (FunctionFinderResults; RANK interface-GET).
+        self.data_source_pk = None
         # This dispatch's own LRPStatus.result_token, stamped by the view
         # dispatcher (real fits) or _run_fit_child (spawned child). Defaulted
         # here so render paths that read self.result_token (FunctionFinder's
@@ -212,6 +216,7 @@ You must provide any weights you wish to use.
             # zero rows, harmless).
             status_row_pk=getattr(self, "status_row_pk", 0),
             result_token=getattr(self, "result_token", ""),
+            data_source_pk=getattr(self, "data_source_pk", None),
             extra={
                 # inEquationName / inEquationFamilyName are set by
                 # views.LongRunningProcessView (parent) from URL path
@@ -245,6 +250,7 @@ You must provide any weights you wish to use.
         # also sets this directly from the payload before
         # apply_child_payload runs (same value, harmless redundancy).
         self.status_row_pk = payload.status_row_pk
+        self.data_source_pk = payload.data_source_pk
 
     def PerformWorkInParallel(self):
         pass
@@ -625,10 +631,23 @@ You must provide any weights you wish to use.
 
         dispatch_data.save_items(self.status_row_pk, inSessionStoreName, inDictionary)
 
+    def _data_read_pk(self):
+        """Row pk to READ dispatch data from.
+
+        Defaults to the write-target row (status_row_pk). A cross-dispatch
+        flow sets data_source_pk to a prior dispatch's pk to read that row's
+        data while still writing status + data to its own status_row_pk.
+        `is not None` (not truthiness) so a legitimate pk is never mistaken
+        for unset and the existing None/0 "matches zero rows" sentinel
+        handling is preserved.
+        """
+        return self.data_source_pk if self.data_source_pk is not None else self.status_row_pk
+
     def LoadItemFromSessionStore(self, inSessionStoreName, inItemName):
         from zunzun import dispatch_data
 
-        return dispatch_data.load_item(self.status_row_pk, inSessionStoreName, inItemName)
+        # Read pk may differ from the write pk (status_row_pk); see _data_read_pk().
+        return dispatch_data.load_item(self._data_read_pk(), inSessionStoreName, inItemName)
 
     def update_status(self, **fields):
         """Write fields to this dispatch's LRPStatus row. Unconditional,

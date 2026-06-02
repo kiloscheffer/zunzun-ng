@@ -721,7 +721,7 @@ def LongRunningProcessView(
                 "zunzun/generic_error.html",
                 {"error": "This result has expired or is not yet ready."},
             )
-        LRP.ranking_status_pk = ranking_pk
+        LRP.data_source_pk = ranking_pk
         LRP.ranking_token = token
         # Capability token in the URL is the identity — admit a cold (cookieless)
         # recipient through the cookie_test gate below, mirroring HomePageView.
@@ -800,11 +800,12 @@ def LongRunningProcessView(
         if request.method != "POST":
             request.session["cookie_test"] = 1
             # The interface form pre-populates from a prior dispatch's stored
-            # data. On a GET no new dispatch row exists yet, so point
-            # status_row_pk at that prior dispatch so
-            # CreateUnboundInterfaceForm's LoadItemFromSessionStore reads resolve.
-            # This is render-only (no status/data writes happen on the GET path);
-            # the POST path creates and uses its own fresh row.
+            # data. On a GET no new dispatch row exists yet, so set
+            # data_source_pk (the read source) to that prior dispatch so
+            # CreateUnboundInterfaceForm's LoadItemFromSessionStore reads
+            # resolve via _data_read_pk(). This is render-only (no status/data
+            # writes happen on the GET path); the POST path creates and uses
+            # its own fresh row, and status_row_pk stays unset here.
             if "RANK" in request.GET:
                 # The ranking identity rides in the URL (&ranking=<token>), not a
                 # session slot, so the pre-fill resolves cross-session.
@@ -828,10 +829,15 @@ def LongRunningProcessView(
                             "Please run the function finder again."
                         },
                     )
-                LRP.status_row_pk = ranking_pk
+                # Read source for the render-only pre-fill: the ranking row.
+                # Leave status_row_pk unset (no dispatch row exists on a GET);
+                # the base LoadItemFromSessionStore reads via _data_read_pk().
+                LRP.data_source_pk = ranking_pk
             else:
-                # Normal fit-form pre-fill: the session's most-recent dispatch.
-                LRP.status_row_pk = request.session.get("lrp_status_pk")
+                # Normal fit-form pre-fill: read the session's most-recent
+                # dispatch data via data_source_pk (read source), not the
+                # write-target status_row_pk.
+                LRP.data_source_pk = request.session.get("lrp_status_pk")
             try:
                 return render(
                     request,
