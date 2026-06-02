@@ -9,10 +9,7 @@ dependencies = [
     # Django 6.0 is a short-term support release, end-of-life around
     # December 2026. Next LTS is 6.2, expected April 2027. The site's
     # code uses only long-stable APIs (re_path, render, TEMPLATES
-    # settings, default JSONSerializer). See docs/superpowers/specs/
-    # 2026-04-18-django-upgrade-design.md and
-    # docs/superpowers/specs/2026-04-19-django-6-upgrade-design.md
-    # for migration history.
+    # settings, default JSONSerializer).
     "django>=6.0,<6.1",
     # django-ratelimit 4.x decorator signature: @ratelimit(key='ip',
     # rate='12/m', block=False). 3.x used a different API that would
@@ -108,8 +105,7 @@ package = false
 # pyeq3 is pinned to the pyeq3-ng fork (github.com/kiloscheffer/pyeq3-ng)
 # which removes the scipy.odr dependency (deprecated in scipy 1.17,
 # removed in 1.19) in favor of the independent odrpack package on PyPI.
-# Upstream pyeq3 has been dormant since 2020-01 and is not a PR
-# target. See docs/superpowers/specs/2026-04-20-pyeq3ng-odr-port-design.md.
+# Upstream pyeq3 has been dormant since 2020-01 and is not a PR target.
 pyeq3 = { git = "https://github.com/kiloscheffer/pyeq3-ng.git", tag = "v1.0.2-ng" }
 
 [tool.mypy]

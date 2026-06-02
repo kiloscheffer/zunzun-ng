@@ -35,11 +35,11 @@ Per-platform recipes (systemd unit, launchd plist, IIS + NSSM) live in [`docs/de
 ## Testing
 
 ```bash
-uv run pytest tests/                      # 78 unit tests, ~20s
+uv run pytest tests/                      # 295 unit tests, ~25s
 uv run python scripts/smoke_test.py       # end-to-end smoke, ~1–5 min
 ```
 
-The smoke script starts a throwaway Waitress, POSTs a real fit, polls for completion, and asserts structural markers in the result. The legacy FunkLoad suite under `funkload_tests/` is not runnable under the uv-managed Python 3.14 environment; see [`CLAUDE.md`](CLAUDE.md) for details.
+The smoke script starts a throwaway Waitress, POSTs a real fit, polls for completion, and asserts structural markers in the result. The legacy FunkLoad suite under `funkload_tests/` is not runnable under the uv-managed Python 3.14 environment.
 
 ## Cross-platform
 
@@ -56,7 +56,7 @@ ZunZunNG ("Next Generation") is a permanent fork of James R. Phillips's [`zunzun
 
 The original copyright notice in [`LICENSE.txt`](LICENSE.txt) is retained per the BSD-2-clause terms. James R. Phillips's prose in the "About" page is preserved verbatim.
 
-For deeper architecture notes — the spawn-based long-running-process pattern, the three parallel session stores, the `ChildPayload` contract — see [`CLAUDE.md`](CLAUDE.md).
+For deeper notes on the spawn-based long-running-process pattern, the parallel session stores, and the `ChildPayload` contract, see [`docs/internals/active-gotchas.md`](docs/internals/active-gotchas.md).
 
 ## License
 

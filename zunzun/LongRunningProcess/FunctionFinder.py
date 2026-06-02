@@ -240,8 +240,7 @@ class FunctionFinder(StatusMonitoredLongRunningProcessPage.StatusMonitoredLongRu
         # Drop the disk-bounded retention anchor BEFORE marking terminal: a
         # crash in between then leaves a harmless orphan marker (size-pruned
         # later) rather than an anchor-less terminal row the orphan sweep would
-        # reap on its next pass. See
-        # docs/superpowers/specs/2026-06-02-functionfinder-link-retention-design.md.
+        # reap on its next pass.
         try:
             write_ff_anchor(self.status_row_pk)
         except OSError:

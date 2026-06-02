@@ -37,7 +37,7 @@ modernization, which `BACKLOG` captures more honestly.
 >
 > Historical investigation notes below, preserved for reference.
 >
-> **2026-05-28 addendum.** The `multiprocessing.Pool.apply_async().get()` hang described in the historical notes below — where a silent worker death would block the parent indefinitely — is now structurally fixed by the parallel-perf refactor (spec: `docs/superpowers/specs/2026-05-28-parallel-perf-design.md`). `CreateOutputReportsInParallelUsingProcessPool` was ported to `concurrent.futures.ProcessPoolExecutor`, which raises `BrokenProcessPool` on worker death instead of hanging. The `polynomial_quadratic_3D` scenario runs as part of the default smoke suite (`scripts/smoke_test.py`) and passes on the 22-core Windows acceptance run.
+> **2026-05-28 addendum.** The `multiprocessing.Pool.apply_async().get()` hang described in the historical notes below — where a silent worker death would block the parent indefinitely — is now structurally fixed by the parallel-perf refactor. `CreateOutputReportsInParallelUsingProcessPool` was ported to `concurrent.futures.ProcessPoolExecutor`, which raises `BrokenProcessPool` on worker death instead of hanging. The `polynomial_quadratic_3D` scenario runs as part of the default smoke suite (`scripts/smoke_test.py`) and passes on the 22-core Windows acceptance run.
 
 **Symptom (original, now understood to be measurement artifact).**
 When `scripts/smoke_test.py` runs a 3D polynomial-quadratic fit
@@ -70,8 +70,7 @@ necessary but not sufficient.** Observations:
 
 Refined hypothesis for next investigator: a `multiprocessing.Pool` task in `CreateOutputReportsInParallelUsingProcessPool` (StatusMonitoredLongRunningProcessPage.py) never returns. Likely one of the heavier 3D report types between PNGs #16 and #60 (3D scatter error plots, surface/contour pairs) hangs inside matplotlib's agg backend on Windows-spawn workers. Instrumenting per-worker lifecycle events (diagnose option 1 below) would identify which report type triggers it.
 
-**When we hit it.** 2026-04-18, Phase 1 of the Django 2.2 → 5.2 LTS migration
-(plan: `docs/superpowers/plans/2026-04-18-django-upgrade.md`, Task 4).
+**When we hit it.** 2026-04-18, Phase 1 of the Django 2.2 → 5.2 LTS migration.
 
 **Hypothesis.** A spawn-Pool worker dies silently during matplotlib report
 rendering (OOM? import race? ImageMagick `magick mogrify` shellout hang?).
@@ -154,10 +153,6 @@ Django version compatibility.
 > All four bugs were pre-existing latent issues that only surfaced
 > once the two smoke scenarios actually exercised the full
 > fit + round-trip. Pytest count unchanged at 78/78.
->
-> See `docs/superpowers/specs/2026-04-19-spline-udf-smoke-design.md`
-> and `docs/superpowers/plans/2026-04-19-spline-udf-smoke.md` for the
-> original design and the 2026-04-20 scope-refinement notes.
 >
 > Historical notes below, preserved for reference.
 
@@ -245,10 +240,6 @@ exercising them is future work.
 >   `odrpack>=0.5.0` and `pypandoc>=1.10` added (the latter was
 >   undeclared in upstream but imported by `pyeq3.Utilities.Multifit`).
 >
-> See `docs/superpowers/specs/2026-04-20-pyeq3ng-odr-port-design.md`
-> and `docs/superpowers/plans/2026-04-20-pyeq3ng-odr-port.md` for
-> the design and execution record.
->
 > Historical notes below, preserved for reference.
 
 **Symptom.** Every `pytest` run and every smoke run emits:
@@ -332,8 +323,7 @@ Historical notes, preserved:
 **Symptom / exposure.** As of 2026-04-19, `ScatterAnimation` and
 `SurfaceAnimation` produce animated GIFs via
 `matplotlib.animation.PillowWriter` (previously via mogrify +
-gifsicle shellouts — see
-`docs/superpowers/specs/2026-04-19-pillow-gif-design.md`). The two
+gifsicle shellouts). The two
 animation classes have pytest coverage in `tests/test_animation.py`,
 but no smoke-test coverage exists, because:
 
@@ -399,15 +389,11 @@ unblocking that first.
 > (`zunzunsite` without the 3, `FlaskFit`, `CherryPyFit`, `BottleFit`,
 > etc.) remain on their original bitbucket URLs per spec Non-Goals.
 >
-> See `docs/superpowers/specs/2026-04-20-zunzunng-branding-design.md`
-> and `docs/superpowers/plans/2026-04-20-zunzunng-branding.md` for
-> design and execution records.
->
 > Historical notes below, preserved for reference.
 
 **Symptom / exposure.** As of 2026-04-20, the top-level project
 identity was renamed from ZunZunSite3 to ZunZunNG in `pyproject.toml`,
-`CLAUDE.md`, `README.txt`, and `CHANGELOG`, and the code was pushed to
+`README.txt`, and `CHANGELOG`, and the code was pushed to
 `github.com/kiloscheffer/zunzunng`. However, ~25 user-visible display
 strings and URLs still say "ZunZunSite3" or reference
 `bitbucket.org/zunzuncode/zunzunsite3`:
@@ -494,7 +480,7 @@ the right shape for this.
 
 ## ~~Investigate lifting the 4-worker cap on spawn platforms~~ RESOLVED 2026-05-28
 
-> **Resolved 2026-05-28** by `docs/superpowers/specs/2026-05-28-parallel-perf-design.md` (spec) and `docs/superpowers/plans/2026-05-28-parallel-perf.md` (12-task implementation plan). The hardcoded `platform_ceiling = 4 if uses_spawn else cpu_count` is gone; the per-fit worker count is now resolved by `ZUNZUN_MAX_WORKERS` env > `settings.MAX_PARALLEL_WORKERS` > auto-detect `min(cpu_count, available_RAM / 200 MB)`. Empirical 22-core Windows acceptance run (2026-05-28) confirmed full-core utilization without OpenBLAS memory contention — the `FitPool` sets `OMP_NUM_THREADS / OPENBLAS_NUM_THREADS / MKL_NUM_THREADS=1` in spawn workers to prevent the BLAS thread-pool init bomb. Per-worker RSS measured at ~140 MB (vs. the 750 MB pessimistic estimate that motivated the cap). FunctionFinder 2D large scenario: 39.3 s wall time, 4,137 MB peak total RSS (12.9% of 31 GB). See spec §13 for the full acceptance numbers.
+> **Resolved 2026-05-28** by a design spec and a 12-task implementation plan. The hardcoded `platform_ceiling = 4 if uses_spawn else cpu_count` is gone; the per-fit worker count is now resolved by `ZUNZUN_MAX_WORKERS` env > `settings.MAX_PARALLEL_WORKERS` > auto-detect `min(cpu_count, available_RAM / 200 MB)`. Empirical 22-core Windows acceptance run (2026-05-28) confirmed full-core utilization without OpenBLAS memory contention — the `FitPool` sets `OMP_NUM_THREADS / OPENBLAS_NUM_THREADS / MKL_NUM_THREADS=1` in spawn workers to prevent the BLAS thread-pool init bomb. Per-worker RSS measured at ~140 MB (vs. the 750 MB pessimistic estimate that motivated the cap). FunctionFinder 2D large scenario: 39.3 s wall time, 4,137 MB peak total RSS (12.9% of 31 GB). See spec §13 for the full acceptance numbers.
 
 **Symptom / constraint.** `platform_compat.get_parallel_process_count`
 hard-caps at 4 workers on spawn platforms (Windows, macOS). On
@@ -511,8 +497,7 @@ modest RAM committed ~6 GB of virtual memory just for the workers,
 overflowing the default Windows pagefile and producing opaque
 `ImportError: DLL load failed while importing _flapack` failures.
 The 4-worker cap was a conservative fix that kept the symptom from
-recurring without requiring deeper investigation. See
-`docs/superpowers/specs/2026-04-17-cross-platform-design.md` §12.2.
+recurring without requiring deeper investigation.
 
 **Why it might be worth revisiting.** Several things have changed
 since 2026-04-17 that the 4-cap hasn't been re-evaluated against:
@@ -638,7 +623,7 @@ Centralizing the retry into a single helper:
    `zunzun/session_helpers.py` if the helper count grows).
 2. Replace each in-line retry loop with a single call. Find them with
    `grep -n 'session.save\|s.save\|.save()' zunzun/`.
-3. Update `.claude/agents/fork-pattern-reviewer.md` to look for
+3. Update the `fork-pattern-reviewer` subagent to look for
    `save_with_retry` instead of the raw retry pattern.
 4. Add a unit test covering the retry-on-failure path (mock a session
    that raises N times then succeeds).
@@ -763,8 +748,8 @@ doing in one focused commit rather than incrementally.
 > env-var control knob since `zunzun.LongRunningProcess` is the
 > common prefix.
 >
-> Updated `docs/internals/active-gotchas.md` and `AGENTS.md`
-> (gitignored) to point at the new logger pattern.
+> Updated `docs/internals/active-gotchas.md` to point at the new
+> logger pattern.
 >
 > **Codex review on PR #16 caught a real defect in the first cut.**
 > The original `LOGGING` config attached no handler and the child's
@@ -786,7 +771,7 @@ contains two functions that `return` at the top — explicit no-ops
 in production. Calls to them are scattered through
 `StatusMonitoredLongRunningProcessPage.py` as debugging hooks. To
 enable per-process trace files, the maintainer is expected to
-remove the early `return`s in source. CLAUDE.md documents this as
+remove the early `return`s in source — a state documented as
 "dormant by design."
 
 **Why it's worth fixing.** Source-edit-to-enable-debug is a smell
@@ -813,8 +798,8 @@ logging:
    to bump to DEBUG for trace mode.
 3. Delete `zunzun/LongRunningProcess/pid_trace.py` and any
    `from . import pid_trace` lines.
-4. Update `CLAUDE.md`'s "`pid_trace.py` is dormant by design"
-   subsection — replace it with a "Per-LRP logger" subsection
+4. Update the project docs' "`pid_trace.py` is dormant by design"
+   note — replace it with a "Per-LRP logger" subsection
    pointing at the `LOGGING` config.
 
 **Not in scope of any current branch.** Cleanup; no production
@@ -855,10 +840,10 @@ behavior change in the dormant state.
 >   ``rate_limit_sleep`` decorator stacked below ``@ratelimit`` on
 >   each rate-limited view, so the sleep runs after `request.limited`
 >   is set but before the view body executes. Documented in the
->   middleware module docstring and in `AGENTS.md` §
->   Rate limiting + `docs/internals/active-gotchas.md`.
+>   middleware module docstring and in
+>   `docs/internals/active-gotchas.md`.
 >
-> Also updated `.claude/agents/fork-pattern-reviewer.md` check #6
+> Also updated the `fork-pattern-reviewer` subagent's check #6
 > from "every entry-point view must call `CommonToAllViews`" to
 > "verify `CommonToAllViewsMiddleware` remains in
 > `settings.MIDDLEWARE`."
@@ -911,7 +896,7 @@ mechanism for "do something on every request." Converting:
 4. Either delete the `CommonToAllViews` function once nothing
    calls it, or keep it as the middleware's implementation
    detail.
-5. Update `.claude/agents/fork-pattern-reviewer.md` — replace the
+5. Update the `fork-pattern-reviewer` subagent — replace the
    "every entry-point view must call `CommonToAllViews`" check
    with "the middleware class is registered in `settings.MIDDLEWARE`."
 
@@ -920,10 +905,7 @@ change visible to users.
 
 ## ~~Modernize HTML/CSS in templates~~ RESOLVED 2026-06-01
 
-> **Resolution.** Closed on `feat/form-control-labels`. Spec:
-> `docs/superpowers/specs/2026-06-01-form-control-labels-design.md`; plan:
-> `docs/superpowers/plans/2026-06-01-form-control-labels.md` (both
-> gitignored/local). A re-audit of current `main` found five of the seven
+> **Resolution.** Closed on `feat/form-control-labels`. A re-audit of current `main` found five of the seven
 > deferred items already done by the 71 commits that touched `templates/`
 > after the `d61b2c7` snapshot below: **#1** (`<br><br>` runs — 0 consecutive
 > runs remain), **#2** (`<hr style="width">` — gone), **#3** (inline picker
@@ -1182,9 +1164,7 @@ individually as small focused commits when convenient.
 
 ## ~~Modernize legacy DOM access in matrix-selector JavaScript~~ RESOLVED 2026-05-31
 
-> **Resolution.** Landed on `feat/matrix-selector-js-modernization`. Spec:
-> `docs/superpowers/specs/2026-05-31-matrix-selector-js-modernization-design.md`
-> (local / gitignored per repo convention). The selection state moved off the
+> **Resolution.** Landed on `feat/matrix-selector-js-modernization`. The selection state moved off the
 > inline `style="background-color:rgb(...)"` attribute and onto a `selected`
 > CSS class; the legacy Netscape/IE branches and both `eval()` calls are gone.
 >
@@ -1356,12 +1336,12 @@ across 4 JS files plus the paired `<td>` template cleanup.
 > while the 2D Function/Rational files stay separate. Only reference to the
 > deleted file repo-wide was this BACKLOG entry.
 >
-> **3. `AGENTS.md` brace-pattern filename corrected.** The bogus
+> **3. Coefficient-picker filename list corrected in the agent-instructions doc.** The bogus
 > `{...,polynomial_customization}_selection_div.html` brace expansion (which
 > produced a non-existent `polynomial_customization_selection_div.html`) was
 > replaced with the explicit three-filename list matching
 > `docs/internals/active-gotchas.md` (real file is
-> `polynomial_customization_div.html`). Note: `AGENTS.md` is gitignored, so this
+> `polynomial_customization_div.html`). The agent-instructions doc is gitignored, so this
 > fix is local-only and not part of the branch diff.
 >
 > Out of scope (left as their own BACKLOG entries below): the
@@ -1397,13 +1377,13 @@ removes a maintain-in-parallel hazard. Was a non-goal of the round-1 branch
 with a manual click-through of both the polyfunctional-3D and rational-3D
 pickers after rewiring the includes.
 
-**3. `AGENTS.md` brace-pattern filename imprecision.** `AGENTS.md` (the
+**3. Coefficient-picker filename imprecision in the agent-instructions doc.** The agent-instructions doc (the
 coefficient-picker-templates section) lists the three divs as
 `{polyfunctional,polyrational,polynomial_customization}_selection_div.html`,
 which brace-expands to a non-existent `polynomial_customization_selection_div.html`
 (the real file is `polynomial_customization_div.html`). The same wording in
 `docs/internals/active-gotchas.md` was corrected on the round-1 branch; fix
-`AGENTS.md` to match in a docs pass.
+the agent-instructions doc to match in a docs pass.
 
 **Not in scope of the round-1 branch.** All three are below the merge bar —
 coverage hardening and cosmetic/dedup cleanup — and were deferred from the PR
@@ -1422,8 +1402,7 @@ review rather than fixed inline to keep that branch's diff scoped.
 > `SpecificEquationBoundInterfaceCode` (not just the Unbound/render method).
 > `FitUserSelectableRational` deliberately stays separate (numerator/denominator/
 > offset structure). The dead-3D blocker (entry below) was resolved in the same
-> branch. Spec/plan: `docs/superpowers/specs/2026-06-01-customizable-polynomial-3d-cleanup-design.md`,
-> `docs/superpowers/plans/2026-06-01-customizable-polynomial-3d-cleanup.md`.
+> branch.
 >
 > Historical notes below, preserved for reference.
 
@@ -1480,8 +1459,6 @@ with an open investigation.
 > regression guard (`test_customizable_polynomial_is_2d_only_in_pyeq3`) pins the
 > pyeq3 invariant so a future 3D customizable polynomial fails loudly. Landed with
 > the picker unification (the entry above) on `feat/customizable-polynomial-3d-cleanup`.
-> Spec/plan: `docs/superpowers/specs/2026-06-01-customizable-polynomial-3d-cleanup-design.md`,
-> `docs/superpowers/plans/2026-06-01-customizable-polynomial-3d-cleanup.md`.
 >
 > Historical notes below, preserved for reference.
 
@@ -1676,8 +1653,6 @@ orthogonal to the submit-sync/dedup cleanup.
 > reachable pickers (2D/3D) plus `uv run pytest` and the smoke suite. The stale
 > `active-gotchas.md` picker note and a `custom.css` comment were refreshed off
 > the deleted `readPolyFlags`.
-> Spec: `docs/superpowers/specs/2026-05-31-matrix-selector-followups-design.md`;
-> plan: `docs/superpowers/plans/2026-05-31-matrix-selector-followups.md`.
 >
 > Historical notes below, preserved for reference.
 
@@ -1873,10 +1848,7 @@ genuine unknown until exercised.
 ## ~~Split the LRP status session blob into per-field rows~~ RESOLVED 2026-05-30
 
 > **Resolution.** Replaced the shared status session blob with a
-> per-dispatch `LRPStatus` ORM row (`zunzun/models.py`). Spec:
-> `docs/superpowers/specs/2026-05-29-lrp-status-table-design.md`; plan:
-> `docs/superpowers/plans/2026-05-29-lrp-status-table.md` (both local /
-> gitignored per repo convention). Landed on `feat/lrp-status-table`
+> per-dispatch `LRPStatus` ORM row (`zunzun/models.py`). Landed on `feat/lrp-status-table`
 > as 9 commits; pytest 147/147, smoke 14/14, `migrate` creates
 > `zunzun_lrpstatus`.
 >
@@ -2125,8 +2097,6 @@ completion signal onto `completed` is separable polish.
 > backfill from `completed`) and `0005_remove_lrpstatus_completed` (remove
 > `completed`). The two source-inspection structural guards now assert
 > `mark_terminal`, backed by new behavioral tests on the classmethods.
-> Design: `docs/superpowers/specs/2026-05-31-lrpstatus-state-field-design.md`;
-> plan: `docs/superpowers/plans/2026-05-31-lrpstatus-state-field.md`.
 
 **Symptom / exposure.** Type-design observation from the comprehensive PR
 review of the LRP-status-table branch (`feat/lrp-status-table`, PR #21,
@@ -2746,10 +2716,7 @@ transitional and removable — rather than a permanent dual-read in the views.
 
 ## ~~Make cross-dispatch data reads a first-class "read source vs write target" concept~~ RESOLVED 2026-06-02
 
-> **Resolution.** Landed on `chore/cross-dispatch-data-source`. Spec:
-> `docs/superpowers/specs/2026-06-02-cross-dispatch-read-source-design.md`;
-> plan: `docs/superpowers/plans/2026-06-02-cross-dispatch-read-source.md`
-> (both gitignored/local). Promoted the read source to a typed
+> **Resolution.** Landed on `chore/cross-dispatch-data-source`. Promoted the read source to a typed
 > `ChildPayload.data_source_pk` field plus a `_data_read_pk()` resolver on
 > `StatusMonitoredLongRunningProcessPage` (returns `data_source_pk` when set,
 > else `status_row_pk`); the base `LoadItemFromSessionStore` reads through it
@@ -2813,9 +2780,7 @@ with no behavior change.
 > Regression guard:
 > `tests/test_functionfinder_handoff.py::test_two_concurrent_rankings_resolve_to_distinct_data`.
 >
-> Landed on `feat/functionfinder-token-binding`. Design/plan:
-> `docs/superpowers/specs/2026-06-02-functionfinder-token-binding-design.md`
-> and `docs/superpowers/plans/2026-06-02-functionfinder-token-binding.md`.
+> Landed on `feat/functionfinder-token-binding`.
 >
 > Historical notes below, preserved for reference.
 
@@ -2918,8 +2883,6 @@ with its own URL-design decisions.
 > result. Cutover: pre-deploy ranking rows have no marker and are reaped on the
 > first post-deploy housekeeping pass — a one-time, self-healing artifact,
 > consistent with the other FF-cutover entries + drain-before-deploy.
-> Spec: `docs/superpowers/specs/2026-06-02-functionfinder-link-retention-design.md`;
-> plan: `docs/superpowers/plans/2026-06-02-ff-link-retention.md`.
 >
 > Historical notes below, preserved for reference.
 
@@ -2974,10 +2937,7 @@ could rewrite a legacy file's in-page links on serve.
 
 ## ~~True per-dispatch isolation for ALLOW_MULTIPLE_CONCURRENT_FITS_PER_USER=True~~ RESOLVED 2026-06-02
 
-> **Resolution.** Landed on `feat/per-dispatch-isolation`. Spec:
-> `docs/superpowers/specs/2026-06-01-per-dispatch-isolation-design.md`; plan:
-> `docs/superpowers/plans/2026-06-01-per-dispatch-isolation.md` (both local /
-> gitignored per repo convention).
+> **Resolution.** Landed on `feat/per-dispatch-isolation`.
 >
 > **Per-dispatch data isolation.** New `LRPDispatchData` ORM model — a
 > OneToOne → `LRPStatus` (CASCADE) row created per dispatch — replaces the

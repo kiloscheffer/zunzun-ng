@@ -15,8 +15,8 @@ suite, with every floor and ceiling in `pyproject.toml` still honored.
 **Environment note:** all `uv` commands below assume `.venv/` is excluded
 from any cloud-sync client (Dropbox, OneDrive, iCloud). Without that
 exclusion, prefix every `uv` command with `UV_LINK_MODE=copy` to avoid
-hardlink corruption. See `CLAUDE.md`'s "Development quirks" section for
-context.
+hardlink corruption. See `docs/internals/active-gotchas.md`
+§ Environment and venv for context.
 
 ---
 
@@ -208,10 +208,9 @@ quarterly:
   these have ecosystem-wide implications and are well outside quarterly
   scope.
 
-These follow the project's standard pattern documented in adjacent
-specs/plans: design under `docs/superpowers/specs/`, implementation
-plan under `docs/superpowers/plans/`, feature branch with explicit
-verification, then `--no-ff` merge.
+These follow the project's standard pattern: a design spec and
+implementation plan, a feature branch with explicit verification,
+then a `--no-ff` merge.
 
 ---
 
