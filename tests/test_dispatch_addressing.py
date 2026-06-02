@@ -301,3 +301,45 @@ def test_evaluate_at_a_point_bogus_token_returns_expired(client):
     resp = client.post("/EvaluateAtAPoint/bogus-token-xyz/", {"x": "1.0"})
     assert resp.status_code == 200
     assert b"This result has expired." in resp.content
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# FunctionFinder retention-anchor helpers (_unique.py)
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+def test_ff_anchor_path_under_temp_dir(settings, tmp_path):
+    """ff_anchor_path() is a deterministic, pk-keyed path under TEMP_FILES_DIR
+    with the distinct `ffanchor_` prefix (outside the zun_/h artifact grammar)."""
+    from zunzun.LongRunningProcess._unique import ff_anchor_path
+
+    settings.TEMP_FILES_DIR = str(tmp_path)
+    assert ff_anchor_path(42) == os.path.join(str(tmp_path), "ffanchor_42")
+
+
+def test_write_ff_anchor_creates_marker(settings, tmp_path):
+    from zunzun.LongRunningProcess._unique import ff_anchor_path, write_ff_anchor
+
+    settings.TEMP_FILES_DIR = str(tmp_path)
+    path = write_ff_anchor(7)
+    assert path == ff_anchor_path(7)
+    assert os.path.exists(path)
+
+
+def test_touch_ff_anchor_refreshes_mtime(settings, tmp_path):
+    from zunzun.LongRunningProcess._unique import touch_ff_anchor, write_ff_anchor
+
+    settings.TEMP_FILES_DIR = str(tmp_path)
+    path = write_ff_anchor(7)
+    old = _time.time() - 10_000
+    os.utime(path, (old, old))
+    touch_ff_anchor(7)
+    assert os.path.getmtime(path) > old
+
+
+def test_touch_ff_anchor_missing_is_noop(settings, tmp_path):
+    """A missing marker (already reaped/pruned) must not raise."""
+    from zunzun.LongRunningProcess._unique import touch_ff_anchor
+
+    settings.TEMP_FILES_DIR = str(tmp_path)
+    touch_ff_anchor(999)  # no file on disk; must be a silent no-op
