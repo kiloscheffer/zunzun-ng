@@ -387,6 +387,33 @@ def test_status_update_finalizes_dead_child_pid(client, monkeypatch):
 
 
 @pytest.mark.django_db
+def test_status_update_400_for_foreign_session_row(client):
+    """B1: A row owned by a DIFFERENT session returns 400 stale_session.
+
+    StatusView has the analogous coverage; StatusUpdateView must enforce
+    the same ownership boundary — a dropped ownership clause there would
+    leak another user's live status (currentStatus, elapsed) to any caller
+    who guesses a pk.
+    """
+    from zunzun.models import LRPStatus
+
+    # Create a row belonging to a different session.
+    foreign_row = _make_status_row(
+        current_status="Calculating Error Statistics",
+        start_time=time.time() - 5.0,
+        last_status_check=time.time(),
+        owner_session_key="other-session-key",
+    )
+
+    # Establish our own session (cookie_test is set by GET /).
+    client.get("/")
+
+    response = client.get(f"/StatusUpdate/{foreign_row.pk}/")
+    assert response.status_code == 400
+    assert response.json() == {"error": "stale_session"}
+
+
+@pytest.mark.django_db
 def test_status_view_serves_terminal_page_for_dead_child_pid(client, monkeypatch):
     """StatusView must serve the terminal page (no poll script) for a dead-pid
     in-progress row, not the in-progress template that re-arms the poll loop.

@@ -68,3 +68,52 @@ def test_evaluate_at_point_with_seeded_linear_fit(client):
     body = response.content.decode("utf-8")
     # Success marker from views.py ("evaluates to <b>{value}</b>")
     assert "evaluates to" in body, f"unexpected response body: {body[:400]}"
+
+
+@pytest.mark.django_db
+def test_two_token_evaluate_isolation(client):
+    """B2: Two separately-seeded dispatches with different coefficients must
+    return different evaluation values at the same x — proof that the
+    token-addressed per-dispatch data rows are isolated from each other.
+
+    Polynomial Linear in pyeq3 is y = a + b*x:
+      dispatch A: a=1,  b=2  -> y(3) = 1  + 2*3  = 7
+      dispatch B: a=10, b=2  -> y(3) = 10 + 2*3  = 16
+    """
+    import numpy
+
+    # Seed two independent dispatches.
+    token_a = _seed_data_session(
+        client,
+        equation_name="1st Order (Linear)",
+        equation_family="Polynomial",
+        dimensionality=2,
+        coefficients=numpy.array([1.0, 2.0]),  # y = 1 + 2x
+    )
+    token_b = _seed_data_session(
+        client,
+        equation_name="1st Order (Linear)",
+        equation_family="Polynomial",
+        dimensionality=2,
+        coefficients=numpy.array([10.0, 2.0]),  # y = 10 + 2x
+    )
+
+    # Same x, different tokens -> different results.
+    resp_a = client.post(f"/EvaluateAtAPoint/{token_a}/", data={"x": "3.0"})
+    resp_b = client.post(f"/EvaluateAtAPoint/{token_b}/", data={"x": "3.0"})
+
+    assert resp_a.status_code == 200
+    assert resp_b.status_code == 200
+
+    body_a = resp_a.content.decode("utf-8")
+    body_b = resp_b.content.decode("utf-8")
+
+    assert "evaluates to" in body_a, f"token A unexpected body: {body_a[:400]}"
+    assert "evaluates to" in body_b, f"token B unexpected body: {body_b[:400]}"
+
+    # The two evaluations must yield different numeric results (7.0 vs 16.0).
+    assert body_a != body_b, (
+        f"Both tokens returned the same body — dispatch data is not isolated:\n"
+        f"  token A body: {body_a[:200]}\n"
+        f"  token B body: {body_b[:200]}"
+    )

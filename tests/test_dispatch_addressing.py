@@ -187,3 +187,53 @@ def test_retention_sweep_reaps_only_file_backed_rows_whose_file_is_gone(tmp_path
     assert LRPStatus.objects.filter(pk=kept.pk).exists()  # file present -> kept
     assert LRPStatus.objects.filter(pk=url_row.pk).exists()  # URL result -> kept
     assert LRPStatus.objects.filter(pk=running.pk).exists()  # not terminal -> kept
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# B3: ResultsView error branches
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.django_db
+def test_results_view_bogus_token_returns_expired_message(client):
+    """B3a: GET /Results/bogus-token/ -> 200 with 'expired or is not yet ready'."""
+    resp = client.get("/Results/bogus-token-that-does-not-exist/")
+    assert resp.status_code == 200
+    assert b"expired or is not yet ready" in resp.content
+
+
+@pytest.mark.django_db
+def test_results_view_missing_file_returns_expired_message(client, tmp_path, settings):
+    """B3b: A TERMINAL row with a known result_token whose redirect_to_results
+    points to a NON-EXISTENT file under TEMP_FILES_DIR returns 200 containing
+    'This result has expired.' — exercises the FileNotFoundError arm added in A3.
+    """
+    settings.TEMP_FILES_DIR = str(tmp_path)
+    settings.MEDIA_ROOT = str(tmp_path)
+
+    row = LRPStatus.objects.create(
+        start_time=1.0,
+        state=LRPStatus.State.TERMINAL,
+        redirect_to_results=str(tmp_path / "missing_result.html"),
+        owner_session_key="someone",
+    )
+
+    resp = client.get(f"/Results/{row.result_token}/")
+    assert resp.status_code == 200
+    assert b"This result has expired." in resp.content
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# B4: EvaluateAtAPoint expired-token positive assertion
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.django_db
+def test_evaluate_at_a_point_bogus_token_returns_expired(client):
+    """B4: POST /EvaluateAtAPoint/bogus-token/ -> response body contains
+    'This result has expired.' — confirms the row-is-None guard in
+    EvaluateAtAPointView.
+    """
+    resp = client.post("/EvaluateAtAPoint/bogus-token-xyz/", {"x": "1.0"})
+    assert resp.status_code == 200
+    assert b"This result has expired." in resp.content
