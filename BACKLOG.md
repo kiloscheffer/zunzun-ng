@@ -1812,7 +1812,7 @@ reliably alone and most full-suite runs). It is the *test's* isolation that is
 fragile. CI (`pytest` on three platforms) could surface the same flake
 intermittently.
 
-## Verify Caddy deployment recipes on macOS and Linux
+## Verify Caddy deployment recipes on macOS and Linux (Linux ✅ done 2026-06-02; macOS still open)
 
 **Symptom / exposure.** As of 2026-04-30, `docs/deployment/macos.md`
 and `docs/deployment/linux.md` describe Caddy + Waitress deployment
@@ -1820,10 +1820,17 @@ recipes (replacing the prior nginx-on-Linux/macOS + IIS-on-Windows
 recipes per commit `dc49398` "Merge caddy-deployment"). Verification
 status:
 
-- **Linux** — written by structural extension from Caddy's
-  documentation plus the prior nginx-based knowledge. Not
-  exercised in production. No verification banner currently in the
-  file.
+- **Linux** — ✅ **VERIFIED 2026-06-02** on an Ubuntu-family host
+  (Caddy 2.11.2 + systemd). `manage.py migrate`, the Caddyfile
+  (static `handle_path` split, reverse-proxy, automatic HTTPS via
+  Let's Encrypt with a real cert issued for the live hostname), and
+  the Waitress systemd unit (supervision + `Restart=on-failure`,
+  journald output) all confirmed end-to-end. Verification banner +
+  import-warm-up note added to `linux.md`. **Residual gap:** the
+  `www-data` service account and the `/var/www/zunzun-ng` ownership /
+  `chown` steps were NOT exercised — verification ran as an ordinary
+  user from a home directory, so the locked-down-account permission
+  steps remain unverified.
 - **macOS** — flagged in the file itself ("Verification status:
   Author had no Mac hardware available during the April 2026
   cross-platform migration. Verify on a real macOS box before
@@ -1848,12 +1855,12 @@ following the macOS or Linux recipes for the first time might hit:
 
 **Where to pick up.**
 
-1. **Linux verification:** spin up an Ubuntu 22.04 / 24.04 VM (or a
-   clean container with systemd). Follow `docs/deployment/linux.md`
-   step by step. Note any commands that fail or produce different
-   output than expected. Update the recipe with corrections.
-   Add a verification banner to the top of the file once it works
-   end-to-end.
+1. **Linux verification:** ✅ done 2026-06-02 (see status above).
+   Only residual: exercise the `www-data` service account +
+   `/var/www/zunzun-ng` ownership path. Deploy under the literal
+   recipe (clone into `/var/www/zunzun-ng`, `chown` to `www-data`,
+   run the systemd unit as `User=www-data`) and confirm `www-data`
+   can read the venv and write `temp/` + `session_db/`.
 2. **macOS verification:** find a macOS box (developer machine, CI
    runner, etc.). Follow `docs/deployment/macos.md`. Verify
    `brew install caddy`, the launchd plist loads, and the smoke

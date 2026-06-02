@@ -1,5 +1,14 @@
 # Linux deployment
 
+> **Verified 2026-06-02** on an Ubuntu-family host with Caddy 2.11.2 and
+> systemd: `manage.py migrate`, the Caddyfile (static `handle_path` split
+> + reverse-proxy + automatic HTTPS via Let's Encrypt), and the Waitress
+> systemd unit (supervision + `Restart=on-failure`) were all confirmed
+> end-to-end. **Exception:** the `www-data` service account and the
+> `/var/www/zunzun-ng` ownership steps were not exercised — verification
+> ran as an ordinary user from a home directory. Double-check the `chown`
+> steps (below) when deploying under a locked-down service account.
+
 Tested configuration: Ubuntu 22.04 / 24.04 LTS. Adapt package names and
 paths for other distributions.
 
@@ -99,6 +108,14 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now zunzun-ng
 sudo systemctl status zunzun-ng
 ```
+
+Waitress imports the scientific stack (pyeq3 / numpy / scipy) before it
+binds the socket — measured ~6 s on first start. The service shows
+`active` immediately, but Caddy will return **502** until Waitress
+actually listens, so a `curl` run straight after `start` can briefly
+502 even though nothing is wrong. Wait ~10 s, or watch for
+`INFO:waitress:Serving on http://127.0.0.1:8000` in the journal before
+testing.
 
 Logs:
 
