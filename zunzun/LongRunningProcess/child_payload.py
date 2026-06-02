@@ -63,11 +63,13 @@ class ChildPayload:
     # The LRPStatus/LRPDispatchData row pk this dispatch READS its session
     # data from, when that differs from the row it writes status to
     # (status_row_pk). None = read from status_row_pk (the common case: a
-    # dispatch reads back its own data). Set to a prior dispatch's pk by the
-    # two cross-dispatch read flows (FunctionFinderResults; the /FitEquation
-    # RANK interface-GET pre-fill). Replaces a former untyped extra-bag key
-    # that carried this pk; the base LoadItemFromSessionStore resolves it via
-    # _data_read_pk(). Writes always use status_row_pk.
+    # dispatch reads back its own data). Carried to the spawned child by
+    # FunctionFinderResults (the only cross-dispatch read flow that spawns a
+    # child); the render-only /FitEquation RANK interface-GET pre-fill sets the
+    # in-process LRP attribute but builds no payload, so it never populates
+    # this field. Replaces a former untyped extra-bag key that carried this pk;
+    # the base LoadItemFromSessionStore resolves it via _data_read_pk(). Writes
+    # always use status_row_pk.
     data_source_pk: int | None = None
     extra: dict[str, Any] = field(default_factory=dict)
 
