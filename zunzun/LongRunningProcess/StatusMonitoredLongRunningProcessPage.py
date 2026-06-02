@@ -155,6 +155,13 @@ class StatusMonitoredLongRunningProcessPage(object):
         self.inEquationFamilyName = ""
 
         self.status_row_pk = None
+        # This dispatch's own LRPStatus.result_token, stamped by the view
+        # dispatcher (real fits) or _run_fit_child (spawned child). Defaulted
+        # here so render paths that read self.result_token (FunctionFinder's
+        # terminal redirect) never AttributeError when an LRP is constructed
+        # directly without going through dispatch (e.g. in tests). build_child_payload
+        # already reads it via getattr(self, "result_token", "").
+        self.result_token = ""
 
         self.statisticalDistribution = False
         self.userDefinedFunction = False
