@@ -2,16 +2,24 @@
 render the fitting interface form without hitting "session cookie appears to
 have expired".
 
-Bug: CreateUnboundInterfaceForm calls LoadItemFromSessionStore which routes to
-dispatch_data.load_item(self.status_row_pk, ...). On a GET no dispatch row
-exists, so status_row_pk is None -> load_item returns None ->
+Bug (original): CreateUnboundInterfaceForm calls LoadItemFromSessionStore which
+routes to dispatch_data.load_item(self.status_row_pk, ...). On a GET no dispatch
+row exists, so status_row_pk is None -> load_item returns None ->
 CreateUnboundInterfaceForm raises "Your browser's session cookie appears to
 have expired" -> the view shows "An error occurred while building the form."
 
-Fix: LongRunningProcessView (GET branch) sets
-    LRP.status_row_pk = request.session.get("lrp_status_pk")
-before calling CreateUnboundInterfaceForm, pointing it at the prior dispatch
-(the FunctionFinder ranking) so LoadItemFromSessionStore reads resolve.
+Bug (P1 / PR #36): After the FIRST FunctionFinderResults page renders, the session
+key lrp_status_pk is overwritten with that result page's OWN (data-less) row pk.
+If the ?RANK= GET then reads lrp_status_pk it finds an empty store and still
+raises "session cookie appears to have expired". The fix introduces a dedicated,
+stable session key "functionfinder_ranking_pk" that is set ONLY on the ranking
+dispatch (FunctionFinder__ path) and is NOT overwritten by follow-up dispatches.
+
+Fix: LongRunningProcessView (GET branch, ?RANK present) sets
+    LRP.status_row_pk = request.session.get("functionfinder_ranking_pk")
+before calling CreateUnboundInterfaceForm, pointing it at the stable ranking
+dispatch so LoadItemFromSessionStore reads resolve even after follow-up
+FunctionFinderResults pages have moved lrp_status_pk.
 """
 
 import urllib.parse
@@ -27,15 +35,18 @@ def test_rank_interface_get_renders_without_session_expired_error(client):
     'session cookie expired' / 'An error occurred while building the form'
     error pages.
 
-    Before the fix: status_row_pk is None on the GET path, so
-    CreateUnboundInterfaceForm raises on the functionFinderResultsList load.
-
-    After the fix: status_row_pk is seeded from the session's lrp_status_pk,
-    pointing at the prior (ranking) dispatch whose stores hold the data.
+    This test verifies the P1 fix (PR #36): the stable session key
+    "functionfinder_ranking_pk" is used for ?RANK= GETs, NOT the mutable
+    "lrp_status_pk". The test deliberately sets lrp_status_pk to a DIFFERENT,
+    EMPTY row (simulating what happens after a FunctionFinderResults page has
+    rendered and clobbered lrp_status_pk) while functionfinder_ranking_pk
+    still points at the real ranking dispatch. If the view reads lrp_status_pk
+    instead, it finds an empty store and raises "session cookie appears to have
+    expired" — the test would fail, proving the bug was present before this fix.
     """
     from zunzun.dispatch_data import save_items
 
-    # Simulate a completed FunctionFinder ranking dispatch row.
+    # Simulate a completed FunctionFinder ranking dispatch row with real data.
     ranking = LRPStatus.objects.create(start_time=1.0, state=LRPStatus.State.TERMINAL)
     LRPDispatchData.objects.create(status=ranking)
 
@@ -75,10 +86,20 @@ def test_rank_interface_get_renders_without_session_expired_error(client):
         },
     )
 
-    # Seed the client session so lrp_status_pk points at the ranking dispatch.
+    # Simulate a FunctionFinderResults follow-up dispatch that has clobbered
+    # lrp_status_pk with its own (data-less) row. This is the state that would
+    # cause the bug: if the view reads lrp_status_pk it finds an empty store.
+    empty_results_row = LRPStatus.objects.create(start_time=1.0, state=LRPStatus.State.TERMINAL)
+    LRPDispatchData.objects.create(status=empty_results_row)
+    # NOTE: no save_items for empty_results_row — it has no functionfinder data.
+
+    # Seed the client session:
+    # - functionfinder_ranking_pk -> the real ranking row (stable, not clobbered)
+    # - lrp_status_pk -> the empty results row (simulating post-results-page state)
     session = client.session
     session["cookie_test"] = 1
-    session["lrp_status_pk"] = ranking.pk
+    session["functionfinder_ranking_pk"] = ranking.pk
+    session["lrp_status_pk"] = empty_results_row.pk  # clobbered — must NOT be used for ?RANK=
     session.save()
 
     # Build the URL for 2D Polynomial "2nd Order (Quadratic)" with ?RANK=1.
@@ -91,9 +112,10 @@ def test_rank_interface_get_renders_without_session_expired_error(client):
     content = response.content.decode("utf-8", errors="replace")
     assert "session cookie appears to have expired" not in content, (
         "Form render should NOT raise the 'session cookie expired' message. "
-        "Check that FIX 1 (LRP.status_row_pk = request.session.get('lrp_status_pk')) "
-        "is applied in the GET branch of LongRunningProcessView."
+        "Check that the ?RANK= GET path reads 'functionfinder_ranking_pk' "
+        "(not the mutable 'lrp_status_pk') in LongRunningProcessView."
     )
     assert "An error occurred while building the form" not in content, (
-        "Form render should NOT show the generic build-error fallback. Check that FIX 1 is applied."
+        "Form render should NOT show the generic build-error fallback. "
+        "Check that the ?RANK= GET path reads 'functionfinder_ranking_pk'."
     )

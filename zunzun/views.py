@@ -31,6 +31,26 @@ _logger = logging.getLogger(__name__)
 _HEARTBEAT_STALE_SECS = 300
 
 
+def _sweep_aged_rows():
+    """Reclaim LRPStatus rows whose session has expired (both timestamps older
+    than SESSION_COOKIE_AGE). EXCLUDES completed FILE-BACKED results
+    (state=TERMINAL with redirect_to_results under TEMP_FILES_DIR): their
+    retention is tied to the temp/ artifact via _sweep_orphaned_terminal_rows
+    (reaped when the size-bounded prune removes the file), so a shareable
+    /Results/<token>/ link survives session expiry as documented. Abandoned
+    in-progress rows, FunctionFinder URL-redirect results, and crashed
+    empty-redirect rows are still age-reaped."""
+    from django.conf import settings
+
+    from zunzun.models import LRPStatus
+
+    cutoff = time.time() - settings.SESSION_COOKIE_AGE
+    LRPStatus.objects.filter(last_status_check__lt=cutoff, start_time__lt=cutoff).exclude(
+        state=LRPStatus.State.TERMINAL,
+        redirect_to_results__startswith=settings.TEMP_FILES_DIR,
+    ).delete()
+
+
 def _sweep_orphaned_terminal_rows():
     """Delete TERMINAL LRPStatus rows whose FILE-BACKED result was trimmed from
     temp/ (the cascade drops their LRPDispatchData). Keeps a shareable result
@@ -88,14 +108,12 @@ def _housekeeping_child(temp_dir: str, max_size_mb: int) -> None:
     except Exception:
         logging.exception("Housekeeping: clear_expired() failed")
 
-    # Reclaim LRPStatus rows whose user session has expired. This age-sweep is
-    # the sole reclamation path: each dispatch leaves its row for this sweep
-    # rather than deleting any prior row on dispatch.
+    # Reclaim LRPStatus rows whose user session has expired. File-backed
+    # TERMINAL results are excluded — their retention is tied to the temp/
+    # artifact and they are reclaimed by _sweep_orphaned_terminal_rows instead,
+    # so shareable /Results/<token>/ links survive past session expiry.
     try:
-        from zunzun.models import LRPStatus as _LRPStatus
-
-        cutoff = time.time() - settings.SESSION_COOKIE_AGE
-        _LRPStatus.objects.filter(last_status_check__lt=cutoff, start_time__lt=cutoff).delete()
+        _sweep_aged_rows()
     except Exception:
         logging.exception("Housekeeping: LRPStatus age-sweep failed")
 
@@ -655,7 +673,11 @@ def LongRunningProcessView(
         # results list. `TransferFormDataToDataObject` (called below) calls
         # LoadItemFromSessionStore, which FunctionFinderResults overrides to
         # read from ranking_status_pk rather than its own (empty) row.
-        LRP.ranking_status_pk = request.session.get("lrp_status_pk")
+        # Read the STABLE ranking-dispatch key so this value is not clobbered
+        # when the results-page dispatch below writes its own (data-less) row pk
+        # into lrp_status_pk. Every subsequent "Next/Previous Set" and "fit this
+        # equation" link must read from the same ranking dispatch.
+        LRP.ranking_status_pk = request.session.get("functionfinder_ranking_pk")
 
     else:
         return HttpResponse("I could not understand the web request.")
@@ -719,14 +741,21 @@ def LongRunningProcessView(
     if LRP.userInterfaceRequired:
         if request.method != "POST":
             request.session["cookie_test"] = 1
-            # The interface form pre-populates from the session's most-recent
-            # dispatch (the FunctionFinder ranking for a ?RANK=N request, or the
-            # user's last fit for normal form pre-fill). On a GET no new dispatch
-            # row exists, so point status_row_pk at that prior dispatch so
+            # The interface form pre-populates from a prior dispatch's stored
+            # data. On a GET no new dispatch row exists yet, so point
+            # status_row_pk at that prior dispatch so
             # CreateUnboundInterfaceForm's LoadItemFromSessionStore reads resolve.
-            # This is render-only (the form path performs no status/data writes);
+            # This is render-only (no status/data writes happen on the GET path);
             # the POST path creates and uses its own fresh row.
-            LRP.status_row_pk = request.session.get("lrp_status_pk")
+            if "RANK" in request.GET:
+                # FunctionFinder "fit this equation" form: read the ranked list +
+                # dataset from the STABLE ranking dispatch, not lrp_status_pk (a
+                # FunctionFinderResults page render already moved that pointer to
+                # its own data-less row).
+                LRP.status_row_pk = request.session.get("functionfinder_ranking_pk")
+            else:
+                # Normal fit-form pre-fill: the session's most-recent dispatch.
+                LRP.status_row_pk = request.session.get("lrp_status_pk")
             try:
                 return render(
                     request,
@@ -795,6 +824,15 @@ def LongRunningProcessView(
     )
     request.session["lrp_status_pk"] = status_row.pk
     LRP.status_row_pk = status_row.pk
+
+    # The FunctionFinder RANKING dispatch's data (ranked equation list + dataset)
+    # is read back by every later FunctionFinderResults page and by the
+    # "/FitEquation/?RANK=N" equation-fit form. Those follow-up dispatches each
+    # OVERWRITE lrp_status_pk with their own (data-less) row, so the ranking pk
+    # must live in a dedicated session key they do not clobber. Set it ONLY for
+    # the ranking dispatch (the FunctionFinder__ path — NOT FunctionFinderResults).
+    if request.path.find("FunctionFinder__") != -1:
+        request.session["functionfinder_ranking_pk"] = status_row.pk
 
     # Create the per-dispatch data row in the PARENT, before the child spawns
     # and before SetInitialStatusDataIntoSessionVariables runs: save_items /

@@ -190,6 +190,70 @@ def test_retention_sweep_reaps_only_file_backed_rows_whose_file_is_gone(tmp_path
 
 
 # ──────────────────────────────────────────────────────────────────────────────
+# Age-sweep: file-backed TERMINAL results must survive SESSION_COOKIE_AGE
+# ──────────────────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.django_db
+def test_age_sweep_keeps_file_backed_results(tmp_path, settings):
+    """_sweep_aged_rows() must NOT delete TERMINAL rows whose redirect_to_results
+    points to a file under TEMP_FILES_DIR — those are retained by
+    _sweep_orphaned_terminal_rows() (tied to the file's existence), so a
+    shareable /Results/<token>/ link survives past session expiry.
+
+    Rows that SHOULD be deleted by the age-sweep:
+      - TERMINAL rows with a URL-redirect (FunctionFinder, not a file path)
+      - In-progress (RUNNING) rows with old timestamps
+    """
+    from zunzun.views import _sweep_aged_rows
+
+    settings.TEMP_FILES_DIR = str(tmp_path)
+    settings.SESSION_COOKIE_AGE = 100  # short window so old rows trigger the sweep
+
+    # Very old timestamps — both well past SESSION_COOKIE_AGE.
+    old_time = 1.0
+
+    # (1) TERMINAL, file-backed, file EXISTS under TEMP_FILES_DIR -> KEPT
+    result_file = tmp_path / "r.html"
+    result_file.write_text("<html>RESULT</html>", encoding="utf-8")
+    kept_file_row = LRPStatus.objects.create(
+        start_time=old_time,
+        last_status_check=old_time,
+        state=LRPStatus.State.TERMINAL,
+        redirect_to_results=str(result_file),
+    )
+
+    # (2) TERMINAL, URL-redirect (FunctionFinder result, not a file) -> DELETED
+    url_row = LRPStatus.objects.create(
+        start_time=old_time,
+        last_status_check=old_time,
+        state=LRPStatus.State.TERMINAL,
+        redirect_to_results="/FunctionFinderResults/2/?RANK=1",
+    )
+
+    # (3) RUNNING (in-progress), old timestamps, empty redirect -> DELETED
+    running_row = LRPStatus.objects.create(
+        start_time=old_time,
+        last_status_check=old_time,
+        state=LRPStatus.State.RUNNING,
+        redirect_to_results="",
+    )
+
+    _sweep_aged_rows()
+
+    assert LRPStatus.objects.filter(pk=kept_file_row.pk).exists(), (
+        "File-backed TERMINAL result must NOT be age-reaped — "
+        "it should survive session expiry until the temp/ file is pruned."
+    )
+    assert not LRPStatus.objects.filter(pk=url_row.pk).exists(), (
+        "URL-redirect TERMINAL row (FunctionFinder) must be age-reaped."
+    )
+    assert not LRPStatus.objects.filter(pk=running_row.pk).exists(), (
+        "Abandoned RUNNING row must be age-reaped."
+    )
+
+
+# ──────────────────────────────────────────────────────────────────────────────
 # B3: ResultsView error branches
 # ──────────────────────────────────────────────────────────────────────────────
 
