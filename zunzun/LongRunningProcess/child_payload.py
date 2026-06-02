@@ -65,9 +65,9 @@ class ChildPayload:
     # (status_row_pk). None = read from status_row_pk (the common case: a
     # dispatch reads back its own data). Set to a prior dispatch's pk by the
     # two cross-dispatch read flows (FunctionFinderResults; the /FitEquation
-    # RANK interface-GET pre-fill). Replaces the former
-    # extra["ranking_status_pk"] bag key; the base LoadItemFromSessionStore
-    # resolves it via _data_read_pk(). Writes always use status_row_pk.
+    # RANK interface-GET pre-fill). Replaces a former untyped extra-bag key
+    # that carried this pk; the base LoadItemFromSessionStore resolves it via
+    # _data_read_pk(). Writes always use status_row_pk.
     data_source_pk: int | None = None
     extra: dict[str, Any] = field(default_factory=dict)
 
