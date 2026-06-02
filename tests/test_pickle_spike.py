@@ -1,8 +1,8 @@
 """Verify pyeq3 equations and LRP subclasses survive pickle round-trip.
 
-This test is the empirical check for the risk flagged in
-docs/superpowers/specs/2026-04-17-cross-platform-design.md §4.4
-before Phase 2 rewires LongRunningProcessView to spawn.
+This test is the empirical check for the pickle-safety risk flagged in
+the cross-platform design before Phase 2 rewired LongRunningProcessView
+to spawn.
 
 We test pickling under the spawn protocol specifically (highest
 pickle protocol) because that's what multiprocessing.Process(spawn)
