@@ -9,6 +9,18 @@ https://bitbucket.org/zunzuncode/zunzunsite3/commits/all
 
 --- Notable changes (summarised here; full history on GitHub) ---
 
+chore/pyeq3-upstream (merged 2026-06)
+  Switched the pyeq3 dependency from the kiloscheffer/pyeq3-ng fork to upstream
+  equations-project/pyeq3, pinned at the commit that merged the scipy.odr ->
+  odrpack port (PR #8, authored from pyeq3-ng). Two stale-metadata gaps in
+  upstream's pyproject are bridged locally until a fixed upstream tag exists:
+  numpy is forced to 2.x via [tool.uv] override-dependencies (upstream still
+  declares numpy<2.0), and pypandoc is declared as a direct dep (pyeq3's package
+  __init__ eagerly imports Utilities.Multifit -> pypandoc, which upstream omits).
+  No fitting-code change — the odr source is byte-identical between fork and
+  upstream; the pyeq3-ng fork is now only a packaging delta, retireable once
+  upstream relaxes numpy and declares pypandoc.
+
 feat/demo-mode (merged 2026-06)
   New env-gated demo posture for public showcase deployments. ZUNZUN_DEMO_MODE=1
   caps fit-runs at DEMO_MAX_FITS_PER_HOUR (default 4, env override) per IP per

@@ -16,6 +16,13 @@ dependencies = [
     # silently accept but not honor these kwargs.
     "django-ratelimit>=4.0",
     "pyeq3",
+    # pyeq3's package __init__ EAGERLY imports pyeq3.Utilities.Multifit, which
+    # does `import pypandoc` at module load — so `import pyeq3` fails on a clean
+    # install without pypandoc, even though this app never calls Multifit
+    # itself. Upstream pyeq3's pyproject.toml omits this dep (the pyeq3-ng fork
+    # declared it); we declare it here until the pending upstream PR lands. See
+    # [tool.uv.sources] below.
+    "pypandoc>=1.10",
     # numpy 2.x strict comparison semantics: numpy.array([]) != [] raises
     # rather than returning False. FittingBaseClass.estimatedCoefficients
     # relies on this (see commit history for the numpy-empty-array fix).
@@ -100,13 +107,30 @@ dev = [
 # top-level Django files, not an importable package). Only dependencies
 # are installed; zunzun-ng itself is never built as a wheel.
 package = false
+# Force numpy 2.x onto upstream pyeq3, whose pyproject.toml still declares
+# numpy = "^1.24" (i.e. >=1.24,<2.0). That ceiling is stale metadata, not a
+# real incompatibility: the odrpack-based fitting code (the scipy.odr port,
+# merged upstream as equations-project/pyeq3 PR #8) runs fine on numpy 2.x,
+# and this app requires numpy>=2.0 for its strict empty-array comparison
+# semantics (see the numpy dep comment above). The override is a bridge — once
+# upstream relaxes its numpy ceiling and tags a release, move the pin below to
+# that tag and delete this line. See docs/operations/quarterly-upgrade.md.
+override-dependencies = ["numpy>=2.0,<3"]
 
 [tool.uv.sources]
-# pyeq3 is pinned to the pyeq3-ng fork (github.com/kiloscheffer/pyeq3-ng)
-# which removes the scipy.odr dependency (deprecated in scipy 1.17,
-# removed in 1.19) in favor of the independent odrpack package on PyPI.
-# Upstream pyeq3 has been dormant since 2020-01 and is not a PR target.
-pyeq3 = { git = "https://github.com/kiloscheffer/pyeq3-ng.git", tag = "v1.0.2-ng" }
+# pyeq3 is pinned to upstream github.com/equations-project/pyeq3 at the commit
+# that merged the scipy.odr → odrpack port (PR #8, authored from this project's
+# pyeq3-ng fork). scipy.odr was deprecated in scipy 1.17 and removed in 1.19;
+# odrpack wraps the same ODRPACK95 Fortran backend with a function-style API.
+# Upstream has no tag for the post-PR-#8 state yet (still the 12.6.2a0 alpha),
+# so we pin the exact rev for reproducibility. The companion pyeq3-ng fork
+# (github.com/kiloscheffer/pyeq3-ng) is now only a PACKAGING delta over upstream:
+# (1) the numpy ceiling — handled by the override above — and (2) a pypandoc dep
+# declaration upstream omits — handled by the explicit pypandoc dependency above.
+# Both are stale-metadata bugs in upstream's pyproject; a pending upstream PR
+# fixes them. Once it lands and upstream tags a release, switch to tag= and drop
+# both the override and the pypandoc dep.
+pyeq3 = { git = "https://github.com/equations-project/pyeq3.git", rev = "3bfec026e3fbb749d2781e24d7bbe2e6360f6121" }
 
 [tool.mypy]
 # Permissive baseline for the 2016-era code. Strict mode would surface

@@ -6,6 +6,9 @@ resolution-markers = [
     "python_full_version < '3.15'",
 ]
 
+[manifest]
+overrides = [{ name = "numpy", specifier = ">=2.0,<3" }]
+
 [[package]]
 name = "asgiref"
 version = "3.11.1"
@@ -516,13 +519,12 @@ wheels = [
 
 [[package]]
 name = "pyeq3"
-version = "12.6.2a0+ng"
-source = { git = "https://github.com/kiloscheffer/pyeq3-ng.git?tag=v1.0.2-ng#504baf0649b61ba04679059b1eb3ddfae0c03b63" }
+version = "12.6.2a0"
+source = { git = "https://github.com/equations-project/pyeq3.git?rev=3bfec026e3fbb749d2781e24d7bbe2e6360f6121#3bfec026e3fbb749d2781e24d7bbe2e6360f6121" }
 dependencies = [
     { name = "matplotlib" },
     { name = "numpy" },
     { name = "odrpack" },
-    { name = "pypandoc" },
     { name = "scipy" },
 ]
 
@@ -766,6 +768,7 @@ dependencies = [
     { name = "pillow" },
     { name = "psutil" },
     { name = "pyeq3" },
+    { name = "pypandoc" },
     { name = "reportlab" },
     { name = "scipy" },
     { name = "waitress" },
@@ -791,7 +794,8 @@ requires-dist = [
     { name = "numpy", specifier = ">=2.0,<3" },
     { name = "pillow" },
     { name = "psutil" },
-    { name = "pyeq3", git = "https://github.com/kiloscheffer/pyeq3-ng.git?tag=v1.0.2-ng" },
+    { name = "pyeq3", git = "https://github.com/equations-project/pyeq3.git?rev=3bfec026e3fbb749d2781e24d7bbe2e6360f6121" },
+    { name = "pypandoc", specifier = ">=1.10" },
     { name = "reportlab" },
     { name = "scipy", specifier = "<2" },
     { name = "waitress", specifier = ">=3.0" },

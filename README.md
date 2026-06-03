@@ -1,6 +1,6 @@
 # ZunZunNG
 
-A Django site for 2D and 3D nonlinear curve and surface fitting via the [`pyeq3`](https://github.com/kiloscheffer/pyeq3-ng) library — with genetic-algorithm initial parameter estimation, orthogonal-distance and relative-error regressions, source-code generation in several languages, PDF reports, and surface animations.
+A Django site for 2D and 3D nonlinear curve and surface fitting via the [`pyeq3`](https://github.com/equations-project/pyeq3) library — with genetic-algorithm initial parameter estimation, orthogonal-distance and relative-error regressions, source-code generation in several languages, PDF reports, and surface animations.
 
 Hosted at [github.com/kiloscheffer/zunzun-ng](https://github.com/kiloscheffer/zunzun-ng).
 
@@ -51,7 +51,7 @@ ZunZunNG ("Next Generation") is a permanent fork of James R. Phillips's [`zunzun
 
 - **Python 3.14 / Django 6.0** (was Python 3.x / Django 2.2).
 - **Cross-platform deployment** (Linux, macOS, Windows) via the spawn-based multiprocessing migration.
-- **scipy.odr removal** via the companion [`pyeq3-ng`](https://github.com/kiloscheffer/pyeq3-ng) fork — `scipy.odr` was deprecated in scipy 1.17 and slated for removal in 1.19.
+- **scipy.odr removal** — replaced with the independent `odrpack` package (`scipy.odr` was deprecated in scipy 1.17, removed in 1.19). Done first in the companion `pyeq3-ng` fork and since [merged upstream](https://github.com/equations-project/pyeq3) (PR #8); ZunZunNG now depends on upstream `pyeq3` directly.
 - **Pure-Python animated GIFs** via matplotlib's `PillowWriter`, replacing the previous `imagemagick` + `gifsicle` system-binary dependency.
 
 The original copyright notice in [`LICENSE.txt`](LICENSE.txt) is retained per the BSD-2-clause terms. James R. Phillips's prose in the "About" page is preserved verbatim.
