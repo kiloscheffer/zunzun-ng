@@ -24,8 +24,11 @@
   </dl>
 
   <p><small>
-    Load &lt; {{ coreCount }} is light;
-    &ge; {{ coreCount }} means cores are saturated.
+    Load is the average number of threads competing for a CPU core, not a
+    percentage — it has no upper limit. Below {{ coreCount }} leaves cores
+    idle; near {{ coreCount }} uses them fully; above {{ coreCount }} means
+    work is queuing for a core (double {{ coreCount }} ≈ twice as much
+    runnable work as there are cores).
   </small></p>
 </div>
 {% endblock %}

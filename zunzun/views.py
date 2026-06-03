@@ -1060,9 +1060,25 @@ def HomePageView(request):
     ]
     items_to_render["header_text"] = "ZunZunNG"
     items_to_render["subtitle_text"] = "Online Curve Fitting and Surface Fitting"
-    items_to_render["loadavg"] = platform_compat.get_loadavg()
+    # Load average is intentionally NOT rendered here: this page is
+    # @cache_page-cached for an hour, so a baked-in snapshot would freeze.
+    # The Server Load panel fetches live values from ServerLoadView via
+    # ServerLoadPoll.js instead.
 
     return render(request, "zunzun/home_page.html", items_to_render)
+
+
+@cache_control(no_cache=True)
+def ServerLoadView(request):
+    """Live 1/5/15-minute load average as JSON for the home page panel.
+
+    The home page is @cache_page-cached for 60 minutes, which would freeze
+    any load-average value rendered into its HTML. This no-cache companion
+    endpoint is polled by ServerLoadPoll.js so the Server Load panel shows
+    current values. Not rate-limited, mirroring StatusUpdateView (the other
+    short-interval JS poll target).
+    """
+    return JsonResponse({"loadavg": list(platform_compat.get_loadavg())})
 
 
 @cache_control(no_cache=True)

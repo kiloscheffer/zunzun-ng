@@ -12,6 +12,7 @@ urlpatterns = [
     re_path(r"^StatusAndResults/$", zunzun.views.StatusRedirectView),
     re_path(r"^StatusAndResults/(?P<pk>\d+)/$", zunzun.views.StatusView),
     re_path(r"^StatusUpdate/(?P<pk>\d+)/$", zunzun.views.StatusUpdateView),
+    re_path(r"^ServerLoad/$", zunzun.views.ServerLoadView),
     re_path(r"^Results/(?P<token>[A-Za-z0-9_-]+)/$", zunzun.views.ResultsView),
     re_path(r"^CharacterizeData/([123])/$", zunzun.views.LongRunningProcessView),
     re_path(r"^StatisticalDistributions/([1])/$", zunzun.views.LongRunningProcessView),

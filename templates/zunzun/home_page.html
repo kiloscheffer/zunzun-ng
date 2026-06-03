@@ -1,4 +1,4 @@
-{% extends "zunzun/generic_page_template.html" %}{% block title %} ZunZunNG - Online Curve Fitting and Surface Fitting {% endblock %}{% block additional_jquery_ready_code %} $('#javaScriptDetectedDiv').removeClass('hidden'); {% endblock %}
+{% extends "zunzun/generic_page_template.html" %}{% block title %} ZunZunNG - Online Curve Fitting and Surface Fitting {% endblock %}{% block additional_jquery_ready_code %} $('#javaScriptDetectedDiv').removeClass('hidden'); {% endblock %}{% block additional_javascript %}{% include "zunzun/javascript/ServerLoadPoll.js" %}{% endblock %}
 {% block top_nav %}
   <nav class="dropdown-nav">{% for dim_to_map in dim_to_map_list %}
     <div>

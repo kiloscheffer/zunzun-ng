@@ -17,6 +17,7 @@ import zunzun.views
         ("/StatusAndResults/", zunzun.views.StatusRedirectView),
         ("/StatusAndResults/42/", zunzun.views.StatusView),
         ("/StatusUpdate/42/", zunzun.views.StatusUpdateView),
+        ("/ServerLoad/", zunzun.views.ServerLoadView),
         ("/CharacterizeData/2/", zunzun.views.LongRunningProcessView),
         ("/StatisticalDistributions/1/", zunzun.views.LongRunningProcessView),
         ("/FunctionFinder__F__/2/", zunzun.views.LongRunningProcessView),
