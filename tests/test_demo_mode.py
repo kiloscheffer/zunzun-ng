@@ -42,3 +42,21 @@ def test_demo_mode_context_processor_reflects_setting():
         assert demo_mode(None) == {"demo_mode": True}
     with patch("settings.DEMO_MODE", False, create=True):
         assert demo_mode(None) == {"demo_mode": False}
+
+
+@pytest.mark.django_db
+def test_body_has_demo_class_when_on(client, mocked_process_start):
+    """GET / renders <body class="demo-mode"> when DEMO_MODE is on. mocked_process
+    _start no-ops HomePageView's housekeeping child spawn."""
+    with patch("settings.DEMO_MODE", True, create=True):
+        response = client.get("/")
+    assert b'class="demo-mode"' in response.content
+
+
+@pytest.mark.django_db
+def test_body_has_no_demo_class_when_off(client, mocked_process_start):
+    """When DEMO_MODE is off the class is empty — proves zero visual change."""
+    with patch("settings.DEMO_MODE", False, create=True):
+        response = client.get("/")
+    assert b'class="demo-mode"' not in response.content
+    assert b'class=""' in response.content
