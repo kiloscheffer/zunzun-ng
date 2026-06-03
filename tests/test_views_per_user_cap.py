@@ -1,7 +1,7 @@
 """Tests for the per-session and per-IP concurrency caps.
 
-MAX_CONCURRENT_FITS_PER_SESSION (default 1) and MAX_CONCURRENT_FITS_PER_IP
-(default 4) gate new fit POSTs. The gate counts INITIALIZING/RUNNING rows with
+MAX_CONCURRENT_FITS_PER_SESSION (prod default 1, dev default 10) and
+MAX_CONCURRENT_FITS_PER_IP (prod default 4, dev default 10) gate new fit POSTs. The gate counts INITIALIZING/RUNNING rows with
 a fresh (<300s) last_status_check heartbeat. Provably-dead rows (crashed child
 whose heartbeat is still fresh) are finalized on-demand when a cap would
 otherwise block, so a SIGKILL/OOM victim doesn't strand the session.
