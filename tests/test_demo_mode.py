@@ -115,3 +115,41 @@ def test_fifth_fit_post_blocked_in_demo_mode(client, mocked_process_start):
         assert response.status_code == 429
         assert "zunzun/demo_limit_reached.html" in [t.name for t in response.templates]
         assert b"demo limit" in response.content.lower()
+
+
+@pytest.mark.django_db
+def test_demo_disabled_does_not_block_fifth_post(client, mocked_process_start):
+    """DEMO_MODE off (default): a 5th POST in the window still dispatches (302) —
+    the hourly cap is inert. (5 < 12, so the unrelated 12/m limiter never trips.)"""
+    _seed_cookie_test(client)
+    with (
+        patch("django_ratelimit.core.time") as ratelimit_clock,
+        patch("settings.DEMO_MODE", False, create=True),
+        patch("settings.MAX_CONCURRENT_FITS_PER_SESSION", 99, create=True),
+        patch("settings.MAX_CONCURRENT_FITS_PER_IP", 99, create=True),
+    ):
+        ratelimit_clock.time.return_value = 1_700_000_000
+        for i in range(5):
+            response = client.post(_FIT_URL, data=_FIT_FIELDS, HTTP_HOST="testserver")
+            assert response.status_code == 302, f"fit {i + 1} should dispatch (302)"
+
+
+@pytest.mark.django_db
+def test_demo_cap_honors_env_override(client, mocked_process_start):
+    """DEMO_MAX_FITS_PER_HOUR=2 moves the block to the 3rd POST, proving the
+    setting (not a hardcoded 4) drives the rate string."""
+    _seed_cookie_test(client)
+    with (
+        patch("django_ratelimit.core.time") as ratelimit_clock,
+        patch("settings.DEMO_MODE", True, create=True),
+        patch("settings.DEMO_MAX_FITS_PER_HOUR", 2, create=True),
+        patch("settings.MAX_CONCURRENT_FITS_PER_SESSION", 99, create=True),
+        patch("settings.MAX_CONCURRENT_FITS_PER_IP", 99, create=True),
+    ):
+        ratelimit_clock.time.return_value = 1_700_000_000
+        for i in range(2):
+            response = client.post(_FIT_URL, data=_FIT_FIELDS, HTTP_HOST="testserver")
+            assert response.status_code == 302, f"fit {i + 1} should dispatch (302)"
+
+        response = client.post(_FIT_URL, data=_FIT_FIELDS, HTTP_HOST="testserver")
+        assert response.status_code == 429
