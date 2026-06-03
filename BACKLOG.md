@@ -10,6 +10,16 @@ Renamed from `TODO.md` on 2026-04-28 — the file's scope had grown beyond
 "things broken right now" to also cover quality refactors and cosmetic
 modernization, which `BACKLOG` captures more honestly.
 
+## Demo-mode hourly cap fragments across multiple Waitress processes
+
+**Symptom.** The demo-mode per-IP hourly fit cap (`ZUNZUN_DEMO_MODE=1`, `DEMO_MAX_FITS_PER_HOUR`, enforced in `views.LongRunningProcessView` via `django_ratelimit.core.is_ratelimited`) stores its counter in Django's default cache. No `CACHES` is configured, so that is `LocMemCache` — per-process.
+
+**Hypothesis / impact.** On the documented single-process Waitress deployment the counter is shared across worker threads and the cap is exact. If an operator runs multiple Waitress processes, each keeps an independent counter, so the effective ceiling becomes N × `DEMO_MAX_FITS_PER_HOUR`.
+
+**What we didn't do.** Did not add a shared cache backend, since the showcase box is single-process (YAGNI). The same per-process limitation already applies to the existing `12/m` limiter, so this is not a regression.
+
+**Where to pick up.** Configure a shared `CACHES` backend (Redis / memcached / `django.core.cache.backends.db.DatabaseCache`) before scaling demo mode out to multiple processes. Documented in `docs/internals/active-gotchas.md` § Deploy.
+
 ## ~~3D fit spawn-Pool deadlock on Windows smoke~~ RESOLVED 2026-04-19
 
 > **Resolution.** There was no deadlock. The 3D POST was returning an

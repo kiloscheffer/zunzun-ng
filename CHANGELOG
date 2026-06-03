@@ -9,6 +9,15 @@ https://bitbucket.org/zunzuncode/zunzunsite3/commits/all
 
 --- Notable changes (summarised here; full history on GitHub) ---
 
+feat/demo-mode (merged 2026-06)
+  New env-gated demo posture for public showcase deployments. ZUNZUN_DEMO_MODE=1
+  caps fit-runs at DEMO_MAX_FITS_PER_HOUR (default 4, env override) per IP per
+  hour — the run exceeding the ceiling gets a friendly HTTP 429 page instead of
+  spawning a fit — and renders a faint diagonal "DEMO" watermark behind page
+  content. Off by default; zero behavior change on a normal instance. The cap is
+  an in-view guard (views.LongRunningProcessView) reusing the ratelimit cache;
+  the watermark is pure CSS gated by a body class fed by a new context processor.
+
 feat/debug-aware-concurrency-defaults (merged 2026-06)
   The concurrent-fit caps now default DEBUG-aware: under runserver (dev) both
   MAX_CONCURRENT_FITS_PER_SESSION and MAX_CONCURRENT_FITS_PER_IP relax to 10 so
