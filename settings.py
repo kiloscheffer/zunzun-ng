@@ -82,7 +82,11 @@ TEMPLATES = [
         "BACKEND": "django.template.backends.django.DjangoTemplates",
         "DIRS": [os.path.join(ROOT_PATH, "templates")],
         "APP_DIRS": True,
-        "OPTIONS": {},
+        "OPTIONS": {
+            "context_processors": [
+                "zunzun.context_processors.demo_mode",
+            ],
+        },
     },
 ]
 INSTALLED_APPS = (
@@ -184,3 +188,14 @@ MAX_CONCURRENT_FITS_PER_SESSION = _fits_default(
     "ZUNZUN_MAX_CONCURRENT_FITS_PER_SESSION", 10, 1, DEBUG
 )
 MAX_CONCURRENT_FITS_PER_IP = _fits_default("ZUNZUN_MAX_CONCURRENT_FITS_PER_IP", 10, 4, DEBUG)
+
+
+# Demo-mode posture (public showcase). OFF by default; ZUNZUN_DEMO_MODE=1 turns
+# the instance into a demo: (a) caps fit-runs per IP per hour and (b) renders a
+# faint diagonal "DEMO" watermark behind page content (see static/custom.css and
+# zunzun/context_processors.py). Independent of DEBUG — a demo box runs under
+# Waitress (DEBUG=False) just like prod. The hourly ceiling is enforced only when
+# DEMO_MODE is on, by the in-view guard at the top of views.LongRunningProcessView;
+# it is env-overridable to match the MAX_CONCURRENT_FITS_PER_IP philosophy.
+DEMO_MODE = os.environ.get("ZUNZUN_DEMO_MODE", "0") == "1"
+DEMO_MAX_FITS_PER_HOUR = int(os.environ.get("ZUNZUN_DEMO_MAX_FITS_PER_HOUR", "4"))

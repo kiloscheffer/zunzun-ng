@@ -10,6 +10,30 @@ Renamed from `TODO.md` on 2026-04-28 — the file's scope had grown beyond
 "things broken right now" to also cover quality refactors and cosmetic
 modernization, which `BACKLOG` captures more honestly.
 
+## Demo-mode hourly cap fragments across multiple Waitress processes
+
+**Symptom.** The demo-mode per-IP hourly fit cap (`ZUNZUN_DEMO_MODE=1`, `DEMO_MAX_FITS_PER_HOUR`, enforced in `views.LongRunningProcessView` via `django_ratelimit.core.is_ratelimited`) stores its counter in Django's default cache. No `CACHES` is configured, so that is `LocMemCache` — per-process.
+
+**Hypothesis / impact.** On the documented single-process Waitress deployment the counter is shared across worker threads and the cap is exact. If an operator runs multiple Waitress processes, each keeps an independent counter, so the effective ceiling becomes N × `DEMO_MAX_FITS_PER_HOUR`.
+
+**What we didn't do.** Did not add a shared cache backend, since the showcase box is single-process (YAGNI). The same per-process limitation already applies to the existing `12/m` limiter, so this is not a regression.
+
+**Where to pick up.** Configure a shared `CACHES` backend (Redis / memcached / `django.core.cache.backends.db.DatabaseCache`) before scaling demo mode out to multiple processes. Documented in `docs/internals/active-gotchas.md` § Deploy.
+
+## Demo-mode hourly cap and watermark have known coverage gaps
+
+**Symptom.** Two scoped-out gaps in the demo-mode feature (`ZUNZUN_DEMO_MODE=1`):
+
+1. The 4/hour per-IP cap counts only POSTs to `LongRunningProcessView` ("one POST == one run"). The `FunctionFinderResults/` path is a GET that re-renders up to ~40 equation plots per request and is NOT counted, so a visitor holding a valid `?ranking=<token>` (obtained via one counted ranking POST) can fire many heavy result re-renders that dodge the hourly ceiling.
+
+2. The shareable result pages (`equation_fit_or_characterizer_results.html`, `function_finder_results.html`) now DO carry the watermark — the child injects `demo_mode` via `StatusMonitoredLongRunningProcessPage._inject_offrequest_globals` before `render_to_string` (which, unlike `render(request, ...)`, skips context processors). What still lacks it: the off-request *error/fallback* pages the child writes (`exception_while_fitting_an_equation.html`, and the `generic_error.html` child writes), which were left unwired.
+
+**Hypothesis / impact.** (1) is bounded, not a fork-bomb: the pre-existing concurrency gate (`MAX_CONCURRENT_FITS_PER_IP`) already caps *simultaneous* render children, so the only unbounded dimension is sustained hourly CPU, not instantaneous load. (2) is now cosmetic-only and limited to rare error/fallback pages — the normal shareable result links are marked.
+
+**What we didn't do.** Deliberately kept "one POST == one run" (the approved spec semantics) so legitimate result-browsing doesn't burn the fit quota and produce a mid-browse 429. For (2), wired the watermark into the two success-result render sites only; left the error/fallback render sites unwired (rare paths, low value) — they can reuse the same `_inject_offrequest_globals` helper if desired.
+
+**Where to pick up.** (1) If sustained hourly CPU abuse becomes real, either count `FunctionFinderResults/` GETs in the demo guard (mirror the `_will_spawn_child` predicate in `views.py`) or add a separate, looser hourly cap for that path. (2) Have the spawned child read `settings.DEMO_MODE` and emit the `demo-mode` body class when writing result HTML.
+
 ## ~~3D fit spawn-Pool deadlock on Windows smoke~~ RESOLVED 2026-04-19
 
 > **Resolution.** There was no deadlock. The 3D POST was returning an
