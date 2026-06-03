@@ -1063,7 +1063,9 @@ def HomePageView(request):
     # Load average is intentionally NOT rendered here: this page is
     # @cache_page-cached for an hour, so a baked-in snapshot would freeze.
     # The Server Load panel fetches live values from ServerLoadView via
-    # ServerLoadPoll.js instead.
+    # ServerLoadPoll.js instead. coreCount IS rendered (it feeds the panel's
+    # explanation): it's a machine constant, so caching it is harmless.
+    items_to_render["coreCount"] = multiprocessing.cpu_count()
 
     return render(request, "zunzun/home_page.html", items_to_render)
 

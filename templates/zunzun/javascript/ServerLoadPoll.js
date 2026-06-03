@@ -25,6 +25,14 @@
     if (el) el.textContent = value;
   }
 
+  /* Pad to two decimals so 2 and an unrounded 2.12060546875 both display as
+   * "2.00"/"2.12" (Alpine/musl's getloadavg returns unrounded fixed-point;
+   * glibc/Windows round to 2). */
+  function fmtLoad(n) {
+    var x = Number(n);
+    return isFinite(x) ? x.toFixed(2) : n;
+  }
+
   function panelVisible() {
     var el = document.getElementById('serverloadDiv');
     return !!el && !el.classList.contains('hidden');
@@ -41,9 +49,9 @@
       })
       .then(function (data) {
         if (data && data.loadavg && data.loadavg.length === 3) {
-          setText('hpLoad1', data.loadavg[0]);
-          setText('hpLoad5', data.loadavg[1]);
-          setText('hpLoad15', data.loadavg[2]);
+          setText('hpLoad1', fmtLoad(data.loadavg[0]));
+          setText('hpLoad5', fmtLoad(data.loadavg[1]));
+          setText('hpLoad15', fmtLoad(data.loadavg[2]));
         }
       })
       .catch(function () { /* network blip: swallow, retry next tick */ })
