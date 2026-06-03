@@ -580,3 +580,26 @@ def test_reservation_exceeds_cap_terminal_rows_excluded():
     assert (
         _reservation_exceeds_cap(active_row.pk, "S", "1.2.3.4", max_session=1, max_ip=99) is False
     )
+
+
+# ── DEBUG-aware default resolution (settings._fits_default) ──────────────────
+
+
+def test_fits_default_selects_dev_or_prod_by_debug():
+    """DEBUG=True selects the permissive dev default; DEBUG=False the safe prod
+    one. Uses fictitious env var names guaranteed to be unset."""
+    from settings import _fits_default
+
+    assert _fits_default("ZUNZUN_UNSET_SESSION_VAR", 10, 1, debug=True) == 10
+    assert _fits_default("ZUNZUN_UNSET_SESSION_VAR", 10, 1, debug=False) == 1
+    assert _fits_default("ZUNZUN_UNSET_IP_VAR", 10, 4, debug=True) == 10
+    assert _fits_default("ZUNZUN_UNSET_IP_VAR", 10, 4, debug=False) == 4
+
+
+def test_fits_default_env_override_beats_both_postures(monkeypatch):
+    """An explicit env var overrides BOTH the dev and the prod default."""
+    from settings import _fits_default
+
+    monkeypatch.setenv("ZUNZUN_FITS_OVERRIDE_TEST", "7")
+    assert _fits_default("ZUNZUN_FITS_OVERRIDE_TEST", 10, 1, debug=True) == 7
+    assert _fits_default("ZUNZUN_FITS_OVERRIDE_TEST", 10, 1, debug=False) == 7
