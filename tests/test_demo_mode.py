@@ -156,3 +156,43 @@ def test_demo_cap_honors_env_override(client, mocked_process_start):
 
         response = client.post(_FIT_URL, data=_FIT_FIELDS, HTTP_HOST="testserver")
         assert response.status_code == 429
+
+
+def test_inject_offrequest_globals_sets_demo_mode():
+    """The spawned child renders result pages via render_to_string, which does
+    NOT run context processors — so the base class injects the template globals
+    (currently just demo_mode) by hand. A staticmethod so it is testable without
+    constructing an LRP instance."""
+    from zunzun.LongRunningProcess.StatusMonitoredLongRunningProcessPage import (
+        StatusMonitoredLongRunningProcessPage as SM,
+    )
+
+    with patch("settings.DEMO_MODE", True, create=True):
+        assert SM._inject_offrequest_globals({})["demo_mode"] is True
+    with patch("settings.DEMO_MODE", False, create=True):
+        assert SM._inject_offrequest_globals({})["demo_mode"] is False
+
+
+def test_offrequest_render_carries_watermark_class():
+    """A page rendered off-request (the child path) through the base template
+    that the result pages extend carries the demo-mode body class when
+    DEMO_MODE is on, and a byte-identical bare <body> when off. This is what
+    makes the child-written, ResultsView-streamed result HTML show the
+    watermark without a request/context-processor."""
+    from django.template.loader import render_to_string
+
+    from zunzun.LongRunningProcess.StatusMonitoredLongRunningProcessPage import (
+        StatusMonitoredLongRunningProcessPage as SM,
+    )
+
+    with patch("settings.DEMO_MODE", True, create=True):
+        on = render_to_string(
+            "zunzun/generic_page_template.html", SM._inject_offrequest_globals({})
+        )
+    with patch("settings.DEMO_MODE", False, create=True):
+        off = render_to_string(
+            "zunzun/generic_page_template.html", SM._inject_offrequest_globals({})
+        )
+    assert 'class="demo-mode"' in on
+    assert 'class="demo-mode"' not in off
+    assert "<body>" in off

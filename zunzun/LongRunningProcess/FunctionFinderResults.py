@@ -159,7 +159,10 @@ class FunctionFinderResults(FittingBaseClass.FittingBaseClass):
         itemsToRender["RelativeErrorPlotsFlag"] = self.RelativeErrorPlotsFlag
         itemsToRender["ranking_token"] = self.ranking_token
 
-        tempString = render_to_string("zunzun/function_finder_results.html", itemsToRender)
+        tempString = render_to_string(
+            "zunzun/function_finder_results.html",
+            self._inject_offrequest_globals(itemsToRender),
+        )
         fileLocation = page_artifact_path(self.dataObject.uniqueString, "html")
         with open(fileLocation, "w", encoding="utf-8") as f:
             f.write(tempString)

@@ -196,6 +196,20 @@ You must provide any weights you wish to use.
         self.defaultData2D = DefaultData.defaultData2D
         self.defaultData3D = DefaultData.defaultData3D
 
+    @staticmethod
+    def _inject_offrequest_globals(items):
+        """Inject template globals that request-rendered pages get for free.
+
+        The spawned child writes result HTML with ``render_to_string``, which
+        — unlike ``render(request, ...)`` — does NOT run context processors.
+        So the ``demo_mode`` flag the watermark depends on (normally supplied
+        by ``zunzun.context_processors.demo_mode``) must be added by hand here.
+        Mutates and returns ``items`` for use as a render context. Inherited by
+        every result-writing subclass (FitOneEquation, FunctionFinderResults, …).
+        """
+        items["demo_mode"] = settings.DEMO_MODE
+        return items
+
     def build_child_payload(self) -> ChildPayload:
         """Produce a picklable snapshot for the spawned child process.
 
@@ -1127,7 +1141,8 @@ You must provide any weights you wish to use.
             with open(result_html_path, "w", encoding="utf-8") as f:
                 f.write(
                     render_to_string(
-                        "zunzun/equation_fit_or_characterizer_results.html", itemsToRender
+                        "zunzun/equation_fit_or_characterizer_results.html",
+                        self._inject_offrequest_globals(itemsToRender),
                     )
                 )
             write_succeeded = True
