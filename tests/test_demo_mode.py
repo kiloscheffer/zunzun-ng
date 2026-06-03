@@ -31,3 +31,14 @@ def test_demo_settings_exist_with_sane_types():
         assert settings.DEMO_MODE is False
     if "ZUNZUN_DEMO_MAX_FITS_PER_HOUR" not in os.environ:
         assert settings.DEMO_MAX_FITS_PER_HOUR == 4
+
+
+def test_demo_mode_context_processor_reflects_setting():
+    """The processor returns {'demo_mode': settings.DEMO_MODE}. It ignores its
+    request arg, so we pass None. Patching the root settings module flips it."""
+    from zunzun.context_processors import demo_mode
+
+    with patch("settings.DEMO_MODE", True, create=True):
+        assert demo_mode(None) == {"demo_mode": True}
+    with patch("settings.DEMO_MODE", False, create=True):
+        assert demo_mode(None) == {"demo_mode": False}

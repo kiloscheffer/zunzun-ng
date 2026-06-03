@@ -82,7 +82,11 @@ TEMPLATES = [
         "BACKEND": "django.template.backends.django.DjangoTemplates",
         "DIRS": [os.path.join(ROOT_PATH, "templates")],
         "APP_DIRS": True,
-        "OPTIONS": {},
+        "OPTIONS": {
+            "context_processors": [
+                "zunzun.context_processors.demo_mode",
+            ],
+        },
     },
 ]
 INSTALLED_APPS = (
