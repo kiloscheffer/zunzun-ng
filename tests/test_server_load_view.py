@@ -48,10 +48,12 @@ def test_home_page_wires_live_poller_not_baked_value(client):
     the value freezes. Locks the full on-path, not just the endpoint."""
     html = client.get("/").content.decode()
 
-    # Placeholder cells the poller targets.
-    assert 'id="hpLoad1"' in html
-    assert 'id="hpLoad5"' in html
-    assert 'id="hpLoad15"' in html
+    # Exact placeholder-cell markup: proves each cell holds the client-filled
+    # placeholder, NOT a server-rendered number (the staleness bug). Pinning the
+    # full cell also locks the ids ServerLoadPoll.js targets.
+    assert '<dd id="hpLoad1">…</dd>' in html
+    assert '<dd id="hpLoad5">…</dd>' in html
+    assert '<dd id="hpLoad15">…</dd>' in html
     # Poller is included and points at the no-cache endpoint.
     assert "/ServerLoad/" in html
     assert "ServerLoadPoll" in html
