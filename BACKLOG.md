@@ -20,6 +20,20 @@ modernization, which `BACKLOG` captures more honestly.
 
 **Where to pick up.** Configure a shared `CACHES` backend (Redis / memcached / `django.core.cache.backends.db.DatabaseCache`) before scaling demo mode out to multiple processes. Documented in `docs/internals/active-gotchas.md` § Deploy.
 
+## Demo-mode hourly cap and watermark have known coverage gaps
+
+**Symptom.** Two scoped-out gaps in the demo-mode feature (`ZUNZUN_DEMO_MODE=1`):
+
+1. The 4/hour per-IP cap counts only POSTs to `LongRunningProcessView` ("one POST == one run"). The `FunctionFinderResults/` path is a GET that re-renders up to ~40 equation plots per request and is NOT counted, so a visitor holding a valid `?ranking=<token>` (obtained via one counted ranking POST) can fire many heavy result re-renders that dodge the hourly ceiling.
+
+2. The "DEMO" watermark appears on every `render(request, ...)` page (home, input forms, status, the 429 limit page) but NOT on the file-backed result pages that `ResultsView` streams verbatim — those are written by the spawned child via `render_to_string` without a request, so the `demo_mode` context var never reaches them.
+
+**Hypothesis / impact.** (1) is bounded, not a fork-bomb: the pre-existing concurrency gate (`MAX_CONCURRENT_FITS_PER_IP`) already caps *simultaneous* render children, so the only unbounded dimension is sustained hourly CPU, not instantaneous load. (2) means the shareable result links a demo visitor shows off are unmarked.
+
+**What we didn't do.** Deliberately kept "one POST == one run" (the approved spec semantics) so legitimate result-browsing doesn't burn the fit quota and produce a mid-browse 429. Did not have the child stamp the demo-mode class, to avoid threading `settings.DEMO_MODE` into the child render path for a cosmetic gain.
+
+**Where to pick up.** (1) If sustained hourly CPU abuse becomes real, either count `FunctionFinderResults/` GETs in the demo guard (mirror the `_will_spawn_child` predicate in `views.py`) or add a separate, looser hourly cap for that path. (2) Have the spawned child read `settings.DEMO_MODE` and emit the `demo-mode` body class when writing result HTML.
+
 ## ~~3D fit spawn-Pool deadlock on Windows smoke~~ RESOLVED 2026-04-19
 
 > **Resolution.** There was no deadlock. The 3D POST was returning an

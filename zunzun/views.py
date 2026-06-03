@@ -730,7 +730,6 @@ def LongRunningProcessView(
                 request,
                 "zunzun/demo_limit_reached.html",
                 {
-                    "title_string": "Demo limit reached",
                     "header_text": "ZunZunNG",
                     "subtitle_text": "Online Curve Fitting and Surface Fitting",
                     "demo_max_fits_per_hour": settings.DEMO_MAX_FITS_PER_HOUR,
