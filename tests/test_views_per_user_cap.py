@@ -1,7 +1,7 @@
 """Tests for the per-session and per-IP concurrency caps.
 
-MAX_CONCURRENT_FITS_PER_SESSION (default 1) and MAX_CONCURRENT_FITS_PER_IP
-(default 4) gate new fit POSTs. The gate counts INITIALIZING/RUNNING rows with
+MAX_CONCURRENT_FITS_PER_SESSION (prod default 1, dev default 10) and
+MAX_CONCURRENT_FITS_PER_IP (prod default 4, dev default 10) gate new fit POSTs. The gate counts INITIALIZING/RUNNING rows with
 a fresh (<300s) last_status_check heartbeat. Provably-dead rows (crashed child
 whose heartbeat is still fresh) are finalized on-demand when a cap would
 otherwise block, so a SIGKILL/OOM victim doesn't strand the session.
@@ -580,3 +580,30 @@ def test_reservation_exceeds_cap_terminal_rows_excluded():
     assert (
         _reservation_exceeds_cap(active_row.pk, "S", "1.2.3.4", max_session=1, max_ip=99) is False
     )
+
+
+# ── DEBUG-aware default resolution (settings._fits_default) ──────────────────
+
+
+def test_fits_default_selects_dev_or_prod_by_debug(monkeypatch):
+    """DEBUG=True selects the permissive dev default; DEBUG=False the safe prod
+    one. Uses fictitious env var names, explicitly cleared so a polluted
+    environment can't make the no-override assertions pass for the wrong reason."""
+    from settings import _fits_default
+
+    monkeypatch.delenv("ZUNZUN_UNSET_SESSION_VAR", raising=False)
+    monkeypatch.delenv("ZUNZUN_UNSET_IP_VAR", raising=False)
+
+    assert _fits_default("ZUNZUN_UNSET_SESSION_VAR", 10, 1, debug=True) == 10
+    assert _fits_default("ZUNZUN_UNSET_SESSION_VAR", 10, 1, debug=False) == 1
+    assert _fits_default("ZUNZUN_UNSET_IP_VAR", 10, 4, debug=True) == 10
+    assert _fits_default("ZUNZUN_UNSET_IP_VAR", 10, 4, debug=False) == 4
+
+
+def test_fits_default_env_override_beats_both_postures(monkeypatch):
+    """An explicit env var overrides BOTH the dev and the prod default."""
+    from settings import _fits_default
+
+    monkeypatch.setenv("ZUNZUN_FITS_OVERRIDE_TEST", "7")
+    assert _fits_default("ZUNZUN_FITS_OVERRIDE_TEST", 10, 1, debug=True) == 7
+    assert _fits_default("ZUNZUN_FITS_OVERRIDE_TEST", 10, 1, debug=False) == 7

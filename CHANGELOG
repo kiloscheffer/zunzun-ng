@@ -9,6 +9,15 @@ https://bitbucket.org/zunzuncode/zunzunsite3/commits/all
 
 --- Notable changes (summarised here; full history on GitHub) ---
 
+feat/debug-aware-concurrency-defaults (merged 2026-06)
+  The concurrent-fit caps now default DEBUG-aware: under runserver (dev) both
+  MAX_CONCURRENT_FITS_PER_SESSION and MAX_CONCURRENT_FITS_PER_IP relax to 10 so
+  local multi-fit / FunctionFinder work isn't blocked by the one-at-a-time
+  posture; under Waitress/WSGI (prod) they stay at the safe 1 and 4. Env vars
+  (ZUNZUN_MAX_CONCURRENT_FITS_PER_SESSION / _PER_IP) still override either
+  posture — the personal-production path. New settings._fits_default helper;
+  prod behavior unchanged.
+
 feat/ff-link-retention (merged 2026-06)
   Shared FunctionFinder links now live as long as a normal file-backed result
   (disk-bounded) instead of expiring at SESSION_COOKIE_AGE. A ranking completion

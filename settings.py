@@ -164,9 +164,23 @@ LOGGING = {
 # this layer of override and rely on env-var-or-auto-detect.
 MAX_PARALLEL_WORKERS = None
 
-# Concurrency backpressure for fits. Defaults preserve the historical
-# one-at-a-time-per-session posture; raise for trusted/dev multi-fit use.
-# Enforced by the per-fit gate in views.LongRunningProcessView (per-session
-# by owner_session_key, per-IP by owner_ip), counting live LRPStatus rows.
-MAX_CONCURRENT_FITS_PER_SESSION = int(os.environ.get("ZUNZUN_MAX_CONCURRENT_FITS_PER_SESSION", "1"))
-MAX_CONCURRENT_FITS_PER_IP = int(os.environ.get("ZUNZUN_MAX_CONCURRENT_FITS_PER_IP", "4"))
+
+# Concurrency backpressure for fits. Defaults are DEBUG-aware: a permissive dev
+# posture (10/10) under runserver so a developer can run several fits / a
+# FunctionFinder ranking at once, and the conservative public posture (1/4)
+# under any non-runserver server (Waitress/WSGI prod, smoke, pytest). Env vars
+# override either default — including the personal-production case (a Waitress
+# box only the owner uses that wants the relaxed posture). On localhost every
+# request shares IP 127.0.0.1, so the per-IP cap is the real dev ceiling — both
+# rise together. Enforced by the per-fit gate in views.LongRunningProcessView
+# (per-session by owner_session_key, per-IP by owner_ip), counting live
+# LRPStatus rows.
+def _fits_default(env_var, dev_default, prod_default, debug):
+    """Env var wins; otherwise a permissive dev default vs the safe prod default."""
+    return int(os.environ.get(env_var, str(dev_default if debug else prod_default)))
+
+
+MAX_CONCURRENT_FITS_PER_SESSION = _fits_default(
+    "ZUNZUN_MAX_CONCURRENT_FITS_PER_SESSION", 10, 1, DEBUG
+)
+MAX_CONCURRENT_FITS_PER_IP = _fits_default("ZUNZUN_MAX_CONCURRENT_FITS_PER_IP", 10, 4, DEBUG)
