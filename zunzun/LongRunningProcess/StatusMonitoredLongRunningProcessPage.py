@@ -28,7 +28,6 @@ pdfmetrics.registerFont(
 )
 
 import zunzun.forms
-from zunzun import platform_compat
 
 from ..parallel_pool import FitPool
 from . import DataObject, DefaultData, ReportsAndGraphs
@@ -1127,7 +1126,6 @@ You must provide any weights you wish to use.
             )()
             itemsToRender["IndependentDataName1"] = self.dataObject.IndependentDataName1
             itemsToRender["IndependentDataName2"] = self.dataObject.IndependentDataName2
-        itemsToRender["loadavg"] = platform_compat.get_loadavg()
 
         result_html_path = page_artifact_path(self.dataObject.uniqueString, "html")
 
