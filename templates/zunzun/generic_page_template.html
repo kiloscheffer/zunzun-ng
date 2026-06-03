@@ -114,7 +114,7 @@
     </script>{% block css_definitions %}{% endblock %}
   </head>
 
-  <body class="{% if demo_mode %}demo-mode{% endif %}">
+  <body{% if demo_mode %} class="demo-mode"{% endif %}>
     <header>
       <h1><a href="/"><img src="/static/small_logo.png" alt="" class="brand-logo" /><span>{{ header_text }}</span><img src="/static/small_logo.png" alt="" class="brand-logo" /></a></h1>{% if subtitle_text %}
       <p>{{ subtitle_text }}</p>{% endif %}{% block top_nav %}{% endblock %}

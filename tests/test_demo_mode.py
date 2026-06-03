@@ -55,11 +55,14 @@ def test_body_has_demo_class_when_on(client, mocked_process_start):
 
 @pytest.mark.django_db
 def test_body_has_no_demo_class_when_off(client, mocked_process_start):
-    """When DEMO_MODE is off the class is empty — proves zero visual change."""
+    """When DEMO_MODE is off the <body> tag is byte-identical to pre-feature
+    output (bare `<body>`, no class attribute) — proves zero change when off."""
     with patch("settings.DEMO_MODE", False, create=True):
         response = client.get("/")
     assert b'class="demo-mode"' not in response.content
-    assert b'class=""' in response.content
+    # Off mode emits a bare <body>, not <body class="">, so this asserts the
+    # real "zero change when off" invariant rather than a post-feature artifact.
+    assert b"<body>" in response.content
 
 
 # A minimal valid 2D quadratic fit POST, mirroring tests/test_ratelimit.py.
