@@ -187,11 +187,17 @@ When running the upgrade, pay extra attention to:
   consider whether a defensive ceiling is now warranted (the comments
   in `pyproject.toml` document the current "no constraint" rationale;
   re-evaluate it in light of the new release's changelog).
-- **The `pyeq3-ng` companion fork.** Track its tags at
-  `github.com/kiloscheffer/pyeq3-ng/releases`. If a new tag exists, bump
-  the pin in `pyproject.toml`'s `[tool.uv.sources]` and re-lock — same
-  procedure as a regular dep, just with a git-tag pin instead of a
-  PyPI version.
+- **The upstream `pyeq3` dependency.** Pinned to a specific commit of
+  `github.com/equations-project/pyeq3` (the post-PR-#8 state that merged the
+  scipy.odr -> odrpack port) via `[tool.uv.sources]`, with two local bridges in
+  `pyproject.toml`: a `[tool.uv] override-dependencies` that forces numpy 2.x
+  past upstream's stale `numpy<2.0` ceiling, and an explicit `pypandoc` dep
+  (upstream's package `__init__` imports it transitively but its pyproject
+  omits it). Watch `github.com/equations-project/pyeq3` for a release that
+  relaxes numpy and declares pypandoc; when one is tagged, switch the pin to
+  `tag=` and delete BOTH bridges, then re-lock. The companion
+  `github.com/kiloscheffer/pyeq3-ng` fork is retained as a fallback but is
+  otherwise superseded now that the port is upstream.
 
 ---
 
