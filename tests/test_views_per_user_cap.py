@@ -585,10 +585,14 @@ def test_reservation_exceeds_cap_terminal_rows_excluded():
 # ── DEBUG-aware default resolution (settings._fits_default) ──────────────────
 
 
-def test_fits_default_selects_dev_or_prod_by_debug():
+def test_fits_default_selects_dev_or_prod_by_debug(monkeypatch):
     """DEBUG=True selects the permissive dev default; DEBUG=False the safe prod
-    one. Uses fictitious env var names guaranteed to be unset."""
+    one. Uses fictitious env var names, explicitly cleared so a polluted
+    environment can't make the no-override assertions pass for the wrong reason."""
     from settings import _fits_default
+
+    monkeypatch.delenv("ZUNZUN_UNSET_SESSION_VAR", raising=False)
+    monkeypatch.delenv("ZUNZUN_UNSET_IP_VAR", raising=False)
 
     assert _fits_default("ZUNZUN_UNSET_SESSION_VAR", 10, 1, debug=True) == 10
     assert _fits_default("ZUNZUN_UNSET_SESSION_VAR", 10, 1, debug=False) == 1
