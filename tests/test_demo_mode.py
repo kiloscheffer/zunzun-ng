@@ -60,3 +60,58 @@ def test_body_has_no_demo_class_when_off(client, mocked_process_start):
         response = client.get("/")
     assert b'class="demo-mode"' not in response.content
     assert b'class=""' in response.content
+
+
+# A minimal valid 2D quadratic fit POST, mirroring tests/test_ratelimit.py.
+_FIT_FIELDS = {
+    "commaConversion": "I",
+    "graphSize": "320x240",
+    "animationSize": "0x0",
+    "scientificNotationX": "AUTO",
+    "scientificNotationY": "AUTO",
+    "dataNameX": "X",
+    "dataNameY": "Y",
+    "graphScaleRadioButtonX": "0.050",
+    "graphScaleRadioButtonY": "0.050",
+    "logLinX": "LIN",
+    "logLinY": "LIN",
+    "logLinZ": "LIN",
+    "fittingTarget": "SSQABS",
+    "textDataEditor": "X Y\n1 2\n2 4\n3 6\n4 8\n5 10\n",
+}
+_FIT_URL = "/FitEquation__F__/2/Polynomial/2nd Order (Quadratic)/"
+
+
+def _seed_cookie_test(client):
+    """LongRunningProcessView requires cookie_test on the session (normally set
+    by HomePageView) before a POST reaches the dispatch/spawn branch."""
+    session = client.session
+    session["cookie_test"] = 1
+    session.save()
+
+
+@pytest.mark.django_db
+def test_fifth_fit_post_blocked_in_demo_mode(client, mocked_process_start):
+    """With DEMO_MODE on and the cap at 4, POSTs 1-4 dispatch (302) and the 5th
+    is refused with HTTP 429 rendered from demo_limit_reached.html.
+
+    The clock is frozen (django_ratelimit.core.time) so all 5 POSTs share one
+    hourly window; the concurrency caps are patched high so that separate gate
+    never interferes; mocked_process_start no-ops the real child spawn."""
+    _seed_cookie_test(client)
+    with (
+        patch("django_ratelimit.core.time") as ratelimit_clock,
+        patch("settings.DEMO_MODE", True, create=True),
+        patch("settings.DEMO_MAX_FITS_PER_HOUR", 4, create=True),
+        patch("settings.MAX_CONCURRENT_FITS_PER_SESSION", 99, create=True),
+        patch("settings.MAX_CONCURRENT_FITS_PER_IP", 99, create=True),
+    ):
+        ratelimit_clock.time.return_value = 1_700_000_000
+        for i in range(4):
+            response = client.post(_FIT_URL, data=_FIT_FIELDS, HTTP_HOST="testserver")
+            assert response.status_code == 302, f"fit {i + 1} should dispatch (302)"
+
+        response = client.post(_FIT_URL, data=_FIT_FIELDS, HTTP_HOST="testserver")
+        assert response.status_code == 429
+        assert "zunzun/demo_limit_reached.html" in [t.name for t in response.templates]
+        assert b"demo limit" in response.content.lower()

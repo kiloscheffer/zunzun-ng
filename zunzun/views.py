@@ -709,6 +709,35 @@ def LongRunningProcessView(
     import sys
     import time
 
+    # Demo-mode hourly fit cap (per IP). Demo-gated, so provably inert on a
+    # normal deployment. Sits ABOVE the LRP dispatch and the concurrency gate:
+    # one POST here == one "run", and the run that exceeds the hourly ceiling is
+    # refused before any work. `settings` is the module-level root import
+    # (views.py:19); `render` is imported at module top. Reuses the same
+    # ratelimit cache as the existing 12/m limiter.
+    if settings.DEMO_MODE and request.method == "POST":
+        from django_ratelimit.core import is_ratelimited
+
+        if is_ratelimited(
+            request,
+            group="demo_fits",
+            key="ip",
+            rate=f"{settings.DEMO_MAX_FITS_PER_HOUR}/h",
+            method=["POST"],
+            increment=True,
+        ):
+            return render(
+                request,
+                "zunzun/demo_limit_reached.html",
+                {
+                    "title_string": "Demo limit reached",
+                    "header_text": "ZunZunNG",
+                    "subtitle_text": "Online Curve Fitting and Surface Fitting",
+                    "demo_max_fits_per_hour": settings.DEMO_MAX_FITS_PER_HOUR,
+                },
+                status=429,
+            )
+
     if -1 != request.path.find("FitEquation__F__/") or -1 != request.path.find(
         "Equation/"
     ):  # redundant but explicit

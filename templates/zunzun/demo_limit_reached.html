@@ -1,0 +1,6 @@
+{% extends "zunzun/generic_page_template.html" %}{% block title %} ZunZunNG - Demo limit reached {% endblock %}
+{% block body_contents %}
+<h2>Demo limit reached</h2>
+<p>You've reached the demo limit of {{ demo_max_fits_per_hour }} fits per hour. Please come back later.</p>
+<p><a href="/">Return to the home page</a></p>
+{% endblock %}
