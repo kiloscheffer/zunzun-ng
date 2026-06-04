@@ -187,17 +187,19 @@ When running the upgrade, pay extra attention to:
   consider whether a defensive ceiling is now warranted (the comments
   in `pyproject.toml` document the current "no constraint" rationale;
   re-evaluate it in light of the new release's changelog).
-- **The upstream `pyeq3` dependency.** Pinned to a specific commit of
-  `github.com/equations-project/pyeq3` (the post-PR-#8 state that merged the
-  scipy.odr -> odrpack port) via `[tool.uv.sources]`, with two local bridges in
-  `pyproject.toml`: a `[tool.uv] override-dependencies` that forces numpy 2.x
-  past upstream's stale `numpy<2.0` ceiling, and an explicit `pypandoc` dep
-  (upstream's package `__init__` imports it transitively but its pyproject
-  omits it). Watch `github.com/equations-project/pyeq3` for a release that
-  relaxes numpy and declares pypandoc; when one is tagged, switch the pin to
-  `tag=` and delete BOTH bridges, then re-lock. The companion
-  `github.com/kiloscheffer/pyeq3-ng` fork is retained as a fallback but is
-  otherwise superseded now that the port is upstream.
+- **The upstream `pyeq3` dependency.** Pinned via `[tool.uv.sources]` to a
+  specific commit of `github.com/equations-project/pyeq3` — currently `ef97b62`,
+  the post-PR-#9 state that merged the scipy.odr -> odrpack port (PR #8) AND the
+  packaging fix that relaxed the numpy ceiling to `>=1.24,<3` and declared the
+  `pypandoc` dep (PR #9). PR #9 let us delete the two local bridges this project
+  used to carry (a `[tool.uv] override-dependencies` forcing numpy 2.x and an
+  explicit `pypandoc` dep) — both are gone as of 2026-06. Remaining follow-up:
+  upstream has NOT tagged a release for this state (version is the `12.6.2a0`
+  alpha; latest tags are `v12.6.0` / `v12.6.1`), so the pin is still a `rev=`.
+  Watch `github.com/equations-project/pyeq3` for a tagged release at or past
+  PR #9; when one appears, switch the pin from `rev=` to `tag=` and re-lock. The
+  companion `github.com/kiloscheffer/pyeq3-ng` fork is retained as a fallback but
+  is otherwise superseded now that both PRs are upstream.
 
 ---
 
