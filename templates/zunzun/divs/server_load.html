@@ -1,8 +1,14 @@
 <div id="serverloadDiv" class="hideable hidden">
 <h2>Server Load</h2>
 <dl class="server-load">
-  <dt>Server load average for the past 1 minute:</dt><dd id="hpLoad1">…</dd>
-  <dt>Server load average for the past 5 minutes:</dt><dd id="hpLoad5">…</dd>
-  <dt>Server load average for the past 15 minutes:</dt><dd id="hpLoad15">…</dd>
+  <dt>1 minute</dt>         <dd id="hpLoad1">…</dd>
+  <dt>5 minutes</dt>        <dd id="hpLoad5">…</dd>
+  <dt>15 minutes</dt>       <dd id="hpLoad15">…</dd>
 </dl>
+
+<p><small>
+  Load is the average number of threads competing for a CPU core. Below
+  {{ coreCount }} leaves cores idle; near {{ coreCount }} uses them fully;
+  above {{ coreCount }} means work is queuing for a core.
+</small></p>
 </div>
