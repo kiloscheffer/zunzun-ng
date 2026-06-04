@@ -18,17 +18,15 @@
 
   <h3>Server load</h3>
   <dl class="server-load">
-    <dt>1 minute</dt>         <dd id="load1">{{ loadavg.0 }}</dd>
-    <dt>5 minutes</dt>        <dd id="load5">{{ loadavg.1 }}</dd>
-    <dt>15 minutes</dt>       <dd id="load15">{{ loadavg.2 }}</dd>
+    <dt>1 minute</dt>         <dd id="load1">{{ loadavg.0|floatformat:2 }}</dd>
+    <dt>5 minutes</dt>        <dd id="load5">{{ loadavg.1|floatformat:2 }}</dd>
+    <dt>15 minutes</dt>       <dd id="load15">{{ loadavg.2|floatformat:2 }}</dd>
   </dl>
 
   <p><small>
-    Load is the average number of threads competing for a CPU core, not a
-    percentage — it has no upper limit. Below {{ coreCount }} leaves cores
-    idle; near {{ coreCount }} uses them fully; above {{ coreCount }} means
-    work is queuing for a core (double {{ coreCount }} ≈ twice as much
-    runnable work as there are cores).
+    Load is the average number of threads competing for a CPU core. Below
+    {{ coreCount }} leaves cores idle; near {{ coreCount }} uses them fully;
+    above {{ coreCount }} means work is queuing for a core.
   </small></p>
 </div>
 {% endblock %}

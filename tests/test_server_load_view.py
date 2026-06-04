@@ -57,3 +57,19 @@ def test_home_page_wires_live_poller_not_baked_value(client):
     # Poller is included and points at the no-cache endpoint.
     assert "/ServerLoad/" in html
     assert "ServerLoadPoll" in html
+    # Explanation footnote renders (proves coreCount is wired into the context).
+    assert "competing for a CPU core" in html
+
+
+def test_status_page_pads_loadavg_to_two_decimals():
+    """The status (progress) page renders load values padded to two decimals,
+    so an integer load shows '2.00' and an unrounded musl value is trimmed."""
+    from django.template.loader import render_to_string
+
+    html = render_to_string(
+        "zunzun/status.html",
+        {"loadavg": [2.0, 0.07, 1.5], "coreCount": 8, "pk": 1},
+    )
+    assert '<dd id="load1">2.00</dd>' in html
+    assert '<dd id="load5">0.07</dd>' in html
+    assert '<dd id="load15">1.50</dd>' in html
