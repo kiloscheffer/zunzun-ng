@@ -50,15 +50,23 @@
     }
 
     if (data.loadavg && data.loadavg.length === 3) {
-      setText('load1', data.loadavg[0]);
-      setText('load5', data.loadavg[1]);
-      setText('load15', data.loadavg[2]);
+      setText('load1', fmtLoad(data.loadavg[0]));
+      setText('load5', fmtLoad(data.loadavg[1]));
+      setText('load15', fmtLoad(data.loadavg[2]));
     }
   }
 
   function setText(id, value) {
     var el = document.getElementById(id);
     if (el) el.textContent = value;
+  }
+
+  /* Pad to two decimals so 2 and an unrounded 2.12060546875 both display as
+   * "2.00"/"2.12" (Alpine/musl's getloadavg returns unrounded fixed-point;
+   * glibc/Windows round to 2). */
+  function fmtLoad(n) {
+    var x = Number(n);
+    return isFinite(x) ? x.toFixed(2) : n;
   }
 
   function poll() {
