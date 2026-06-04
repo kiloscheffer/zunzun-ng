@@ -9,6 +9,20 @@ https://bitbucket.org/zunzuncode/zunzunsite3/commits/all
 
 --- Notable changes (summarised here; full history on GitHub) ---
 
+chore/pyeq3-pr9-drop-bridges (merged 2026-06)
+  Upstream equations-project/pyeq3 merged PR #9 (authored from pyeq3-ng),
+  relaxing the numpy ceiling to >=1.24,<3 and declaring the pypandoc dep that
+  pyeq3's package __init__ imports transitively. With both fixes upstream, the
+  two local bridges from chore/pyeq3-upstream are now redundant: deleted the
+  [tool.uv] override-dependencies that forced numpy 2.x AND the explicit pypandoc
+  dependency. Bumped the [tool.uv.sources] pin from rev 3bfec02 (post-PR-#8) to
+  ef97b62 (post-PR-#9) and re-locked. No fitting-code change — the only pyeq3
+  source delta is a \cdot raw-string SyntaxWarning fix in Utilities.Multifit; the
+  resolved environment (numpy 2.x, pypandoc) is unchanged. Upstream still has no
+  release tag for this state, so the pin stays a rev=; switching to tag= remains
+  a follow-up for when upstream cuts a release (see docs/operations/quarterly-
+  upgrade.md watch list).
+
 chore/pyeq3-upstream (merged 2026-06)
   Switched the pyeq3 dependency from the kiloscheffer/pyeq3-ng fork to upstream
   equations-project/pyeq3, pinned at the commit that merged the scipy.odr ->
