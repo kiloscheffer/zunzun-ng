@@ -34,7 +34,33 @@ modernization, which `BACKLOG` captures more honestly.
 
 **Where to pick up.** (1) If sustained hourly CPU abuse becomes real, either count `FunctionFinderResults/` GETs in the demo guard (mirror the `_will_spawn_child` predicate in `views.py`) or add a separate, looser hourly cap for that path. (2) Have the spawned child read `settings.DEMO_MODE` and emit the `demo-mode` body class when writing result HTML.
 
-## 3D spline "Evaluate At A Point" has no end-to-end smoke scenario
+## ~~3D spline "Evaluate At A Point" has no end-to-end smoke scenario~~ RESOLVED 2026-06-06
+
+> **Resolution.** Added a `spline_3D` scenario to `scripts/smoke_test.py`
+> (`_run_spline_3d_scenario`): a real bicubic SmoothBivariateSpline fit through
+> the spawn child, chained into a 3D `/EvaluateAtAPoint/` POST with BOTH x and
+> y. It runs in the default sequence and standalone via `--scenario=spline-3D`
+> (~10 s — splines skip the genetic algorithm). The dataset uses
+> non-overlapping X/Y ranges (X in {1..5}, Y in {6..10}) to satisfy
+> `Equation_3D.clean()`'s `(orderX+1)+(orderY+1) <= distinct-XY-union` check.
+>
+> This closes the **server-side** 3D evaluate path end-to-end — the
+> degree-reconstruction class (PR #53), where the live fit, the tck+degrees
+> session round-trip, and the bisplev reconstruction all run for real.
+>
+> **Not covered, by design:** the `&amp;` query-separator bug (PR #54) is a
+> CLIENT-side JS defect (`getquerystring()` builds the POST body), and an HTTP
+> smoke can't execute page JS — `requests` always sends a well-formed
+> `x=..&y=..`. That class stays covered by the pytest template-render test
+> `test_evaluate_js_3d_uses_real_ampersand_separator`. A browser-driven test
+> (Selenium/Playwright) would be needed to catch JS regressions end-to-end;
+> deferred — not worth a browser-automation dependency for one line of JS.
+>
+> Worth recording: this single gap let **two** bugs ship (PR #53 degrees, PR
+> #54 separator). The smoke is now the server-half net; the pytest JS test is
+> the client-half net.
+>
+> Historical notes below, preserved for reference.
 
 **Symptom.** `EvaluateAtAPointView`'s 3D-spline reconstruction shipped broken
 from 2026-04-20 (the `bisplev` wrapper read `tck[3]`/`tck[4]` for the spline
