@@ -173,6 +173,23 @@ def test_evaluate_at_point_with_seeded_3d_spline(client):
     assert float(match.group(1)) == pytest.approx(expected, rel=1e-9)
 
 
+def test_evaluate_js_3d_uses_real_ampersand_separator():
+    """The evaluate-at-a-point POST builder must join x and y with a literal
+    '&', not the HTML entity '&amp;'. With '&amp;' the rendered 3D POST body is
+    'x=..&amp;y=..', which Django parses as keys ['x', 'amp;y'] — so y is
+    missing and EvaluateAtAPointForm_3D rejects it ('Invalid data submitted,
+    please try again.').
+    """
+    from django.template.loader import render_to_string
+
+    out = render_to_string(
+        "zunzun/javascript/JavascriptForEvaluateAtAPoint.js",
+        {"dimensionality": "3", "result_token": "tok"},
+    )
+    assert "&amp;y=" not in out, "query separator is the HTML entity, not a literal '&'"
+    assert "&y=" in out
+
+
 @pytest.mark.django_db
 def test_evaluate_3d_spline_missing_degrees_fails_gracefully(client):
     """A 3D-spline dispatch row written BEFORE 'splineDegrees' was persisted

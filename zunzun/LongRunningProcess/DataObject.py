@@ -111,42 +111,31 @@ class DataObject:
         self.statistics[preString + "_min"] = min(tempdata)
         self.statistics[preString + "_max"] = max(tempdata)
 
-        # these we can live without
-        try:
-            temp = scipy.mean(tempdata)
-            self.statistics[preString + "_mean"] = temp
-        except:
-            pass
-        try:
-            temp = scipy.stats.sem(tempdata)
-            self.statistics[preString + "_sem"] = temp
-        except:
-            pass
-        try:
-            temp = scipy.median(tempdata)
-            self.statistics[preString + "_median"] = temp
-        except:
-            pass
-        try:
-            temp = scipy.var(tempdata)
-            self.statistics[preString + "_var"] = temp
-        except:
-            pass
-        try:
-            temp = scipy.std(tempdata)
-            self.statistics[preString + "_std"] = temp
-        except:
-            pass
-        try:
-            temp = scipy.stats.skew(tempdata)
-            self.statistics[preString + "_skew"] = temp
-        except:
-            pass
-        try:
-            temp = scipy.stats.kurtosis(tempdata)
-            self.statistics[preString + "_kurtosis"] = temp
-        except:
-            pass
+        # These we can live without, so a failure to compute any one of them is
+        # non-fatal — but it is LOGGED, not silently swallowed. mean/median/var/
+        # std use numpy because modern scipy (1.x) removed the scipy.mean/
+        # median/var/std top-level aliases; sem/skew/kurtosis come from
+        # scipy.stats. The old per-stat `except: pass` is exactly what let that
+        # scipy removal degrade four stats to "n/a" on the report for a long
+        # time with zero signal — log a warning so the next such drift is loud.
+        for suffix, func in (
+            ("_mean", numpy.mean),
+            ("_sem", scipy.stats.sem),
+            ("_median", numpy.median),
+            ("_var", numpy.var),
+            ("_std", numpy.std),
+            ("_skew", scipy.stats.skew),
+            ("_kurtosis", scipy.stats.kurtosis),
+        ):
+            try:
+                self.statistics[preString + suffix] = func(tempdata)
+            except Exception:
+                _logger.warning(
+                    "statistic %s for %s could not be computed",
+                    suffix,
+                    preString,
+                    exc_info=True,
+                )
 
     def CalculateDataStatistics(self):
 

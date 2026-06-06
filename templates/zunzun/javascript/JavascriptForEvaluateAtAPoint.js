@@ -45,7 +45,7 @@ function getquerystring() {
     var form = document.forms['evaluatePointForm'];
     qstr = 'x=' + escape(form.x.value);
     {% if dimensionality == '3' %}
-        qstr = qstr + '&amp;y=' + escape(form.y.value);
+        qstr = qstr + '&y=' + escape(form.y.value);
     {% endif %}
     return qstr;
 }
