@@ -270,8 +270,20 @@ def EvaluateAtAPointView(request, token):
             kx, ky = splineDegrees
 
             class _BivariateSplineFromTck:
+                # SmoothBivariateSpline.ev (what pyeq3's Models_3D/Spline
+                # calls) evaluates at PAIRED points (X[i], Y[i]). bisplev
+                # instead evaluates the X×Y cross-product grid, so feeding it
+                # the arrays directly is only an .ev equivalent by accident of
+                # bisplev's 1x1 squeeze. Evaluate point-by-point to reproduce
+                # .ev's pairwise semantics (and 1-D return shape) for real.
                 def ev(self, X, Y):
-                    return scipy.interpolate.bisplev(X, Y, (tx, ty, c, int(kx), int(ky)))
+                    full_tck = (tx, ty, c, int(kx), int(ky))
+                    return numpy.array(
+                        [
+                            scipy.interpolate.bisplev(xi, yi, full_tck)
+                            for xi, yi in zip(numpy.atleast_1d(X), numpy.atleast_1d(Y))
+                        ]
+                    )
 
             equation.scipySpline = _BivariateSplineFromTck()
     elif equation.userDefinedFunctionFlag:
