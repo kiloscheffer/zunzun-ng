@@ -34,6 +34,38 @@ modernization, which `BACKLOG` captures more honestly.
 
 **Where to pick up.** (1) If sustained hourly CPU abuse becomes real, either count `FunctionFinderResults/` GETs in the demo guard (mirror the `_will_spawn_child` predicate in `views.py`) or add a separate, looser hourly cap for that path. (2) Have the spawned child read `settings.DEMO_MODE` and emit the `demo-mode` body class when writing result HTML.
 
+## 3D spline "Evaluate At A Point" has no end-to-end smoke scenario
+
+**Symptom.** `EvaluateAtAPointView`'s 3D-spline reconstruction shipped broken
+from 2026-04-20 (the `bisplev` wrapper read `tck[3]`/`tck[4]` for the spline
+degrees, but scipy's `BivariateSpline.tck` is the 3-tuple `(tx, ty, c)` — the
+degrees live in `scipySpline.degrees`, never saved). Every 3D spline
+evaluate-at-a-point request 500'd with `IndexError: tuple index out of range`.
+Fixed 2026-06-06: `FitSpline.SaveSpecificDataToSessionStore` now persists the
+degrees under `splineDegrees` (3D only) and the view reads them from there.
+
+**Hypothesis / impact.** The bug survived ~7 weeks because the `spline_2D`
+smoke scenario (added 2026-04-20, chains into `/EvaluateAtAPoint/`) exercises
+only the 2D reconstruction path — which works, because `UnivariateSpline._eval_args`
+bundles the degree at index 2. The 3D `bisplev` wrapper is a *different code
+path* with no smoke or pytest coverage, so green 2D smoke gave false confidence.
+The 2026-06-06 fix added pytest coverage of both halves of the save/read
+contract (`tests/test_evaluate_at_a_point.py`: seeded-3D-spline read +
+`FitSpline` save-side), but those seed dispatch data rather than running a live
+fit.
+
+**What we didn't do.** Did not add a `spline_3D` smoke scenario — a real 3D
+spline fit POST chained into `/EvaluateAtAPoint/`. 3D splines skip the genetic
+algorithm (`SolveUsingSpline` is direct), so unlike `polynomial_quadratic_3D`
+this would likely be fast even on Windows, but adding/validating a smoke
+scenario was out of scope for the bugfix branch.
+
+**Where to pick up.** Add a `spline_3D` scenario to `scripts/smoke_test.py`
+mirroring `spline_2D`: POST to `/FitEquation__F__/3/Spline/...` with
+smoothness + xOrder + yOrder, poll to completion, then POST x,y to
+`/EvaluateAtAPoint/<token>/` and assert `evaluates to`. That closes the last
+gap end-to-end (live fit → tck save → reconstruction → bisplev).
+
 ## ~~3D fit spawn-Pool deadlock on Windows smoke~~ RESOLVED 2026-04-19
 
 > **Resolution.** There was no deadlock. The 3D POST was returning an

@@ -29,15 +29,24 @@ class FitSpline(FittingBaseClass.FittingBaseClass):
         # pyeq3/Services/SolverService.py:368 for 2D _eval_args, line 379
         # for 3D .tck). EvaluateAtAPointView reconstructs a callable
         # spline from that tck at the load site.
-        self.SaveDictionaryOfItemsToSessionStore(
-            "data",
-            {
-                "dimensionality": self.dimensionality,
-                "equationName": self.inEquationName,
-                "equationFamilyName": self.inEquationFamilyName,
-                "solvedCoefficients": self.dataObject.equation.solvedCoefficients,
-            },
-        )
+        #
+        # 3D needs one extra piece: scipy's BivariateSpline.tck is the
+        # 3-tuple (tx, ty, c) and does NOT carry the spline degrees — those
+        # live in scipySpline.degrees == (kx, ky). bisplev needs them, so we
+        # persist them separately. (2D's _eval_args already bundles the
+        # degree as its third element, so 2D needs nothing extra.)
+        items = {
+            "dimensionality": self.dimensionality,
+            "equationName": self.inEquationName,
+            "equationFamilyName": self.inEquationFamilyName,
+            "solvedCoefficients": self.dataObject.equation.solvedCoefficients,
+        }
+        if self.dimensionality == 3:
+            items["splineDegrees"] = [
+                self.dataObject.equation.xOrder,
+                self.dataObject.equation.yOrder,
+            ]
+        self.SaveDictionaryOfItemsToSessionStore("data", items)
 
     def build_child_payload(self):
         payload = super().build_child_payload()
