@@ -112,8 +112,13 @@ class DataObject:
         self.statistics[preString + "_max"] = max(tempdata)
 
         # these we can live without
+        # NB: mean/median/var/std use numpy, not the old scipy.mean/median/
+        # var/std top-level aliases — modern scipy (1.x) removed those, and the
+        # bare except below would otherwise silently drop these four stats to
+        # "n/a" (scipy.stats.sem/skew/kurtosis below still exist, so they kept
+        # working — which is what made the gap look so odd on the report).
         try:
-            temp = scipy.mean(tempdata)
+            temp = numpy.mean(tempdata)
             self.statistics[preString + "_mean"] = temp
         except:
             pass
@@ -123,17 +128,17 @@ class DataObject:
         except:
             pass
         try:
-            temp = scipy.median(tempdata)
+            temp = numpy.median(tempdata)
             self.statistics[preString + "_median"] = temp
         except:
             pass
         try:
-            temp = scipy.var(tempdata)
+            temp = numpy.var(tempdata)
             self.statistics[preString + "_var"] = temp
         except:
             pass
         try:
-            temp = scipy.std(tempdata)
+            temp = numpy.std(tempdata)
             self.statistics[preString + "_std"] = temp
         except:
             pass
