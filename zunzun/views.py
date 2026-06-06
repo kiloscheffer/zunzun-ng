@@ -254,15 +254,24 @@ def EvaluateAtAPointView(request, token):
                 numpy.array(tck[0]), numpy.array(tck[1]), int(tck[2])
             )
         else:
+            # scipy's BivariateSpline.tck is the 3-tuple (tx, ty, c); the
+            # degrees (kx, ky) come from scipySpline.degrees, saved under
+            # splineDegrees by FitSpline (they are NOT in .tck). bisplev
+            # needs the full (tx, ty, c, kx, ky) tuple.
             tx = numpy.array(tck[0])
             ty = numpy.array(tck[1])
             c = numpy.array(tck[2])
-            kx = int(tck[3])
-            ky = int(tck[4])
+            splineDegrees = LRP.LoadItemFromSessionStore("data", "splineDegrees")
+            if not splineDegrees:
+                # A 3D-spline result saved before splineDegrees was persisted
+                # (a pre-fix dispatch row) can't be reconstructed — fail
+                # gracefully instead of unpacking None into a 500.
+                return HttpResponse("This result has expired.")
+            kx, ky = splineDegrees
 
             class _BivariateSplineFromTck:
                 def ev(self, X, Y):
-                    return scipy.interpolate.bisplev(X, Y, (tx, ty, c, kx, ky))
+                    return scipy.interpolate.bisplev(X, Y, (tx, ty, c, int(kx), int(ky)))
 
             equation.scipySpline = _BivariateSplineFromTck()
     elif equation.userDefinedFunctionFlag:
