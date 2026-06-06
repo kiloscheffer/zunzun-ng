@@ -30,3 +30,36 @@ def test_calculate_statistics_populates_all_keys():
     # the fix didn't disturb them.
     for key in ("X_min", "X_max", "X_sem", "X_skew", "X_kurtosis"):
         assert key in obj.statistics, f"missing {key}"
+
+
+def test_statistic_failure_is_logged_not_silently_swallowed(monkeypatch, caplog):
+    """A statistic that raises must be LOGGED, not silently swallowed, and must
+    not abort the remaining statistics.
+
+    The silent ``except: pass`` is exactly what let the scipy.mean/median/var/
+    std removal degrade four stats to 'n/a' on the report for a long time with
+    no signal. This pins the louder behavior so a future library removal can't
+    go invisible again.
+    """
+    import logging
+
+    from zunzun.LongRunningProcess import DataObject as dataobject_module
+
+    def boom(_data):
+        raise RuntimeError("simulated library removal")
+
+    # Make one optional statistic raise the way a removed library function would.
+    monkeypatch.setattr(dataobject_module.numpy, "mean", boom)
+
+    obj = DataObject()
+    with caplog.at_level(logging.WARNING):
+        obj.CalculateStatisticsForList("X", [1.0, 2.0, 3.0])
+
+    # The failing statistic is absent but its failure was logged ...
+    assert "X_mean" not in obj.statistics
+    assert any("_mean" in r.getMessage() for r in caplog.records if r.levelno == logging.WARNING), (
+        caplog.text
+    )
+    # ... and the other statistics still computed (non-fatal).
+    assert "X_median" in obj.statistics
+    assert "X_min" in obj.statistics
