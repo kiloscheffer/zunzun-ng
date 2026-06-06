@@ -26,7 +26,13 @@ Scenarios
 11. **udf_2D** — 2D User Defined Function fit with formula `a + b*X`,
     chained into an `/EvaluateAtAPoint/` POST to verify
     `solvedCoefficients` round-trips through the session.
-12. **concurrent_2D** — two 2D polynomial-quadratic fits dispatched in the
+12. **spline_3D** — 3D bicubic spline fit, chained into a 3D
+    `/EvaluateAtAPoint/` POST (BOTH x and y). End-to-end coverage for the 3D
+    evaluate path the spline-degree-reconstruction bug (PR #53) shipped
+    through. Server-side only — an HTTP smoke can't run the page JS, so the
+    `&amp;` separator bug (PR #54) stays covered by the pytest template test.
+    Also runnable in isolation via `--scenario=spline-3D`.
+13. **concurrent_2D** — two 2D polynomial-quadratic fits dispatched in the
     same browser session (session cap raised to 2 via env var), polled
     independently by pk, each evaluated at X=7.0.  Asserts distinct pks,
     distinct tokens, distinct evaluations (the clobber-bug regression), and
@@ -316,6 +322,73 @@ _CHAR_3D_FIELDS = {
     "rotationAnglesAltimuth": "20",
 }
 
+# 3D dataset for the spline_3D scenario: a 5x5 grid with NON-OVERLAPPING X and
+# Y ranges (X in {1..5}, Y in {6..10}) so the union of distinct independent
+# values is 10. Equation_3D.clean() rejects a spline when
+# (splineOrderX+1)+(splineOrderY+1) exceeds that union — for kx=ky=3 that's
+# 8, so overlapping ranges (union 5) would be rejected. (This is the same
+# reason _DATA_3D_POLY uses non-overlapping ranges.) Each direction also keeps
+# 5 distinct values (a degree-3 spline needs >= 4). Z = 2X + 3Y + 0.1*X*Y is
+# smooth, so the fit and the bisplev reconstruction at evaluate time are
+# well-conditioned.
+_DATA_3D_SPLINE = """X Y Z
+1.0 6.0 20.6
+1.0 7.0 23.7
+1.0 8.0 26.8
+1.0 9.0 29.9
+1.0 10.0 33.0
+2.0 6.0 23.2
+2.0 7.0 26.4
+2.0 8.0 29.6
+2.0 9.0 32.8
+2.0 10.0 36.0
+3.0 6.0 25.8
+3.0 7.0 29.1
+3.0 8.0 32.4
+3.0 9.0 35.7
+3.0 10.0 39.0
+4.0 6.0 28.4
+4.0 7.0 31.8
+4.0 8.0 35.2
+4.0 9.0 38.6
+4.0 10.0 42.0
+5.0 6.0 31.0
+5.0 7.0 34.5
+5.0 8.0 38.0
+5.0 9.0 41.5
+5.0 10.0 45.0
+"""
+
+# Spline 3D form fields: mirrors _SPLINE_2D_FIELDS plus the 3D-only fields
+# (dataNameZ / scientificNotationZ / graphScaleRadioButtonZ / splineOrderY) and
+# the 3D dataset. animationSize=0x0 skips the surface-rotation GIF — this
+# scenario targets the evaluate-at-a-point round-trip, not animation, and
+# splines skip the genetic-algorithm estimate so it stays fast.
+_SPLINE_3D_FIELDS = {
+    "commaConversion": "I",
+    "graphSize": "320x240",
+    "animationSize": "0x0",
+    "scientificNotationX": "AUTO",
+    "scientificNotationY": "AUTO",
+    "scientificNotationZ": "AUTO",
+    "dataNameX": "X Data",
+    "dataNameY": "Y Data",
+    "dataNameZ": "Z Data",
+    "graphScaleRadioButtonX": "0.050",
+    "graphScaleRadioButtonY": "0.050",
+    "graphScaleRadioButtonZ": "0.050",
+    "logLinX": "LIN",
+    "logLinY": "LIN",
+    "logLinZ": "LIN",
+    "textDataEditor": _DATA_3D_SPLINE,
+    "splineSmoothness": "1.0",
+    "splineOrderX": "3",
+    "splineOrderY": "3",
+    # Required for every 3D fit (the surface-rotation viewing angles).
+    "rotationAnglesAzimuth": "165",
+    "rotationAnglesAltimuth": "20",
+}
+
 _ALL_EQUATIONS_MARKERS = [
     # /AllEquations/2/Polynomial/ URL — the path-segment `Polynomial`
     # is the view's `inAllOrStandardOnly` flag, not a family filter.
@@ -328,6 +401,17 @@ _ALL_EQUATIONS_MARKERS = [
 
 _EVAL_AT_POINT_FIELDS = {
     "x": "7.0",  # EvaluateAtAPointForm_2D uses lowercase 'x'
+}
+
+# 3D evaluate POST: BOTH x and y, because EvaluateAtAPointForm_3D requires y.
+# requests urlencodes this as a well-formed `x=2.5&y=3.5`, so this exercises
+# the SERVER side of the 3D evaluate path (the spline-degree reconstruction
+# fixed in PR #53). It does NOT exercise the page's getquerystring() JS — an
+# HTTP client can't run JS — so the '&amp;' separator bug (PR #54) stays
+# covered by the pytest template-render test, not here.
+_EVAL_AT_POINT_3D_FIELDS = {
+    "x": "2.5",
+    "y": "8.0",  # within Y in {6..10}
 }
 
 # EvaluateAtAPointView returns plain HTML "evaluates to <b>{value}</b>"
@@ -869,6 +953,49 @@ def _run_concurrent_2D_scenario(
     return None  # success
 
 
+def _run_spline_3d_scenario(
+    session: requests.Session,
+    base: str,
+    timeout_s: float,
+) -> str | None:
+    """3D spline fit chained into a 3D /EvaluateAtAPoint/ POST.
+
+    End-to-end coverage for the 3D evaluate-at-a-point path that PR #53's
+    spline-degree-reconstruction bug shipped through (the `bisplev` wrapper
+    read tck[3]/tck[4] for degrees that scipy's BivariateSpline.tck doesn't
+    carry). This fits a real bicubic SmoothBivariateSpline through the spawn
+    child, then POSTs BOTH x and y to /EvaluateAtAPoint/<token>/ and asserts a
+    numeric result — exercising the live fit, the tck+degrees session
+    round-trip, and the reconstruction.
+
+    Returns None on success or an error string.
+    """
+    name = "spline_3D"
+    err, result_url = _run_scenario_capturing_url(
+        session,
+        base,
+        name,
+        base + "/FitEquation__F__/3/Spline/Spline/",
+        _SPLINE_3D_FIELDS,
+        _SPLINE_EXPECTED_MARKERS,
+        timeout_s,
+    )
+    if err:
+        return err
+    token = _extract_token_from_results_url(result_url or "")
+    if token is None:
+        return (
+            f"[evaluate_at_a_point_spline_3D] could not extract token from results URL: "
+            f"{result_url!r}"
+        )
+    r = session.post(
+        base + f"/EvaluateAtAPoint/{token}/",
+        data=_EVAL_AT_POINT_3D_FIELDS,
+        allow_redirects=True,
+    )
+    return _check_markers("evaluate_at_a_point_spline_3D", r.text, _EVAL_AT_POINT_MARKERS)
+
+
 def run_smoke(scenario: str = "default") -> int:
     port = _find_free_port()
     base = f"http://127.0.0.1:{port}"
@@ -946,6 +1073,27 @@ def run_smoke(scenario: str = "default") -> int:
                     print(f"  {err}")
                 return 1
             print("SMOKE OK: concurrent-2D scenario passed")
+            return 0
+
+        if scenario == "spline-3D":
+            try:
+                print("[spline_3D] starting")
+                t_start = time.time()
+                err = _run_spline_3d_scenario(session, base, timeout_s=600)
+                wall = time.time() - t_start
+                if err:
+                    errors.append(err)
+                else:
+                    print(f"[spline_3D] OK in {wall:.1f}s")
+            except Exception as e:
+                errors.append(f"[spline_3D] exception: {e!r}")
+
+            if errors:
+                print("SMOKE FAILED:")
+                for err in errors:
+                    print(f"  {err}")
+                return 1
+            print("SMOKE OK: spline-3D scenario passed")
             return 0
 
         # Scenario 1: direct polynomial-quadratic fit
@@ -1200,6 +1348,16 @@ def run_smoke(scenario: str = "default") -> int:
                 else:
                     print("[evaluate_at_a_point_udf] OK")
 
+        # spline_3D + 3D round-trip through EvaluateAtAPointView. End-to-end
+        # coverage for the 3D evaluate path the spline-degree-reconstruction bug
+        # (PR #53) shipped through. Splines skip the genetic algorithm, so this
+        # stays fast despite being a 3D fit.
+        err = _run_spline_3d_scenario(session, base, timeout_s=600)
+        if err:
+            errors.append(err)
+        else:
+            print("[spline_3D] OK")
+
         # concurrent_2D: two fits in one session with per-dispatch isolation.
         # Uses a FRESH requests.Session (NOT the shared `session` above) so the
         # server sees it as a brand-new browser session — the shared session
@@ -1240,14 +1398,15 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="ZunZunNG smoke test")
     parser.add_argument(
         "--scenario",
-        choices=["default", "function-finder-2D-large", "concurrent-2D"],
+        choices=["default", "function-finder-2D-large", "concurrent-2D", "spline-3D"],
         default="default",
         help=(
-            "Which smoke scenarios to run. 'default' runs the full ~14-scenario "
+            "Which smoke scenarios to run. 'default' runs the full ~15-scenario "
             "sequence (most regressions). 'function-finder-2D-large' runs ONLY "
             "the larger FunctionFinder scenario in isolation, useful for "
             "parallel-perf acceptance runs. 'concurrent-2D' runs ONLY the "
-            "concurrent-fits isolation scenario."
+            "concurrent-fits isolation scenario. 'spline-3D' runs ONLY the 3D "
+            "spline fit + evaluate-at-a-point round-trip."
         ),
     )
     args = parser.parse_args()
