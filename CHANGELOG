@@ -9,6 +9,29 @@ https://bitbucket.org/zunzuncode/zunzunsite3/commits/all
 
 --- Notable changes (summarised here; full history on GitHub) ---
 
+chore/pyeq3-pr33-simplify-estimatedcoeffs (merged 2026-06)
+  Upstream equations-project/pyeq3 merged PR #33 (authored from this project's
+  fork), replacing SolverService's `estimatedCoefficients != []` check in the
+  differential-evolution path with a `len(...) > 0` guard. That check raised
+  "The truth value of an empty array is ambiguous" under modern numpy whenever the
+  form supplied no initial estimates and we handed pyeq3 a numpy.array([]). With
+  the fix upstream, the empty-list workaround in
+  FittingBaseClass.TransferFormDataToDataObject (which kept estimatedCoefficients
+  as a plain [] instead of numpy.array([]) to dodge the comparison) became
+  redundant: the form path now always hands pyeq3 numpy.array(_estimates). Bumped
+  the [tool.uv.sources] pin from ed0a44c (post-PR-#26) to e0c831d (post-PR-#33) and
+  re-locked; pyeq3 stays 12.7.0a0 (rev-only move). The bump also crosses upstream
+  PR #30, which renamed the spline-rebuild method RebuildScipySpline ->
+  BuildSplineFromSolvedCoefficients; that method is invoked internally by
+  CalculateModelPredictions, so this project has no call site — only descriptive
+  comments, refreshed to the new name (views.py, FitSpline.py, smoke_test.py,
+  tests/test_evaluate_at_a_point.py). Verified: 320 pytest green; in-process
+  empty-array DE fit returns finite coefficients (the exact path that regressed);
+  full 17-scenario smoke green, including function_finder_detail_2D, which drives
+  the form-fit DE path end-to-end through the spawn architecture. Pin stays a rev=
+  until upstream tags a release at or past PR #33 (see docs/operations/
+  quarterly-upgrade.md watch list).
+
 chore/spline-reconstruction-via-pyeq3 (merged 2026-06)
   Upstream equations-project/pyeq3 merged PR #26 (authored from pyeq3-ng), adding
   RebuildScipySpline() to the 2D/3D Spline models so CalculateModelPredictions

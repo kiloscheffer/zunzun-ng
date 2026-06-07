@@ -243,12 +243,12 @@ def EvaluateAtAPointView(request, token):
         # The live scipy spline object isn't saved (it's not JSON-serializable)
         # — see FitSpline.SaveSpecificDataToSessionStore. solvedCoefficients IS
         # the tck tuple, and pyeq3's Spline models rebuild the callable spline
-        # from it on demand (Models_*D/Spline.RebuildScipySpline, invoked by the
-        # CalculateModelPredictions call below). So we only supply inputs here:
-        # solvedCoefficients is assigned further down; 3D additionally needs the
-        # degrees, which scipy's BivariateSpline.tck does NOT carry (FitSpline
-        # persists them under splineDegrees) — hand them to xOrder/yOrder, which
-        # is where RebuildScipySpline reads them. 2D needs nothing extra
+        # from it on demand (Models_*D/Spline.BuildSplineFromSolvedCoefficients,
+        # invoked by the CalculateModelPredictions call below). So we only supply
+        # inputs here: solvedCoefficients is assigned further down; 3D additionally
+        # needs the degrees, which scipy's BivariateSpline.tck does NOT carry
+        # (FitSpline persists them under splineDegrees) — hand them to
+        # xOrder/yOrder, where the rebuild reads them. 2D needs nothing extra
         # (UnivariateSpline._eval_args bundles the degree at index 2).
         if LRP.dimensionality == 3:
             splineDegrees = LRP.LoadItemFromSessionStore("data", "splineDegrees")
@@ -291,8 +291,9 @@ def EvaluateAtAPointView(request, token):
     # (NumpySessionSerializer coerces the numpy array at save time). pyeq3's
     # CalculateModelPredictions expects an ndarray for regular equations.
     # For splines, solvedCoefficients IS the tck tuple — pyeq3's Spline
-    # RebuildScipySpline consumes it (coercing each part with numpy.asarray)
-    # and its CalculateModelPredictions ignores inCoeffs, so leave it as a list.
+    # BuildSplineFromSolvedCoefficients consumes it (coercing each part with
+    # numpy.asarray) and its CalculateModelPredictions ignores inCoeffs, so
+    # leave it as a list.
     raw_coeffs = LRP.LoadItemFromSessionStore("data", "solvedCoefficients")
     if equation.splineFlag:
         equation.solvedCoefficients = raw_coeffs

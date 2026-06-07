@@ -517,7 +517,7 @@ wheels = [
 [[package]]
 name = "pyeq3"
 version = "12.7.0a0"
-source = { git = "https://github.com/equations-project/pyeq3.git?rev=ed0a44c3002a1fa82b544521b3c82e02e46cc1ff#ed0a44c3002a1fa82b544521b3c82e02e46cc1ff" }
+source = { git = "https://github.com/equations-project/pyeq3.git?rev=e0c831d78a895e5ceaafb9a990bba29156b57585#e0c831d78a895e5ceaafb9a990bba29156b57585" }
 dependencies = [
     { name = "numpy" },
     { name = "odrpack" },
@@ -780,7 +780,7 @@ requires-dist = [
     { name = "numpy", specifier = ">=2.0,<3" },
     { name = "pillow" },
     { name = "psutil" },
-    { name = "pyeq3", git = "https://github.com/equations-project/pyeq3.git?rev=ed0a44c3002a1fa82b544521b3c82e02e46cc1ff" },
+    { name = "pyeq3", git = "https://github.com/equations-project/pyeq3.git?rev=e0c831d78a895e5ceaafb9a990bba29156b57585" },
     { name = "reportlab" },
     { name = "scipy", specifier = "<2" },
     { name = "waitress", specifier = ">=3.0" },

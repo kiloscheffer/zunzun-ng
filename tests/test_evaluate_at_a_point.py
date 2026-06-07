@@ -180,8 +180,9 @@ def test_evaluate_at_point_with_seeded_2d_spline(client):
 
     Companion to the 3D spline test above. EvaluateAtAPointView no longer
     reconstructs the spline itself — the 2D path leans entirely on pyeq3's
-    Models_2D/Spline.RebuildScipySpline, which rebuilds a UnivariateSpline from
-    solvedCoefficients == _eval_args == (knots, coefficients, degree). This pins
+    Models_2D/Spline.BuildSplineFromSolvedCoefficients, which rebuilds a
+    UnivariateSpline from solvedCoefficients == _eval_args ==
+    (knots, coefficients, degree). This pins
     that integration seam: the session round-trip of solvedCoefficients must
     still feed pyeq3 a shape it can rebuild and evaluate to scipy-identical
     values. Unlike 3D, 2D needs NO separately-saved splineDegrees — the degree
