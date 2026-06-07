@@ -16,12 +16,11 @@ dependencies = [
     # silently accept but not honor these kwargs.
     "django-ratelimit>=4.0",
     "pyeq3",
-    # numpy 2.x strict comparison semantics: numpy.array([]) != [] raises
-    # rather than returning False. FittingBaseClass.estimatedCoefficients
-    # relies on this (see commit history for the numpy-empty-array fix).
-    # Ceiling <3 guards against the next major; numpy has historically
-    # broken APIs at major versions (the 1.x -> 2.x transition broke the
-    # entire scientific-Python ecosystem for several months).
+    # Floor >=2.0 keeps the project on the modern numpy line that the rest
+    # of the scientific stack (scipy, matplotlib) is built against. Ceiling
+    # <3 guards against the next major; numpy has historically broken APIs
+    # at major versions (the 1.x -> 2.x transition broke the entire
+    # scientific-Python ecosystem for several months).
     "numpy>=2.0,<3",
     # Ceiling <2 guards against the next major. scipy has broken APIs at
     # minor versions in the past (the scipy.odr removal in 1.19 prompted
@@ -112,20 +111,29 @@ package = false
 #     (via Utilities.Multifit). That landing let this project DELETE its two local
 #     bridges: the [tool.uv] override-dependencies that forced numpy 2.x, and the
 #     explicit pypandoc dependency. Both are gone.
-#   PR #26 (rev ed0a44c, the current pin) — added RebuildScipySpline() to the 2D/3D
-#     Spline models so CalculateModelPredictions rebuilds the (non-serializable)
-#     scipy spline from solvedCoefficients on demand. That let this project DELETE
-#     its hand-rolled spline reconstruction in EvaluateAtAPointView (the 2D BSpline
+#   PR #26 (rev ed0a44c) — added the spline-rebuild method to the 2D/3D Spline
+#     models so CalculateModelPredictions rebuilds the (non-serializable) scipy
+#     spline from solvedCoefficients on demand. That let this project DELETE its
+#     hand-rolled spline reconstruction in EvaluateAtAPointView (the 2D BSpline
 #     build and the 3D bisplev .ev wrapper). FitSpline still persists the 3D
 #     degrees under splineDegrees, which the view now assigns to the equation's
-#     xOrder/yOrder for the rebuild.
+#     xOrder/yOrder for the rebuild. (Upstream PR #30 later renamed that method
+#     RebuildScipySpline -> BuildSplineFromSolvedCoefficients; it is invoked
+#     internally by CalculateModelPredictions, so this project has no call site.)
+#   PR #33 (rev e0c831d, the current pin) — replaced the `estimatedCoefficients
+#     != []` check in SolverService's differential-evolution path with a
+#     len(...) > 0 guard, fixing the "truth value of an empty array is ambiguous"
+#     crash under modern numpy. That let this project DELETE the empty-list
+#     workaround in FittingBaseClass.TransferFormDataToDataObject (which kept
+#     estimatedCoefficients as a plain [] instead of numpy.array([]) to dodge the
+#     ambiguous comparison); the form path now always hands pyeq3 a numpy array.
 # Upstream still has no release tag for this state (version is the 12.7.0a0
 # alpha; latest tags are v12.6.0 / v12.6.1), so we pin the exact rev for
-# reproducibility. Once upstream tags a release at or past PR #26, switch this to
+# reproducibility. Once upstream tags a release at or past PR #33, switch this to
 # tag= (see docs/operations/quarterly-upgrade.md). The companion pyeq3-ng fork
 # (github.com/kiloscheffer/pyeq3-ng) is retained as a fallback but is otherwise
 # superseded now that these PRs are upstream.
-pyeq3 = { git = "https://github.com/equations-project/pyeq3.git", rev = "ed0a44c3002a1fa82b544521b3c82e02e46cc1ff" }
+pyeq3 = { git = "https://github.com/equations-project/pyeq3.git", rev = "e0c831d78a895e5ceaafb9a990bba29156b57585" }
 
 [tool.mypy]
 # Permissive baseline for the 2016-era code. Strict mode would surface
