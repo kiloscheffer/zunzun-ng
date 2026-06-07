@@ -9,6 +9,23 @@ https://bitbucket.org/zunzuncode/zunzunsite3/commits/all
 
 --- Notable changes (summarised here; full history on GitHub) ---
 
+chore/spline-reconstruction-via-pyeq3 (merged 2026-06)
+  Upstream equations-project/pyeq3 merged PR #26 (authored from pyeq3-ng), adding
+  RebuildScipySpline() to the 2D/3D Spline models so CalculateModelPredictions
+  rebuilds the non-serializable scipy spline from solvedCoefficients on demand.
+  With that upstream, the hand-rolled spline reconstruction in EvaluateAtAPointView
+  became redundant: deleted the 2D BSpline build and the 3D _BivariateSplineFromTck
+  / bisplev .ev wrapper (the exact code that regressed twice in PR #54 — missing
+  degrees and pairwise-eval semantics). The view now just hands pyeq3 the tck (via
+  solvedCoefficients, already assigned downstream) and, for 3D, the degrees (via
+  xOrder/yOrder); pyeq3 rebuilds on first CalculateModelPredictions call. FitSpline
+  still persists the 3D degrees under splineDegrees (scipy's BivariateSpline.tck
+  doesn't carry them) and the graceful "expired" path for pre-fix rows is kept.
+  views.py +15/-43. Bumped the [tool.uv.sources] pin from ef97b62 (post-PR-#9) to
+  ed0a44c (post-PR-#26) and re-locked; pyeq3 12.6.2a0 -> 12.7.0a0. Verified: 320
+  pytest green + spline-3D end-to-end smoke. Pin stays a rev= until upstream tags
+  a release at or past PR #26 (see docs/operations/quarterly-upgrade.md watch list).
+
 chore/pyeq3-pr9-drop-bridges (merged 2026-06)
   Upstream equations-project/pyeq3 merged PR #9 (authored from pyeq3-ng),
   relaxing the numpy ceiling to >=1.24,<3 and declaring the pypandoc dep that

@@ -329,8 +329,8 @@ _CHAR_3D_FIELDS = {
 # 8, so overlapping ranges (union 5) would be rejected. (This is the same
 # reason _DATA_3D_POLY uses non-overlapping ranges.) Each direction also keeps
 # 5 distinct values (a degree-3 spline needs >= 4). Z = 2X + 3Y + 0.1*X*Y is
-# smooth, so the fit and the bisplev reconstruction at evaluate time are
-# well-conditioned.
+# smooth, so the fit and the spline reconstruction at evaluate time (pyeq3's
+# Models_3D/Spline.RebuildScipySpline) are well-conditioned.
 _DATA_3D_SPLINE = """X Y Z
 1.0 6.0 20.6
 1.0 7.0 23.7

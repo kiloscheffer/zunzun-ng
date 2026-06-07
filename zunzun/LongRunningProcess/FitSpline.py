@@ -26,15 +26,18 @@ class FitSpline(FittingBaseClass.FittingBaseClass):
         # SmoothBivariateSpline (3D) instance — not JSON-serializable.
         # Storing it here crashes the session save. The object is
         # redundant: solvedCoefficients holds the spline's tck tuple (see
-        # pyeq3/Services/SolverService.py:368 for 2D _eval_args, line 379
-        # for 3D .tck). EvaluateAtAPointView reconstructs a callable
-        # spline from that tck at the load site.
+        # pyeq3/Services/SolverService.py SolveUsingSpline — 2D _eval_args,
+        # 3D .tck). pyeq3's Spline.RebuildScipySpline rebuilds a callable
+        # spline from that tck on demand; EvaluateAtAPointView triggers it
+        # via CalculateModelPredictions at the load site.
         #
         # 3D needs one extra piece: scipy's BivariateSpline.tck is the
         # 3-tuple (tx, ty, c) and does NOT carry the spline degrees — those
-        # live in scipySpline.degrees == (kx, ky). bisplev needs them, so we
-        # persist them separately. (2D's _eval_args already bundles the
-        # degree as its third element, so 2D needs nothing extra.)
+        # live in scipySpline.degrees == (kx, ky). RebuildScipySpline reads
+        # them from the equation's xOrder/yOrder, so we persist them
+        # separately and the view assigns them back before the rebuild. (2D's
+        # _eval_args already bundles the degree as its third element, so 2D
+        # needs nothing extra.)
         items = {
             "dimensionality": self.dimensionality,
             "equationName": self.inEquationName,
