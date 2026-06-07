@@ -173,6 +173,53 @@ def test_evaluate_at_point_with_seeded_3d_spline(client):
     assert float(match.group(1)) == pytest.approx(expected, rel=1e-9)
 
 
+@pytest.mark.django_db
+def test_evaluate_at_point_with_seeded_2d_spline(client):
+    """Seed a fitted 2D spline and POST x; expect 'evaluates to' with the value
+    scipy's own UnivariateSpline yields.
+
+    Companion to the 3D spline test above. EvaluateAtAPointView no longer
+    reconstructs the spline itself — the 2D path leans entirely on pyeq3's
+    Models_2D/Spline.RebuildScipySpline, which rebuilds a UnivariateSpline from
+    solvedCoefficients == _eval_args == (knots, coefficients, degree). This pins
+    that integration seam: the session round-trip of solvedCoefficients must
+    still feed pyeq3 a shape it can rebuild and evaluate to scipy-identical
+    values. Unlike 3D, 2D needs NO separately-saved splineDegrees — the degree
+    is bundled at _eval_args[2].
+    """
+    import re
+
+    import numpy
+    import scipy.interpolate
+
+    xs = numpy.array([0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0])
+    ys = numpy.array([0.0, 0.8, 0.9, 0.1, -0.8, -1.0, -0.2])
+    spline = scipy.interpolate.UnivariateSpline(xs, ys, k=3, s=1.0)
+
+    x0 = 2.5
+    expected = float(spline(x0))
+
+    token = _seed_data_session(
+        client,
+        # GetEquationFromNameAndFamily matches a 2D spline on ("Spline", "Spline").
+        equation_name="Spline",
+        equation_family="Spline",
+        dimensionality=2,
+        # pyeq3 SolveUsingSpline sets solvedCoefficients = scipySpline._eval_args
+        # for 2D: (knots, coefficients, degree).
+        coefficients=list(spline._eval_args),
+    )
+
+    response = client.post(f"/EvaluateAtAPoint/{token}/", data={"x": str(x0)})
+    assert response.status_code == 200
+    body = response.content.decode("utf-8")
+    assert "evaluates to" in body, f"unexpected response body: {body[:400]}"
+
+    match = re.search(r"<b>(.*?)</b>", body)
+    assert match, f"no numeric value in response: {body[:400]}"
+    assert float(match.group(1)) == pytest.approx(expected, rel=1e-9)
+
+
 def test_evaluate_js_3d_uses_real_ampersand_separator():
     """The evaluate-at-a-point POST builder must join x and y with a literal
     '&', not the HTML entity '&amp;'. With '&amp;' the rendered 3D POST body is

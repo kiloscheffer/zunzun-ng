@@ -103,22 +103,29 @@ package = false
 
 [tool.uv.sources]
 # pyeq3 is pinned to upstream github.com/equations-project/pyeq3. The pin tracks
-# two PRs authored from this project's pyeq3-ng fork:
+# three PRs authored from this project's pyeq3-ng fork:
 #   PR #8 (rev 3bfec02) — replaced scipy.odr (deprecated in scipy 1.17, removed
 #     in 1.19) with odrpack, which wraps the same ODRPACK95 Fortran backend with
 #     a function-style API.
-#   PR #9 (rev ef97b62, the current pin) — relaxed upstream's stale numpy ceiling
-#     to >=1.24,<3 and declared the pypandoc dep that pyeq3's package __init__
-#     imports transitively (via Utilities.Multifit). That landing let this
-#     project DELETE its two local bridges: the [tool.uv] override-dependencies
-#     that forced numpy 2.x, and the explicit pypandoc dependency. Both are gone.
-# Upstream still has no release tag for this state (version is the 12.6.2a0
+#   PR #9 (rev ef97b62) — relaxed upstream's stale numpy ceiling to >=1.24,<3 and
+#     declared the pypandoc dep that pyeq3's package __init__ imports transitively
+#     (via Utilities.Multifit). That landing let this project DELETE its two local
+#     bridges: the [tool.uv] override-dependencies that forced numpy 2.x, and the
+#     explicit pypandoc dependency. Both are gone.
+#   PR #26 (rev ed0a44c, the current pin) — added RebuildScipySpline() to the 2D/3D
+#     Spline models so CalculateModelPredictions rebuilds the (non-serializable)
+#     scipy spline from solvedCoefficients on demand. That let this project DELETE
+#     its hand-rolled spline reconstruction in EvaluateAtAPointView (the 2D BSpline
+#     build and the 3D bisplev .ev wrapper). FitSpline still persists the 3D
+#     degrees under splineDegrees, which the view now assigns to the equation's
+#     xOrder/yOrder for the rebuild.
+# Upstream still has no release tag for this state (version is the 12.7.0a0
 # alpha; latest tags are v12.6.0 / v12.6.1), so we pin the exact rev for
-# reproducibility. Once upstream tags a release at or past PR #9, switch this to
+# reproducibility. Once upstream tags a release at or past PR #26, switch this to
 # tag= (see docs/operations/quarterly-upgrade.md). The companion pyeq3-ng fork
 # (github.com/kiloscheffer/pyeq3-ng) is retained as a fallback but is otherwise
-# superseded now that both PRs are upstream.
-pyeq3 = { git = "https://github.com/equations-project/pyeq3.git", rev = "ef97b62384d56186ae20d8fb73599ed0679b29d8" }
+# superseded now that these PRs are upstream.
+pyeq3 = { git = "https://github.com/equations-project/pyeq3.git", rev = "ed0a44c3002a1fa82b544521b3c82e02e46cc1ff" }
 
 [tool.mypy]
 # Permissive baseline for the 2016-era code. Strict mode would surface

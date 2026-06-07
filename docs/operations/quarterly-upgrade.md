@@ -188,18 +188,22 @@ When running the upgrade, pay extra attention to:
   in `pyproject.toml` document the current "no constraint" rationale;
   re-evaluate it in light of the new release's changelog).
 - **The upstream `pyeq3` dependency.** Pinned via `[tool.uv.sources]` to a
-  specific commit of `github.com/equations-project/pyeq3` — currently `ef97b62`,
-  the post-PR-#9 state that merged the scipy.odr -> odrpack port (PR #8) AND the
-  packaging fix that relaxed the numpy ceiling to `>=1.24,<3` and declared the
-  `pypandoc` dep (PR #9). PR #9 let us delete the two local bridges this project
-  used to carry (a `[tool.uv] override-dependencies` forcing numpy 2.x and an
-  explicit `pypandoc` dep) — both are gone as of 2026-06. Remaining follow-up:
-  upstream has NOT tagged a release for this state (version is the `12.6.2a0`
-  alpha; latest tags are `v12.6.0` / `v12.6.1`), so the pin is still a `rev=`.
-  Watch `github.com/equations-project/pyeq3` for a tagged release at or past
-  PR #9; when one appears, switch the pin from `rev=` to `tag=` and re-lock. The
-  companion `github.com/kiloscheffer/pyeq3-ng` fork is retained as a fallback but
-  is otherwise superseded now that both PRs are upstream.
+  specific commit of `github.com/equations-project/pyeq3` — currently `ed0a44c`,
+  the post-PR-#26 state. The pin tracks three PRs authored from this project's
+  fork: the scipy.odr -> odrpack port (PR #8), the packaging fix that relaxed the
+  numpy ceiling to `>=1.24,<3` and declared the `pypandoc` dep (PR #9), and the
+  spline-reconstruction support (PR #26) that added `RebuildScipySpline()` to the
+  2D/3D Spline models so `CalculateModelPredictions` rebuilds the non-serializable
+  scipy spline from `solvedCoefficients` on demand — letting this project delete
+  its hand-rolled spline reconstruction in `EvaluateAtAPointView` (2026-06). PR #9
+  had earlier let us delete two local bridges (a `[tool.uv] override-dependencies`
+  forcing numpy 2.x and an explicit `pypandoc` dep) — both gone as of 2026-06.
+  Remaining follow-up: upstream has NOT tagged a release for this state (version
+  is the `12.7.0a0` alpha; latest tags are `v12.6.0` / `v12.6.1`), so the pin is
+  still a `rev=`. Watch `github.com/equations-project/pyeq3` for a tagged release
+  at or past PR #26; when one appears, switch the pin from `rev=` to `tag=` and
+  re-lock. The companion `github.com/kiloscheffer/pyeq3-ng` fork is retained as a
+  fallback but is otherwise superseded now that these PRs are upstream.
 
 ---
 

@@ -6,7 +6,6 @@ import urllib.parse
 
 import numpy
 import pyeq3
-import scipy.interpolate
 from django import db
 from django.core.mail import EmailMessage
 from django.db import InterfaceError, OperationalError, close_old_connections
@@ -241,51 +240,24 @@ def EvaluateAtAPointView(request, token):
 
     # read equation-specific information from session data and assign to equation object
     if equation.splineFlag:
-        # scipySpline (the live scipy spline object) isn't saved — see
-        # FitSpline.SaveSpecificDataToSessionStore. solvedCoefficients IS
-        # the tck tuple, which we reconstruct into a callable spline.
-        # pyeq3/Models_2D/Spline.CalculateModelPredictions calls
-        # self.scipySpline(X); BSpline is callable with matching
-        # semantics. For 3D, wrap bisplev in an .ev(X, Y) helper to
-        # match Models_3D/Spline's self.scipySpline.ev(X, Y) call shape.
-        tck = LRP.LoadItemFromSessionStore("data", "solvedCoefficients")
-        if LRP.dimensionality == 2:
-            equation.scipySpline = scipy.interpolate.BSpline(
-                numpy.array(tck[0]), numpy.array(tck[1]), int(tck[2])
-            )
-        else:
-            # scipy's BivariateSpline.tck is the 3-tuple (tx, ty, c); the
-            # degrees (kx, ky) come from scipySpline.degrees, saved under
-            # splineDegrees by FitSpline (they are NOT in .tck). bisplev
-            # needs the full (tx, ty, c, kx, ky) tuple.
-            tx = numpy.array(tck[0])
-            ty = numpy.array(tck[1])
-            c = numpy.array(tck[2])
+        # The live scipy spline object isn't saved (it's not JSON-serializable)
+        # — see FitSpline.SaveSpecificDataToSessionStore. solvedCoefficients IS
+        # the tck tuple, and pyeq3's Spline models rebuild the callable spline
+        # from it on demand (Models_*D/Spline.RebuildScipySpline, invoked by the
+        # CalculateModelPredictions call below). So we only supply inputs here:
+        # solvedCoefficients is assigned further down; 3D additionally needs the
+        # degrees, which scipy's BivariateSpline.tck does NOT carry (FitSpline
+        # persists them under splineDegrees) — hand them to xOrder/yOrder, which
+        # is where RebuildScipySpline reads them. 2D needs nothing extra
+        # (UnivariateSpline._eval_args bundles the degree at index 2).
+        if LRP.dimensionality == 3:
             splineDegrees = LRP.LoadItemFromSessionStore("data", "splineDegrees")
             if not splineDegrees:
                 # A 3D-spline result saved before splineDegrees was persisted
                 # (a pre-fix dispatch row) can't be reconstructed — fail
                 # gracefully instead of unpacking None into a 500.
                 return HttpResponse("This result has expired.")
-            kx, ky = splineDegrees
-
-            class _BivariateSplineFromTck:
-                # SmoothBivariateSpline.ev (what pyeq3's Models_3D/Spline
-                # calls) evaluates at PAIRED points (X[i], Y[i]). bisplev
-                # instead evaluates the X×Y cross-product grid, so feeding it
-                # the arrays directly is only an .ev equivalent by accident of
-                # bisplev's 1x1 squeeze. Evaluate point-by-point to reproduce
-                # .ev's pairwise semantics (and 1-D return shape) for real.
-                def ev(self, X, Y):
-                    full_tck = (tx, ty, c, int(kx), int(ky))
-                    return numpy.array(
-                        [
-                            scipy.interpolate.bisplev(xi, yi, full_tck)
-                            for xi, yi in zip(numpy.atleast_1d(X), numpy.atleast_1d(Y))
-                        ]
-                    )
-
-            equation.scipySpline = _BivariateSplineFromTck()
+            equation.xOrder, equation.yOrder = splineDegrees
     elif equation.userDefinedFunctionFlag:
         equation.userDefinedFunctionText = LRP.LoadItemFromSessionStore(
             "data", "udfEditor_" + str(equation.GetDimensionality()) + "D"
@@ -318,9 +290,9 @@ def EvaluateAtAPointView(request, token):
     # solvedCoefficients round-trips through the session as a JSON list
     # (NumpySessionSerializer coerces the numpy array at save time). pyeq3's
     # CalculateModelPredictions expects an ndarray for regular equations.
-    # For splines, solvedCoefficients IS the tck tuple (already consumed
-    # above to reconstruct equation.scipySpline) and pyeq3's Spline
-    # CalculateModelPredictions ignores inCoeffs, so leave it as-is.
+    # For splines, solvedCoefficients IS the tck tuple — pyeq3's Spline
+    # RebuildScipySpline consumes it (coercing each part with numpy.asarray)
+    # and its CalculateModelPredictions ignores inCoeffs, so leave it as a list.
     raw_coeffs = LRP.LoadItemFromSessionStore("data", "solvedCoefficients")
     if equation.splineFlag:
         equation.solvedCoefficients = raw_coeffs
