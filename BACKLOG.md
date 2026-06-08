@@ -146,6 +146,27 @@ fork → upstream → pin workflow. Our `validate_udf_expression` already accept
 these tokens (it doesn't compile), so no zunzun-side change is needed once the
 upstream fix lands.
 
+## UDF validation eval allows an unbounded `**` compute DoS in the parent
+
+> Surfaced during the UDF-sandbox final review (2026-06-08); pre-existing,
+> out of scope for the RCE fix.
+
+**Symptom.** The UDF AST validator (`zunzun/udf_safety.py`) permits `ast.Pow`
+with arbitrary numeric constants, so an expression like `9**9**9*X` passes
+validation and is then constant-folded into a bignum by the validation-time
+`eval` in `forms.py` `clean()` — burning CPU/memory in the parent web process.
+
+**Hypothesis / impact.** A compute/DoS vector, not RCE. Pre-existing: the
+validation eval predates the sandbox branch (the sandbox only added a gate in
+front of it). Partially mitigated by the existing `12/m` per-IP rate limit plus
+the 5-second `rate_limit_sleep`. Low.
+
+**Where to pick up.** Cheap hardening in `validate_udf_expression`: reject `Pow`
+nodes whose right operand is a constant above a small bound (and/or reject
+chained `**`), since no legitimate fit needs a giant literal exponent.
+Alternatively cap literal magnitudes generally. Add a regression test
+(`9**9**9*X` → `UnsafeUDFError`) alongside the existing corpus.
+
 ## Cached home page couples session-cookie bootstrap and housekeeping to cache state
 
 > Surfaced by an external code review 2026-06-08 (findings #1 + #2).
