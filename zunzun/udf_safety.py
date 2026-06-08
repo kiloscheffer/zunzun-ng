@@ -69,8 +69,8 @@ def validate_udf_expression(expression_text, allowed_names):
             raise UnsafeUDFError(f"{type(node).__name__} is not allowed")
 
         if isinstance(node, ast.Constant):
-            if not isinstance(node.value, (int, float, complex)) or isinstance(node.value, bool):
-                raise UnsafeUDFError("only numeric constants are allowed")
+            if not isinstance(node.value, (int, float)) or isinstance(node.value, bool):
+                raise UnsafeUDFError("only real numeric constants are allowed")
 
         if isinstance(node, ast.Name):
             if node.id.startswith("_"):
@@ -100,3 +100,26 @@ def collect_allowed_names(equation, dim):
     for tokens in equation.constantsDictionary.values():
         names.update(tokens)
     return names
+
+
+def validate_equation_udf(equation, dim):
+    """Validate an equation's compiled UDF text against the AST allow-list.
+
+    Single entry point for all three parent-process UDF eval sites (the 2D/3D
+    form ``clean()`` methods and ``EvaluateAtAPointView``). Call AFTER
+    ``ParseAndCompileUserFunctionString`` (which compiles the text — a
+    non-executing step that also populates ``_coefficientDesignators``) and
+    BEFORE any eval of ``userFunctionCodeObject`` / call to
+    ``CalculateModelPredictions``. Raises UnsafeUDFError on a disallowed
+    construct; callers translate that into a user-facing error.
+
+    Validates the post-``ProcessAndValidateFunctionString`` string (brackets
+    ``[]`` -> ``()`` already applied). pyeq3 ultimately compiles
+    ``ConvertStringIntsToStringFloats`` of that string, which inserts ``.0``
+    after digit runs — including digits inside identifiers (e.g. ``log10`` ->
+    ``log10.0``). That insertion can only yield a float literal or invalid
+    syntax (which fails to compile), never a new Attribute/Subscript/Call/Name
+    node, so the validated AST stays security-equivalent to the compiled one.
+    """
+    transformed = equation.ProcessAndValidateFunctionString(equation.userDefinedFunctionText, dim)
+    validate_udf_expression(transformed, collect_allowed_names(equation, dim))

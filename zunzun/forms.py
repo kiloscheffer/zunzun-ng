@@ -5,7 +5,7 @@ import numpy
 import pyeq3  # type: ignore
 
 from . import formConstants
-from .udf_safety import UnsafeUDFError, collect_allowed_names, validate_udf_expression
+from .udf_safety import UnsafeUDFError, validate_equation_udf
 
 
 class EvaluateAtAPointForm_2D(django.forms.Form):
@@ -744,23 +744,11 @@ class Equation_2D(CharacterizeDataForm_2D):
                 )  # re-raise as validation error
 
             # Reject any UDF that is not pure arithmetic over X, coefficients,
-            # and numpy tokens. ParseAndCompile above only compiled the text
-            # (no execution) and populated _coefficientDesignators; validate
-            # the same transformed string here, before the eval() below, which
-            # would otherwise execute arbitrary code (see zunzun/udf_safety).
+            # and numpy tokens — closes the eval() RCE below. Runs after the
+            # (non-executing) compile above, which populated the coefficient
+            # designators the validator needs (see zunzun/udf_safety).
             try:
-                # Validate the same transform pyeq3 compiles. The later
-                # ConvertStringIntsToStringFloats pass only appends ".0" to
-                # integer literals, so it cannot add Attribute/Subscript/name
-                # nodes — the validated AST stays equivalent to the compiled one.
-                transformed = self.equation.ProcessAndValidateFunctionString(
-                    self.equation.userDefinedFunctionText,
-                    self.equation.GetDimensionality(),
-                )
-                validate_udf_expression(
-                    transformed,
-                    collect_allowed_names(self.equation, self.equation.GetDimensionality()),
-                )
+                validate_equation_udf(self.equation, self.equation.GetDimensionality())
             except UnsafeUDFError as exc:
                 raise django.forms.ValidationError(
                     "The User Defined Function contains a disallowed construct: "
@@ -1043,21 +1031,10 @@ class Equation_3D(CharacterizeDataForm_3D):
                     str(sys.exc_info()[1])
                 )  # re-raise as validation error
 
-            # See Equation_2D.clean: validate the transformed UDF text before
-            # the eval() below. 3D adds Y to the permitted independent vars.
+            # See Equation_2D.clean: validate the compiled UDF text before the
+            # eval() below. 3D adds Y to the permitted independent vars.
             try:
-                # Validate the same transform pyeq3 compiles. The later
-                # ConvertStringIntsToStringFloats pass only appends ".0" to
-                # integer literals, so it cannot add Attribute/Subscript/name
-                # nodes — the validated AST stays equivalent to the compiled one.
-                transformed = self.equation.ProcessAndValidateFunctionString(
-                    self.equation.userDefinedFunctionText,
-                    self.equation.GetDimensionality(),
-                )
-                validate_udf_expression(
-                    transformed,
-                    collect_allowed_names(self.equation, self.equation.GetDimensionality()),
-                )
+                validate_equation_udf(self.equation, self.equation.GetDimensionality())
             except UnsafeUDFError as exc:
                 raise django.forms.ValidationError(
                     "The User Defined Function contains a disallowed construct: "

@@ -38,6 +38,7 @@ MALICIOUS = [
     "exp(**a)",  # dict-unpack into call
     "sin(open('x'))",  # dangerous inner call
     "sin(X).real",  # attribute on a call result
+    "a*X + 1j",  # complex literal (only real numerics allowed)
 ]
 
 BENIGN = [
@@ -89,6 +90,29 @@ def test_collect_allowed_names_3d_includes_Y():
     eq.ParseAndCompileUserFunctionString("a*X + b*Y", 3)
     names = collect_allowed_names(eq, 3)
     assert {"X", "Y", "a", "b"} <= names
+
+
+def test_validate_equation_udf_rejects_attribute_on_real_equation():
+    # The shared helper used by both forms.py and views.py: it must reject an
+    # attribute-traversal UDF on a real, compiled pyeq3 equation.
+    import pyeq3
+    from zunzun.udf_safety import UnsafeUDFError, validate_equation_udf
+
+    eq = pyeq3.Models_2D.UserDefinedFunction.UserDefinedFunction("SSQABS", "Default")
+    eq.userDefinedFunctionText = "X.real"
+    eq.ParseAndCompileUserFunctionString(eq.userDefinedFunctionText, 2)
+    with pytest.raises(UnsafeUDFError):
+        validate_equation_udf(eq, 2)
+
+
+def test_validate_equation_udf_accepts_benign_on_real_equation():
+    import pyeq3
+    from zunzun.udf_safety import validate_equation_udf
+
+    eq = pyeq3.Models_2D.UserDefinedFunction.UserDefinedFunction("SSQABS", "Default")
+    eq.userDefinedFunctionText = "a + b*X"
+    eq.ParseAndCompileUserFunctionString(eq.userDefinedFunctionText, 2)
+    validate_equation_udf(eq, 2)  # must not raise
 
 
 # --- Form-path integration -------------------------------------------------
