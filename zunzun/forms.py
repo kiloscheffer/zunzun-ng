@@ -5,6 +5,7 @@ import numpy
 import pyeq3  # type: ignore
 
 from . import formConstants
+from .udf_safety import UnsafeUDFError, validate_equation_udf
 
 
 class EvaluateAtAPointForm_2D(django.forms.Form):
@@ -742,6 +743,20 @@ class Equation_2D(CharacterizeDataForm_2D):
                     str(sys.exc_info()[1])
                 )  # re-raise as validation error
 
+            # Reject any UDF that is not pure arithmetic over X, coefficients,
+            # and numpy tokens — closes the eval() RCE below. Runs after the
+            # (non-executing) compile above, which populated the coefficient
+            # designators the validator needs (see zunzun/udf_safety).
+            try:
+                validate_equation_udf(self.equation, self.equation.GetDimensionality())
+            except UnsafeUDFError as exc:
+                raise django.forms.ValidationError(
+                    "The User Defined Function contains a disallowed construct: "
+                    + str(exc)
+                    + ". Only arithmetic over X, your coefficients, and the "
+                    "standard math functions is permitted."
+                )
+
             try:  # this will raise an error on incorrect syntax user-defined functions
                 self.equation.safe_dict = {}
                 self.equation.safe_dict["X"] = 1.0  # only for UDF code validation test
@@ -761,8 +776,14 @@ class Equation_2D(CharacterizeDataForm_2D):
 
                 # eval() is called for its side effect — if the user-defined
                 # function fails to parse/evaluate, the bare-except below
-                # raises ValidationError. The return value is unused.
-                eval(self.equation.userFunctionCodeObject, globals(), self.equation.safe_dict)
+                # raises ValidationError. The return value is unused. Globals
+                # are stripped to a builtins-free namespace; the AST validator
+                # above is the real gate (see zunzun/udf_safety).
+                eval(
+                    self.equation.userFunctionCodeObject,
+                    {"__builtins__": {}},
+                    self.equation.safe_dict,
+                )
             except:
                 raise django.forms.ValidationError(
                     "Could not parse the User Defined Function, please verify function entry. The specific error returned was: "
@@ -1010,6 +1031,18 @@ class Equation_3D(CharacterizeDataForm_3D):
                     str(sys.exc_info()[1])
                 )  # re-raise as validation error
 
+            # See Equation_2D.clean: validate the compiled UDF text before the
+            # eval() below. 3D adds Y to the permitted independent vars.
+            try:
+                validate_equation_udf(self.equation, self.equation.GetDimensionality())
+            except UnsafeUDFError as exc:
+                raise django.forms.ValidationError(
+                    "The User Defined Function contains a disallowed construct: "
+                    + str(exc)
+                    + ". Only arithmetic over X/Y, your coefficients, and the "
+                    "standard math functions is permitted."
+                )
+
             try:  # this will raise an error on incorrect syntax user-defined functions
                 self.equation.safe_dict = {}
                 self.equation.safe_dict["X"] = 1.0  # only for UDF code validation test
@@ -1030,8 +1063,14 @@ class Equation_3D(CharacterizeDataForm_3D):
 
                 # eval() is called for its side effect — if the user-defined
                 # function fails to parse/evaluate, the bare-except below
-                # raises ValidationError. The return value is unused.
-                eval(self.equation.userFunctionCodeObject, globals(), self.equation.safe_dict)
+                # raises ValidationError. The return value is unused. Globals
+                # are stripped to a builtins-free namespace; the AST validator
+                # above is the real gate (see zunzun/udf_safety).
+                eval(
+                    self.equation.userFunctionCodeObject,
+                    {"__builtins__": {}},
+                    self.equation.safe_dict,
+                )
             except:
                 raise django.forms.ValidationError(
                     "Could not parse the User Defined Function, please verify function entry. The specific error returned was: "

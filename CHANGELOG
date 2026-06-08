@@ -9,6 +9,22 @@ https://bitbucket.org/zunzuncode/zunzunsite3/commits/all
 
 --- Notable changes (summarised here; full history on GitHub) ---
 
+fix/udf-eval-sandbox (2026-06)
+  Closed an arbitrary-code-execution hole in the User-Defined-Function fit path.
+  UDF text was eval()'d with real module globals at form-validation time (parent
+  web process), so an anonymous POST such as __import__('os').system('id')*X
+  passed pyeq3's cosmetic validation and ran. Added zunzun/udf_safety.py, an ast
+  allow-list validator that permits only arithmetic over X/Y, coefficient names,
+  and pyeq3's numpy tokens — rejecting all attribute access and subscripting,
+  which defeat a builtins-free eval via ().__class__... traversal. Wired into
+  Equation_2D/Equation_3D.clean and EvaluateAtAPointView (all three
+  parent-process eval sites); the two form evals also drop globals() for
+  {"__builtins__": {}}. pyeq3's 2D child fit-time eval (already hardened for 3D
+  upstream) is recorded as a defense-in-depth BACKLOG follow-up, alongside two
+  pre-existing items surfaced in review (an eval() of the dispatch-row
+  dimensionality in EvaluateAtAPointView, and pyeq3 mangling digit-bearing UDF
+  tokens like log10). Spec/plan under docs/superpowers/.
+
 chore/pyeq3-pr33-simplify-estimatedcoeffs (merged 2026-06)
   Upstream equations-project/pyeq3 merged PR #33 (authored from this project's
   fork), replacing SolverService's `estimatedCoefficients != []` check in the
