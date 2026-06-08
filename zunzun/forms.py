@@ -749,6 +749,10 @@ class Equation_2D(CharacterizeDataForm_2D):
             # the same transformed string here, before the eval() below, which
             # would otherwise execute arbitrary code (see zunzun/udf_safety).
             try:
+                # Validate the same transform pyeq3 compiles. The later
+                # ConvertStringIntsToStringFloats pass only appends ".0" to
+                # integer literals, so it cannot add Attribute/Subscript/name
+                # nodes — the validated AST stays equivalent to the compiled one.
                 transformed = self.equation.ProcessAndValidateFunctionString(
                     self.equation.userDefinedFunctionText,
                     self.equation.GetDimensionality(),
@@ -1042,6 +1046,10 @@ class Equation_3D(CharacterizeDataForm_3D):
             # See Equation_2D.clean: validate the transformed UDF text before
             # the eval() below. 3D adds Y to the permitted independent vars.
             try:
+                # Validate the same transform pyeq3 compiles. The later
+                # ConvertStringIntsToStringFloats pass only appends ".0" to
+                # integer literals, so it cannot add Attribute/Subscript/name
+                # nodes — the validated AST stays equivalent to the compiled one.
                 transformed = self.equation.ProcessAndValidateFunctionString(
                     self.equation.userDefinedFunctionText,
                     self.equation.GetDimensionality(),

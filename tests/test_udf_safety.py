@@ -132,6 +132,8 @@ def test_malicious_udf_post_is_blocked(client, mocked_process_start):
     # Form rejected -> no spawn, no /StatusAndResults/ redirect.
     assert mocked_process_start.call_count == 0
     assert not (response.status_code == 302 and "/StatusAndResults/" in response.url)
+    # Rejection came from our validator, not some unrelated form failure.
+    assert b"disallowed construct" in response.content
 
 
 @pytest.mark.django_db
