@@ -71,6 +71,7 @@ def test_syntax_error_is_unsafe_not_crash():
 
 def test_collect_allowed_names_from_real_2d_udf():
     import pyeq3
+
     from zunzun.udf_safety import collect_allowed_names
 
     eq = pyeq3.Models_2D.UserDefinedFunction.UserDefinedFunction("SSQABS", "Default")
@@ -84,6 +85,7 @@ def test_collect_allowed_names_from_real_2d_udf():
 
 def test_collect_allowed_names_3d_includes_Y():
     import pyeq3
+
     from zunzun.udf_safety import collect_allowed_names
 
     eq = pyeq3.Models_3D.UserDefinedFunction.UserDefinedFunction("SSQABS", "Default")
@@ -96,6 +98,7 @@ def test_validate_equation_udf_rejects_attribute_on_real_equation():
     # The shared helper used by both forms.py and views.py: it must reject an
     # attribute-traversal UDF on a real, compiled pyeq3 equation.
     import pyeq3
+
     from zunzun.udf_safety import UnsafeUDFError, validate_equation_udf
 
     eq = pyeq3.Models_2D.UserDefinedFunction.UserDefinedFunction("SSQABS", "Default")
@@ -107,6 +110,7 @@ def test_validate_equation_udf_rejects_attribute_on_real_equation():
 
 def test_validate_equation_udf_accepts_benign_on_real_equation():
     import pyeq3
+
     from zunzun.udf_safety import validate_equation_udf
 
     eq = pyeq3.Models_2D.UserDefinedFunction.UserDefinedFunction("SSQABS", "Default")
