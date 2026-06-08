@@ -34,7 +34,31 @@ modernization, which `BACKLOG` captures more honestly.
 
 **Where to pick up.** (1) If sustained hourly CPU abuse becomes real, either count `FunctionFinderResults/` GETs in the demo guard (mirror the `_will_spawn_child` predicate in `views.py`) or add a separate, looser hourly cap for that path. (2) Have the spawned child read `settings.DEMO_MODE` and emit the `demo-mode` body class when writing result HTML.
 
-## User-Defined Function eval is not sandboxed — arbitrary code execution
+## ~~User-Defined Function eval is not sandboxed — arbitrary code execution~~ PARTIALLY RESOLVED 2026-06-08 (parent path)
+
+> **Resolution (parent path).** Added `zunzun/udf_safety.py` — an `ast`
+> allow-list validator (`validate_udf_expression`) that rejects every construct
+> outside pure arithmetic over X/Y, coefficient names, and pyeq3's numpy
+> tokens. Crucially it rejects all `ast.Attribute` / `ast.Subscript` nodes and
+> underscore-led names, closing the attribute-traversal escape
+> (`().__class__.__bases__[0].__subclasses__()`) that a builtins-free namespace
+> alone leaves open. `collect_allowed_names` sources the permitted-name set from
+> the same `functionDictionary` / `constantsDictionary` pyeq3 injects into
+> `safe_dict`, so the allow-list can't drift. Wired into all three
+> parent-process eval sites: `Equation_2D.clean` / `Equation_3D.clean` in
+> `forms.py` (eval globals also hardened `globals()` → `{"__builtins__": {}}`)
+> and `EvaluateAtAPointView` in `views.py` (re-validates a tampered dispatch row
+> before `CalculateModelPredictions`). The validator runs after pyeq3's
+> non-executing `compile` (which supplies `_coefficientDesignators`) and before
+> any eval. Covered by `tests/test_udf_safety.py` (validator corpus +
+> form-POST + tampered-row integration). Spec:
+> `docs/superpowers/specs/2026-06-08-udf-eval-sandbox-design.md`; plan:
+> `docs/superpowers/plans/2026-06-08-udf-eval-sandbox.md`.
+>
+> **Still open:** pyeq3's 2D child fit-time eval — see "Harden pyeq3 2D child
+> fit-time UDF eval" below. Defense-in-depth only; the parent gate prevents a
+> malicious UDF from ever reaching the session / `ChildPayload`. Original
+> notes preserved below.
 
 > Surfaced by an external code review 2026-06-08 (finding #4). The two
 > quick-win findings from that review (cwd-relative DB path, host-header
@@ -48,6 +72,79 @@ modernization, which `BACKLOG` captures more honestly.
 **What we didn't do.** Left it as-is in the quick-win branch — the fix is not a one-liner and must not be done blind. A naive `{"__builtins__": {}}` would also break legitimate UDFs that lean on safe builtins (`pow`, `min`, `max`, …), and the runtime eval lives in pyeq3 (upstream), not just this repo, so a complete fix is a coordinated change.
 
 **Where to pick up.** (a) Replace the eval globals with an explicit allow-list namespace: `{"__builtins__": {}}` plus a vetted set of numeric builtins, with all numpy tokens still injected via `safe_dict`. (b) Add malicious-expression regression tests (`__import__`, attribute traversal, dunder access, `eval`/`exec`, file/network access) asserting `ValidationError`, and a positive test that legitimate functions still fit. (c) Apply the same hardening to the pyeq3-side runtime eval (`pyeq3/IModel.py`) — candidate for an upstream PR to `equations-project/pyeq3`, mirroring the existing PR workflow, since the validation gate only blocks the parent path and defense-in-depth wants the child path locked too.
+
+## Harden pyeq3 2D child fit-time UDF eval (defense-in-depth)
+
+> Spun out of the UDF-sandbox parent-path fix (2026-06-08, see the
+> partially-resolved entry above).
+
+**Symptom.** `pyeq3/Models_2D/UserDefinedFunction.py:106` still evaluates the
+compiled UDF with real module globals: `eval(self.userFunctionCodeObject,
+globals(), self.safe_dict)`. Its 3D sibling (`Models_3D/...:106`) already uses
+the hardened `{"__builtins__": None, "numpy": numpy}` namespace.
+
+**Hypothesis / impact.** Unreachable in normal flow: the zunzun parent gate
+(`zunzun/udf_safety.py`, 2026-06-08) rejects malicious UDFs before any string is
+stored in the session / `ChildPayload`, so the child only ever compiles
+validated text. Defense-in-depth only.
+
+**What we didn't do.** Scoped out of the parent-path fix — the eval lives in
+upstream pyeq3, not this repo.
+
+**Where to pick up.** Upstream PR to `equations-project/pyeq3`: (a) change the
+2D eval globals to match the 3D `{"__builtins__": None, "numpy": numpy}`;
+(b) optionally add an AST allow-list check into
+`ProcessAndValidateFunctionString` so both dims are covered at the validation
+gate. Land via the existing fork → upstream → pin workflow (AGENTS.md §
+Dependencies), then bump the `[tool.uv.sources]` pin.
+
+## `EvaluateAtAPointView` eval()s the dimensionality from the dispatch row
+
+> Surfaced during the UDF-sandbox code review (2026-06-08); pre-existing, out
+> of scope for that fix.
+
+**Symptom.** `zunzun/views.py:319` / `:324` build the evaluation form via
+`eval("forms.EvaluateAtAPointForm_" + str(LRP.dimensionality) + "D(request.POST)")`,
+where `LRP.dimensionality` is read from the per-dispatch data row
+(`LoadItemFromSessionStore("data", "dimensionality")`, `views.py:225`). This is
+the same `eval`-of-stored-state shape the UDF sandbox closed, on a sibling field.
+
+**Hypothesis / impact.** Not reachable via request input today:
+`dimensionality` is written server-side at dispatch from the URL path integer
+(2 or 3), never from free user text, so injecting a malicious `dimensionality`
+requires the ability to write the dispatch row directly (DB compromise =
+already game over). Defense-in-depth, same tampered-row threat model as the
+pyeq3 child eval above. Low.
+
+**Where to pick up.** Replace the `eval(...)` with a plain dispatch on a
+validated integer: `forms.EvaluateAtAPointForm_2D` / `_3D` chosen by
+`if LRP.dimensionality == 2/3`, raising a clean error otherwise (the value is
+already constrained to {2, 3} elsewhere). Removes the `eval` entirely. The
+duplicate `eval` at `:319` and `:324` is a try/then-retry pair — collapse both.
+
+## pyeq3 mangles digit-bearing UDF function tokens (`log10`, `log2`, `arctan2`)
+
+> Surfaced during the UDF-sandbox code review (2026-06-08); pre-existing
+> upstream pyeq3 bug, unrelated to the security fix.
+
+**Symptom.** pyeq3's `IModel.ConvertStringIntsToStringFloats` (run at UDF
+compile time) appends `.0` to any digit run, including digits that are part of a
+function name. A UDF using `log10`, `log2`, `arctan2`, `deg2rad`, or `rad2deg`
+is rewritten to e.g. `a*log10.0(X)`, which fails to compile — so these tokens,
+though listed in pyeq3's UDF `functionDictionary`, are unusable in real fits.
+Verified: `ConvertStringIntsToStringFloats("a*log10(X)") -> "a*log10.0(X)"`.
+
+**Hypothesis / impact.** A user-facing functional bug (advertised functions
+don't work), not a security issue. The int→float coercion is meant for numeric
+literals like `(3/2)` → `(3.0/2.0)`; it should not touch digits inside an
+identifier. Low-to-medium (rare tokens).
+
+**Where to pick up.** Upstream fix in `equations-project/pyeq3`: make
+`ConvertStringIntsToStringFloats` tokenizer-aware (only append `.0` to numeric
+literals, not to digits preceded by an identifier character). Land via the
+fork → upstream → pin workflow. Our `validate_udf_expression` already accepts
+these tokens (it doesn't compile), so no zunzun-side change is needed once the
+upstream fix lands.
 
 ## Cached home page couples session-cookie bootstrap and housekeeping to cache state
 
