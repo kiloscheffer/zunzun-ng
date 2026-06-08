@@ -58,7 +58,7 @@ def validate_udf_expression(expression_text, allowed_names):
     try:
         tree = ast.parse(expression_text, mode="eval")
     except SyntaxError as exc:
-        raise UnsafeUDFError(f"could not parse expression ({exc})")
+        raise UnsafeUDFError(f"could not parse expression ({exc})") from exc
 
     for node in ast.walk(tree):
         if isinstance(node, ast.Attribute):
@@ -94,7 +94,7 @@ def collect_allowed_names(equation, dim):
     names = {"X"}
     if dim == 3:
         names.add("Y")
-    names.update(getattr(equation, "_coefficientDesignators", []))
+    names.update(equation._coefficientDesignators)
     for tokens in equation.functionDictionary.values():
         names.update(tokens)
     for tokens in equation.constantsDictionary.values():

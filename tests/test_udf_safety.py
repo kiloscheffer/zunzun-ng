@@ -29,6 +29,15 @@ MALICIOUS = [
     "foo*X",  # unknown bare name
     "[X for a in X]",  # comprehension
     "(lambda: X)()",  # lambda
+    "(a := X)",  # walrus / NamedExpr
+    "f'{X}'",  # f-string (JoinedStr)
+    "t'{X}'",  # t-string / TemplateStr (py3.14)
+    "sin(X for a in X)",  # generator expression
+    "X if a else b",  # ternary IfExp
+    "a < X < b",  # chained compare
+    "exp(**a)",  # dict-unpack into call
+    "sin(open('x'))",  # dangerous inner call
+    "sin(X).real",  # attribute on a call result
 ]
 
 BENIGN = [
@@ -57,3 +66,26 @@ def test_benign_udf_accepted(expr):
 def test_syntax_error_is_unsafe_not_crash():
     with pytest.raises(UnsafeUDFError):
         validate_udf_expression("a + *X", ALLOWED)
+
+
+def test_collect_allowed_names_from_real_2d_udf():
+    import pyeq3
+    from zunzun.udf_safety import collect_allowed_names
+
+    eq = pyeq3.Models_2D.UserDefinedFunction.UserDefinedFunction("SSQABS", "Default")
+    eq.ParseAndCompileUserFunctionString("a + b*X", 2)
+    names = collect_allowed_names(eq, 2)
+    assert "X" in names
+    assert "Y" not in names
+    assert {"a", "b"} <= names
+    assert {"exp", "sin", "sqrt", "pi", "e"} <= names
+
+
+def test_collect_allowed_names_3d_includes_Y():
+    import pyeq3
+    from zunzun.udf_safety import collect_allowed_names
+
+    eq = pyeq3.Models_3D.UserDefinedFunction.UserDefinedFunction("SSQABS", "Default")
+    eq.ParseAndCompileUserFunctionString("a*X + b*Y", 3)
+    names = collect_allowed_names(eq, 3)
+    assert {"X", "Y", "a", "b"} <= names
