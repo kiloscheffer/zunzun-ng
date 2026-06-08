@@ -1011,10 +1011,11 @@ def LongRunningProcessView(
     child = ctx.Process(target=_run_fit_child, args=(payload,), daemon=False)
     child.start()
 
-    # using HTTP_HOST allows dev server
-    return HttpResponseRedirect(
-        "http://" + request.META["HTTP_HOST"] + f"/StatusAndResults/{status_row.pk}/"
-    )
+    # Host-relative redirect: never build the Location from the client-supplied
+    # Host header (ALLOWED_HOSTS = ["*"] makes it attacker-controlled), and let
+    # the browser keep the request scheme so an https request behind a TLS-
+    # terminating proxy isn't downgraded to http://.
+    return HttpResponseRedirect(f"/StatusAndResults/{status_row.pk}/")
 
 
 @cache_page(60 * 60)  # 60 minutes

@@ -34,6 +34,81 @@ modernization, which `BACKLOG` captures more honestly.
 
 **Where to pick up.** (1) If sustained hourly CPU abuse becomes real, either count `FunctionFinderResults/` GETs in the demo guard (mirror the `_will_spawn_child` predicate in `views.py`) or add a separate, looser hourly cap for that path. (2) Have the spawned child read `settings.DEMO_MODE` and emit the `demo-mode` body class when writing result HTML.
 
+## User-Defined Function eval is not sandboxed — arbitrary code execution
+
+> Surfaced by an external code review 2026-06-08 (finding #4). The two
+> quick-win findings from that review (cwd-relative DB path, host-header
+> redirect) were fixed in `fix/cwd-relative-db-path-and-host-redirect`; the
+> rest are recorded here.
+
+**Symptom.** The UDF fit path compiles and evaluates user-submitted expression text with the *real* module globals: `forms.py:765` (2D) / `forms.py:1034` (3D) call `eval(self.equation.userFunctionCodeObject, globals(), self.equation.safe_dict)`, and pyeq3's `IModel.ParseAndCompileUserFunctionString` (`pyeq3/IModel.py:1065`) does the matching `compile(..., mode="eval")` plus its own `eval(..., globals(), self.safe_dict)` at fit time. Passing `globals()` means `__builtins__` is live in the eval namespace, and pyeq3's `ProcessAndValidateFunctionString` only does cosmetic checks (rejects `=`, `^`, `ln`, `abs`, `EXP`/`LOG`; requires `X`) — there is **no token whitelist that rejects dangerous names**. A UDF such as `__import__('os').system('id')*X` passes validation, compiles, and executes. The name `__import__` survives because the tokenizer splits on non-alpha (`__import__` → `import`), so it is never captured as a coefficient and resolves from builtins; the trailing `*X` satisfies the "must contain X" check.
+
+**Hypothesis / impact.** Remote code execution in the web process at form-validation time (parent process, before any spawn), reachable by an anonymous POST to a UDF fit URL. This is inherited verbatim from upstream pyeq3 / the original zunzun.com design — the `safe_dict` naming signals an *intended* sandbox that was never actually enforced (real `globals()` defeats it). Severity is High for any publicly-reachable deployment; lower for a single-owner box.
+
+**What we didn't do.** Left it as-is in the quick-win branch — the fix is not a one-liner and must not be done blind. A naive `{"__builtins__": {}}` would also break legitimate UDFs that lean on safe builtins (`pow`, `min`, `max`, …), and the runtime eval lives in pyeq3 (upstream), not just this repo, so a complete fix is a coordinated change.
+
+**Where to pick up.** (a) Replace the eval globals with an explicit allow-list namespace: `{"__builtins__": {}}` plus a vetted set of numeric builtins, with all numpy tokens still injected via `safe_dict`. (b) Add malicious-expression regression tests (`__import__`, attribute traversal, dunder access, `eval`/`exec`, file/network access) asserting `ValidationError`, and a positive test that legitimate functions still fit. (c) Apply the same hardening to the pyeq3-side runtime eval (`pyeq3/IModel.py`) — candidate for an upstream PR to `equations-project/pyeq3`, mirroring the existing PR workflow, since the validation gate only blocks the parent path and defense-in-depth wants the child path locked too.
+
+## Cached home page couples session-cookie bootstrap and housekeeping to cache state
+
+> Surfaced by an external code review 2026-06-08 (findings #1 + #2).
+
+**Symptom.** `HomePageView` is `@cache_page(60 * 60)` (`views.py:1020`) yet its body both sets `request.session["cookie_test"] = 1` (`views.py:1044`) and spawns the `_housekeeping_child` that prunes `temp/` and reaps status rows (`views.py:1036-1041`). On a cache *hit* the body never runs, so neither side effect fires. The codebase already works around the cookie half: `scripts/smoke_test.py:812-819` documents that a cached `GET /` never sets `cookie_test`, and warms it via a `@cache_control(no_cache=True)` fit-interface URL instead; tests seed `cookie_test` directly.
+
+**Hypothesis / impact.** The cookie coupling is already symptom-patched (warmup elsewhere), so it is mostly a latent smell — but caching a Set-Cookie response is a session-fixation footgun if Django's cache-middleware guards ever change. The housekeeping coupling is real but bounded: the 60-minute cache means cleanup still fires at least once per hour (the first request after expiry), not "never" as the review states. Low-to-medium.
+
+**What we didn't do.** No change — the warmup workaround keeps the cookie path functional, and hourly housekeeping is adequate for the documented single-box deployment.
+
+**Where to pick up.** Decouple the side effects from the cached view: move the `cookie_test` bootstrap into middleware or an uncached shim, and move housekeeping out of request flow entirely (a throttled middleware tick, a management command on a timer, or a lightweight periodic supervisor). Then the cacheable page body is purely presentational.
+
+## Production-unsafe settings defaults, and AGENTS.md mis-describes SECRET_KEY
+
+> Surfaced by an external code review 2026-06-08 (finding #9).
+
+**Symptom.** `settings.py:6` ships `ALLOWED_HOSTS = ["*"]` and `settings.py:66` ships `SECRET_KEY = "super-secret-key"` — a real, working default rather than an empty placeholder. Separately, `AGENTS.md` (§ "Settings that must be filled before deploy") claims the file "ships with empty placeholders for `SECRET_KEY`, …" — but unlike `EXCEPTION_EMAIL_ADDRESS` / `EMAIL_HOST_USER` / `EMAIL_HOST_PASSWORD` (which genuinely are `""`), `SECRET_KEY` is hardcoded. The doc is wrong about `SECRET_KEY`.
+
+**Hypothesis / impact.** A deploy that forgets to override these runs with a known signing key and permissive host validation. The doc drift makes that easier to miss — a reader trusting AGENTS.md believes `SECRET_KEY` is already an obvious-blank that startup-checks would catch.
+
+**What we didn't do.** No change — out of scope for the quick-win branch, and touching `SECRET_KEY`/`ALLOWED_HOSTS` defaults interacts with the deploy docs and CI.
+
+**Where to pick up.** Read both from the environment (`os.environ`), and fail startup when `DEBUG` is false and either is unset/default. Then correct the AGENTS.md and `docs/internals/` deploy wording to match (note: AGENTS.md is gitignored local-only per project convention — the shippable correction belongs in the tracked `docs/` mirror).
+
+## Real spawn-and-artifact path is smoke-tested only on Linux
+
+> Surfaced by an external code review 2026-06-08 (finding #7).
+
+**Symptom.** The CI `smoke` job runs on `ubuntu-latest` only (`.github/workflows/ci.yml:71`). The all-OS `pytest` jobs exercise view dispatch with `multiprocessing.context.SpawnProcess.start` patched to a no-op (`tests/conftest.py:46`), so the full child-spawn → fit → artifact → process-lifecycle path runs for real only on Linux.
+
+**Hypothesis / impact.** The spawn architecture is the project's explicit cross-platform raison d'être, and Windows is the trickiest target (no fork, file-locking, slow fits). A Windows-specific spawn/artifact regression could pass all-green CI. Medium — partly mitigated by the in-process `_run_fit_child` tests that do run on every OS.
+
+**What we didn't do.** No Windows smoke job — a full 3D fit needs ≥1800 s on Windows (see memory note `project_3d_fit_slow_on_windows`), so a naive port of the Linux smoke would be slow/flaky.
+
+**Where to pick up.** Add a minimal Windows CI job that drives one *2D* fit end-to-end (2D is <60 s on Windows), or a targeted integration test that spawns `_run_fit_child` for real (no `start` patch) on each OS and asserts the artifact lands.
+
+## Bare `except:` blocks in discovery/fitting/cleanup paths
+
+> Surfaced by an external code review 2026-06-08 (finding #10).
+
+**Symptom.** Several bare `except:` blocks swallow everything (including `KeyboardInterrupt`/`SystemExit`): equation-class probing at `FittingBaseClass.py:587` (`continue` on any failure), the worker fit at `FunctionFinder.py:83` (`target = 1.0e300`), and the `finally` cleanup at `StatusMonitoredLongRunningProcessPage.py:816` (`except Exception: pass`). (The review cited `FunctionFinder.py:49`, which is actually the `try:` opener — the swallow is at `:83`.)
+
+**Hypothesis / impact.** Most are defensible recovery paths (probe-many-classes, expected-fit-failures sanitized to `1e300`, finally-must-not-raise), but bare `except:` also masks interpreter-level signals and hides root causes during debugging. Low — code-quality, not a correctness defect today.
+
+**What we didn't do.** No change — narrowing these is a careful, test-backed sweep, not a quick win.
+
+**Where to pick up.** Narrow `except:` → `except Exception:` in the discovery/expected-failure paths, log skipped equation classes at DEBUG with context, and add regression tests for malformed pyeq3 classes and failed status cleanup.
+
+## Reviewed and downgraded: ResultsView path check (#6) and dispatch_data read-modify-write (#8)
+
+> Surfaced by an external code review 2026-06-08 (findings #6, #8); recorded here with the reasoning for *not* treating them at the rated severity, so the call is traceable.
+
+**Symptom (as reported).** (#6) `ResultsView` serves any `redirect_to_results` that `startswith(TEMP_FILES_DIR)` (`views.py:668`) — a string-prefix check fragile against sibling names like `temp_evil` and case-insensitive filesystems. (#8) `dispatch_data.save_items` (`dispatch_data.py:40-50`) reads a JSON field, mutates it in Python, and saves the whole field — a read-modify-write that could lose a concurrent writer's keys.
+
+**Hypothesis / impact — why downgraded.** (#6) `redirect_to_results` is *server-written* (set by the fit child via `update_status`), never user-controlled; the token is the capability, the path is not attacker-supplied, so the `temp_evil` sibling attack is not reachable. Defense-in-depth only, not the Medium-high rated. (#8) The only production writer is `StatusMonitoredLongRunningProcessPage.py:645`, one dispatch per row per field; FunctionFinder worker subprocesses do not write this row concurrently, and the `_retry` loop already handles SQLite lock contention. The interleaved-RMW lost-update is not a code path that occurs today — theoretical, not Medium.
+
+**What we didn't do.** No change. Recorded the pushback rather than implementing, since neither is reachable as described.
+
+**Where to pick up.** Cheap hardening if ever desired: (#6) resolve both paths with `Path(...).resolve()` and gate on `target_path.is_relative_to(temp_root)` instead of `startswith`. (#8) wrap the read-modify-write in a transaction with row locking, or switch to a DB JSON-update primitive, *if* a second concurrent writer to the same row/field is ever introduced.
+
 ## ~~3D spline "Evaluate At A Point" has no end-to-end smoke scenario~~ RESOLVED 2026-06-06
 
 > **Resolution.** Added a `spline_3D` scenario to `scripts/smoke_test.py`
