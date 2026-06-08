@@ -3,6 +3,12 @@ import os
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 
+# Absolute path to the project (repo) root — the directory this settings
+# module lives in. Anchored on __file__, not the process cwd, so paths
+# derived from it (the session DB, templates, static/temp dirs) resolve to
+# the same location no matter where a service manager launches the process.
+ROOT_PATH = os.path.dirname(os.path.abspath(__file__))
+
 ALLOWED_HOSTS = ["*"]
 
 # this is for serving static files with the django development server
@@ -40,7 +46,7 @@ MANAGERS = ADMINS
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
-        "NAME": "session_db/db.sqlite3",
+        "NAME": os.path.join(ROOT_PATH, "session_db", "db.sqlite3"),
         "OPTIONS": {"timeout": 5},  # in case database is busy or slow
     }
 }
@@ -74,8 +80,6 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = "urls"
-
-ROOT_PATH = os.path.dirname(__file__)
 
 TEMPLATES = [
     {
