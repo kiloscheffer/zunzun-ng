@@ -89,3 +89,56 @@ def test_collect_allowed_names_3d_includes_Y():
     eq.ParseAndCompileUserFunctionString("a*X + b*Y", 3)
     names = collect_allowed_names(eq, 3)
     assert {"X", "Y", "a", "b"} <= names
+
+
+# --- Form-path integration -------------------------------------------------
+# A malicious UDF must be rejected during form validation (no spawn), while a
+# benign UDF still dispatches. The malicious payload "X.__class__" is harmless
+# if it were ever executed (attribute access on a float) but is exactly the
+# attribute-traversal class the validator rejects — so the RED run does not
+# execute any OS command.
+
+_UDF_BASE_FIELDS = {
+    "commaConversion": "I",
+    "graphSize": "320x240",
+    "animationSize": "0x0",
+    "scientificNotationX": "AUTO",
+    "scientificNotationY": "AUTO",
+    "dataNameX": "X",
+    "dataNameY": "Y",
+    "graphScaleRadioButtonX": "0.050",
+    "graphScaleRadioButtonY": "0.050",
+    "logLinX": "LIN",
+    "logLinY": "LIN",
+    "logLinZ": "LIN",
+    "fittingTarget": "SSQABS",
+    "textDataEditor": "X Y\n1 2\n2 4\n3 6\n4 8\n5 10\n",
+}
+
+_UDF_FIT_URL_2D = "/FitEquation__F__/2/UserDefinedFunction/UserDefinedFunction/"
+
+
+def _seed_cookie_test(client):
+    session = client.session
+    session["cookie_test"] = 1
+    session.save()
+
+
+@pytest.mark.django_db
+def test_malicious_udf_post_is_blocked(client, mocked_process_start):
+    _seed_cookie_test(client)
+    fields = dict(_UDF_BASE_FIELDS, udfEditor="X.__class__")
+    response = client.post(_UDF_FIT_URL_2D, data=fields, HTTP_HOST="testserver")
+    # Form rejected -> no spawn, no /StatusAndResults/ redirect.
+    assert mocked_process_start.call_count == 0
+    assert not (response.status_code == 302 and "/StatusAndResults/" in response.url)
+
+
+@pytest.mark.django_db
+def test_benign_udf_post_dispatches(client, mocked_process_start):
+    _seed_cookie_test(client)
+    fields = dict(_UDF_BASE_FIELDS, udfEditor="a + b*X")
+    response = client.post(_UDF_FIT_URL_2D, data=fields, HTTP_HOST="testserver")
+    assert response.status_code == 302
+    assert "/StatusAndResults/" in response.url
+    assert mocked_process_start.call_count == 1
