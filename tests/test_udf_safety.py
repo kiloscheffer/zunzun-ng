@@ -144,3 +144,60 @@ def test_benign_udf_post_dispatches(client, mocked_process_start):
     assert response.status_code == 302
     assert "/StatusAndResults/" in response.url
     assert mocked_process_start.call_count == 1
+
+
+# --- EvaluateAtAPoint defense-in-depth -------------------------------------
+# The parent gate means a malicious UDF can never reach the session in normal
+# flow. This test tampers the dispatch row directly to prove the view
+# re-validates and refuses to eval an attribute-traversal payload.
+
+
+def _seed_udf_dispatch(client, udf_text, dim=2):
+    from zunzun.dispatch_data import save_items
+    from zunzun.models import LRPStatus
+
+    status = LRPStatus.objects.create(start_time=1.0)
+    data = {
+        "dimensionality": dim,
+        "equationName": "UserDefinedFunction",
+        "equationFamilyName": "UserDefinedFunction",
+        "solvedCoefficients": [1.0, 1.0],
+        "fittingTarget": "SSQABS",
+        "udfEditor_" + str(dim) + "D": udf_text,
+    }
+    save_items(status.pk, "data", data)
+    return status.result_token
+
+
+@pytest.mark.django_db
+def test_evaluate_at_point_rejects_tampered_malicious_udf(client):
+    # "X.real" is an attribute-traversal expression — the exact construct class
+    # the validator categorically rejects (every ast.Attribute is refused,
+    # because a builtins-free eval namespace is still escapable via attribute
+    # traversal like ().__class__.__bases__[0].__subclasses__()). The classic
+    # dunder escapes can't be used as the probe here: pyeq3 sanitises any
+    # non-numeric / error result to 1e300 (see CalculateModelPredictions), so
+    # "X.__class__" never surfaces as "evaluates to" even unfixed — the test
+    # would be a tautology. "X.real" instead yields a finite number (numpy's
+    # real part of X), so the UNFIXED view DOES eval it and renders
+    # "evaluates to <b>3.0</b>". That makes this a genuine red->green test:
+    # the gate must block the eval and return the clean rejection instead.
+    token = _seed_udf_dispatch(client, "X.real", dim=2)
+    response = client.post(f"/EvaluateAtAPoint/{token}/", data={"x": "3.0"})
+    assert response.status_code == 200
+    body = response.content.decode("utf-8")
+    # The malicious expression was NOT evaluated; the gate returned the clean
+    # rejection (distinct from the pre-existing out-of-bounds message).
+    assert "evaluates to" not in body
+    assert "Invalid data submitted" in body
+
+
+@pytest.mark.django_db
+def test_evaluate_at_point_accepts_benign_udf(client):
+    # y = a + b*X with a=1,b=1 at X=3 -> 4; proves the validator does not
+    # break legitimate evaluate-at-a-point.
+    token = _seed_udf_dispatch(client, "a + b*X", dim=2)
+    response = client.post(f"/EvaluateAtAPoint/{token}/", data={"x": "3.0"})
+    assert response.status_code == 200
+    body = response.content.decode("utf-8")
+    assert "evaluates to" in body
