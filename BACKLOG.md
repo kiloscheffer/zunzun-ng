@@ -163,7 +163,51 @@ fork → upstream → pin workflow. Our `validate_udf_expression` already accept
 these tokens (it doesn't compile), so no zunzun-side change is needed once the
 upstream fix lands.
 
-## UDF validation eval allows an unbounded `**` compute DoS in the parent
+## ~~UDF validation eval allows an unbounded `**` compute DoS in the parent~~ INVALID 2026-06-10 (not reproducible — int→float coercion defuses it)
+
+> **Investigated 2026-06-10 — not reproducible; closed as invalid.** The premise
+> is wrong on both the specific example and the general mechanism. Verified
+> in-process against the real pyeq3 2D UDF model
+> (`pyeq3.Models_2D.UserDefinedFunction`).
+>
+> 1. **The headline example never reaches the eval.** `9**9**9*X` has zero
+>    coefficient names (only `X` plus numeric literals), so
+>    `ParseAndCompileUserFunctionString` raises "I could not find any equation
+>    parameter or coefficient names" at the coefficient-count gate
+>    (`pyeq3/IModel.py:1059`) — *before* `ValidateUDFExpression` and before any
+>    eval. To clear that gate you must add a coefficient, e.g. `9**9**9*A*X`.
+>
+> 2. **The bignum can't form — integer literals are floatified before compile.**
+>    `ConvertStringIntsToStringFloats` (`pyeq3/IModel.py:1088`, run inside
+>    `ParseAndCompileUserFunctionString`) rewrites every integer literal to a
+>    float *before* `compile()`: `9**9**9*A*X` → `9.0**9.0**9.0*A*X`. The
+>    validation-time `eval` in `forms.py` `clean()` (`forms.py:782`) therefore
+>    does *float* exponentiation, which overflows a C double and raises
+>    `OverflowError: (34, 'Result too large')` in ~4 µs — caught by the bare
+>    `except` at `forms.py:787` and re-wrapped as the "Could not parse the User
+>    Defined Function …" ValidationError. No arbitrary-precision integer is ever
+>    built, so there is no CPU/memory burn.
+>
+> Float `**` is O(1): it either overflows instantly (caught) or returns a finite
+> double instantly. Measured worst cases: `9**9**9*A*X` ~4 µs (overflow),
+> `9**9**9**9**9*A*X` ~2.6 µs (overflow), `2.0**1000*A*X` ~4.4 µs (finite,
+> `1.07e+301`). There is no path to a slow integer-bignum compute through this
+> grammar.
+>
+> **The proposed fix would have been a regression.** Rejecting `ast.Pow` with a
+> large constant exponent in `ValidateUDFExpression` would harden against a
+> non-existent vector *and* falsely reject legitimate functions whose powers
+> produce a finite result (`2.0**1000` = `1.07e+301`). No pyeq3 change is
+> warranted; the proposed regression test (`9**9**9*X` → `UnsafeUDFError`) is
+> also wrong — that input is rejected by the coefficient gate, not the validator.
+>
+> **Residual (cosmetic only, not actioned).** A function that overflows at the
+> X=1.0 / coeffs=1.0 validation probe (e.g. `9**9**9*A*X`) is reported as "Could
+> not parse" when it is really a runtime overflow, not a parse error. Any
+> function that overflows at unit inputs cannot fit regardless, so the wording is
+> harmless. Left as-is.
+>
+> Original notes below, preserved for reference.
 
 > Surfaced during the UDF-sandbox final review (2026-06-08); pre-existing,
 > out of scope for the RCE fix.
