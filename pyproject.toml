@@ -120,20 +120,34 @@ package = false
 #     xOrder/yOrder for the rebuild. (Upstream PR #30 later renamed that method
 #     RebuildScipySpline -> BuildSplineFromSolvedCoefficients; it is invoked
 #     internally by CalculateModelPredictions, so this project has no call site.)
-#   PR #33 (rev e0c831d, the current pin) — replaced the `estimatedCoefficients
+#   PR #33 (rev e0c831d) — replaced the `estimatedCoefficients
 #     != []` check in SolverService's differential-evolution path with a
 #     len(...) > 0 guard, fixing the "truth value of an empty array is ambiguous"
 #     crash under modern numpy. That let this project DELETE the empty-list
 #     workaround in FittingBaseClass.TransferFormDataToDataObject (which kept
 #     estimatedCoefficients as a plain [] instead of numpy.array([]) to dodge the
 #     ambiguous comparison); the form path now always hands pyeq3 a numpy array.
+#   PR #35 (rev 647bbf1) — upstreamed this project's UDF eval AST sandbox as
+#     pyeq3/UdfSafety.py (ValidateUDFExpression / CollectAllowedNames) and wired
+#     it into pyeq3's own chokepoint: IModel.ParseAndCompileUserFunctionString
+#     now validates the expression before compiling, and the 2D eval namespace
+#     was hardened to {"__builtins__": None, "numpy": numpy} (matching 3D). That
+#     let this project DELETE its local zunzun/udf_safety.py duplicate; the
+#     forms.py / views.py call sites now catch pyeq3.UdfSafety.UnsafeUDFError
+#     from ParseAndCompileUserFunctionString directly.
+#   PR #39 (rev c6bb59c) — refined pyeq3's `abs` cosmetic check so fabs() is
+#     accepted (it was allow-listed but rejected by a substring match).
+#   PR #40 (rev 96e2ae9, the current pin) — made ConvertStringIntsToStringFloats
+#     round-trip digit-bearing function names (log10, log2, arctan2, deg2rad,
+#     rad2deg) so the .0 insertion no longer mangles them, and moved
+#     functionDictionary / constantsDictionary into UdfSafety.
 # Upstream still has no release tag for this state (version is the 12.7.0a0
 # alpha; latest tags are v12.6.0 / v12.6.1), so we pin the exact rev for
-# reproducibility. Once upstream tags a release at or past PR #33, switch this to
+# reproducibility. Once upstream tags a release at or past PR #40, switch this to
 # tag= (see docs/operations/quarterly-upgrade.md). The companion pyeq3-ng fork
 # (github.com/kiloscheffer/pyeq3-ng) is retained as a fallback but is otherwise
 # superseded now that these PRs are upstream.
-pyeq3 = { git = "https://github.com/equations-project/pyeq3.git", rev = "e0c831d78a895e5ceaafb9a990bba29156b57585" }
+pyeq3 = { git = "https://github.com/equations-project/pyeq3.git", rev = "96e2ae90d123aaee75470c1258e544b96c57974a" }
 
 [tool.mypy]
 # Permissive baseline for the 2016-era code. Strict mode would surface

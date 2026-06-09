@@ -34,7 +34,7 @@ modernization, which `BACKLOG` captures more honestly.
 
 **Where to pick up.** (1) If sustained hourly CPU abuse becomes real, either count `FunctionFinderResults/` GETs in the demo guard (mirror the `_will_spawn_child` predicate in `views.py`) or add a separate, looser hourly cap for that path. (2) Have the spawned child read `settings.DEMO_MODE` and emit the `demo-mode` body class when writing result HTML.
 
-## ~~User-Defined Function eval is not sandboxed — arbitrary code execution~~ PARTIALLY RESOLVED 2026-06-08 (parent path)
+## ~~User-Defined Function eval is not sandboxed — arbitrary code execution~~ RESOLVED 2026-06-09 (upstreamed to pyeq3)
 
 > **Resolution (parent path).** Added `zunzun/udf_safety.py` — an `ast`
 > allow-list validator (`validate_udf_expression`) that rejects every construct
@@ -55,10 +55,16 @@ modernization, which `BACKLOG` captures more honestly.
 > `docs/superpowers/specs/2026-06-08-udf-eval-sandbox-design.md`; plan:
 > `docs/superpowers/plans/2026-06-08-udf-eval-sandbox.md`.
 >
-> **Still open:** pyeq3's 2D child fit-time eval — see "Harden pyeq3 2D child
-> fit-time UDF eval" below. Defense-in-depth only; the parent gate prevents a
-> malicious UDF from ever reaching the session / `ChildPayload`. Original
-> notes preserved below.
+> **Fully resolved 2026-06-09.** pyeq3 PRs #35/#39/#40 upstreamed the validator
+> as `pyeq3/UdfSafety.py` and wired it into
+> `IModel.ParseAndCompileUserFunctionString`, so every UDF is validated at
+> pyeq3's own chokepoint (including the child fit path) and the 2D eval namespace
+> is hardened to `{"__builtins__": None, "numpy": numpy}`. This project deleted
+> its local `zunzun/udf_safety.py` duplicate; `forms.py` / `views.py` now catch
+> `pyeq3.UdfSafety.UnsafeUDFError` from `ParseAndCompileUserFunctionString`. Pin
+> bumped `e0c831d` → `96e2ae9`. Spec:
+> `docs/superpowers/specs/2026-06-09-udf-sandbox-upstream-collapse-design.md`.
+> Original notes preserved below.
 
 > Surfaced by an external code review 2026-06-08 (finding #4). The two
 > quick-win findings from that review (cwd-relative DB path, host-header
@@ -73,10 +79,15 @@ modernization, which `BACKLOG` captures more honestly.
 
 **Where to pick up.** (a) Replace the eval globals with an explicit allow-list namespace: `{"__builtins__": {}}` plus a vetted set of numeric builtins, with all numpy tokens still injected via `safe_dict`. (b) Add malicious-expression regression tests (`__import__`, attribute traversal, dunder access, `eval`/`exec`, file/network access) asserting `ValidationError`, and a positive test that legitimate functions still fit. (c) Apply the same hardening to the pyeq3-side runtime eval (`pyeq3/IModel.py`) — candidate for an upstream PR to `equations-project/pyeq3`, mirroring the existing PR workflow, since the validation gate only blocks the parent path and defense-in-depth wants the child path locked too.
 
-## Harden pyeq3 2D child fit-time UDF eval (defense-in-depth)
+## ~~Harden pyeq3 2D child fit-time UDF eval (defense-in-depth)~~ RESOLVED 2026-06-09 (pyeq3 PR #35)
 
 > Spun out of the UDF-sandbox parent-path fix (2026-06-08, see the
 > partially-resolved entry above).
+
+> **Resolved 2026-06-09.** pyeq3 PR #35 set the 2D eval namespace to
+> `{"__builtins__": None, "numpy": numpy}` (matching 3D) and added the AST
+> allow-list gate inside `ParseAndCompileUserFunctionString`, covering both dims
+> at the validation gate. Pin bumped to `96e2ae9`. Original notes below.
 
 **Symptom.** `pyeq3/Models_2D/UserDefinedFunction.py:106` still evaluates the
 compiled UDF with real module globals: `eval(self.userFunctionCodeObject,
@@ -122,10 +133,16 @@ validated integer: `forms.EvaluateAtAPointForm_2D` / `_3D` chosen by
 already constrained to {2, 3} elsewhere). Removes the `eval` entirely. The
 duplicate `eval` at `:319` and `:324` is a try/then-retry pair — collapse both.
 
-## pyeq3 mangles digit-bearing UDF function tokens (`log10`, `log2`, `arctan2`)
+## ~~pyeq3 mangles digit-bearing UDF function tokens (`log10`, `log2`, `arctan2`)~~ RESOLVED 2026-06-09 (pyeq3 PR #40)
 
 > Surfaced during the UDF-sandbox code review (2026-06-08); pre-existing
 > upstream pyeq3 bug, unrelated to the security fix.
+
+> **Resolved 2026-06-09.** pyeq3 PR #40 made `ConvertStringIntsToStringFloats`
+> round-trip digit-bearing function names (replace with number-free words before
+> the `.0` insertion, restore after), so `log10`/`log2`/`arctan2`/`deg2rad`/
+> `rad2deg` compile and fit correctly. Pin bumped to `96e2ae9`. (PR #39 likewise
+> fixed `fabs` being rejected by the `abs` cosmetic check.) Original notes below.
 
 **Symptom.** pyeq3's `IModel.ConvertStringIntsToStringFloats` (run at UDF
 compile time) appends `.0` to any digit run, including digits that are part of a
@@ -150,6 +167,12 @@ upstream fix lands.
 
 > Surfaced during the UDF-sandbox final review (2026-06-08); pre-existing,
 > out of scope for the RCE fix.
+
+> **Update 2026-06-09.** `zunzun/udf_safety.py` was deleted when the validator
+> was upstreamed (see the resolved sandbox entry above), so the `ast.Pow` guard's
+> home is now `pyeq3/UdfSafety.ValidateUDFExpression` — which still allows `Pow`
+> with no magnitude bound, so this DoS now lives upstream too. Fix belongs in an
+> upstream pyeq3 PR (then a pin bump), not in zunzun. Still open.
 
 **Symptom.** The UDF AST validator (`zunzun/udf_safety.py`) permits `ast.Pow`
 with arbitrary numeric constants, so an expression like `9**9**9*X` passes

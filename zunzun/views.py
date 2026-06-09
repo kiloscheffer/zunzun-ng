@@ -14,13 +14,13 @@ from django.http import Http404, HttpResponse, HttpResponseRedirect, JsonRespons
 from django.shortcuts import render
 from django.views.decorators.cache import cache_control, cache_page
 from django_ratelimit.decorators import ratelimit
+from pyeq3.UdfSafety import UnsafeUDFError
 
 import settings
 
 from . import LongRunningProcess, forms, middleware, platform_compat
 from .LongRunningProcess.child_payload import _run_fit_child
 from .session_helpers import save_with_retry
-from .udf_safety import UnsafeUDFError, validate_equation_udf
 
 _logger = logging.getLogger(__name__)
 
@@ -263,14 +263,15 @@ def EvaluateAtAPointView(request, token):
         equation.userDefinedFunctionText = LRP.LoadItemFromSessionStore(
             "data", "udfEditor_" + str(equation.GetDimensionality()) + "D"
         )
-        equation.ParseAndCompileUserFunctionString(
-            equation.userDefinedFunctionText, LRP.dimensionality
-        )
-        # Defense-in-depth: the form gate already rejects malicious UDFs before
-        # they reach the session, but re-validate here so a tampered dispatch
-        # row can never reach the eval inside CalculateModelPredictions below.
+        # pyeq3 validates the UDF against its AST allow-list inside
+        # ParseAndCompileUserFunctionString before compiling, so a tampered
+        # dispatch row carrying a malicious UDF can never reach the eval inside
+        # CalculateModelPredictions below. The form gate already rejects these in
+        # normal flow; this is the same gate on the rehydration path.
         try:
-            validate_equation_udf(equation, LRP.dimensionality)
+            equation.ParseAndCompileUserFunctionString(
+                equation.userDefinedFunctionText, LRP.dimensionality
+            )
         except UnsafeUDFError:
             return HttpResponse("Invalid data submitted, please try again.")
     elif equation.userSelectablePolynomialFlag:
