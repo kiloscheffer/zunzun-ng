@@ -207,7 +207,6 @@ def _housekeeping_child(temp_dir: str, max_size_mb: int) -> None:
 def EvaluateAtAPointView(request, token):
     import os
     import sys
-    import time
 
     # only allow POST for this view
     if request.method != "POST":
@@ -310,15 +309,14 @@ def EvaluateAtAPointView(request, token):
         equation.solvedCoefficients = numpy.array(raw_coeffs)
 
     # make bound Django form and call form.is_valid()
-    try:
-        evaluationForm = eval(
-            "forms.EvaluateAtAPointForm_" + str(LRP.dimensionality) + "D(request.POST)"
-        )
-    except:
-        time.sleep(1.0)
-        evaluationForm = eval(
-            "forms.EvaluateAtAPointForm_" + str(LRP.dimensionality) + "D(request.POST)"
-        )
+    if LRP.dimensionality == 2:
+        evaluationForm = forms.EvaluateAtAPointForm_2D(request.POST)
+    elif LRP.dimensionality == 3:
+        evaluationForm = forms.EvaluateAtAPointForm_3D(request.POST)
+    else:
+        # dimensionality is written server-side from the URL path integer, so
+        # anything outside {2, 3} means a corrupt/tampered dispatch row.
+        return HttpResponse("This result has expired.")
 
     if not evaluationForm.is_valid():
         return HttpResponse("Invalid data submitted, please try again.")
