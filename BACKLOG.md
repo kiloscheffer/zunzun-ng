@@ -109,10 +109,21 @@ upstream pyeq3, not this repo.
 gate. Land via the existing fork → upstream → pin workflow (AGENTS.md §
 Dependencies), then bump the `[tool.uv.sources]` pin.
 
-## `EvaluateAtAPointView` eval()s the dimensionality from the dispatch row
+## ~~`EvaluateAtAPointView` eval()s the dimensionality from the dispatch row~~ RESOLVED 2026-06-10
 
-> Surfaced during the UDF-sandbox code review (2026-06-08); pre-existing, out
-> of scope for that fix.
+> **Resolution.** Replaced the `eval("forms.EvaluateAtAPointForm_" + ...)`
+> try/then-retry pair with a plain `if/elif` dispatch on the validated integer:
+> `forms.EvaluateAtAPointForm_2D` for 2, `_3D` for 3, and a graceful
+> `"This result has expired."` response otherwise (an out-of-range value means
+> a corrupt/tampered dispatch row — the same degradation the missing-
+> `splineDegrees` path uses). The 1-second-sleep retry leg was cargo cult
+> around pure form binding (no DB/IO) and was dropped with the eval; the
+> now-orphaned function-local `import time` went with it. Regression test
+> `test_evaluate_with_corrupt_dimensionality_fails_gracefully` pins the
+> dimensionality=7 case, which previously 500'd with `AttributeError`
+> (`GetEquationFromNameAndFamily` tolerates non-2 as 3D, so the bad value
+> sailed through the equation lookup into the eval). This removes the last
+> `eval`-of-stored-state site in the views. Original notes below.
 
 **Symptom.** `zunzun/views.py:319` / `:324` build the evaluation form via
 `eval("forms.EvaluateAtAPointForm_" + str(LRP.dimensionality) + "D(request.POST)")`,
