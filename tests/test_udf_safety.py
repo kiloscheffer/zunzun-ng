@@ -1,122 +1,38 @@
-"""Unit corpus for the UDF AST sandbox (zunzun/udf_safety.py).
+"""Integration + pin-regression guard for the UDF eval sandbox.
 
-The validator is the primary security net for the User-Defined-Function fit
-path: it must reject anything outside pure arithmetic over X/Y, coefficient
-names, and the numpy tokens pyeq3 injects into safe_dict. These tests assert
-at the validator gate directly — pyeq3 sanitises fit errors to 1e300, so a
-malicious UDF can never be caught via fit output.
+The AST allow-list validator that secures the User-Defined-Function fit path now
+lives upstream in pyeq3 (pyeq3/UdfSafety.py), wired into
+IModel.ParseAndCompileUserFunctionString. pyeq3's own unittests
+(unittests/Test_UserDefinedFunctionSafety.py) cover the validator corpus; these
+tests cover (a) that the pinned pyeq3 actually enforces the gate, and (b) that
+zunzun's form / view wiring translates a rejected UDF into the right user-facing
+response. pyeq3 sanitises fit errors to 1e300, so a malicious UDF can never be
+caught via fit output — all assertions are made at the validation gate.
 """
 
 import pytest
 
-from zunzun.udf_safety import UnsafeUDFError, validate_udf_expression
 
-# X, Y, a couple of coefficients, and the numpy tokens a real UDF may use.
-ALLOWED = {"X", "Y", "a", "b", "c", "exp", "sin", "sqrt", "fabs", "arctan2", "pi", "e"}
-
-MALICIOUS = [
-    "__import__('os').system('id')*X",  # builtins via dunder name
-    "().__class__.__bases__[0].__subclasses__()",  # attribute-traversal escape
-    "X.__class__",  # attribute access
-    "(1).__class__",  # attribute on a literal
-    "eval('1')+X",  # eval call
-    "exec('x')+X",  # exec call
-    "open('f') and X",  # file access + BoolOp
-    "globals() and X",  # builtins call
-    "'os' and X",  # string constant payload
-    "().__class__.__bases__[0]",  # subscript escape
-    "exp(x=1)+X",  # keyword-arg call
-    "foo*X",  # unknown bare name
-    "[X for a in X]",  # comprehension
-    "(lambda: X)()",  # lambda
-    "(a := X)",  # walrus / NamedExpr
-    "f'{X}'",  # f-string (JoinedStr)
-    "t'{X}'",  # t-string / TemplateStr (py3.14)
-    "sin(X for a in X)",  # generator expression
-    "X if a else b",  # ternary IfExp
-    "a < X < b",  # chained compare
-    "exp(**a)",  # dict-unpack into call
-    "sin(open('x'))",  # dangerous inner call
-    "sin(X).real",  # attribute on a call result
-    "a*X + 1j",  # complex literal (only real numerics allowed)
-]
-
-BENIGN = [
-    "a + b*X",
-    "a*exp(-b*X)+c",
-    "sin(X)+sqrt(fabs(X))",
-    "a*X**2 + b*X + c",
-    "a*X + b*Y",
-    "a*X + pi",
-    "arctan2(X, a)",
-]
+# --- Pin-regression guard --------------------------------------------------
+# The whole security posture now depends on the pinned pyeq3 self-validating at
+# ParseAndCompileUserFunctionString. If a future pin bump lands a pyeq3 without
+# UdfSafety (or without the chokepoint wiring), these fail loudly — there is no
+# longer a local zunzun/udf_safety.py to fall back on.
 
 
-@pytest.mark.parametrize("expr", MALICIOUS)
-def test_malicious_udf_rejected(expr):
-    with pytest.raises(UnsafeUDFError):
-        validate_udf_expression(expr, ALLOWED)
-
-
-@pytest.mark.parametrize("expr", BENIGN)
-def test_benign_udf_accepted(expr):
-    # Must not raise.
-    validate_udf_expression(expr, ALLOWED)
-
-
-def test_syntax_error_is_unsafe_not_crash():
-    with pytest.raises(UnsafeUDFError):
-        validate_udf_expression("a + *X", ALLOWED)
-
-
-def test_collect_allowed_names_from_real_2d_udf():
+def test_pinned_pyeq3_rejects_malicious_udf_at_compile():
     import pyeq3
-
-    from zunzun.udf_safety import collect_allowed_names
 
     eq = pyeq3.Models_2D.UserDefinedFunction.UserDefinedFunction("SSQABS", "Default")
-    eq.ParseAndCompileUserFunctionString("a + b*X", 2)
-    names = collect_allowed_names(eq, 2)
-    assert "X" in names
-    assert "Y" not in names
-    assert {"a", "b"} <= names
-    assert {"exp", "sin", "sqrt", "pi", "e"} <= names
+    with pytest.raises(pyeq3.UdfSafety.UnsafeUDFError):
+        eq.ParseAndCompileUserFunctionString("X.__class__", 2)
 
 
-def test_collect_allowed_names_3d_includes_Y():
+def test_pinned_pyeq3_accepts_benign_udf_at_compile():
     import pyeq3
-
-    from zunzun.udf_safety import collect_allowed_names
-
-    eq = pyeq3.Models_3D.UserDefinedFunction.UserDefinedFunction("SSQABS", "Default")
-    eq.ParseAndCompileUserFunctionString("a*X + b*Y", 3)
-    names = collect_allowed_names(eq, 3)
-    assert {"X", "Y", "a", "b"} <= names
-
-
-def test_validate_equation_udf_rejects_attribute_on_real_equation():
-    # The shared helper used by both forms.py and views.py: it must reject an
-    # attribute-traversal UDF on a real, compiled pyeq3 equation.
-    import pyeq3
-
-    from zunzun.udf_safety import UnsafeUDFError, validate_equation_udf
 
     eq = pyeq3.Models_2D.UserDefinedFunction.UserDefinedFunction("SSQABS", "Default")
-    eq.userDefinedFunctionText = "X.real"
-    eq.ParseAndCompileUserFunctionString(eq.userDefinedFunctionText, 2)
-    with pytest.raises(UnsafeUDFError):
-        validate_equation_udf(eq, 2)
-
-
-def test_validate_equation_udf_accepts_benign_on_real_equation():
-    import pyeq3
-
-    from zunzun.udf_safety import validate_equation_udf
-
-    eq = pyeq3.Models_2D.UserDefinedFunction.UserDefinedFunction("SSQABS", "Default")
-    eq.userDefinedFunctionText = "a + b*X"
-    eq.ParseAndCompileUserFunctionString(eq.userDefinedFunctionText, 2)
-    validate_equation_udf(eq, 2)  # must not raise
+    eq.ParseAndCompileUserFunctionString("a + b*X", 2)  # must not raise
 
 
 # --- Form-path integration -------------------------------------------------

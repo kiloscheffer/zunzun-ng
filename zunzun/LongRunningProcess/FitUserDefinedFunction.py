@@ -85,8 +85,18 @@ class FitUserDefinedFunction(FittingBaseClass.FittingBaseClass):
 
     def SpecificEquationBoundInterfaceCode(self, request):
         self.boundForm.equation.userDefinedFunctionText = request.POST["udfEditor"]
-        self.boundForm.equation.ParseAndCompileUserFunctionString(
-            self.boundForm.equation.userDefinedFunctionText, self.dimensionality
+        # Equation_ND.clean() runs a coefficient-count sanity check
+        # (forms.py:708, GetCoefficientDesignators) BEFORE it compiles the UDF,
+        # so the designator list must already exist. Populate it directly — the
+        # same step pyeq3's ParseAndCompileUserFunctionString does at
+        # IModel.py:1055 — without compiling/validating here. clean() (run by
+        # boundForm.is_valid() right after CreateBoundInterfaceForm) remains the
+        # sole authoritative compile + AST-validate gate (pyeq3/UdfSafety.py),
+        # so a malicious UDF surfaces there as the "disallowed construct" error.
+        self.boundForm.equation._coefficientDesignators = (
+            self.boundForm.equation.GetSortedCoefficientsFromString(
+                self.boundForm.equation.userDefinedFunctionText, self.dimensionality
+            )
         )
 
     def SpecificCodeForGeneratingListOfOutputReports(self):
