@@ -268,6 +268,37 @@ def test_evaluate_3d_spline_missing_degrees_fails_gracefully(client):
 
 
 @pytest.mark.django_db
+def test_evaluate_with_corrupt_dimensionality_fails_gracefully(client):
+    """A dispatch row whose 'dimensionality' is outside {2, 3} must get a clean
+    graceful response, not a server error.
+
+    dimensionality is written server-side from the URL path integer, so an
+    out-of-range value means a corrupt/tampered row. The equation lookup
+    tolerates it (anything non-2 falls into the 3D branch of
+    GetEquationFromNameAndFamily), so the value used to flow on into the
+    form-class dispatch — historically an eval() of
+    "forms.EvaluateAtAPointForm_<N>D", which raised AttributeError for any
+    N outside {2, 3} and 500'd. The dispatch is now an explicit if/elif on
+    the validated integer with a graceful else.
+    """
+    import numpy
+
+    token = _seed_data_session(
+        client,
+        # Valid 3D equation name/family so the lookup succeeds and the request
+        # reaches the form-class dispatch (the site under test).
+        equation_name="Full Quadratic",
+        equation_family="Polynomial",
+        dimensionality=7,
+        coefficients=numpy.array([1.0] * 6),
+    )
+
+    response = client.post(f"/EvaluateAtAPoint/{token}/", data={"x": "1.0", "y": "1.0"})
+    assert response.status_code == 200
+    assert "expired" in response.content.decode("utf-8")
+
+
+@pytest.mark.django_db
 @pytest.mark.parametrize(
     "dimensionality, equation_attrs, expected_degrees",
     [
