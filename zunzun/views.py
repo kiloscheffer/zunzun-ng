@@ -205,7 +205,6 @@ def _housekeeping_child(temp_dir: str, max_size_mb: int) -> None:
 @ratelimit(key="ip", rate="12/m", block=False)
 @middleware.rate_limit_sleep
 def EvaluateAtAPointView(request, token):
-    import os
     import sys
 
     # only allow POST for this view
@@ -222,6 +221,12 @@ def EvaluateAtAPointView(request, token):
 
     # instantiate an equation object using session equation family and name
     LRP.dimensionality = LRP.LoadItemFromSessionStore("data", "dimensionality")
+    if LRP.dimensionality not in (2, 3):
+        # dimensionality is written server-side from the URL path integer, so
+        # anything else means a corrupt/tampered dispatch row. Reject it here,
+        # before it can steer the equation lookup below (which treats any
+        # non-2 value as 3D).
+        return HttpResponse("This result has expired.")
     inEquationName = LRP.LoadItemFromSessionStore("data", "equationName")
     inEquationFamilyName = LRP.LoadItemFromSessionStore("data", "equationFamilyName")
     equation = LRP.GetEquationFromNameAndFamily(
@@ -309,14 +314,11 @@ def EvaluateAtAPointView(request, token):
         equation.solvedCoefficients = numpy.array(raw_coeffs)
 
     # make bound Django form and call form.is_valid()
+    # (dimensionality is validated to {2, 3} right after it is loaded, above)
     if LRP.dimensionality == 2:
         evaluationForm = forms.EvaluateAtAPointForm_2D(request.POST)
-    elif LRP.dimensionality == 3:
-        evaluationForm = forms.EvaluateAtAPointForm_3D(request.POST)
     else:
-        # dimensionality is written server-side from the URL path integer, so
-        # anything outside {2, 3} means a corrupt/tampered dispatch row.
-        return HttpResponse("This result has expired.")
+        evaluationForm = forms.EvaluateAtAPointForm_3D(request.POST)
 
     if not evaluationForm.is_valid():
         return HttpResponse("Invalid data submitted, please try again.")
