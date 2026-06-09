@@ -12,7 +12,6 @@ caught via fit output — all assertions are made at the validation gate.
 
 import pytest
 
-
 # --- Pin-regression guard --------------------------------------------------
 # The whole security posture now depends on the pinned pyeq3 self-validating at
 # ParseAndCompileUserFunctionString. If a future pin bump lands a pyeq3 without
@@ -20,19 +19,38 @@ import pytest
 # longer a local zunzun/udf_safety.py to fall back on.
 
 
-def test_pinned_pyeq3_rejects_malicious_udf_at_compile():
+# Diverse attack-vector classes the gate must reject AT COMPILE — not just a
+# single probe, so a future pin that re-enabled a different node class (a call
+# to a builtin, the __import__ RCE) while still blocking attribute access would
+# still trip a failure. pyeq3's own unittests own the exhaustive corpus; this is
+# the regression sentinel for THIS project's pin.
+_MALICIOUS_UDF = [
+    "X.__class__",  # attribute access (sandbox-escape traversal entry)
+    "__import__('os').system('id')*X",  # the canonical RCE vector
+    "eval('1')*X",  # call to a non-arithmetic name + string constant
+    "exec('x')*X",  # ditto
+]
+_BENIGN_UDF = [
+    "a + b*X",  # plain linear
+    "a*exp(-b*X)+c",  # a numpy function token must still be accepted
+]
+
+
+@pytest.mark.parametrize("expr", _MALICIOUS_UDF)
+def test_pinned_pyeq3_rejects_malicious_udf_at_compile(expr):
     import pyeq3
 
     eq = pyeq3.Models_2D.UserDefinedFunction.UserDefinedFunction("SSQABS", "Default")
     with pytest.raises(pyeq3.UdfSafety.UnsafeUDFError):
-        eq.ParseAndCompileUserFunctionString("X.__class__", 2)
+        eq.ParseAndCompileUserFunctionString(expr, 2)
 
 
-def test_pinned_pyeq3_accepts_benign_udf_at_compile():
+@pytest.mark.parametrize("expr", _BENIGN_UDF)
+def test_pinned_pyeq3_accepts_benign_udf_at_compile(expr):
     import pyeq3
 
     eq = pyeq3.Models_2D.UserDefinedFunction.UserDefinedFunction("SSQABS", "Default")
-    eq.ParseAndCompileUserFunctionString("a + b*X", 2)  # must not raise
+    eq.ParseAndCompileUserFunctionString(expr, 2)  # must not raise
 
 
 # --- Form-path integration -------------------------------------------------
