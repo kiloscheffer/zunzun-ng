@@ -3,9 +3,9 @@ import sys
 import django.forms
 import numpy
 import pyeq3  # type: ignore
+from pyeq3.UdfSafety import UnsafeUDFError
 
 from . import formConstants
-from pyeq3.UdfSafety import UnsafeUDFError
 
 
 class EvaluateAtAPointForm_2D(django.forms.Form):

@@ -14,13 +14,13 @@ from django.http import Http404, HttpResponse, HttpResponseRedirect, JsonRespons
 from django.shortcuts import render
 from django.views.decorators.cache import cache_control, cache_page
 from django_ratelimit.decorators import ratelimit
+from pyeq3.UdfSafety import UnsafeUDFError
 
 import settings
 
 from . import LongRunningProcess, forms, middleware, platform_compat
 from .LongRunningProcess.child_payload import _run_fit_child
 from .session_helpers import save_with_retry
-from pyeq3.UdfSafety import UnsafeUDFError
 
 _logger = logging.getLogger(__name__)
 
