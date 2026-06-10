@@ -93,6 +93,17 @@ dev = [
     # or port the tests to pytest + requests (the test logic is just HTTP
     # asserts — see funkload_tests/test_Simple.py PostLongRunningProcess).
 ]
+browser = [
+    # Playwright drives the headless-Chromium browser smoke
+    # (scripts/browser_smoke.py) that executes StatusPoll.js for real —
+    # the regression class pytest and the HTTP smoke structurally cannot
+    # catch (see the 2026-06-02 head-timing incident in BACKLOG). Kept
+    # out of `dev` so the default `uv sync` and the 3-OS pytest CI jobs
+    # stay browser-free. Install with:
+    #   uv sync --group browser
+    #   uv run playwright install chromium
+    "playwright",
+]
 
 [tool.uv]
 # No [build-system] → uv treats the project as virtual (a collection of
