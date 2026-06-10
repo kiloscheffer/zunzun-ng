@@ -24,7 +24,7 @@ Scenario: browser_status_poll_2D
 
 Prerequisites (mirrors smoke_test.py: real session_db, migrate first):
   uv sync --group browser
-  uv run playwright install chromium
+  uv run playwright install chromium          # on Linux: add --with-deps
   uv run python manage.py migrate
 
 Usage:
@@ -51,6 +51,7 @@ except ImportError:
 
 from smoke_test import (
     _POLY_QUAD_FIELDS,
+    _dump_body,
     _extract_pk_from_redirect,
     _find_free_port,
     _wait_for_port,
@@ -83,7 +84,11 @@ def _run_browser_status_poll_2d(session: requests.Session, base: str) -> str | N
     resp = session.post(interface_url, data=_POLY_QUAD_FIELDS, allow_redirects=True)
     pk = _extract_pk_from_redirect(resp, base)
     if pk is None:
-        return f"[{name}] could not extract dispatch pk from POST redirect"
+        dump = _dump_body(f"{name}_dispatch", resp.text)
+        return (
+            f"[{name}] could not extract dispatch pk from POST redirect "
+            f"(response body dumped to {dump})"
+        )
 
     console_lines: list[str] = []
     page_errors: list[str] = []
