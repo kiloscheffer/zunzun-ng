@@ -3482,7 +3482,31 @@ Pure visible-text change — verify in a browser; no test asserts the legend wor
 **Not in scope of any current branch.** Content/copy fix, distinct from the
 accessibility-structure work that surfaced it.
 
-## No automated coverage for the client-side status poll
+## ~~No automated coverage for the client-side status poll~~ RESOLVED 2026-06-10
+
+> **Resolution.** Added `scripts/browser_smoke.py` — a standalone
+> headless-Chromium (Playwright sync API) smoke mirroring
+> `smoke_test.py`'s architecture: `manage.py runserver --noreload` on a
+> free port (NOT waitress — under bare waitress `DEBUG=False` means
+> nothing serves `/static/`, jQuery 404s, and the `$(document).ready`
+> at the top of the shared head `<script>` element aborts the block
+> before StatusPoll's IIFE runs; production delegates static to
+> Caddy/nginx/IIS), real `session_db`, fit dispatched via `requests`,
+> then the status page driven in a real browser with the session
+> cookies transplanted into the browser context (the pk-addressed
+> status URLs are owner-gated).
+> Asserts (a) ≥ 1 `GET /StatusUpdate/<pk>/` fires — this alone catches
+> the head-timing class below — (b) the page navigates to
+> `/Results/<token>/`, (c) the final page carries a results marker.
+> Event-based waits with generous ceilings; nothing asserts on the 2 s
+> cadence (flake posture). Playwright lives in an opt-in
+> `[dependency-groups] browser` group so default `uv sync` and the
+> 3-OS pytest jobs stay browser-free; CI gained a `browser smoke
+> (linux)` job that runs it on every push/PR. The net was validated by
+> re-introducing the head-timing bug locally and watching the script
+> fail with the "no /StatusUpdate/ request observed" diagnostic.
+> Spec: `docs/superpowers/specs/2026-06-10-browser-status-poll-smoke-design.md`.
+> Original notes below.
 
 **Symptom / exposure.** `templates/zunzun/javascript/StatusPoll.js` drives the
 entire status page: it polls `/StatusUpdate/<pk>/` every 2 s, updates the
