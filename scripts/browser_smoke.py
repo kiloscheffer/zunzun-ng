@@ -89,9 +89,17 @@ def _run_browser_status_poll_2d(session: requests.Session, base: str) -> str | N
     page_errors: list[str] = []
     poll_requests: list[str] = []
 
+    def _is_poll(req) -> bool:
+        return f"/StatusUpdate/{pk}/" in req.url
+
+    def _track_poll(req) -> None:
+        if _is_poll(req):
+            poll_requests.append(req.url)
+
     def _diagnostics() -> str:
         return (
-            f"  observed /StatusUpdate/ requests: {poll_requests!r}\n"
+            f"  observed /StatusUpdate/ requests: {len(poll_requests)} "
+            f"(last 3: {poll_requests[-3:]!r})\n"
             f"  console: {console_lines!r}\n"
             f"  pageerrors: {page_errors!r}"
         )
@@ -106,20 +114,12 @@ def _run_browser_status_poll_2d(session: requests.Session, base: str) -> str | N
             page = context.new_page()
             page.on("console", lambda msg: console_lines.append(f"[{msg.type}] {msg.text}"))
             page.on("pageerror", lambda exc: page_errors.append(repr(exc)))
-            page.on(
-                "request",
-                lambda req: (
-                    poll_requests.append(req.url) if f"/StatusUpdate/{pk}/" in req.url else None
-                ),
-            )
+            page.on("request", _track_poll)
 
             # Assertion (a): the poll starts. This alone catches the
             # head-timing regression class (symptom: zero poll requests).
             try:
-                with page.expect_request(
-                    lambda req: f"/StatusUpdate/{pk}/" in req.url,
-                    timeout=_POLL_FIRES_TIMEOUT_MS,
-                ):
+                with page.expect_request(_is_poll, timeout=_POLL_FIRES_TIMEOUT_MS):
                     page.goto(f"{base}/StatusAndResults/{pk}/")
             except PlaywrightTimeout:
                 return (
@@ -156,8 +156,12 @@ def run_browser_smoke() -> int:
     # Use manage.py runserver (not waitress-serve) so that 'runserver' appears
     # in sys.argv inside the server process, which flips settings.DEBUG=True
     # and enables django.contrib.staticfiles to serve /static/.  Without this
-    # jQuery 404s, StatusPoll.js raises "$ is not defined", and the poll never
-    # starts.  --noreload suppresses the file-watcher child process, keeping
+    # jQuery 404s and the template's own $(document).ready(...) raises
+    # "$ is not defined" — generic_page_template.html splices StatusPoll.js
+    # into the SAME <head> <script> element after that call, so the
+    # ReferenceError aborts the block before StatusPoll's IIFE ever runs and
+    # the poll never starts (StatusPoll.js itself is jQuery-free).
+    # --noreload suppresses the file-watcher child process, keeping
     # subprocess management simple and proc.terminate() reliable.
     proc = subprocess.Popen(
         [sys.executable, "manage.py", "runserver", f"127.0.0.1:{port}", "--noreload"],
@@ -170,8 +174,8 @@ def run_browser_smoke() -> int:
         session = requests.Session()
         err = _run_browser_status_poll_2d(session, base)
         if err:
-            print("BROWSER SMOKE FAILED:")
-            print(f"  {err}")
+            print("BROWSER SMOKE FAILED:", file=sys.stderr)
+            print(f"  {err}", file=sys.stderr)
             return 1
         print("BROWSER SMOKE OK")
         return 0
