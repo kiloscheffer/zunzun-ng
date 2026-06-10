@@ -3552,3 +3552,37 @@ stack structurally cannot catch it.
 behavior; standing up a browser-test harness is a separate, larger piece of
 infrastructure work with its own dependency footprint (browser binaries in CI)
 and deserves its own branch.
+
+## StatusPoll.js shares its `<head>` `<script>` element with jQuery-dependent inline JS
+
+> Surfaced 2026-06-10 while building `scripts/browser_smoke.py` (the
+> browser-smoke branch); pre-existing template architecture, out of scope
+> for that branch.
+
+**Symptom.** `generic_page_template.html` renders its own inline bootstrap
+(`$(document).ready(...)` plus the `f1`–`f4` helpers) and the
+`{% block additional_javascript %}` splice point inside ONE `<script>`
+element; `status.html` splices `StatusPoll.js` into that block. Any uncaught
+exception earlier in the element aborts the whole element before StatusPoll's
+IIFE registers. Observed concretely: under bare Waitress (`DEBUG=False`, no
+static server) jQuery 404s, the template's `$(document).ready(...)` raises
+`"$ is not defined"`, and the poll never starts — the status page looks
+frozen while the fit completes server-side. That is what forced
+`browser_smoke.py` onto `manage.py runserver --noreload` instead of Waitress.
+
+**Hypothesis / impact.** In production the trigger window is "jQuery fails to
+load, or any earlier inline script throws" — rare (static is served by
+Caddy/nginx/IIS and the inline JS is stable), but the failure mode is the
+worst kind: silent, total poll loss, identical in symptom to the 2026-06-02
+head-timing incident. The browser smoke exercises the DEBUG=True serving path
+only, so a prod-only static-serving breakage would still slip past CI. Low
+likelihood, high annoyance.
+
+**What we didn't do.** Did not restructure the template on the browser-smoke
+branch — the harness branch should not also change the thing it tests.
+
+**Where to pick up.** Give StatusPoll.js (or the whole `additional_javascript`
+block) its own `<script>` element in `generic_page_template.html`, so an
+exception in the jQuery bootstrap cannot abort the poll. Verify with
+`uv run python scripts/browser_smoke.py` plus a manual sabotage (block
+jQuery, confirm the poll still starts).
