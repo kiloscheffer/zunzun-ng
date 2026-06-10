@@ -73,33 +73,11 @@ def _run_browser_status_poll_2d(session: requests.Session, base: str) -> str | N
     """Returns None on success, an error string on failure (smoke convention)."""
     name = "browser_status_poll_2D"
 
-    # Cookie warmup — the fit dispatch requires session["cookie_test"], and
-    # the fit-interface GET is @cache_control(no_cache=True) so it always
-    # sets it (GET / is @cache_page-cached and cannot be relied on; see the
-    # warmup comment in smoke_test._run_concurrent_2D_scenario).
     interface_url = base + "/FitEquation__F__/2/Polynomial/2nd%20Order%20(Quadratic)/"
-    session.get(interface_url)
-
-    # Dispatch server-side; the browser's job is the poll, not the form UI.
-    resp = session.post(interface_url, data=_POLY_QUAD_FIELDS, allow_redirects=True)
-    pk = _extract_pk_from_redirect(resp, base)
-    if pk is None:
-        dump = _dump_body(f"{name}_dispatch", resp.text)
-        return (
-            f"[{name}] could not extract dispatch pk from POST redirect "
-            f"(response body dumped to {dump})"
-        )
 
     console_lines: list[str] = []
     page_errors: list[str] = []
     poll_requests: list[str] = []
-
-    def _is_poll(req) -> bool:
-        return f"/StatusUpdate/{pk}/" in req.url
-
-    def _track_poll(req) -> None:
-        if _is_poll(req):
-            poll_requests.append(req.url)
 
     def _diagnostics() -> str:
         return (
@@ -110,15 +88,51 @@ def _run_browser_status_poll_2d(session: requests.Session, base: str) -> str | N
         )
 
     with sync_playwright() as p:
+        # Launch the browser BEFORE dispatching the fit: chromium startup costs
+        # seconds, and a fast fit could otherwise go terminal before the page
+        # ever loads — StatusView would then 302 /StatusAndResults/<pk>/ straight
+        # to /Results/ and the poll would (correctly) never fire, failing the
+        # expect_request below as a false negative (Codex review, PR #63). With
+        # the browser already up, the dispatch→goto gap is milliseconds, while
+        # the spawned fit child needs seconds just to boot its interpreter.
         browser = p.chromium.launch()
         try:
             context = browser.new_context()
-            context.add_cookies(
-                [{"name": c.name, "value": c.value, "url": base} for c in session.cookies]
-            )
             page = context.new_page()
             page.on("console", lambda msg: console_lines.append(f"[{msg.type}] {msg.text}"))
             page.on("pageerror", lambda exc: page_errors.append(repr(exc)))
+
+            # Cookie warmup — the fit dispatch requires session["cookie_test"],
+            # and the fit-interface GET is @cache_control(no_cache=True) so it
+            # always sets it (GET / is @cache_page-cached and cannot be relied
+            # on; see the warmup comment in
+            # smoke_test._run_concurrent_2D_scenario).
+            session.get(interface_url)
+
+            # Dispatch server-side; the browser's job is the poll, not the form UI.
+            resp = session.post(interface_url, data=_POLY_QUAD_FIELDS, allow_redirects=True)
+            pk = _extract_pk_from_redirect(resp, base)
+            if pk is None:
+                dump = _dump_body(f"{name}_dispatch", resp.text)
+                return (
+                    f"[{name}] could not extract dispatch pk from POST redirect "
+                    f"(response body dumped to {dump})"
+                )
+
+            # Transplant the requests-session cookies — /StatusAndResults/<pk>/
+            # and /StatusUpdate/<pk>/ are gated on owner_session_key; a
+            # cookie-less browser 404s.
+            context.add_cookies(
+                [{"name": c.name, "value": c.value, "url": base} for c in session.cookies]
+            )
+
+            def _is_poll(req) -> bool:
+                return f"/StatusUpdate/{pk}/" in req.url
+
+            def _track_poll(req) -> None:
+                if _is_poll(req):
+                    poll_requests.append(req.url)
+
             page.on("request", _track_poll)
 
             # Assertion (a): the poll starts. This alone catches the
@@ -127,6 +141,14 @@ def _run_browser_status_poll_2d(session: requests.Session, base: str) -> str | N
                 with page.expect_request(_is_poll, timeout=_POLL_FIRES_TIMEOUT_MS):
                     page.goto(f"{base}/StatusAndResults/{pk}/")
             except PlaywrightTimeout:
+                if "/Results/" in page.url:
+                    return (
+                        f"[{name}] fit went terminal before the browser could "
+                        f"observe the status page (landed directly on "
+                        f"{page.url}) — the poll was never exercised. Harness "
+                        f"timing, not a product failure: the scenario must "
+                        f"reach the status page while the fit is running.\n" + _diagnostics()
+                    )
                 return (
                     f"[{name}] no /StatusUpdate/{pk}/ request observed within "
                     f"{_POLL_FIRES_TIMEOUT_MS // 1000}s — the client-side poll "
