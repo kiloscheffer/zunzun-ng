@@ -92,3 +92,31 @@ jobs:
       - name: Run end-to-end smoke test
         run: uv run python scripts/smoke_test.py
         timeout-minutes: 15
+
+  browser-smoke:
+    name: browser smoke (linux)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.2.0
+        with:
+          enable-cache: true
+
+      - name: Install Python 3.14
+        run: uv python install 3.14
+
+      - name: Install dependencies (frozen lockfile, with browser group)
+        run: uv sync --frozen --group browser
+
+      - name: Install Playwright Chromium
+        run: uv run playwright install --with-deps chromium
+
+      - name: Apply Django migrations
+        run: uv run python manage.py migrate
+
+      - name: Run browser smoke test
+        run: uv run python scripts/browser_smoke.py
+        timeout-minutes: 15

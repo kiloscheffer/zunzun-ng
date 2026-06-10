@@ -3482,7 +3482,31 @@ Pure visible-text change — verify in a browser; no test asserts the legend wor
 **Not in scope of any current branch.** Content/copy fix, distinct from the
 accessibility-structure work that surfaced it.
 
-## No automated coverage for the client-side status poll
+## ~~No automated coverage for the client-side status poll~~ RESOLVED 2026-06-10
+
+> **Resolution.** Added `scripts/browser_smoke.py` — a standalone
+> headless-Chromium (Playwright sync API) smoke mirroring
+> `smoke_test.py`'s architecture: `manage.py runserver --noreload` on a
+> free port (NOT waitress — under bare waitress `DEBUG=False` means
+> nothing serves `/static/`, jQuery 404s, and the `$(document).ready`
+> at the top of the shared head `<script>` element aborts the block
+> before StatusPoll's IIFE runs; production delegates static to
+> Caddy/nginx/IIS), real `session_db`, fit dispatched via `requests`,
+> then the status page driven in a real browser with the session
+> cookies transplanted into the browser context (the pk-addressed
+> status URLs are owner-gated).
+> Asserts (a) ≥ 1 `GET /StatusUpdate/<pk>/` fires — this alone catches
+> the head-timing class below — (b) the page navigates to
+> `/Results/<token>/`, (c) the final page carries a results marker.
+> Event-based waits with generous ceilings; nothing asserts on the 2 s
+> cadence (flake posture). Playwright lives in an opt-in
+> `[dependency-groups] browser` group so default `uv sync` and the
+> 3-OS pytest jobs stay browser-free; CI gained a `browser smoke
+> (linux)` job that runs it on every push/PR. The net was validated by
+> re-introducing the head-timing bug locally and watching the script
+> fail with the "no /StatusUpdate/ request observed" diagnostic.
+> Spec: `docs/superpowers/specs/2026-06-10-browser-status-poll-smoke-design.md`.
+> Original notes below.
 
 **Symptom / exposure.** `templates/zunzun/javascript/StatusPoll.js` drives the
 entire status page: it polls `/StatusUpdate/<pk>/` every 2 s, updates the
@@ -3528,3 +3552,37 @@ stack structurally cannot catch it.
 behavior; standing up a browser-test harness is a separate, larger piece of
 infrastructure work with its own dependency footprint (browser binaries in CI)
 and deserves its own branch.
+
+## StatusPoll.js shares its `<head>` `<script>` element with jQuery-dependent inline JS
+
+> Surfaced 2026-06-10 while building `scripts/browser_smoke.py` (the
+> browser-smoke branch); pre-existing template architecture, out of scope
+> for that branch.
+
+**Symptom.** `generic_page_template.html` renders its own inline bootstrap
+(`$(document).ready(...)` plus the `f1`–`f4` helpers) and the
+`{% block additional_javascript %}` splice point inside ONE `<script>`
+element; `status.html` splices `StatusPoll.js` into that block. Any uncaught
+exception earlier in the element aborts the whole element before StatusPoll's
+IIFE registers. Observed concretely: under bare Waitress (`DEBUG=False`, no
+static server) jQuery 404s, the template's `$(document).ready(...)` raises
+`"$ is not defined"`, and the poll never starts — the status page looks
+frozen while the fit completes server-side. That is what forced
+`browser_smoke.py` onto `manage.py runserver --noreload` instead of Waitress.
+
+**Hypothesis / impact.** In production the trigger window is "jQuery fails to
+load, or any earlier inline script throws" — rare (static is served by
+Caddy/nginx/IIS and the inline JS is stable), but the failure mode is the
+worst kind: silent, total poll loss, identical in symptom to the 2026-06-02
+head-timing incident. The browser smoke exercises the DEBUG=True serving path
+only, so a prod-only static-serving breakage would still slip past CI. Low
+likelihood, high annoyance.
+
+**What we didn't do.** Did not restructure the template on the browser-smoke
+branch — the harness branch should not also change the thing it tests.
+
+**Where to pick up.** Give StatusPoll.js (or the whole `additional_javascript`
+block) its own `<script>` element in `generic_page_template.html`, so an
+exception in the jQuery bootstrap cannot abort the poll. Verify with
+`uv run python scripts/browser_smoke.py` plus a manual sabotage (block
+jQuery, confirm the poll still starts).
