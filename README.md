@@ -15,7 +15,7 @@ Hosted at [github.com/kiloscheffer/zunzun-ng](https://github.com/kiloscheffer/zu
 
 ## Development setup
 
-Dependencies are managed with [uv](https://docs.astral.sh/uv/). To install uv, see the [uv install guide](https://docs.astral.sh/uv/getting-started/install/) — or on Debian/Ubuntu: `apt-get install pipx && pipx install uv`.
+Dependencies are managed with [uv](https://docs.astral.sh/uv/). To install uv, see the [uv install guide](https://docs.astral.sh/uv/getting-started/installation/) — or on Debian/Ubuntu: `apt-get install pipx && pipx install uv`.
 
 ```bash
 uv sync                                   # create .venv, install deps
