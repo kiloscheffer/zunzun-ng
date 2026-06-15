@@ -76,3 +76,33 @@ def test_head_html_injected_on_second_page(client):
     with patch("settings.HEAD_HTML", _SENTINEL, create=True):
         response = client.get("/AllEquations/2/All/")
     assert _SENTINEL in response.content.decode("utf-8")
+
+
+def test_inject_offrequest_globals_sets_head_html():
+    """The child renders result pages with render_to_string, which does NOT run
+    context processors — so the base class injects head_html by hand. Static, so
+    testable without constructing an LRP. Mirrors the demo_mode counterpart."""
+    from zunzun.LongRunningProcess.StatusMonitoredLongRunningProcessPage import (
+        StatusMonitoredLongRunningProcessPage as SM,
+    )
+
+    with patch("settings.HEAD_HTML", _SENTINEL, create=True):
+        assert SM._inject_offrequest_globals({})["head_html"] == _SENTINEL
+
+
+def test_offrequest_render_carries_head_html():
+    """A page rendered off-request (the child path) through the base template the
+    result pages extend carries HEAD_HTML raw — what makes the child-written,
+    ResultsView-streamed result HTML show the injected markup without a request /
+    context processor."""
+    from django.template.loader import render_to_string
+
+    from zunzun.LongRunningProcess.StatusMonitoredLongRunningProcessPage import (
+        StatusMonitoredLongRunningProcessPage as SM,
+    )
+
+    with patch("settings.HEAD_HTML", _SENTINEL, create=True):
+        html = render_to_string(
+            "zunzun/generic_page_template.html", SM._inject_offrequest_globals({})
+        )
+    assert _SENTINEL in html
