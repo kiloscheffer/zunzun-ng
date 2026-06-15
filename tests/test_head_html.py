@@ -14,6 +14,7 @@ import os
 from unittest.mock import patch
 
 import pytest
+from django.core.exceptions import ImproperlyConfigured
 
 # A raw HTML sentinel: a <meta> tag. If it ever renders HTML-escaped (&lt;meta&gt;)
 # the |safe filter / autoescape-off contract is broken.
@@ -106,3 +107,51 @@ def test_offrequest_render_carries_head_html():
             "zunzun/generic_page_template.html", SM._inject_offrequest_globals({})
         )
     assert _SENTINEL in html
+
+
+# --- settings._read_head_html(): the HEAD_HTML_FILE load path. The tests above
+# patch settings.HEAD_HTML directly and never exercise the actual file read, so
+# these cover it: empty-when-unset, BOM stripping (utf-8-sig), and the two
+# fail-loud branches (missing file, non-UTF-8). monkeypatch sets the env var the
+# helper reads at call time; tmp_path gives a throwaway file.
+
+
+def test_read_head_html_empty_when_env_unset(monkeypatch):
+    """No HEAD_HTML_FILE → empty string, no error (the shipped default)."""
+    import settings
+
+    monkeypatch.delenv("HEAD_HTML_FILE", raising=False)
+    assert settings._read_head_html() == ""
+
+
+def test_read_head_html_reads_file_and_strips_bom(tmp_path, monkeypatch):
+    """A UTF-8-with-BOM file (common from Windows editors) is read with the BOM
+    stripped, so the U+FEFF never leaks into <head>. Proves encoding=utf-8-sig."""
+    import settings
+
+    f = tmp_path / "head.html"
+    f.write_bytes(b"\xef\xbb\xbf" + _SENTINEL.encode("utf-8"))  # BOM + sentinel
+    monkeypatch.setenv("HEAD_HTML_FILE", str(f))
+    assert settings._read_head_html() == _SENTINEL
+
+
+def test_read_head_html_missing_file_fails_loud(tmp_path, monkeypatch):
+    """A set-but-missing path raises ImproperlyConfigured (not a silent '')."""
+    import settings
+
+    monkeypatch.setenv("HEAD_HTML_FILE", str(tmp_path / "does_not_exist.html"))
+    with pytest.raises(ImproperlyConfigured):
+        settings._read_head_html()
+
+
+def test_read_head_html_non_utf8_fails_loud(tmp_path, monkeypatch):
+    """A file that is not valid UTF-8 raises ImproperlyConfigured too — the
+    UnicodeDecodeError (a ValueError, NOT an OSError) must be caught, else it
+    would escape as a raw, path-less traceback."""
+    import settings
+
+    f = tmp_path / "bad.html"
+    f.write_bytes(b"\xff\xfe\x00invalid utf-8 bytes")  # 0xFF is never valid UTF-8
+    monkeypatch.setenv("HEAD_HTML_FILE", str(f))
+    with pytest.raises(ImproperlyConfigured):
+        settings._read_head_html()

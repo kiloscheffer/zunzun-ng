@@ -1,5 +1,7 @@
 import os
 
+from django.core.exceptions import ImproperlyConfigured
+
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 
@@ -205,25 +207,29 @@ MAX_CONCURRENT_FITS_PER_IP = _fits_default("ZUNZUN_MAX_CONCURRENT_FITS_PER_IP", 
 DEMO_MODE = os.environ.get("ZUNZUN_DEMO_MODE", "0") == "1"
 DEMO_MAX_FITS_PER_HOUR = int(os.environ.get("ZUNZUN_DEMO_MAX_FITS_PER_HOUR", "4"))
 
+
 # Optional operator-supplied markup injected at the very top of <head> on every
 # base-template page (analytics snippets, site-verification <meta> tags, etc.).
 # Ships empty; the repo never carries operator markup. Point HEAD_HTML_FILE at a
-# file to populate it. Read ONCE at startup, so a content change needs a server
-# restart (same operational rule as template changes under the prod template
-# cache). Rendered RAW via {{ head_html|safe }} in generic_page_template.html
-# (and injected for child-rendered result pages by
+# file to populate it. Read ONCE per process at startup, so a content change
+# needs a server restart (same operational rule as template changes under the
+# prod template cache) — and note each spawned fit child re-reads it on import,
+# so do not delete the file out from under a running server. Rendered RAW via
+# {{ head_html|safe }} in generic_page_template.html (and injected for
+# child-rendered result pages by
 # StatusMonitoredLongRunningProcessPage._inject_offrequest_globals), so only put
-# trusted markup here. If HEAD_HTML_FILE is set but unreadable, startup fails
+# trusted markup here. utf-8-sig tolerates a UTF-8 BOM (some Windows editors add
+# one). If HEAD_HTML_FILE is set but unreadable or not valid UTF-8, startup fails
 # loudly (ImproperlyConfigured) rather than silently serving an empty <head>.
-from django.core.exceptions import ImproperlyConfigured
-
-HEAD_HTML = ""
-_head_html_file = os.environ.get("HEAD_HTML_FILE")
-if _head_html_file:
+def _read_head_html():
+    path = os.environ.get("HEAD_HTML_FILE")
+    if not path:
+        return ""
     try:
-        with open(_head_html_file, encoding="utf-8") as _f:
-            HEAD_HTML = _f.read()
-    except OSError as _exc:
-        raise ImproperlyConfigured(
-            f"HEAD_HTML_FILE={_head_html_file!r} could not be read: {_exc}"
-        ) from _exc
+        with open(path, encoding="utf-8-sig") as f:
+            return f.read()
+    except (OSError, UnicodeDecodeError) as exc:
+        raise ImproperlyConfigured(f"HEAD_HTML_FILE={path!r} could not be read: {exc}") from exc
+
+
+HEAD_HTML = _read_head_html()
