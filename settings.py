@@ -89,6 +89,7 @@ TEMPLATES = [
         "OPTIONS": {
             "context_processors": [
                 "zunzun.context_processors.demo_mode",
+                "zunzun.context_processors.head_html",
             ],
         },
     },

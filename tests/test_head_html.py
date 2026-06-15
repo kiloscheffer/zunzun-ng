@@ -40,3 +40,39 @@ def test_head_html_context_processor_reflects_setting():
         assert head_html(None) == {"head_html": _SENTINEL}
     with patch("settings.HEAD_HTML", "", create=True):
         assert head_html(None) == {"head_html": ""}
+
+
+@pytest.mark.django_db
+def test_head_html_injected_raw_on_home(client, mocked_process_start):
+    """GET / renders HEAD_HTML raw (unescaped) inside <head>, positioned before
+    <meta charset>. mocked_process_start no-ops HomePageView's housekeeping child."""
+    with patch("settings.HEAD_HTML", _SENTINEL, create=True):
+        response = client.get("/")
+    body = response.content.decode("utf-8")
+    assert _SENTINEL in body  # raw, not escaped into &lt;meta&gt;
+    head_open = body.index("<head>")
+    charset = body.index('<meta charset="UTF-8"', head_open)
+    sentinel = body.index(_SENTINEL, head_open)
+    assert head_open < sentinel < charset
+
+
+@pytest.mark.django_db
+def test_head_empty_when_unset_on_home(client, mocked_process_start):
+    """With HEAD_HTML empty, GET / injects nothing — no probe marker, and the
+    space between <head> and <meta charset> is whitespace only (zero change off)."""
+    with patch("settings.HEAD_HTML", "", create=True):
+        response = client.get("/")
+    body = response.content.decode("utf-8")
+    assert "head-html-probe" not in body
+    head_open = body.index("<head>")
+    between = body[head_open + len("<head>") : body.index('<meta charset="UTF-8"', head_open)]
+    assert between.strip() == ""
+
+
+@pytest.mark.django_db
+def test_head_html_injected_on_second_page(client):
+    """Proves "every base-template page", not just home: the equation-list page
+    (a different view + template that also extends the base) carries it too."""
+    with patch("settings.HEAD_HTML", _SENTINEL, create=True):
+        response = client.get("/AllEquations/2/All/")
+    assert _SENTINEL in response.content.decode("utf-8")
