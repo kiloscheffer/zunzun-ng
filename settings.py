@@ -203,3 +203,26 @@ MAX_CONCURRENT_FITS_PER_IP = _fits_default("ZUNZUN_MAX_CONCURRENT_FITS_PER_IP", 
 # it is env-overridable to match the MAX_CONCURRENT_FITS_PER_IP philosophy.
 DEMO_MODE = os.environ.get("ZUNZUN_DEMO_MODE", "0") == "1"
 DEMO_MAX_FITS_PER_HOUR = int(os.environ.get("ZUNZUN_DEMO_MAX_FITS_PER_HOUR", "4"))
+
+# Optional operator-supplied markup injected at the very top of <head> on every
+# base-template page (analytics snippets, site-verification <meta> tags, etc.).
+# Ships empty; the repo never carries operator markup. Point HEAD_HTML_FILE at a
+# file to populate it. Read ONCE at startup, so a content change needs a server
+# restart (same operational rule as template changes under the prod template
+# cache). Rendered RAW via {{ head_html|safe }} in generic_page_template.html
+# (and injected for child-rendered result pages by
+# StatusMonitoredLongRunningProcessPage._inject_offrequest_globals), so only put
+# trusted markup here. If HEAD_HTML_FILE is set but unreadable, startup fails
+# loudly (ImproperlyConfigured) rather than silently serving an empty <head>.
+from django.core.exceptions import ImproperlyConfigured
+
+HEAD_HTML = ""
+_head_html_file = os.environ.get("HEAD_HTML_FILE")
+if _head_html_file:
+    try:
+        with open(_head_html_file, encoding="utf-8") as _f:
+            HEAD_HTML = _f.read()
+    except OSError as _exc:
+        raise ImproperlyConfigured(
+            f"HEAD_HTML_FILE={_head_html_file!r} could not be read: {_exc}"
+        ) from _exc
