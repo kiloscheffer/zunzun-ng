@@ -161,7 +161,7 @@ def test_demo_cap_honors_env_override(client, mocked_process_start):
 def test_inject_offrequest_globals_sets_demo_mode():
     """The spawned child renders result pages via render_to_string, which does
     NOT run context processors — so the base class injects the template globals
-    (currently just demo_mode) by hand. A staticmethod so it is testable without
+    (demo_mode and head_html) by hand. A staticmethod so it is testable without
     constructing an LRP instance."""
     from zunzun.LongRunningProcess.StatusMonitoredLongRunningProcessPage import (
         StatusMonitoredLongRunningProcessPage as SM,

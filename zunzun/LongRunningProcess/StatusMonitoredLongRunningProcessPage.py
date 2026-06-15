@@ -201,12 +201,14 @@ You must provide any weights you wish to use.
 
         The spawned child writes result HTML with ``render_to_string``, which
         — unlike ``render(request, ...)`` — does NOT run context processors.
-        So the ``demo_mode`` flag the watermark depends on (normally supplied
-        by ``zunzun.context_processors.demo_mode``) must be added by hand here.
+        So the ``demo_mode`` flag and the operator ``head_html`` markup
+        (normally supplied by ``zunzun.context_processors``) must be added by
+        hand here.
         Mutates and returns ``items`` for use as a render context. Inherited by
         every result-writing subclass (FitOneEquation, FunctionFinderResults, …).
         """
         items["demo_mode"] = settings.DEMO_MODE
+        items["head_html"] = settings.HEAD_HTML
         return items
 
     def build_child_payload(self) -> ChildPayload:

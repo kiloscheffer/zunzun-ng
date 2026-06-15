@@ -1,6 +1,7 @@
 {% autoescape off %}<!doctype html>
 <html lang="en">
   <head>
+    {{ head_html|safe }}
     <meta charset="UTF-8" />
     <title>{% block title %} {{ title_string }} {% endblock %}</title>
 
