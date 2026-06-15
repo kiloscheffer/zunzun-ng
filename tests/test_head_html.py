@@ -29,3 +29,14 @@ def test_head_html_setting_exists_and_defaults_empty():
     assert isinstance(settings.HEAD_HTML, str)
     if "HEAD_HTML_FILE" not in os.environ:
         assert settings.HEAD_HTML == ""
+
+
+def test_head_html_context_processor_reflects_setting():
+    """The processor returns {'head_html': settings.HEAD_HTML}, ignoring its
+    request arg (pass None). Patching the root settings module drives it."""
+    from zunzun.context_processors import head_html
+
+    with patch("settings.HEAD_HTML", _SENTINEL, create=True):
+        assert head_html(None) == {"head_html": _SENTINEL}
+    with patch("settings.HEAD_HTML", "", create=True):
+        assert head_html(None) == {"head_html": ""}

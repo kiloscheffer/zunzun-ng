@@ -17,3 +17,14 @@ def demo_mode(request):
     lazy wrapper this code never consults.
     """
     return {"demo_mode": settings.DEMO_MODE}
+
+
+def head_html(request):
+    """Expose settings.HEAD_HTML to every template as `head_html`.
+
+    Operator-supplied raw markup injected at the top of <head> by
+    generic_page_template.html; empty by default. Reads the root `settings`
+    module directly (see the demo_mode docstring for why), so tests patch
+    `settings.HEAD_HTML`, NOT Django's @override_settings.
+    """
+    return {"head_html": settings.HEAD_HTML}
